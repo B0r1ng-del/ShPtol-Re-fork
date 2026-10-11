@@ -1233,5 +1233,8 @@
   "多同盟模式": "Multi-alliance mode",
   "全同盟共用一个干员池": "The whole alliance draws from one operator pool",
   "全队共用一套悬赏决策牌，先选先得": "The team shares one set of bounty cards, first come first served",
-  "官方规则：每个策略只能由一位博士选择": "Official rule: each strategy can be taken by one Doctor only"
+  "官方规则：每个策略只能由一位博士选择": "Official rule: each strategy can be taken by one Doctor only",
+  "由创建者设置：只有房主可以修改这些选项。": "Set by the creator: only the host can change these options.",
+  "房主配置 · 只有房主可以修改": "Host settings · only the host can change them",
+  "{n} 项已调整": "{n} changed"
 }

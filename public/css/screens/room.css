@@ -300,14 +300,14 @@
 }
 .dpick__opt.is-active .icon { opacity: 1; filter: drop-shadow(0 0 5px var(--d-color)); }
 .dpick--ro { border: 0; background: none; gap: .18rem; align-items: center; font-size: calc(.14 * var(--t)); }
-/* 房主配置 (room.setHostConfig): the room options, one row each — the switch with its explanation under it (the mock's
-   layout), above the ready bar. The host edits them; everybody else reads the same values (a dim 「由创建者设置」 in the
-   head says who owns them). Hidden in a single-seat room. */
+/* 房主配置 (room.setHostConfig): the room options inside a dialog opened from the ready bar (the 干员调配 button's pattern).
+   One row per option — the switch with its explanation under it. The host edits them; everybody else reads the same values
+   (the dialog says 「由创建者设置」). Neither the button nor the dialog renders in a single-seat room. */
 .room-bar__opts { display: flex; flex-direction: column; align-items: flex-start; gap: .08rem; min-width: 0; }
-.hostcfg { display: flex; flex-direction: column; gap: .1rem; margin: 0 auto .14rem; width: min(100%, 9.4rem); padding: .14rem .18rem; border: 1px solid var(--line-1); background: rgba(0, 0, 0, .28); }
-.hostcfg__head { display: flex; align-items: baseline; justify-content: space-between; gap: .12rem; }
-.hostcfg__title { display: flex; align-items: baseline; gap: .1rem; font-size: calc(.17 * var(--t)); letter-spacing: .08em; color: var(--mint-400); }
-.hostcfg__rows { display: flex; flex-direction: column; gap: .1rem; }
+.hostcfg-entry { flex: none; }
+.hostcfg { display: flex; flex-direction: column; gap: .12rem; }
+.hostcfg__note { margin: 0; font-size: calc(.14 * var(--t)); line-height: 1.5; color: var(--line-3); }
+.hostcfg__rows { display: flex; flex-direction: column; gap: .12rem; }
 .hostcfg__row { display: flex; flex-direction: column; gap: .04rem; min-width: 0; }
 .hostcfg__opt { --d-color: var(--mint-400); align-self: flex-start; justify-content: flex-start; height: .36rem; padding: 0 .14rem; border: 1px solid var(--line-2); background: rgba(0, 0, 0, .3); font-size: calc(.15 * var(--t)); letter-spacing: .04em; }
 .hostcfg__opt .icon { opacity: .25; flex: none; }

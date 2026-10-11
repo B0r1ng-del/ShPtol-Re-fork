@@ -146,8 +146,11 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
   leave the layer stale until an unrelated frame arrived. `test/fork-emote-burst.test.js`,
   `test/client-static.test.js`.
 - **二.7 房主配置** — the fork's own 准备房间 panel (`room.setHostConfig`), in **every** mode's ready room and editable by
-  the host alone. It is a fork feature: the official room has a difficulty picker and 「房间未满4人时搜寻队友」 only
-  (research 06 §3.2), and no source documents these four options — the labels and explanations are the requester's.
+  the host alone. It opens as a **dialog** from a button in the ready bar, left of 干员调配 (`HostConfigButton` /
+  `HostConfigDialog`, the shared `Modal` — the same pattern as 干员调配, so the options no longer take a band under the
+  seats); the button's badge counts the options that differ from their default. It is a fork feature: the official room
+  has a difficulty picker and 「房间未满4人时搜寻队友」 only (research 06 §3.2), and no source documents these four
+  options — the labels and explanations are the requester's.
   The key list is normative in `shared/constants.js` (`HOST_CONFIG_KEYS` / `HOST_CONFIG_DEFAULTS`); the room keeps the
   values across its matches and the match reads them when it starts, exactly like the difficulty.
   - **共享卡池** (default **on**) — on: one 干员 stock for the whole team, so a copy one player takes is gone for the
