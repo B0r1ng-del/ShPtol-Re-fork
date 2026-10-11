@@ -71,9 +71,11 @@ export function bossPoolHp(gd, bossId, aliveCount) {
   if (base == null && boss && boss.bloodPoint) base = Object.values(boss.bloodPoint).find((v) => Number.isFinite(v)) ?? null;
   if (base == null) base = 500000;
   const tune = typeof gd.bossHpMul === 'function' ? gd.bossHpMul(bossId) : 1;
+  // the mode's own per-class extra (fork 二.3: GameData.bossHpExtra — leader vs hidden core, each on its own boss id)
+  const extra = typeof gd.bossHpExtra === 'function' ? gd.bossHpExtra(bossId) : 1;
   const share = typeof gd.bossPoolShare === 'function' ? gd.bossPoolShare(aliveCount)
     : bossPoolShareOf(gd.mode && gd.mode.bossHpScale, gd.config && gd.config.bossHpScale, !!gd.isSolo, aliveCount);
-  return Math.max(1, Math.round(base * share * tune));
+  return Math.max(1, Math.round(base * share * tune * extra));
 }
 
 /**

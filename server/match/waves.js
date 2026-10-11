@@ -235,9 +235,12 @@ export function scaleFor(gd, r) {
 }
 
 /** The spawn mods of a round's scale for a non-leader enemy: HP / ATK / speed, plus `supplyHpMul` when the round has one. */
-export function roundMods(scale) {
+export function roundMods(scale, ex = null) {
   const m = { hpMul: scale.hpMul, atkMul: scale.atkMul, speedMul: scale.speedMul };
   if (scale.supplyHpMul != null) m.supplyHpMul = scale.supplyHpMul;
+  // the MODE's own spawn extras on top of the official table (fork 二.3; all 1 for every official mode). An ordinary
+  // spawn takes the +HP only: the leader / hidden core ATK+DEF extra is applied by the boss branch of templateSpawns.
+  if (ex) m.hpMul *= ex.normalHp;
   return m;
 }
 
@@ -288,6 +291,8 @@ function previewInfo(gd, key, route, boss = false, leader = undefined) {
  */
 function templateSpawns(gd, tpl, round, pick) {
   const scale = scaleFor(gd, round);
+  // the MODE's own spawn extras on top of the official table (fork 二.3; all 1 for every official mode)
+  const ex = gd.enemyExtras(round);
   const ph = placeholderMap(gd);
   const routes = Array.isArray(tpl.routes) ? tpl.routes : [];
   const leader = isLeaderTemplate(tpl);
@@ -335,8 +340,13 @@ function templateSpawns(gd, tpl, round, pick) {
       // the round multipliers are ENEMY effects on every enemy but 炎佑 (aceffect_enemy_1–5 `enemy_attribute_mul`,
       // enemy_exclude = enemy_9012_acloon): leader parts take them all; the leader takes ATK / speed but not HP — its HP
       // is the server pool, "领袖单位于服务器的生命值加成不受上述加成影响" (PRTS 下半). `supplyHpMul` (roundMods) rides along for
-      // the 器物 hit-count units, which 补给线 / 补给线II leave out (archetypes.js `times`; also a 频次 enemy's death spawn)
-      mods: isBoss ? { atkMul: scale.atkMul, speedMul: scale.speedMul, slot } : { ...roundMods(scale), slot },
+      // the 器物 hit-count units, which 补给线 / 补给线II leave out (archetypes.js `times`; also a 频次 enemy's death spawn).
+      // The mode's own extras sit on top (ex.*, fork 二.3): the ordinary +HP never reaches the leader (it has no hpMul
+      // here) nor a 部位 (`isPart`), while the leader's / hidden core's ATK and DEF do — `defMul` is only added when it
+      // is not 1, so an official spec is byte-identical to before.
+      mods: isBoss
+        ? { atkMul: scale.atkMul * ex.bossAtk, speedMul: scale.speedMul, slot, ...(ex.bossDef !== 1 ? { defMul: ex.bossDef } : null) }
+        : { ...roundMods(scale, isPart ? null : ex), slot },
       actionIndex: i,
       preview: previewInfo(gd, key, routes[routeIndex], isBoss, leader),
     };
@@ -485,6 +495,8 @@ function runsOf(list) {
 
 function bountyPlan(gd, round, wave, bounties, playerId, side) {
   const scale = scaleFor(gd, round);
+  // a bounty unit is an ordinary enemy: it takes the mode's +HP extra like the round's own spawns (never a boss)
+  const ex = gd.enemyExtras(round);
   const routes = (wave && wave.routes) || [];
   const acts = Array.isArray(wave && wave.actions) ? wave.actions : [];
   const leader = isLeaderTemplate(wave && wave.templateId ? gd.wave(wave.templateId) : null);
@@ -536,7 +548,7 @@ function bountyPlan(gd, round, wave, bounties, playerId, side) {
         routeIndex,
         count: run.len,
         interval: run.len > 1 ? step : 0,
-        mods: { ...roundMods(scale), slot: classOf(gd, c.enemyKey), bountyId: b.id },
+        mods: { ...roundMods(scale, ex), slot: classOf(gd, c.enemyKey), bountyId: b.id },
         tag: 'bounty',
         ownerPlayerId: playerId,
         preview: previewInfo(gd, c.enemyKey, routes[routeIndex], false, leader),
