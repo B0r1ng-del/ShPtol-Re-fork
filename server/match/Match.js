@@ -172,7 +172,7 @@
 //   common.js        what the modules share (FLOW_TICKER_PRIORITY, DELAYS, BAND_TURN_SECONDS — re-exported here, OK,
 //                    fail, BOSS_CLOCK_MS)
 
-import { PHASE, ROOM_MODES, modeIdFor } from '../../shared/constants.js';
+import { PHASE, ROOM_MODES, ULTIMATE_DIFFICULTY, modeIdFor } from '../../shared/constants.js';
 import { Battle } from '../sim/Battle.js';
 import { DataSource } from '../sim/simdata.js';
 import { createRng, deriveSeed } from '../sim/rng.js';
@@ -237,8 +237,15 @@ export class Match {
      * `roomMode` keeps the third value for the mode-specific content (its config record, per-mode bans / shop / scaling). */
     this.roomMode = ROOM_MODES.includes(opts.mode) ? opts.mode : 'coop';
     this.mode = this.roomMode === 'solo' ? 'solo' : 'coop';
-    this.difficulty = opts.difficulty;
-    this.modeId = opts.modeId || modeIdFor(this.roomMode, opts.difficulty);
+    /**
+     * 终极模拟 has ONE difficulty (ABYSS) and one config record (`mode_ultimate_abyss`) — its room carries no picker
+     * and `room.create` clamps to it (lobby.js). A direct construction (tests, tools) could still hand over another
+     * table, and the id then named a record that does not exist: GameData got an empty mode record, the mode's own
+     * `bans: { core: 0, addon: 0 }` went unread and `bans()` fell back to the difficulty table (3 core + 4 add-on), so
+     * the per-match draw disabled 盟约 in a six-博士 room again (二.1). Clamping both here keeps that unreachable.
+     */
+    this.difficulty = this.roomMode === 'ultimate' ? ULTIMATE_DIFFICULTY : opts.difficulty;
+    this.modeId = this.roomMode === 'ultimate' ? modeIdFor('ultimate') : opts.modeId || modeIdFor(this.roomMode, this.difficulty);
     this.seed = (Number(opts.seed) >>> 0) || 1;
     this.log = opts.log || noopLog;
     this.sendFn = opts.send;

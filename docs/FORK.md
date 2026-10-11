@@ -74,7 +74,10 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
 - **二.1 盟约不会被禁用** — the mode carries `bans: { core: 0, addon: 0 }` and `GameData.bans()` prefers a mode's own
   table over the difficulty's one (`config.bans`, ABYSS = 3 core + 4 add-on). Without it the seeded per-match draw of
   `server/match/pool.js` removes up to 7 盟约 and takes every 干员 whose whole bond list they cover out of the shop
-  for the run. `test/fork-ultimate-bans.test.js`.
+  for the run. The mode has ONE record (`mode_ultimate_abyss`, `ULTIMATE_DIFFICULTY`), so `modeIdFor('ultimate', d)`
+  always names it and `Match` / `StubMatch` clamp a 终极模拟 room's difficulty to ABYSS: an id naming a record that is
+  not in `config.modes` left `GameData` with an empty mode record, its own `bans` went unread and the draw came back
+  (a six-博士 room lost 7 盟约 and 25 干员 — player report, fixed). `test/fork-ultimate-bans.test.js`.
 - **二.2 局内商店升级** — the mode carries its own `shopSlots` table: every operator level adds one 干员购买槽位
   (3 → 4 → 5 → 6 → 7) and the last one adds a second 道具购买槽位 instead
   (`{1:{3,1}, 2:{4,1}, 3:{5,1}, 4:{6,1}, 5:{7,1}, 6:{7,2}}`; official AC-4 is `{3,4,4,5,5,5}` with one item slot
@@ -132,7 +135,7 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
 | Change | What it does | Where |
 |---|---|---|
 | 终极模拟 room | the third room mode, six seats, fixed AC-4, `mode_ultimate_abyss` | as listed above |
-| 二.1 盟约不禁用 | the mode draws 0 bond bans (`bans: { core: 0, addon: 0 }`) and its card says 盟约与干员全部解锁 | `tools/fork-overrides.mjs`, `server/match/gamedata.js` (`bans()`), `test/fork-ultimate-bans.test.js` |
+| 二.1 盟约不禁用 | the mode draws 0 bond bans (`bans: { core: 0, addon: 0 }`), `modeIdFor('ultimate', …)` always resolves `mode_ultimate_abyss` and a 终极模拟 room's difficulty is clamped to ABYSS; its card says 盟约与干员全部解锁 | `tools/fork-overrides.mjs`, `server/match/gamedata.js` (`bans()`), `shared/constants.js` (`modeIdFor`), `server/match/Match.js`, `server/match/StubMatch.js`, `test/fork-ultimate-bans.test.js` |
 | 二.2 商店升级槽位 | one 干员槽 per operator level (3→7) and a second 道具槽 at level 6 | `tools/fork-overrides.mjs` (`shopSlots`), `test/fork-ultimate-shop.test.js` |
 | 二.3 敌人属性调整 | R4 on: ordinary +10 % HP; leader +20 % HP/+20 % DEF/+8 % ATK; hidden core +35 % HP/+35 % DEF/+16 % ATK — HP per boss id | `tools/fork-overrides.mjs` (`enemyAdjust`), `server/match/gamedata.js` (`enemyExtras`/`bossHpExtra`), `server/match/waves.js`, `server/match/finalAssault.js`, `test/fork-ultimate-enemy-stats.test.js` |
 | 二.4 机变去时限 + 投票 | untimed, parallel draft with a 随机分配 vote (half the alive players resolves it randomly, one card each; 悬赏 never drawn and never voted on) + the AC-4 机变 schedule for the fork mode | `tools/fork-overrides.mjs` (`spDraft`, `applyForkChoices`), `server/match/Match.js` (SP_DRAFT), `server/match/gamedata.js` (`spDraftRules`), `shared/protocol.js` (`g.choiceRandom`), `server/match/audit.js`, `public/js/ui/choiceOverlay.js`, `public/js/ui/gameLogic.js`, `public/js/ui/gameActions.js`, `public/js/screens/game.js`, `test/fork-ultimate-sp-vote.test.js` |

@@ -121,6 +121,37 @@ describe('二.1 — 终极模拟 draws no bond bans', () => {
     }
   });
 
+  test('the no-ban promise does not depend on the difficulty a caller carries: 终极模拟 resolves its own record either way', () => {
+    // Regression (player report: "在六人终极模式里盟约还是被用了一些"). 终极模拟 has ONE config record
+    // (`mode_ultimate_abyss`); there is no `mode_ultimate_hard` / `_normal` / `_funny`. A room, a direct Match or a
+    // tool that carried another difficulty built an id naming a record that is not in config.modes, so GameData got an
+    // EMPTY mode record: `modes[modeId].bans` was unreadable, bans() fell back to the difficulty table (ABYSS = 3 + 4)
+    // and the draw removed 7 盟约 and 25 干员 from a six-博士 room — the exact symptom 二.1 exists to prevent.
+    for (const asked of ['FUNNY', 'NORMAL', 'HARD', 'ABYSS']) {
+      const h = makeMatch({ mode: 'ultimate', difficulty: asked, humans: ULTIMATE_SEATS, seed: 5, fake: true });
+      try {
+        const m = h.m;
+        assert.equal(m.difficulty, 'ABYSS', `${asked}: the room runs the one 终极模拟 table`);
+        assert.equal(m.modeId, FORK, `${asked}: the fork record, not an id that is not in config.modes`);
+        assert.deepEqual(m.disabledBonds, [], `${asked}: no 盟约 drawn out of play`);
+        assert.deepEqual(m.bannedChess, [], `${asked}: no 干员 banned`);
+      } finally {
+        h.m.dispose();
+      }
+    }
+    // the official modes keep the difficulty they were given: only 终极模拟 is clamped
+    for (const [mode, difficulty, modeId] of [['coop', 'HARD', 'mode_multi_hard'], ['coop', 'ABYSS', 'mode_multi_abyss'], ['solo', 'NORMAL', 'mode_single_normal']]) {
+      const h = makeMatch({ mode, difficulty, humans: 1, seed: 5, fake: true });
+      try {
+        assert.equal(h.m.difficulty, difficulty, `${mode}/${difficulty}: unchanged`);
+        assert.equal(h.m.modeId, modeId, `${mode}/${difficulty}: unchanged id`);
+        assert.ok(h.m.disabledBonds.length > 0, `${mode}/${difficulty}: still draws its bans`);
+      } finally {
+        h.m.dispose();
+      }
+    }
+  });
+
   test('the mode advertises it (the difficulty card line) — the official modes do not', () => {
     assert.ok(gd(FORK).mode.effectDescList.some((l) => l.includes('盟约与干员全部解锁')), '终极模拟 says so');
     assert.ok(!gd(COOP_ABYSS).mode.effectDescList.some((l) => l.includes('全部解锁')), '同盟模拟 AC-4 does not');

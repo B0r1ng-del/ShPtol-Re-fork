@@ -41,8 +41,20 @@ export const DIFFICULTY_COLORS = { FUNNY: '#f6a329', NORMAL: '#e85a1a', HARD: '#
 
 // modeId in data/config.json = `mode_${type}_${difficulty.toLowerCase()}` with type single|multi|ultimate
 const MODE_TYPE = Object.freeze({ solo: 'single', coop: 'multi', ultimate: 'ultimate' });
+/**
+ * Mode id of a room: `mode_${type}_${difficulty.toLowerCase()}`.
+ *
+ * 终极模拟 has exactly ONE record (`mode_ultimate_abyss`, ULTIMATE_DIFFICULTY — no difficulty picker), so its id must
+ * not depend on whatever difficulty a caller happens to carry. data/config.json has no `mode_ultimate_normal` /
+ * `_hard` / `_funny`, and an id naming a record that is not there leaves GameData with an empty mode record: the
+ * mode's own `bans: { core: 0, addon: 0 }` is not read, `bans()` falls back to the difficulty table (ABYSS = 3 core +
+ * 4 add-on) and the per-match draw of server/match/pool.js disables 盟约 again in a six-博士 room. Clamping here keeps
+ * the "no bond bans" promise structural instead of resting on every caller remembering to pass ABYSS.
+ */
 export const modeIdFor = (roomMode, difficulty) =>
-  `mode_${MODE_TYPE[roomMode] || 'multi'}_${difficulty.toLowerCase()}`;
+  roomMode === 'ultimate'
+    ? `mode_ultimate_${ULTIMATE_DIFFICULTY.toLowerCase()}`
+    : `mode_${MODE_TYPE[roomMode] || 'multi'}_${difficulty.toLowerCase()}`;
 
 export const PHASE = Object.freeze({
   LOBBY: 'LOBBY',
