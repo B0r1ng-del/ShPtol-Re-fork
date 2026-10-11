@@ -72,6 +72,9 @@ export class MatchViews {
       serverNow: this.sched.now(),
       modeId: this.modeId,
       difficulty: this.difficulty,
+      // 房主配置 (room.setHostConfig): the rules this match runs under, so the client can mark what they change (the
+      // strategy draft's 队友已选 lock and the shared 悬赏 cards). Sent on every frame: they never change mid-match.
+      hostConfig: { sharedPool: !!this.sharedPool, sharedBounty: !!this.sharedBounty, aiPicksLast: !!this.aiPicksLast, multiAlliance: !!this.multiAlliance },
       stageId: this.stageId,
       setupRevision: this.setupRevision,
       rerollVote: this.setupVote ? {

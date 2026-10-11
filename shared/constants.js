@@ -35,6 +35,29 @@ export const MAX_SPECTATORS = 2;
 export const ROOM_CODE_LEN = 4;
 export const NAME_MAX_LEN = 12;
 
+/**
+ * 房主配置 — the room options the host sets in the 准备房间 (room.setHostConfig, room.state.hostConfig). Each one is a
+ * boolean with a documented default; the room keeps them across its matches and the match reads them when it starts.
+ * Only a room with at least two seats can use the ones that share something between players (the panel hides itself
+ * when there is nobody to share with — 独立模拟 has a single seat).
+ *
+ *   sharedPool    共享卡池   on  — 全同盟共用一个干员池 (the official rule: every player draws from one stock, and one
+ *                                  player taking a copy takes it from everybody — gamedata.poolCopies × coopPoolMultiplier)
+ *                            off — every player has their own stock of every 干员: nothing anybody takes is denied to
+ *                                  the others (a remake option, off is NOT official)
+ *   sharedBounty  共享悬赏   on  — 全队共用一套悬赏决策牌，先选先得 (one 机变 悬赏 draft, and a card taken is gone for
+ *                                  the rest of the team)
+ *                            off — every player gets their own set of 悬赏 cards (a remake option)
+ *   aiPicksLast   AI 队友最后选择 — the co-op option of GitHub #338 (room.setAiPicksLast): kept here so the panel shows
+ *                                  every room option in one place; its own message and room.state field stay
+ *   multiAlliance 多同盟模式 on  — more than one 博士 may take the SAME 策略 (the 队友已选 lock of the strategy draft is
+ *                                  lifted; Match.bandTaken)
+ *                            off — the official rule: 每个策略只能由一位博士选择
+ */
+export const HOST_CONFIG_KEYS = Object.freeze(['sharedPool', 'sharedBounty', 'aiPicksLast', 'multiAlliance']);
+/** Defaults of HOST_CONFIG_KEYS: the official behaviour of each option. */
+export const HOST_CONFIG_DEFAULTS = Object.freeze({ sharedPool: true, sharedBounty: true, aiPicksLast: false, multiAlliance: false });
+
 export const DIFFICULTIES = ['FUNNY', 'NORMAL', 'HARD', 'ABYSS'];
 export const DIFFICULTY_NAMES = { FUNNY: N_('标准模拟'), NORMAL: N_('险境模拟'), HARD: N_('绝境模拟'), ABYSS: N_('终极模拟') };
 export const DIFFICULTY_COLORS = { FUNNY: '#f6a329', NORMAL: '#e85a1a', HARD: '#e73118', ABYSS: '#ff0024' };

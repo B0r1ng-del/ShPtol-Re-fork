@@ -257,6 +257,16 @@ export class Match {
     this.isSolo = this.mode === 'solo' || this.gd.isSolo;
     /** 「AI 队友最后选择」 (opts.aiPicksLast, GitHub #338): humans draft before AI seats (MatchPhases.humansFirst) */
     this.aiPicksLast = !this.isSolo && opts.aiPicksLast === true;
+    /**
+     * 房主配置 (room.setHostConfig; HOST_CONFIG_KEYS): fixed for the match like the difficulty. `sharedPool` and
+     * `sharedBounty` default ON — the official behaviour (one stock and one 悬赏 draft for the whole team) — so a caller
+     * that passes nothing (the golden scenarios, the rehearsal tools, every test) is byte-identical to before;
+     * `multiAlliance` defaults OFF (the official 「每个策略只能由一位博士选择」). A solo match has nobody to share with,
+     * so it always runs the official values whatever a caller passes (the lobby refuses the options there anyway).
+     */
+    this.sharedPool = this.isSolo ? true : opts.sharedPool !== false;
+    this.sharedBounty = this.isSolo ? true : opts.sharedBounty !== false;
+    this.multiAlliance = this.isSolo ? false : opts.multiAlliance === true;
     this.ownsScheduler = !opts.scheduler;
     this.sched = opts.scheduler || new RealScheduler({ now: opts.now || Date.now, onError: (e) => this.reportError('timer', e) });
     this.registry = opts.registry || getDefaultRegistry();
@@ -342,6 +352,12 @@ export class Match {
     this.staticInactiveBonds = bans.staticOff;
     this.bannedChess = bans.banned;
     this.pool = new SharedPool(this.gd, { banned: bans.banned });
+    /**
+     * 共享卡池 off (房主配置): one stock per player instead of one for the team — `playerId → SharedPool` with exactly the
+     * same caps, built on demand (MatchInfra.poolFor). Empty while the option is on, which is the official behaviour.
+     * @type {Map<string, SharedPool>}
+     */
+    this.privatePools = new Map();
     this.itemPool = new SharedItemPool(this.gd, () => this.order);
     // 自选编队 (0.2.0): each human's slotted DIY pieces get their own stock — none for one whose bonds are all off this
     // match (player/diy.js initDiyStock); no randomness is drawn here

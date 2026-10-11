@@ -229,7 +229,8 @@ function MatchScreen() {
   const editable = phase === PHASE.PREP && !!priv && alive && !priv.ready && !watchingOther && !hasPersonalChoice;
   const showShop = !!priv && alive && (phase === PHASE.PREP || phase === PHASE.SP_DRAFT || phase === PHASE.ROUND_START) && !watchingOther;
   const layersDisabled = phase === PHASE.UNITE || isBossPhase(phase);
-  const sp = phase === PHASE.SP_DRAFT ? normalizeSp(pub?.sp, players) : null;
+  // 共享悬赏 off (房主配置, m.public.hostConfig.sharedBounty): a teammate's 悬赏 pick does not consume the card for me
+  const sp = phase === PHASE.SP_DRAFT ? normalizeSp(pub?.sp, players, { shared: pub?.hostConfig?.sharedBounty !== false, myId }) : null;
   const total = phaseTotalSeconds(pub, gd.config, myId);
   // solo pause: offered in the own battle; while m.public.paused every HUD clock stops at the pause moment
   const paused = isPaused(pub);

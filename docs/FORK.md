@@ -145,6 +145,38 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
   (`emotePrefsStore` / `setEmotePref`) because `savePref` notifies nothing — reading the pref at render time alone would
   leave the layer stale until an unrelated frame arrived. `test/fork-emote-burst.test.js`,
   `test/client-static.test.js`.
+- **二.7 房主配置** — the fork's own 准备房间 panel (`room.setHostConfig`), in **every** mode's ready room and editable by
+  the host alone. It is a fork feature: the official room has a difficulty picker and 「房间未满4人时搜寻队友」 only
+  (research 06 §3.2), and no source documents these four options — the labels and explanations are the requester's.
+  The key list is normative in `shared/constants.js` (`HOST_CONFIG_KEYS` / `HOST_CONFIG_DEFAULTS`); the room keeps the
+  values across its matches and the match reads them when it starts, exactly like the difficulty.
+  - **共享卡池** (default **on**) — on: one 干员 stock for the whole team, so a copy one player takes is gone for the
+    others (the official rule: `economy.coopPoolMultiplier` doubles one shared pool, `server/match/pool.js`).
+    Off: `MatchInfra.poolFor` hands each player their own `SharedPool` with the same caps and bans, built on first use —
+    only the contention goes away. Every per-player read and roll goes through `PlayerState.stock()`
+    (`player/economy.js` `_rollChessSlot`, `player/acquire.js`, `player/diy.js` `poolOf`, `effectsMeta.js` `rollChess` /
+    `rollPool`, `match/spDraft.js` `rollPool`, the bot's valuation in `bot.js`, the audit's roll check and the
+    invariants' per-player balance check).
+  - **共享悬赏** (default **on**) — on: one 悬赏决策 draft whose first pick consumes the card (「全队共用一套悬赏决策牌，
+    先选先得」). Off: `MatchSpDraft.spCardsShared` is false for a 悬赏决策 draft, so `spCardAvailable` ignores `taken` and
+    the client's `normalizeSp` marks only my own pick — a teammate taking a card leaves it pickable for me.
+    `[ASSUMED]` The option covers the 悬赏决策 draft it names; the 教鞭's own personal choice
+    (`offerBountyChoice`) is per-player by construction and is left alone.
+  - **AI 队友最后选择** (default **off**) — GitHub #338's option, unchanged (`room.setAiPicksLast` still works and both
+    messages write the same value; `room.state.aiPicksLast` follows). It is listed in the panel so all four room options
+    sit together.
+  - **多同盟模式** (default **off**) — on: `Match.bandTaken` returns false, so more than one 博士 may take the SAME 策略;
+    off: the official 「每个策略只能由一位博士选择」 (`server/match/match/phases.js`, and the client's 队友已选 lock in
+    `public/js/screens/bandDraft.js` reads the same `m.public.hostConfig.multiAlliance`).
+  - **Scope** — the panel shows in the ready room of every mode with more than one seat (独立模拟 has nobody to share
+    with: `hostConfigPanel` returns null and the lobby refuses those options with `BAD_TARGET`). The match clamps all
+    three to the official values in a solo match whatever a caller passes, so a caller that passes nothing — the golden
+    scenarios, the rehearsal tools, every existing test — behaves exactly as before (no golden scenario moved).
+  - **私人房间** — the fifth row of the requester's screenshot is deliberately **out of scope** (the requester's call:
+    「忽略私人房间的选项」).
+  `test/lobby-host-config.test.js` (protocol, host-only, defaults, un-ready, keep-across-matches, solo refusal),
+  `test/match/host-config.test.js` (each option's engine behaviour and that none of them draws from a random stream),
+  `test/ui/host-config.test.js` and `test/ui/ai-picks-last.test.js` (the panel and its rows).
 
 ## Fork change log
 
@@ -157,3 +189,4 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
 | 二.4 机变去时限 + 投票 | untimed, parallel draft with a 随机分配 vote (half the alive players resolves it randomly, one card each; 悬赏 never drawn and never voted on) + the AC-4 机变 schedule for the fork mode | `tools/fork-overrides.mjs` (`spDraft`, `applyForkChoices`), `server/match/Match.js` (SP_DRAFT), `server/match/gamedata.js` (`spDraftRules`), `shared/protocol.js` (`g.choiceRandom`), `server/match/audit.js`, `public/js/ui/choiceOverlay.js`, `public/js/ui/gameLogic.js`, `public/js/ui/gameActions.js`, `public/js/screens/game.js`, `test/fork-ultimate-sp-vote.test.js` |
 | 二.5 版面 | 三个模式卡是一行三个等宽的竖向选择；终极模拟房间是六个等宽的竖向席位（同盟模拟的四座网格与独立模拟都不受影响） | `public/css/screens/lobby.css` (`.mode-cards`), `public/css/screens/room.css` (`.seats--ultimate`), `public/js/screens/room.js`, `test/client-static.test.js` |
 | 二.6 表情：一键十连 + 弹幕 | one tap sends an emote 10 times (one `g.emoteBurst`, one cooldown); emotes also fall like snowflakes from a random x, fading out past the bottom edge, on every client's screen | `shared/constants.js` (`EMOTE_BURST_COUNT`/`EMOTE_BARRAGE_MS`), `shared/protocol.js` (`g.emoteBurst`), `server/match/match/intents.js` (`emoteBurst`), `public/js/ui/emotes.js` (`EmoteBarrage`, `emotePrefsStore`, the two switches), `public/css/emotes.css` (`emo-fall`), `public/js/ui/gameActions.js`, `public/js/screens/game.js`, `test/fork-emote-burst.test.js`, `test/client-static.test.js` |
+| 二.7 房主配置 | 每个模式的准备房间都有一个房主配置面板（仅房主可改）：共享卡池、共享悬赏、AI 队友最后选择、多同盟模式；房间跨对局保留，开局时交给对局。私人房间按用户要求不做 | `shared/constants.js` (`HOST_CONFIG_KEYS`/`HOST_CONFIG_DEFAULTS`), `shared/protocol.js` (`room.setHostConfig`), `server/lobby.js`, `server/match/Match.js`, `server/match/match/infra.js` (`poolFor`), `server/match/match/spDraft.js`, `server/match/match/phases.js`, `server/match/player/*`, `server/match/bot.js`, `server/match/invariants.js`, `server/match/audit.js`, `public/js/screens/room.js`, `public/css/screens/room.css`, `public/js/screens/bandDraft.js`, `public/js/ui/gameLogic/draft.js`, `test/lobby-host-config.test.js`, `test/match/host-config.test.js`, `test/ui/host-config.test.js` |

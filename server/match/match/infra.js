@@ -5,6 +5,7 @@
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 import { buildDeployMap } from '../board.js';
+import { SharedPool } from '../pool.js';
 
 export class MatchInfra {
   /** Run a callback with error isolation, then flush the views. */
@@ -12,6 +13,24 @@ export class MatchInfra {
     if (this.disposed) return;
     try { fn(); } catch (e) { this.reportError('guard', e); }
     try { this.flush(); } catch (e) { this.reportError('flush', e); }
+  }
+
+  /**
+   * The 干员 stock a player draws from: the match's shared pool while 共享卡池 is on (the official behaviour), else that
+   * player's own pool — built on first use, with the same caps and bans as the shared one, so 干员 availability is the
+   * same everywhere and only the contention between players goes away. PlayerState.poolOf routes the per-copy
+   * accounting (take / give / left) through here, so nothing else in the engine has to know about the option.
+   * @param {string} playerId
+   * @returns {import('../pool.js').SharedPool}
+   */
+  poolFor(playerId) {
+    if (this.sharedPool) return this.pool;
+    let p = this.privatePools.get(playerId);
+    if (!p) {
+      p = new SharedPool(this.gd, { banned: this.bannedChess });
+      this.privatePools.set(playerId, p);
+    }
+    return p;
   }
 
   reportError(label, e) {

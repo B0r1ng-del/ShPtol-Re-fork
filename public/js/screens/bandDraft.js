@@ -186,7 +186,11 @@ export function BandDraftScreen() {
   const myTurn = !myPick && (solo || draft.turnPid === myId);
   const skipsLeft = draft.skipsLeft.has(myId) ? draft.skipsLeft.get(myId) : (skipped ? 0 : 1);
   const canSkip = !solo && myTurn && skipsLeft > 0 && draft.order.length > 1;
-  const taken = solo ? new Map() : teammateBands(draft.picks, myId);
+  // 多同盟模式 (房主配置, m.public.hostConfig.multiAlliance): the host lifted 「每个策略只能由一位博士选择」, so nothing is
+  // 队友已选 — the same `taken` map feeds the lock, the timeout default and the auto-pick, and an empty one lifts all
+  // three (match/phases.js bandTaken reads the same option on the server).
+  const multi = pub?.hostConfig?.multiAlliance === true;
+  const taken = solo || multi ? new Map() : teammateBands(draft.picks, myId);
   const pickers = new Map(); // bandId → players
   for (const [pid, bid] of draft.picks) {
     const p = players.find((x) => x.playerId === pid);

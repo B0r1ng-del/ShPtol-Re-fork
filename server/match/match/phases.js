@@ -133,8 +133,13 @@ export class MatchPhases {
    * Whether `bandId` was already picked by another player of this draft. Research 09 §5 / DESIGN §14 corrections:
    * the strategy draft marks a teammate's pick as 队友已选 and it cannot be chosen again (co-op). The automatic
    * assignments — a turn that runs out and a departing seat — obey the same rule: see timeoutBand / defaultBand.
+   *
+   * 多同盟模式 (房主配置, Match.multiAlliance): the host lifts the rule, so more than one 博士 may take the SAME 策略 —
+   * nothing is ever taken, which frees pickBand, defaultBand, timeoutBand, the bots' re-draw loop and the client's
+   * 队友已选 lock at once (the client reads the same picks and marks nothing).
    */
   bandTaken(bandId, playerId) {
+    if (this.multiAlliance) return false;
     const picks = this.draft?.picks || {};
     for (const [pid, id] of Object.entries(picks)) if (pid !== playerId && id === bandId) return true;
     return false;

@@ -1226,5 +1226,12 @@
   "等待其他博士决策…": "Waiting for the other Doctors…",
   " · 也可投票给「随机分配」：过半即由系统随机发放": " · You may also vote for \"Random allocation\": past half and the system hands the cards out at random",
   "达到半数票后由系统随机分配（覆盖个人选择）": "Past half the votes and the system allocates at random (overrides personal picks)",
-  "投票给「随机分配」：达到半数票后由系统把卡牌随机发放给每名博士（覆盖个人选择）": "Vote for \"Random allocation\": past half the votes and the system hands the cards out to each Doctor at random (overrides personal picks)"
+  "投票给「随机分配」：达到半数票后由系统把卡牌随机发放给每名博士（覆盖个人选择）": "Vote for \"Random allocation\": past half the votes and the system hands the cards out to each Doctor at random (overrides personal picks)",
+  "房主配置": "Host settings",
+  "共享卡池": "Shared operator pool",
+  "共享悬赏": "Shared bounties",
+  "多同盟模式": "Multi-alliance mode",
+  "全同盟共用一个干员池": "The whole alliance draws from one operator pool",
+  "全队共用一套悬赏决策牌，先选先得": "The team shares one set of bounty cards, first come first served",
+  "官方规则：每个策略只能由一位博士选择": "Official rule: each strategy can be taken by one Doctor only"
 }
