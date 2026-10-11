@@ -1,6 +1,6 @@
 // 0.2.0 自选编队 — client side (research 0.2.0 §2; the owner's decisions of 2026-10-05): the 自选编队 tab's model (storage,
 // the slots, the picker's operators with the kit list, skill / module choices without 集成战略 modules, export / import)
-// and its server sync (room.diy; welcome.diyKitted), the tab's components (four slots, the picker, 确认), and the match
+// and its server sync (room.diy; welcome.diyKitted), the tab's components (ten slots, the picker, 确认), and the match
 // UI of a 自选 piece — the shop / reward card and the detail card show the operator (name, art, class, derived bonds,
 // the pick's skill and module) with a 「自选」 badge, the own pieces get a tag, placement reads the operator's position, and
 // the bond popup lists the 自选 member (own and a teammate's).
@@ -85,6 +85,16 @@ describe('自选编队 model (ui/diyModel.js)', () => {
       [T5A, 5, 5], [T5B, 5, 5], ['chess_char_5_diy3_a', 5, 5], ['chess_char_5_diy4_a', 5, 5], ['chess_char_5_diy5_a', 5, 5],
       [T6A, 6, 6], [T6B, 6, 6], ['chess_char_6_diy3_a', 6, 6], ['chess_char_6_diy4_a', 6, 6], ['chess_char_6_diy5_a', 6, 6],
     ]);
+  });
+
+  test('the 自选 tab\'s top-bar denominator follows the data, not a literal (二.8)', () => {
+    // the count of slots is data (diy.slots): the tab shows 已选 N / <slot count>, so raising the count must raise the
+    // denominator too. Regression guard: it was a hardcoded /4 while the tab already rendered ten.
+    const src = readFileSync(path.join(ROOT, 'public/js/screens/loadout.js'), 'utf8');
+    assert.ok(!/num t-dim">\/4</.test(src), 'the 自选 count must not hardcode a denominator');
+    assert.match(src, /\/\$\{nDiySlots\}/, 'it renders the slot count from the data');
+    assert.match(src, /diySlotList\(diyData\(\)\)\.length/, 'which comes from diySlotList');
+    assert.equal(M.diySlotList(D).length, 10);
   });
 
   test('the picker lists only kitted operators (prototypes first), marks one another slot holds', () => {
