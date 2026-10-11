@@ -15,7 +15,10 @@
 .lobby-left, .lobby-right { display: flex; flex-direction: column; min-width: 0; }
 
 /* ---- mode cards ------------------------------------------------------------------------------------ */
-.mode-cards { display: grid; grid-template-columns: 1fr 1fr; gap: .24rem; margin-bottom: .34rem; }
+/* the three 模拟方式 cards are three EQUAL 竖向 choices: one row of three equal columns, so every card keeps its
+   portrait shape (icon over name over description) at the same width and height. The old 2-column grid put two cards
+   on the first row and wrapped the third onto a second row at a different width, which read as a layout accident. */
+.mode-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .24rem; margin-bottom: .34rem; }
 .mode-card {
   --bk-c: transparent;
   --bk-l: .2rem;
