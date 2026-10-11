@@ -43,6 +43,8 @@ export class MatchViews {
         return this.draft && this.draftTurn() === ps.playerId ? 'deciding' : 'acting';
       case PHASE.SP_DRAFT:
         if (this.sp && this.sp.picks[ps.playerId] != null) return 'ready';
+        // a parallel draft (fork 二.4) has no turn: every pending player is deciding
+        if (this.sp && this.sp.parallel) return this.spDone(ps.playerId) ? 'ready' : 'deciding';
         return this.sp && this.spTurn() === ps.playerId ? 'deciding' : 'acting';
       case PHASE.PREP: return ps.ready ? 'ready' : 'acting';
       case PHASE.COMBAT: case PHASE.FINAL_ASSAULT: case PHASE.HIDDEN_CORE: {
@@ -141,6 +143,11 @@ export class MatchViews {
         family: s.family, name: s.name, desc: s.desc, eventId: s.eventId,
         cards: s.cards.map(c => ({ ...cardView(c), soldOut: c.kind === 'item' && !this.itemPool.canGain(c.id) })), order: s.order.slice(),
         turn: this.spTurn(), picks: { ...s.picks }, taken: { ...s.taken }, untimed: !!s.untimed,
+        // fork 二.4: a parallel, untimed draft with the random-allocation vote. `randomOffer` is non-null only when the
+        // vote is actually offered for THIS draft (the mode lists the family and it is not 悬赏), so the client can
+        // render the button on the frame alone.
+        parallel: !!s.parallel, randomOffer: this.randomVoteOffered() ? s.randomOffer.slice() : null,
+        randomVotes: [...(s.randomVotes || [])], randomResolved: !!s.randomResolved,
       };
     }
     if (this.phase === PHASE.UNITE && this.unitePlan) v.unite = { helpers: this.unitePlan.helpers.map((p) => p.playerId), leakers: this.unitePlan.leakers.map((p) => p.playerId) };

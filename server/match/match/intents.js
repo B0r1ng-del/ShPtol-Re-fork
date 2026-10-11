@@ -38,6 +38,8 @@ export class MatchIntents {
       case 'g.choice': return msg.choiceId !== undefined
         ? this.pickPersonalChoice(ps, msg.idx, msg.choiceId)
         : this.pickCard(ps, msg.idx);
+      // 机变 随机分配 vote (fork 二.4): the player votes for the random allocation instead of picking
+      case 'g.choiceRandom': return this.voteRandomChoice(ps);
       case 'g.ready': return ps.setReady(!!msg.ready);
       case 'g.emote': return this.emote(ps, msg.id);
       // playerId: the player tapped (a shared field names two) — the watch preference (item 56)
