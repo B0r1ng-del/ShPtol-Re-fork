@@ -14,6 +14,7 @@ import assert from 'node:assert/strict';
 import { GameData } from '../server/match/gamedata.js';
 import { SharedPool, drawDisabledBonds } from '../server/match/pool.js';
 import { createRng } from '../server/sim/rng.js';
+import { ULTIMATE_SEATS } from '../shared/constants.js';
 import { DATA, makeMatch } from './match/harness.js';
 
 const FORK = 'mode_ultimate_abyss';
@@ -92,6 +93,31 @@ describe('二.1 — 终极模拟 draws no bond bans', () => {
       assert.ok(m.pool.entries.size < m.gd.visibleChess.length, 'and that removes 干员 from the pool');
     } finally {
       coop.m.dispose();
+    }
+  });
+
+  test('the SIX-player 终极模拟 room keeps every 盟约: no draw over many seeds, and a full six-seat match', () => {
+    // The requirement is stated for the six-博士 room ("在六人的终极模拟里任何盟约都不会被禁用"), so this pins the
+    // full-capacity case down: six seats (ULTIMATE_SEATS), every 盟约 active, and no seed able to draw a ban.
+    assert.equal(ULTIMATE_SEATS, 6);
+    const g = gd(FORK);
+    for (let seed = 1; seed <= 25; seed++) {
+      const six = makeMatch({ mode: 'ultimate', difficulty: 'ABYSS', humans: ULTIMATE_SEATS, seed, fake: true });
+      try {
+        const m = six.m;
+        assert.equal(m.roomMode, 'ultimate');
+        assert.equal(m.modeId, FORK);
+        assert.equal(m.players.size, ULTIMATE_SEATS, 'all six 博士 are seated');
+        assert.deepEqual(m.disabledBonds, [], `seed ${seed}: no 盟约 drawn out of play`);
+        assert.deepEqual(m.staticInactiveBonds, [], `seed ${seed}: no statically inactive 盟约`);
+        assert.deepEqual(m.bannedChess, [], `seed ${seed}: no 干员 banned`);
+        // every 盟约 the data knows is playable in this match, and the shop can roll the whole roster
+        const active = new Set(g.mode.activeBondIds);
+        for (const id of g.bondIds) assert.ok(active.has(id), `seed ${seed}: ${id} is active`);
+        assert.equal(m.pool.entries.size, g.visibleChess.length, `seed ${seed}: the whole roster stays rollable`);
+      } finally {
+        six.m.dispose();
+      }
     }
   });
 

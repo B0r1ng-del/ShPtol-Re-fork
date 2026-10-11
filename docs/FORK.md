@@ -114,6 +114,18 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
   and the vote would have had nothing to gate). `applyForkChoices()` in `tools/fork-overrides.mjs` copies AC-4's
   schedule onto the fork modeId in `data/choices.json`; `tools/fork-data.mjs` and `tools/build-data.mjs` apply it like
   the config layer, and `test/fork-data.test.js` guards it with the same idempotence check.
+- **二.5 大厅与房间的版面** — the fork's third mode made two upstream grids wrong, because both were sized for two
+  modes and four seats:
+  - **模式卡** — `public/css/screens/lobby.css` `.mode-cards` was `grid-template-columns: 1fr 1fr`, so with three
+    cards (独立模拟 / 同盟模拟 / 终极模拟) the third wrapped onto a second row at a different width. It is now
+    `repeat(3, minmax(0, 1fr))`: three EQUAL 竖向 choices in one row, every card keeping its portrait shape
+    (icon over name over description).
+  - **六席位** — the 同盟模拟 seat grid is `repeat(4, minmax(0, 3.8rem))` with one row, which left seats 5–6 on a
+    half-empty second row of a different width. `public/js/screens/room.js` now adds `seats--ultimate` for
+    `room.mode === 'ultimate'` and `public/css/screens/room.css` gives it
+    `repeat(6, minmax(0, 1fr))` / `minmax(0, 1fr)`: six EQUAL 竖向 positions in one row, same size, in seat order.
+    A six-seat room needs its own grid rule; the co-op and solo rooms are untouched.
+  `test/client-static.test.js` guards both rules and the class wiring.
 
 ## Fork change log
 
@@ -124,3 +136,4 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
 | 二.2 商店升级槽位 | one 干员槽 per operator level (3→7) and a second 道具槽 at level 6 | `tools/fork-overrides.mjs` (`shopSlots`), `test/fork-ultimate-shop.test.js` |
 | 二.3 敌人属性调整 | R4 on: ordinary +10 % HP; leader +20 % HP/+20 % DEF/+8 % ATK; hidden core +35 % HP/+35 % DEF/+16 % ATK — HP per boss id | `tools/fork-overrides.mjs` (`enemyAdjust`), `server/match/gamedata.js` (`enemyExtras`/`bossHpExtra`), `server/match/waves.js`, `server/match/finalAssault.js`, `test/fork-ultimate-enemy-stats.test.js` |
 | 二.4 机变去时限 + 投票 | untimed, parallel draft with a 随机分配 vote (half the alive players resolves it randomly, one card each; 悬赏 never drawn and never voted on) + the AC-4 机变 schedule for the fork mode | `tools/fork-overrides.mjs` (`spDraft`, `applyForkChoices`), `server/match/Match.js` (SP_DRAFT), `server/match/gamedata.js` (`spDraftRules`), `shared/protocol.js` (`g.choiceRandom`), `server/match/audit.js`, `public/js/ui/choiceOverlay.js`, `public/js/ui/gameLogic.js`, `public/js/ui/gameActions.js`, `public/js/screens/game.js`, `test/fork-ultimate-sp-vote.test.js` |
+| 二.5 版面 | 三个模式卡是一行三个等宽的竖向选择；终极模拟房间是六个等宽的竖向席位（同盟模拟的四座网格与独立模拟都不受影响） | `public/css/screens/lobby.css` (`.mode-cards`), `public/css/screens/room.css` (`.seats--ultimate`), `public/js/screens/room.js`, `test/client-static.test.js` |

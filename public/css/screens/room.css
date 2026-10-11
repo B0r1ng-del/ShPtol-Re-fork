@@ -49,6 +49,10 @@
   padding: .3rem .6rem .24rem;
 }
 .seats--solo { grid-template-columns: 3.8rem minmax(0, 6.4rem); }
+/* 终极模拟 (six seats): six EQUAL 竖向 positions — one row of six equal columns, so every 席位 keeps its portrait
+   shape (avatar over name over ready state) at the same width and height. The 同盟模拟 grid keeps four slots on one
+   row and leaves a half-empty second row for seats 5–6, which gave the last two positions a different width. */
+.seats--ultimate { grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); }
 
 .seat {
   --bk-c: var(--line-3);

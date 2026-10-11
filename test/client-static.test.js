@@ -1123,6 +1123,26 @@ describe('screen helpers', () => {
     assert.equal(MODE_CARDS.filter((c) => c.id === 'solo').length, 1);
   });
 
+  test('layout: the three 模拟方式 cards and the six 终极模拟 席位 are equal 竖向 columns (fork UI)', () => {
+    // 图一 (选择模拟协议) and 图二 (房间): the mode cards and the six seats are meant to be N EQUAL 竖向 choices — one
+    // row of N equal columns, every card keeping its portrait shape. The old grid was 2 columns, so the third mode
+    // card and seats 5–6 wrapped onto a second row at a different width, which is the layout accident being fixed.
+    const rules = cssRules(readFileSync(path.join(PUBLIC, 'css/screens/lobby.css'), 'utf8'));
+    const cards = rules.find((r) => r.selector === '.mode-cards');
+    assert.ok(cards, '.mode-cards exists');
+    assert.match(cards.body, /grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/, 'three equal columns, one row');
+
+    const room = cssRules(readFileSync(path.join(PUBLIC, 'css/screens/room.css'), 'utf8'));
+    const seats = room.find((r) => r.selector === '.seats--ultimate');
+    assert.ok(seats, '.seats--ultimate exists (the six-seat room needs its own grid)');
+    assert.match(seats.body, /grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\)/, 'six equal columns, one row');
+    assert.match(seats.body, /grid-template-rows:\s*minmax\(0,\s*1fr\)/, 'a single row');
+
+    // the room screen must actually apply it, and only for the fork's third mode
+    const src = readFileSync(path.join(PUBLIC, 'js/screens/room.js'), 'utf8');
+    assert.match(src, /room\.mode === 'ultimate' \? ' seats--ultimate' : ''/, 'the ultimate room carries the class');
+  });
+
   test('room: normalizeSeats / roomFacts / inviteLink', async () => {
     const { normalizeSeats, roomFacts, inviteLink } = await mod('screens/room.js');
     const room = {
