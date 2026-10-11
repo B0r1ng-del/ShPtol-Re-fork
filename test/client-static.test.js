@@ -19,6 +19,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { MAX_SEATS, ULTIMATE_SEATS } from '../shared/constants.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PUBLIC = path.join(ROOT, 'public');
@@ -1089,6 +1090,13 @@ describe('screen helpers', () => {
       assert.equal(difficultyInfo(room, 'HARD').stageNote, '战场随机（共7张）');
       assert.equal(difficultyInfo(room, 'ABYSS').stageNote, '战场随机（共7张）');
     }
+    // 终极模拟 (the fork's third room mode, mode_ultimate_abyss): the AC-4 table only, so the ABYSS text is the one
+    assert.equal(difficultyInfo('ultimate', 'ABYSS').code, 'AC-4');
+    assert.equal(difficultyInfo('ultimate', 'ABYSS').rounds, 14);
+    assert.equal(difficultyInfo('ultimate', 'ABYSS').hidden, true);
+    assert.equal(difficultyInfo('ultimate', 'ABYSS').stageNote, '战场随机（共7张）');
+    assert.equal(difficultyInfo('ultimate', 'BOGUS').rounds, 14, 'an unknown difficulty degrades gracefully');
+    assert.equal(difficultyInfo('ultimate', 'FUNNY').code, '', 'the mode has no 标准 card to fall back to');
     assert.equal(difficultyInfo('coop', 'BOGUS').stageNote, '');
     assert.equal(stageNote(cfg.modes.mode_multi_normal.stages), '战场随机（共8张）');
     assert.equal(stageNote(['act1autochess_m01']), '战场固定为 战场#01');
@@ -1096,6 +1104,23 @@ describe('screen helpers', () => {
     assert.equal(stageNote(null), '');
     assert.equal(stageLabel('act2autochess_m02'), '战场#06', 'act2 continues the numbering');
     assert.equal(stageLabel('nope'), '');
+  });
+
+  test('lobby: the mode cards are 独立模拟 / 同盟模拟 / 终极模拟 — the last one the fork\'s six-博士 room', async () => {
+    const { MODE_CARDS } = await mod('screens/lobby.js');
+    assert.deepEqual(MODE_CARDS.map((c) => c.id), ['solo', 'coop', 'ultimate']);
+    const ult = MODE_CARDS.find((c) => c.id === 'ultimate');
+    assert.equal(ult.name, '终极模拟');
+    assert.equal(ult.en, 'ULTIMATE SIMULATION');
+    assert.equal(ult.icon, 'crown');
+    // 0.2.0 i18n: both fork cards are TEMPLATES (`… {n} 名博士 …`) carrying `params` / `pointParams`, so the
+    // assertions resolve the placeholders instead of matching the literal text the fork once used.
+    const resolve = (s, params) => String(s).replace(/\{(\w+)\}/g, (m, k) => (params && k in params ? String(params[k]) : m));
+    assert.ok(resolve(ult.desc, ult.params).includes(String(ULTIMATE_SEATS)), 'the card states the six-博士 alliance');
+    assert.ok(ult.points.some((p) => resolve(p, ult.pointParams).includes(`1–${ULTIMATE_SEATS}`)), 'and its seat range');
+    const coop = MODE_CARDS.find((c) => c.id === 'coop');
+    assert.ok(coop.points.some((p) => resolve(p, coop.pointParams).includes(`1–${MAX_SEATS}`)), 'co-op keeps 1–4 博士');
+    assert.equal(MODE_CARDS.filter((c) => c.id === 'solo').length, 1);
   });
 
   test('room: normalizeSeats / roomFacts / inviteLink', async () => {
@@ -1112,6 +1137,13 @@ describe('screen helpers', () => {
     assert.equal(normalizeSeats(room).length, 4);
     assert.equal(normalizeSeats({ mode: 'solo', seats: [room.seats[0], null, null, null] }).length, 1);
     assert.deepEqual(normalizeSeats({ mode: 'coop', seats: 'bad' }), [null, null, null, null]);
+    // 终极模拟 (the fork's six-博士 room): the ROOM's own capacity decides the seat grid, never MAX_SEATS
+    assert.equal(normalizeSeats({ mode: 'ultimate', seats: 'bad' }).length, 6);
+    assert.deepEqual(normalizeSeats({ mode: 'ultimate', seats: 'bad' }), [null, null, null, null, null, null]);
+    const six = [...room.seats, { seat: 4, playerId: 'e', name: 'E', isBot: false, ready: true, connected: true }, null];
+    assert.equal(normalizeSeats({ ...room, mode: 'ultimate', seats: six }).length, 6);
+    assert.equal(roomFacts({ ...room, mode: 'ultimate', seats: six }, 'h').emptySeats, 2);
+    assert.equal(normalizeSeats({ mode: 'nope', seats: 'bad' }).length, 4, 'an unknown mode keeps the pre-fork cap');
     let f = roomFacts(room, 'h');
     assert.equal(f.isHost, true);
     assert.equal(f.canStart, false, 'guest not ready');

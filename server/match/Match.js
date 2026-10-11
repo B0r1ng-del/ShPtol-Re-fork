@@ -172,7 +172,7 @@
 //   common.js        what the modules share (FLOW_TICKER_PRIORITY, DELAYS, BAND_TURN_SECONDS — re-exported here, OK,
 //                    fail, BOSS_CLOCK_MS)
 
-import { PHASE, modeIdFor } from '../../shared/constants.js';
+import { PHASE, ROOM_MODES, modeIdFor } from '../../shared/constants.js';
 import { Battle } from '../sim/Battle.js';
 import { DataSource } from '../sim/simdata.js';
 import { createRng, deriveSeed } from '../sim/rng.js';
@@ -233,9 +233,12 @@ export class Match {
     }
     this.opts = opts;
     this.roomCode = opts.roomCode ?? '----';
-    this.mode = opts.mode === 'solo' ? 'solo' : 'coop';
+    /** The room mode as created ('solo' | 'coop' | 'ultimate'). 终极模拟 plays with the co-op rules below (`this.mode`);
+     * `roomMode` keeps the third value for the mode-specific content (its config record, per-mode bans / shop / scaling). */
+    this.roomMode = ROOM_MODES.includes(opts.mode) ? opts.mode : 'coop';
+    this.mode = this.roomMode === 'solo' ? 'solo' : 'coop';
     this.difficulty = opts.difficulty;
-    this.modeId = opts.modeId || modeIdFor(this.mode, opts.difficulty);
+    this.modeId = opts.modeId || modeIdFor(this.roomMode, opts.difficulty);
     this.seed = (Number(opts.seed) >>> 0) || 1;
     this.log = opts.log || noopLog;
     this.sendFn = opts.send;

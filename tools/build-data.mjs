@@ -40,6 +40,9 @@ import { bandBondIds } from '../shared/bandBonds.js';
 import { statusKey, composeUnitRecord, standInRecord, unitForm } from '../shared/standIn.js';
 import { extendedGrid } from '../shared/loadoutRecord.js';
 import { FULL_RANK, atRank, stripPotential } from '../shared/potential.js';
+// The fork's own mode/field layer over the built config (终极模拟 …): kept out of the official-data derivation so a
+// regeneration from the game's tables cannot drop it, and so every fork-only value sits in one reviewable file.
+import { applyForkOverrides } from './fork-overrides.mjs';
 
 // ===== CLI & IO ==================================================================================
 
@@ -4093,7 +4096,7 @@ async function main() {
   // the bonds each strategy is built around (DESIGN §21.26): the bot skips, and the strategy draft marks 本局禁用, a band
   // whose bond the mode switches off
   for (const b of Object.values(bands)) b.bondIds = bandBondIds(b, { bonds, pools: choices.pools });
-  const config = buildConfig(ctx, waves, stages, bands, chess, items);
+  const config = applyForkOverrides(buildConfig(ctx, waves, stages, bands, chess, items));
   const files = { config, chess, bonds, garrisons, items, bands, effects, choices, enemies, factions, waves, stages, bosses, tokens, backups };
 
   // the unit forms rebuild every PRESET chess at every rank (before the annotation: each pass as built)
