@@ -81,7 +81,10 @@ describe('official emotes in the browser', { skip: !ENABLED && 'set SP_E2E=1 (an
       items: document.querySelectorAll(`${root} .ewheel__item`.trim()).length,
       imgs: [...document.querySelectorAll(`${root} .ewheel__item img`.trim())].filter((i) => i.complete && i.naturalWidth > 0).length,
       glyphs: document.querySelectorAll(`${root} .ewheel__item .eart--glyph`.trim()).length,
-      panelText: panel ? panel.textContent.trim() : '',
+      // "picture-only, never text" is about the EMOTES. The panel also carries the fork's two labelled switches
+      // (.ewheel__opts, 一键十连 / 弹幕), so that band is excluded here and reported on its own as `optsText`.
+      panelText: panel ? (() => { const c = panel.cloneNode(true); c.querySelector('.ewheel__opts')?.remove(); return c.textContent.trim(); })() : '',
+      optsText: q('.ewheel__opts') ? q('.ewheel__opts').textContent.trim() : null,
       btnDisabled: q('.ewheel__btn')?.disabled ?? null,
       dotOn: [...document.querySelectorAll(`${root} .ewheel__dot`.trim())].findIndex((d) => d.classList.contains('is-on')),
     };
@@ -100,6 +103,7 @@ describe('official emotes in the browser', { skip: !ENABLED && 'set SP_E2E=1 (an
     assert.equal(s.items, 6, '3×2 cells');
     assert.equal(s.imgs, 6, 'official pictures loaded');
     assert.equal(s.panelText, '', 'no text in the panel');
+    assert.equal(s.optsText, '一键十连弹幕', 'the two fork switches sit in the panel band');
     assert.equal(s.dotOn, 0);
     assert.equal(await page.$$eval('.emo-cat img', (els) => els.filter((i) => i.complete && i.naturalWidth > 0).length), 36, 'all 36 pictures load');
     await section.screenshot({ path: path.join(OUT, 'emotes-uikit.png') });

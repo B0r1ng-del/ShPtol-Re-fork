@@ -20,17 +20,38 @@
 // Styles: public/css/emotes.css (injected on first use when the page does not link it).
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { EMOTE_THEMES, EMOTE_COOLDOWN_MS, EMOTE_BUBBLE_MS, emoteInfo, emoteArtGroup } from '../../../shared/constants.js';
+import { EMOTE_THEMES, EMOTE_COOLDOWN_MS, EMOTE_BUBBLE_MS, EMOTE_BURST_COUNT, EMOTE_BARRAGE_MS, emoteInfo, emoteArtGroup } from '../../../shared/constants.js';
 import { html } from './components.js';
 import { GIcon } from './gameComponents.js';
 import { data, useData, localAsset, artUrls, nextArtUrl } from '../data.js';
-import { loadPref, savePref } from '../store.js';
+import { loadPref, savePref, createStore, useStore } from '../store.js';
 import { t } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 export const EMOTE_CSS_HREF = '/css/emotes.css';
 const PREF_THEME = 'emoteTheme';
+// the two fork switches (per-device choices, so they live in the local prefs):
+//   一键十连 — one tap on an emote sends it ten times (`g.emoteBurst`);
+//   弹幕     — emotes also fall across the screen like snowflakes instead of only popping the avatar bubbles.
+export const PREF_TEN_PULL = 'emoteTenPull';
+export const PREF_BARRAGE = 'emoteBarrage';
+/** 一键十连 on? (per device; the server's `g.emoteBurst` is what actually sends the ten) */
+export const tenPullOn = () => loadPref(PREF_TEN_PULL, false) === true;
+/** 弹幕 on? (per device, display only) */
+export const barrageOn = () => loadPref(PREF_BARRAGE, false) === true;
+
+/**
+ * The two switches as a tiny store, so flipping one re-renders the screen that mounts the 弹幕 layer. The preference
+ * itself stays in localStorage (`savePref` never notifies anything), so a screen that only read `barrageOn()` would
+ * keep showing the old layer until some unrelated frame happened to arrive — in a quiet prep phase, indefinitely.
+ */
+export const emotePrefsStore = createStore({ ten: tenPullOn(), barrage: barrageOn() });
+/** Set a switch: persist it for this device and notify every screen that shows it. */
+export function setEmotePref(key, on) {
+  savePref(key, on);
+  emotePrefsStore.set({ ten: tenPullOn(), barrage: barrageOn() });
+}
 const SWIPE_PX = 40;      // horizontal drag distance that turns the page
 const DRAG_SLOP_PX = 8;   // below this a press is a tap, not a drag
 export const WHEEL_STEP_PX = 60;  // wheel / trackpad scroll that turns the page
@@ -203,8 +224,62 @@ export function EmoteBubble({ id, class: cls, ttl = EMOTE_BUBBLE_MS, at }) {
 }
 
 /**
+ * 弹幕 (fork): the emotes the room has just sent FALL down the screen like snowflakes — each one starts at its own
+ * random spot across the width, sways and turns a little on the way down, and is gone once it has passed the bottom
+ * edge. Display only: it changes nothing that is sent, and every player sees the same `m.emote` stream, so a teammate's
+ * emote falls on everyone's screen.
+ *
+ * The random parameters of an item are drawn ONCE and remembered (`spawnOf`), so a re-render never makes an icon that
+ * is already falling jump sideways. An item is dropped once its own flight time has run out — the CSS animation uses
+ * `forwards`, which would otherwise park the element at the end of its path and leave it on screen for good.
+ * @param {{ emotes?: any[], myId?: string|null }} props `emotes` = store.emotes ({ seq, playerId, id, at }).
+ */
+const SPAWN = new Map();
+function spawnOf(seq) {
+  let s = SPAWN.get(seq);
+  if (!s) {
+    s = {
+      x: 3 + Math.random() * 90,                    // start position across the width (%)
+      sway: (Math.random() * 2 - 1) * .55,          // rem it drifts sideways on the way down
+      rot: (Math.random() * 2 - 1) * 45,            // degrees it is turned by
+      ms: Math.round(EMOTE_BARRAGE_MS * (.9 + Math.random() * .1)),
+    };
+    SPAWN.set(seq, s);
+    if (SPAWN.size > 96) SPAWN.delete(SPAWN.keys().next().value);
+  }
+  return s;
+}
+
+export function EmoteBarrage({ emotes = [], myId = null }) {
+  useData('local');
+  const [, tick] = useState(0);
+  const now = Date.now();
+  const rows = (Array.isArray(emotes) ? emotes : [])
+    .filter((e) => now - (Number.isFinite(e.at) ? e.at : now) < EMOTE_BARRAGE_MS)
+    .slice(-24);
+  const oldest = rows[0] || null;
+  useEffect(() => {
+    if (!oldest) return undefined;
+    const left = (Number.isFinite(oldest.at) ? oldest.at : Date.now()) + EMOTE_BARRAGE_MS - Date.now();
+    const t = setTimeout(() => tick((v) => v + 1), Math.max(50, left + 30));
+    return () => clearTimeout(t);
+  }, [oldest && oldest.seq, rows.length]);
+  if (!rows.length) return null;
+  return html`<div class="ebarrage" aria-hidden="true">
+    ${rows.map((e) => {
+      const mine = !!myId && e.playerId === myId;
+      const s = spawnOf(e.seq);
+      return html`<span key=${e.seq} class=${cx('ebarrage__item', mine && 'is-mine')}
+        style=${`--eb-x:${s.x.toFixed(2)}%; --eb-sway:${s.sway.toFixed(3)}rem; --eb-rot:${s.rot.toFixed(1)}deg; --eb-ms:${s.ms}ms`}>
+        <${EmoteArt} id=${e.id} />
+      </span>`;
+    })}
+  </div>`;
+}
+
+/**
  * 交流 button + emote panel.
- * @param {{ onSend: (id:string)=>void, open: boolean, onToggle: (open:boolean)=>void, disabled?: boolean,
+ * @param {{ onSend: (id:string, o?:{burst?:boolean})=>void, open: boolean, onToggle: (open:boolean)=>void, disabled?: boolean,
  *   cooldownMs?: number }} props
  */
 export function EmoteWheel({ onSend, open, onToggle, disabled = false, cooldownMs = EMOTE_COOLDOWN_MS }) {
@@ -214,7 +289,9 @@ export function EmoteWheel({ onSend, open, onToggle, disabled = false, cooldownM
   const [dir, setDir] = useState(0);          // direction of the last page change (slide-in animation)
   const [dx, setDx] = useState(0);            // live drag offset (px)
   const [cooling, setCooling] = useState(() => cooldownLeft(lastSentAt, Date.now(), cooldownMs) > 0);
-  const drag = useRef(null);                  // { id, x0, moved }
+  // the two fork switches, restored from the local prefs
+  const [ten, setTen] = useState(tenPullOn);
+  const [barrage, setBarrage] = useState(barrageOn);  const drag = useRef(null);                  // { id, x0, moved }
   const swallowClick = useRef(false);
   const wheelAcc = useRef({ x: 0, t: -Infinity, spent: false });
   const live = useRef({});
@@ -264,7 +341,9 @@ export function EmoteWheel({ onSend, open, onToggle, disabled = false, cooldownM
     lastSentAt = now;
     rememberTheme(e.themeId);
     setCooling(true);
-    onSend(id);
+    // 一键十连: with the switch on, ONE tap sends the emote ten times (`g.emoteBurst` — the server broadcasts it
+    // `EMOTE_BURST_COUNT` times, on this one cooldown)
+    onSend(id, { burst: ten });
     onToggle(false);
   };
 
@@ -329,6 +408,14 @@ export function EmoteWheel({ onSend, open, onToggle, disabled = false, cooldownM
       <div class="ewheel__dots" role="tablist" aria-label=${t('表情主题')}>
         ${EMOTE_THEMES.map((th, i) => html`<button key=${th.themeId} type="button" role="tab" class=${cx('ewheel__dot', i === page && 'is-on')}
           aria-selected=${i === page ? 'true' : 'false'} aria-label=${`${t(th.name)} ${i + 1}/${EMOTE_THEMES.length}`} onClick=${() => go(i)}></button>`)}
+      </div>
+      <div class="ewheel__opts">
+        <button type="button" class=${cx('ewheel__opt', ten && 'is-on')} aria-pressed=${ten ? 'true' : 'false'} data-testid="emote-ten"
+          title=${t('一键十连：开启后点一次表情会连发 {n} 条', { n: EMOTE_BURST_COUNT })}
+          onClick=${() => setTen((v) => { const n = !v; setEmotePref(PREF_TEN_PULL, n); return n; })}>${t('一键十连')}</button>
+        <button type="button" class=${cx('ewheel__opt', barrage && 'is-on')} aria-pressed=${barrage ? 'true' : 'false'} data-testid="emote-barrage"
+          title=${t('弹幕：表情像雪花一样从屏幕上方飘落，房间内所有人可见')}
+          onClick=${() => setBarrage((v) => { const n = !v; setEmotePref(PREF_BARRAGE, n); return n; })}>${t('弹幕')}</button>
       </div>
     </div>` : null}
   </div>`;

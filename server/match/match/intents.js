@@ -5,7 +5,7 @@
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 import { unitStatsEntry } from '../../../shared/protocol.js';
-import { PHASE, ERR, EMOTES, EMOTE_COOLDOWN_MS, GEO } from '../../../shared/constants.js';
+import { PHASE, ERR, EMOTES, EMOTE_COOLDOWN_MS, EMOTE_BURST_COUNT, GEO } from '../../../shared/constants.js';
 import { deriveSeed } from '../../sim/rng.js';
 import { OK, fail } from './common.js';
 import { onHumanEmote } from '../botEmotes.js';
@@ -42,6 +42,7 @@ export class MatchIntents {
       case 'g.choiceRandom': return this.voteRandomChoice(ps);
       case 'g.ready': return ps.setReady(!!msg.ready);
       case 'g.emote': return this.emote(ps, msg.id);
+      case 'g.emoteBurst': return this.emoteBurst(ps, msg.id);
       // playerId: the player tapped (a shared field names two) — the watch preference (item 56)
       case 'g.watch': return this.watch(ps, msg.fieldId, msg.playerId ?? null);
       case 'g.autoplay': return this.setAutoplay(ps, !!msg.on);
@@ -63,6 +64,20 @@ export class MatchIntents {
     this.broadcast({ t: 'm.emote', playerId: ps.playerId, id });
     // an AI teammate can react to a human's emote (enabled by default: server/match/botEmotes.js, SP_BOT_EMOTES=0 silences it)
     onHumanEmote(this, ps.playerId, id);
+    return OK;
+  }
+
+  /**
+   * 一键十连 (fork): ONE send broadcasts the same emote `EMOTE_BURST_COUNT` times, so a single tap shows ten arrivals.
+   * It shares the single-send cooldown (one send, not ten — ten quick taps can never flood a room), and each frame is a
+   * plain `m.emote`, so every client renders it exactly like ten ordinary sends.
+   */
+  emoteBurst(ps, id) {
+    if (!EMOTES.includes(id)) return fail(ERR.BAD_MSG, 'unknown emote');
+    const now = this.sched.now();
+    if (now - ps.lastEmoteAt < EMOTE_COOLDOWN_MS) return fail(ERR.RATE);
+    ps.lastEmoteAt = now;
+    for (let i = 0; i < EMOTE_BURST_COUNT; i++) this.broadcast({ t: 'm.emote', playerId: ps.playerId, id });
     return OK;
   }
 

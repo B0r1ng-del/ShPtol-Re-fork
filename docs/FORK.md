@@ -126,6 +126,22 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
     `repeat(6, minmax(0, 1fr))` / `minmax(0, 1fr)`: six EQUAL 竖向 positions in one row, same size, in seat order.
     A six-seat room needs its own grid rule; the co-op and solo rooms are untouched.
   `test/client-static.test.js` guards both rules and the class wiring.
+- **二.6 表情：一键十连与弹幕** — two switches in the 交流 panel, both per device (localStorage), both OFF by default, and
+  both usable in EVERY mode (they are not 终极模拟-only rules):
+  - **一键十连** — with the switch on, one tap on an emote sends it ten times. The client sends ONE `g.emoteBurst { id }`
+    (shared/protocol.js) and `MatchIntents.emoteBurst` broadcasts the same `m.emote` `EMOTE_BURST_COUNT` (10) times, so
+    every client renders it exactly like ten ordinary sends. It charges the single-send cooldown once — it is one send,
+    not ten — so ten quick taps can never flood a room. `g.emote` itself is untouched.
+  - **弹幕** — the emotes the room has just sent also FALL down the screen like snowflakes (`ui/emotes.js`
+    `EmoteBarrage` + `css/emotes.css` `@keyframes emo-fall`): each item starts at its own random x, sways and turns a
+    little on the way down, and is gone once it passes the bottom edge (the element is dropped at the end of its flight —
+    the animation's `forwards` fill would otherwise park it on screen). It is a display layer over the broadcast
+    `m.emote` stream, so a teammate's emote falls on everyone's screen. It only ADDS the layer: the avatar bubble that
+    shows what a player sent keeps working with the switch on (tying the two hid every sent emote).
+  The panel is `.49rem` taller for the switch band (`.ewheel__panel::after`), and the switches live in a small store
+  (`emotePrefsStore` / `setEmotePref`) because `savePref` notifies nothing — reading the pref at render time alone would
+  leave the layer stale until an unrelated frame arrived. `test/fork-emote-burst.test.js`,
+  `test/client-static.test.js`.
 
 ## Fork change log
 
@@ -137,3 +153,4 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
 | 二.3 敌人属性调整 | R4 on: ordinary +10 % HP; leader +20 % HP/+20 % DEF/+8 % ATK; hidden core +35 % HP/+35 % DEF/+16 % ATK — HP per boss id | `tools/fork-overrides.mjs` (`enemyAdjust`), `server/match/gamedata.js` (`enemyExtras`/`bossHpExtra`), `server/match/waves.js`, `server/match/finalAssault.js`, `test/fork-ultimate-enemy-stats.test.js` |
 | 二.4 机变去时限 + 投票 | untimed, parallel draft with a 随机分配 vote (half the alive players resolves it randomly, one card each; 悬赏 never drawn and never voted on) + the AC-4 机变 schedule for the fork mode | `tools/fork-overrides.mjs` (`spDraft`, `applyForkChoices`), `server/match/Match.js` (SP_DRAFT), `server/match/gamedata.js` (`spDraftRules`), `shared/protocol.js` (`g.choiceRandom`), `server/match/audit.js`, `public/js/ui/choiceOverlay.js`, `public/js/ui/gameLogic.js`, `public/js/ui/gameActions.js`, `public/js/screens/game.js`, `test/fork-ultimate-sp-vote.test.js` |
 | 二.5 版面 | 三个模式卡是一行三个等宽的竖向选择；终极模拟房间是六个等宽的竖向席位（同盟模拟的四座网格与独立模拟都不受影响） | `public/css/screens/lobby.css` (`.mode-cards`), `public/css/screens/room.css` (`.seats--ultimate`), `public/js/screens/room.js`, `test/client-static.test.js` |
+| 二.6 表情：一键十连 + 弹幕 | one tap sends an emote 10 times (one `g.emoteBurst`, one cooldown); emotes also fall like snowflakes from a random x, fading out past the bottom edge, on every client's screen | `shared/constants.js` (`EMOTE_BURST_COUNT`/`EMOTE_BARRAGE_MS`), `shared/protocol.js` (`g.emoteBurst`), `server/match/match/intents.js` (`emoteBurst`), `public/js/ui/emotes.js` (`EmoteBarrage`, `emotePrefsStore`, the two switches), `public/css/emotes.css` (`emo-fall`), `public/js/ui/gameActions.js`, `public/js/screens/game.js`, `test/fork-emote-burst.test.js`, `test/client-static.test.js` |
