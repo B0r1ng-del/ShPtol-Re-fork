@@ -14,6 +14,7 @@
 //
 // Every fork feature that lives in generated data lands here, one block per feature, each with the reason it exists:
 //   * `bans: { core: 0, addon: 0 }` on the 终极模拟 mode — no per-match bond ban there (requirement 二.1)
+//   * the 自选编队 slots of `data/chess.json` / `data/backups.json` — 5 per tier instead of the official 2 (二.8)
 
 /** modeId of the fork's third room mode (终极模拟, AC-4, up to six 博士). */
 export const FORK_MODE_ID = 'mode_ultimate_abyss';
@@ -155,4 +156,151 @@ export function applyForkChoices(choices) {
   const base = schedule[FORK_BASE_MODE_ID];
   if (!isPlainObject(base)) return choices;
   return { ...choices, schedule: { ...schedule, [FORK_MODE_ID]: cloneJson(base) } };
+}
+
+// ---- 二.8 自选编队：每阶 5 个槽位 -------------------------------------------------------------------------------
+
+/**
+ * The fork's extra 自选 slots (requirement 二.8): three more per tier, so a 自选编队 fills **5 × 5阶 + 5 × 6阶 = 10**
+ * positions instead of the official 2 + 2.
+ *
+ * WHY IT LIVES HERE. A 自选 slot is not a UI concept: it is a `data/chess.json` record pair (`…_diyN_a` normal, `…_diyN_b`
+ * elite) listed in `data/backups.json` `diy.slots`, and both files are build products of `tools/build-data.mjs` (the
+ * official `act.diyChessDict` / `charShopChessDatas` tables have exactly four slots). Hand-editing them would be erased
+ * by the next `npm run build-data`, so the extra slots are built here like every other fork value.
+ *
+ * The three per tier are copies of that tier's first official slot pair: every official slot of a tier shares its
+ * `status` (E2 Lv1 rank 4, elite E2 Lv60 rank 7 with the module at stage 1 for tier 5 / 3 for tier 6), price (4 / sell 1)
+ * and merge (3), so a copy is that tier's slot with new ids — the operator comes from the pick, not from the record.
+ * `identifier` continues the official run (the official 自选 records end at 265) and `shopSortId` continues the tier's own
+ * 自选 sequence (tier 5: 24, 25 → 26…; tier 6: 21, 22 → 23…). Neither is read for a 自选 record — it is `visible: false`,
+ * so the shop-order readers (`ui/loadoutModel.js`, `ui/ownershipModel.js`) skip it — they are carried because the record
+ * shape is (shared/standIn.js `IDENTITY_FIELDS`).
+ */
+const FORK_DIY_SLOT_SPECS = Object.freeze([
+  { tier: 5, n: 3, identifier: 266, goldenIdentifier: 267, shopSortId: 26 },
+  { tier: 5, n: 4, identifier: 268, goldenIdentifier: 269, shopSortId: 27 },
+  { tier: 5, n: 5, identifier: 270, goldenIdentifier: 271, shopSortId: 28 },
+  { tier: 6, n: 3, identifier: 272, goldenIdentifier: 273, shopSortId: 23 },
+  { tier: 6, n: 4, identifier: 274, goldenIdentifier: 275, shopSortId: 24 },
+  { tier: 6, n: 5, identifier: 276, goldenIdentifier: 277, shopSortId: 25 },
+]);
+
+/** The base id of a fork slot spec (`chess_char_5_diy3_a`). @param {{tier: number, n: number}} s */
+export const forkDiySlotId = (s) => `chess_char_${s.tier}_diy${s.n}_a`;
+/** The elite twin of a fork slot spec (`chess_char_5_diy3_b`). @param {{tier: number, n: number}} s */
+export const forkDiyGoldenId = (s) => `chess_char_${s.tier}_diy${s.n}_b`;
+
+/** Every 自选 base id the fork owns — the ids the two appliers below add, drop and rebuild. */
+export const FORK_DIY_SLOT_IDS = Object.freeze(FORK_DIY_SLOT_SPECS.map(forkDiySlotId));
+// BOTH forms of every fork slot: the appliers must recognise a `_b` twin of a previous run too, or a second pass reads
+// it as an official anchor and rebuilds the file in a different order (test/fork-data.test.js idempotence).
+const FORK_DIY_SLOT_ID_SET = new Set(FORK_DIY_SLOT_SPECS.flatMap((s) => [forkDiySlotId(s), forkDiyGoldenId(s)]));
+const FORK_DIY_TIERS = Object.freeze([5, 6]);
+
+/**
+ * Where each fork slot pair goes in a file whose order is the build's: per tier, the last OFFICIAL 自选 key in that
+ * order (the build writes `Object.keys(charChessDataDict).sort(naturalCmp)`, so a tier's slots are consecutive and the
+ * extra ones belong directly after them) and the template records they are copied from.
+ * @param {Record<string, any>} chess data/chess.json
+ * @returns {Map<number, {anchor: string, template: any, golden: any}>|null} null when a tier has no official slot pair
+ */
+function forkDiyAnchors(chess) {
+  const found = new Map();
+  for (const tier of FORK_DIY_TIERS) {
+    let anchor = null;
+    let template = null;
+    for (const [id, rec] of Object.entries(chess)) {
+      if (!isPlainObject(rec) || !rec.isDiy || rec.tier !== tier || FORK_DIY_SLOT_ID_SET.has(id)) continue;
+      anchor = id;
+      if (!template && !rec.isGolden) template = rec;
+    }
+    const golden = template ? chess[template.goldenId] : null;
+    if (!anchor || !template || !isPlainObject(golden)) continue;
+    found.set(tier, { anchor, template, golden });
+  }
+  return found.size ? found : null;
+}
+
+/**
+ * The fork's own `data/chess.json` layer (二.8): the official records plus the extra 自选 slot pairs, in build order.
+ *
+ * Pure and idempotent. The fork's slots are OWNED here: every id in FORK_DIY_SLOT_IDS is dropped and rebuilt from its
+ * tier's official template, so a hand-edit of one is reverted and caught by test/fork-data.test.js — the same contract
+ * as applyForkOverrides overwriting the fork mode record.
+ * @param {Record<string, any>} chess data/chess.json
+ * @returns {Record<string, any>} a new object (or the input when the data it needs is absent)
+ */
+export function applyForkChess(chess) {
+  if (!isPlainObject(chess)) return chess;
+  const anchors = forkDiyAnchors(chess);
+  if (!anchors) return chess;
+  /** @type {Map<string, Array<[string, any]>>} */
+  const after = new Map();
+  for (const spec of FORK_DIY_SLOT_SPECS) {
+    const { anchor, template, golden } = anchors.get(spec.tier);
+    const baseId = forkDiySlotId(spec);
+    const goldenId = forkDiyGoldenId(spec);
+    const list = after.get(anchor) ?? [];
+    list.push([baseId, {
+      ...cloneJson(template), chessId: baseId, baseId, goldenId,
+      identifier: spec.identifier, shopSortId: spec.shopSortId, upgradeChessId: goldenId,
+    }]);
+    list.push([goldenId, {
+      ...cloneJson(golden), chessId: goldenId, baseId, goldenId,
+      identifier: spec.goldenIdentifier, shopSortId: spec.shopSortId,
+    }]);
+    after.set(anchor, list);
+  }
+  const out = {};
+  for (const [id, rec] of Object.entries(chess)) {
+    if (FORK_DIY_SLOT_ID_SET.has(id)) continue;
+    out[id] = rec;
+    const add = after.get(id);
+    if (add) for (const [nid, nrec] of add) out[nid] = nrec;
+  }
+  return out;
+}
+
+/**
+ * The fork's own `data/backups.json` layer (二.8): the extra 自选 slots of `diy.slots`, in the build's order (the build
+ * lists them by the natural sort of the base ids, so a tier's slots are consecutive). Each new entry copies its tier's
+ * official slot metadata (`shopLevel` — the 调度中心 level the slot enters the shop at — and `requirement`), and only its
+ * `goldenId` differs.
+ *
+ * Nothing else in `backups` needs a fork entry: a new slot reuses its tier's `status`, so the unit forms and the summon
+ * variants of that tier (`backups.units[].forms`, `backups.tokens[].variants`, keyed by `statusKey`) already cover it,
+ * and `diy.prototypes` / `locked` / `ownedPool` are keyed by tier, not by slot.
+ *
+ * Pure and idempotent, and it owns its slots exactly like applyForkChess.
+ * @param {Record<string, any>} backups data/backups.json
+ * @returns {Record<string, any>} a new object (or the input when the data it needs is absent)
+ */
+export function applyForkBackups(backups) {
+  if (!isPlainObject(backups)) return backups;
+  const diy = isPlainObject(backups.diy) ? backups.diy : null;
+  const slots = isPlainObject(diy?.slots) ? diy.slots : null;
+  if (!slots) return backups;
+  /** @type {Map<string, Array<[string, any]>>} */
+  const after = new Map();
+  for (const tier of FORK_DIY_TIERS) {
+    let anchor = null;
+    for (const [id, s] of Object.entries(slots)) {
+      if (FORK_DIY_SLOT_ID_SET.has(id) || !isPlainObject(s) || s.tier !== tier) continue;
+      anchor = id;
+    }
+    if (!anchor) continue;
+    after.set(anchor, FORK_DIY_SLOT_SPECS.filter((s) => s.tier === tier).map((s) => [forkDiySlotId(s), {
+      tier, goldenId: forkDiyGoldenId(s), shopLevel: slots[anchor].shopLevel, requirement: slots[anchor].requirement,
+    }]));
+  }
+  if (!after.size) return backups;
+  const out = {};
+  for (const [id, s] of Object.entries(slots)) {
+    if (FORK_DIY_SLOT_ID_SET.has(id)) continue;
+    out[id] = s;
+    const add = after.get(id);
+    if (add) for (const [nid, ns] of add) out[nid] = ns;
+  }
+  return { ...backups, diy: { ...diy, slots: out } };
 }

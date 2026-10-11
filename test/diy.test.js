@@ -24,13 +24,19 @@ const RESERVES5 = ['char_601_cguard', 'char_602_cdfend', 'char_603_csnipe', 'cha
 const COLLAB = ['char_456_ash', 'char_1029_yato2', 'char_4123_ela', 'char_4141_marcil', 'char_4182_oblvns', 'char_4217_makoto'];
 const SIEGE = 'char_112_siege';
 const T5 = 'chess_char_5_diy1_a', T5B = 'chess_char_5_diy2_a', T6 = 'chess_char_6_diy1_a', T6B = 'chess_char_6_diy2_a';
+// the fork's extra slots (二.8): 5 per tier, so three more per tier than the official season has
+const FORK5 = ['chess_char_5_diy3_a', 'chess_char_5_diy4_a', 'chess_char_5_diy5_a'];
+const FORK6 = ['chess_char_6_diy3_a', 'chess_char_6_diy4_a', 'chess_char_6_diy5_a'];
 
-test('slots: two per tier (5, 6), each with its elite twin', () => {
+test('slots: five per tier (5, 6), each with its elite twin', () => {
   assert.deepEqual(DIY_TIERS, [5, 6]);
-  assert.deepEqual(diySlotIds(DATA), [T5, T5B, T6, T6B]);
+  // 2 official + 3 fork per tier (tools/fork-overrides.mjs applyForkBackups)
+  assert.deepEqual(diySlotIds(DATA), [T5, T5B, ...FORK5, T6, T6B, ...FORK6]);
   assert.deepEqual(diySlot('chess_char_6_diy2_b', DATA) && { ...diySlot('chess_char_6_diy2_b', DATA), normal: undefined, golden: undefined },
     { baseId: T6B, goldenId: 'chess_char_6_diy2_b', tier: 6, shopLevel: 6, elite: true, normal: undefined, golden: undefined });
   assert.deepEqual([T5, T5B, T6, T6B].map((id) => diySlot(id, DATA).shopLevel), [5, 5, 6, 6], 'shopLevelDisplayDataDict: the 调度中心 level that lists the slot');
+  // a fork slot enters the shop at its tier's level, like the official slots of that tier (the applier copies it)
+  assert.deepEqual([...FORK5, ...FORK6].map((id) => diySlot(id, DATA).shopLevel), [5, 5, 5, 6, 6, 6]);
   assert.equal(diySlot('chess_char_5_01_a', DATA), null, 'not a slot');
   assert.equal(diyTokenOwner(SIEGE, chess.chess_char_6_diy1_b.status), 'char_112_siege@2/60/7/3');
 });

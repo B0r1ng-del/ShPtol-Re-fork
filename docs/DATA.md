@@ -637,10 +637,12 @@ preference; against the pure official algorithm: identical route lengths, never 
 The data of two official features: **补位** — a NORMAL chess whose operator the player does not own is fielded as its
 official stand-in (原型干员); played since 0.2.0: the player marks operators as not owned on the 干员持有 tab
 (`room.ownership { notOwned }`, DESIGN §25.3, docs/PLAYING.md §3), the match fields those chess with
-`standIn: true` — and **自选编队** — two tier-5 and two tier-6 DIY slots, each filled with a 6★ the player owns or a
-prototype. Built by `tools/build-data.mjs buildBackups`; `shared/standIn.js` composes it into chess-shaped records,
-`shared/diy.js` adds the 自选 rules on top. The sim fields both (docs/SIM.md §12). Played since 0.2.0: the player fills
-the four slots on the 自选编队 tab (`room.diy { picks }`, docs/PLAYING.md §3; shared/protocol.js checkDiyPicks keeps the
+`standIn: true` — and **自选编队** — five tier-5 and five tier-6 DIY slots, each filled with a 6★ the player owns or a
+prototype (the official season ships two per tier; the fork's extra six are added by `tools/fork-overrides.mjs`
+`applyForkChess` / `applyForkBackups`, docs/FORK.md 二.8). Built by `tools/build-data.mjs buildBackups`; `shared/standIn.js`
+composes it into chess-shaped records, `shared/diy.js` adds the 自选 rules on top. The sim fields both (docs/SIM.md §12).
+Played since 0.2.0: the player fills
+the slots on the 自选编队 tab (`room.diy { picks }`, docs/PLAYING.md §3; shared/protocol.js checkDiyPicks keeps the
 legal picks), the match takes the picks the seat had at its start (`PlayerState.diy`), and each slotted piece is sold in
 that player's shop only — its own stock (the tier's pool copies, 8 / 5 [ASSUMED]), from the 调度中心 level `shopLevel`,
 none when every bond of it is banned this match — and is the operator for every rule of that player (its data view:
@@ -648,7 +650,8 @@ server/match/player/diy.js, docs/META.md §3). The rules in the data (activity_t
 下半/PRTS盟约记录):
 
 - PRESET (74, 特许干员) always fields the real operator (`backup.charId` = itself); NORMAL (55) names one of 17 stand-ins —
-  the 4★ 预备干员 `char_600–607`, the 6★ `char_608–615` and 领主·Sharp `char_617` (the "其它分支"); DIY (4) has none.
+  the 4★ 预备干员 `char_600–607`, the 6★ `char_608–615` and 领主·Sharp `char_617` (the "其它分支"); DIY (10 — the official
+  4 plus the fork's 6, docs/FORK.md 二.8) has none.
 - A stand-in keeps the chess's bonds, 特质, tier, price, merge and status (the elite form uses the same backup at the
   elite row) and fights as `backup.charId` at that status with skill `backup.skillIndex` (fixed by the chess: the same
   character takes S2 on one chess and S3 on another), module `backup.uniEquipId` (null at tiers 3–4 and for every 4★, so

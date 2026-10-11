@@ -45,7 +45,7 @@ import { OwnershipPanel, useOwnershipRoster } from './ownership.js';
 import { DiyPanel, diyData } from './diy.js';
 import { LoadoutStats } from '../ui/loadoutStats.js';
 export { LoadoutStats, statsPreview } from '../ui/loadoutStats.js';
-import { diyCount, sanitizeDiyPicks, setPick, serializeDiy, parseDiyImport, DIY_IMPORT_MAX_BYTES } from '../ui/diyModel.js';
+import { diyCount, diySlotList, sanitizeDiyPicks, setPick, serializeDiy, parseDiyImport, DIY_IMPORT_MAX_BYTES } from '../ui/diyModel.js';
 import { t, tParts, N_ } from '../../../shared/i18n.js';
 import { copyText } from '../ui/clipboard.js';
 import { toast } from '../ui/toasts.js';
@@ -496,6 +496,7 @@ function LoadoutScreen({ st }) {
   const nNotOwned = notOwnedCount(st.notOwned, ownRoster);
   // 自选编队 (0.2.0 DIY): the stored picks, those the server would keep (the kit list of the last welcome)
   const nDiy = diyCount(st.diy);
+  const nDiySlots = ready ? diySlotList(diyData()).length : 0;
   const diyLegal = ready ? sanitizeDiyPicks(st.diy, diyData(), st.diyKitted || []) : {};
   const setDiySlot = (slotId, pick) => setDiyPicks(setPick(loadoutStore.get().diy, slotId, pick));
   const clearDiy = async () => {
@@ -661,7 +662,7 @@ function LoadoutScreen({ st }) {
       </div>
       ${tab === 'diy' ? html`<div class="lo-top__right">
         ${syncText ? html`<span class=${cx('lo-sync', syncCls)} role="status" data-testid="diy-sync">${t(syncText)}</span>` : null}
-        <span class="lo-count">${t('已选')} <b class="num">${nDiy}</b><span class="num t-dim">/4</span></span>
+        <span class="lo-count">${t('已选')} <b class="num">${nDiy}</b><span class="num t-dim">/${nDiySlots}</span></span>
         <${Button} variant="ghost" size="sm" data-testid="diy-export" disabled=${!nDiy} onClick=${openExport} title=${t('导出自选编队（可复制或下载）')}>${t('导出')}<//>
         <${Button} variant="ghost" size="sm" data-testid="diy-import" disabled=${!ready} onClick=${openImport} title=${t('导入自选编队（粘贴或选择文件）')}>${t('导入')}<//>
         <${Button} variant="secondary" size="sm" icon="refresh" data-testid="diy-reset" disabled=${!nDiy} onClick=${clearDiy}>${t('全部清空')}<//>

@@ -1,23 +1,25 @@
 // test/fork-data.test.js — the fork's data layer (tools/fork-overrides.mjs) against the committed data files.
 //
-// `data/config.json` and `data/choices.json` are build products of tools/build-data.mjs, which now calls
-// applyForkOverrides() / applyForkChoices() before writing. `node tools/fork-data.mjs` applies the same functions to the
-// committed files in place (the small reviewable diff).
+// `data/config.json`, `data/choices.json`, `data/chess.json` and `data/backups.json` are build products of
+// tools/build-data.mjs, which now calls the appliers before writing. `node tools/fork-data.mjs` applies the same
+// functions to the committed files in place (the small reviewable diff).
 //
-// The first test is the drift guard and the reason the override is written as a pure, idempotent function:
-// applyForkOverrides(committed config) must return the committed config EXACTLY (same for the choices schedule). It
-// fails when
+// The first test of each block is the drift guard and the reason the override is written as a pure, idempotent function:
+// applyFork*(committed file) must return the committed file EXACTLY. It fails when
 //   * a data file is regenerated without the override (or hand-edited),
 //   * the fork record in it no longer matches what the override builds, or
 //   * someone edits the data file instead of tools/fork-overrides.mjs.
-// The rest pin down what the fork's mode actually is, so a later change to it is a deliberate one.
+// The rest pin down what the fork actually is, so a later change to it is a deliberate one.
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { applyForkOverrides, forkUltimateMode, applyForkChoices, FORK_MODE_ID, FORK_BASE_MODE_ID } from '../tools/fork-overrides.mjs';
+import {
+  applyForkOverrides, forkUltimateMode, applyForkChoices, applyForkChess, applyForkBackups,
+  FORK_MODE_ID, FORK_BASE_MODE_ID, FORK_DIY_SLOT_IDS, forkDiySlotId, forkDiyGoldenId,
+} from '../tools/fork-overrides.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const readJson = (name) => JSON.parse(readFileSync(join(ROOT, 'data', `${name}.json`), 'utf8'));
@@ -156,5 +158,119 @@ describe('fork data layer (tools/fork-overrides.mjs ⇄ data/)', () => {
     assert.deepEqual(applyForkChoices({}), {});
     const noBase = { schedule: { mode_multi_hard: { rounds: {} } } };
     assert.equal(applyForkChoices(noBase), noBase, 'without the base schedule there is nothing to copy');
+  });
+});
+
+describe('fork 自选编队 slots (二.8: 5 × tier 5 + 5 × tier 6)', () => {
+  const chess = readJson('chess');
+  const backups = readJson('backups');
+
+  test('data/chess.json already carries the extra 自选 slots (idempotence drift guard)', () => {
+    assert.deepEqual(applyForkChess(chess), chess, 'data/chess.json is stale — run: node tools/fork-data.mjs');
+  });
+
+  test('data/backups.json already carries the extra 自选 slots (idempotence drift guard)', () => {
+    assert.deepEqual(applyForkBackups(backups), backups, 'data/backups.json is stale — run: node tools/fork-data.mjs');
+  });
+
+  test('both appliers are pure and idempotent', () => {
+    for (const [apply, input] of [[applyForkChess, chess], [applyForkBackups, backups]]) {
+      const before = JSON.stringify(input);
+      const out = apply(input);
+      assert.equal(JSON.stringify(input), before, 'the input is untouched');
+      assert.notEqual(out, input, 'a new object is returned');
+      assert.deepEqual(apply(out), out, 'idempotent');
+      assert.notEqual(apply(out), out, 'idempotent, and still a fresh object');
+    }
+  });
+
+  test('a partial data set is a no-op, never a throw', () => {
+    for (const bad of [null, undefined, 42, 'x', {}, { chess_char_5_diy1_a: {} }]) {
+      assert.doesNotThrow(() => applyForkChess(bad));
+      assert.doesNotThrow(() => applyForkBackups(bad));
+    }
+    assert.equal(applyForkChess(null), null);
+    assert.equal(applyForkBackups(null), null);
+    // no official slot pair of a tier → nothing to copy from
+    const noOfficial = { chess_char_5_diy3_a: { isDiy: true, tier: 5, isGolden: false } };
+    assert.equal(applyForkChess(noOfficial), noOfficial);
+    assert.deepEqual(applyForkBackups({ diy: {} }), { diy: {} });
+    assert.deepEqual(applyForkBackups({}), {});
+  });
+
+  test('the fork owns exactly 6 extra slots — 5 per tier, official 2 + fork 3', () => {
+    assert.deepEqual(FORK_DIY_SLOT_IDS, [
+      'chess_char_5_diy3_a', 'chess_char_5_diy4_a', 'chess_char_5_diy5_a',
+      'chess_char_6_diy3_a', 'chess_char_6_diy4_a', 'chess_char_6_diy5_a',
+    ]);
+    const slots = backups.diy.slots;
+    assert.deepEqual(Object.keys(slots), [
+      'chess_char_5_diy1_a', 'chess_char_5_diy2_a', 'chess_char_5_diy3_a', 'chess_char_5_diy4_a', 'chess_char_5_diy5_a',
+      'chess_char_6_diy1_a', 'chess_char_6_diy2_a', 'chess_char_6_diy3_a', 'chess_char_6_diy4_a', 'chess_char_6_diy5_a',
+    ], '10 slots, in build order (tier, then the id\'s natural sort)');
+    for (const tier of [5, 6]) {
+      assert.equal(Object.values(slots).filter((s) => s.tier === tier).length, 5, `tier ${tier}: 5 slots`);
+    }
+  });
+
+  test('every extra slot is its tier\'s official slot pair with its own ids — same status, price, merge, requirement', () => {
+    for (const id of FORK_DIY_SLOT_IDS) {
+      const s = backups.diy.slots[id];
+      const rec = chess[id];
+      const golden = chess[s.goldenId];
+      const tier = rec.tier;
+      const official = chess[`chess_char_${tier}_diy1_a`];
+      const officialGolden = chess[`chess_char_${tier}_diy1_b`];
+      assert.ok(rec && golden, `${id}: the record pair exists`);
+      assert.equal(s.goldenId, id.replace(/_a$/, '_b'));
+      assert.equal(s.shopLevel, tier, `${id}: enters the shop at its tier's 调度中心 level`);
+      assert.equal(s.requirement, 'TIER_6');
+      // a 自选 record: the operator comes from the pick, so the slot is the tier's slot
+      assert.deepEqual(
+        [rec.isDiy, rec.chessType, rec.tier, rec.price, rec.sellPrice, rec.diyRequirement, rec.visible, rec.charId],
+        [true, 'DIY', tier, 4, 1, 'TIER_6', false, null], id,
+      );
+      assert.deepEqual([rec.status, golden.status], [official.status, officialGolden.status], `${id}: the tier's statuses`);
+      assert.deepEqual([rec.bonds, rec.garrisonIds], [[], []], id);
+      assert.deepEqual([rec.upgradeNum, golden.upgradeNum, golden.isGolden], [3, 0, true], id);
+      assert.equal(rec.baseId, id);
+      assert.equal(golden.baseId, id);
+      assert.equal(rec.goldenId, s.goldenId);
+      assert.equal(rec.upgradeChessId, s.goldenId);
+      // identifiers continue the official run and stay unique; shopSortId continues the tier's own 自选 sequence
+      assert.ok(Number.isInteger(rec.identifier) && Number.isInteger(golden.identifier), id);
+      assert.notEqual(rec.identifier, golden.identifier, id);
+    }
+    const ids = Object.values(chess).map((c) => c.identifier).filter(Number.isInteger);
+    assert.equal(new Set(ids).size, ids.length, 'every identifier is unique');
+  });
+
+  test('the extra slots land in build order: after their tier\'s official slots, keys still naturally sorted', () => {
+    const naturalCmp = (a, b) => String(a).localeCompare(String(b), 'en', { numeric: true });
+    const keys = Object.keys(chess);
+    assert.deepEqual(keys, [...keys].sort(naturalCmp), 'data/chess.json is written in natural sort order');
+    const slotKeys = Object.keys(backups.diy.slots);
+    assert.deepEqual(slotKeys, [...slotKeys].sort(naturalCmp), 'diy.slots too');
+    // each extra pair sits directly after the previous slot of its tier, its elite twin right behind it
+    for (const id of FORK_DIY_SLOT_IDS) {
+      const at = keys.indexOf(id);
+      assert.equal(keys[at + 1], chess[id].goldenId, `${id}: its elite twin follows`);
+      assert.ok(at > keys.indexOf(`chess_char_${chess[id].tier}_diy1_a`), `${id}: after the official slots`);
+    }
+    // and the fork ids are exactly the ones the applier builds
+    for (const id of FORK_DIY_SLOT_IDS) {
+      const n = Number(/_diy(\d)_a$/.exec(id)[1]);
+      assert.equal(forkDiySlotId({ tier: chess[id].tier, n }), id);
+      assert.equal(forkDiyGoldenId({ tier: chess[id].tier, n }), chess[id].goldenId);
+    }
+  });
+
+  test('nothing else in backups.json needed a fork entry: a new slot reuses its tier\'s forms', () => {
+    // the unit forms / summon variants are keyed by statusKey, and prototypes / locked / ownedPool by tier
+    assert.deepEqual(applyForkBackups(backups).diy.prototypes, backups.diy.prototypes);
+    assert.deepEqual(applyForkBackups(backups).diy.locked, backups.diy.locked);
+    assert.deepEqual(applyForkBackups(backups).diy.ownedPool, backups.diy.ownedPool);
+    assert.deepEqual(Object.keys(applyForkBackups(backups)), Object.keys(backups), 'no new top-level key');
+    assert.deepEqual(Object.keys(applyForkBackups(backups).diy), Object.keys(backups.diy), 'no new diy key');
   });
 });

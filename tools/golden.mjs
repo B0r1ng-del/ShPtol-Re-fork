@@ -897,6 +897,14 @@ export function runMatch(cfg) {
 // family: diy (自选 pieces: a DIY slot fielded with its `diy` pick — simdata getDiy, shared/diy.js)
 
 const DIY_SLOTS = data.backups?.diy?.slots ?? {};
+/**
+ * The 自选 slots the corpus rotates a configuration onto: the OFFICIAL season's two per tier (`…_diy1_a` / `…_diy2_a`).
+ * The fork adds three more per tier (tools/fork-overrides.mjs 二.8, 5 + 5), but every slot of a tier carries the same
+ * `status`, so which of them a piece is fielded as cannot change a battle — rotating over the fork's slots too would
+ * only rewrite all 140 diy digests with a different slot id and carry no information. The fork's slots are covered by
+ * `test/fork-data.test.js` (the drift guard) and `test/diy.test.js` (a full 10-slot roster).
+ */
+const DIY_CORPUS_SLOTS = (tier) => Object.keys(DIY_SLOTS).filter((id) => DIY_SLOTS[id].tier === tier && /_diy[12]_a$/.test(id));
 /** The slot record of a tier's first slot, normal or elite (the forms every slot of the tier shares). */
 const diySlotRec = (tier, elite) => {
   const base = Object.keys(DIY_SLOTS).find((id) => DIY_SLOTS[id].tier === tier);
@@ -986,7 +994,7 @@ export function diyScenarios() {
     const gd = gdFor(modeId);
     const turn = {};
     const wanted = chunk.map((c) => {
-      const ids = Object.keys(DIY_SLOTS).filter((id) => DIY_SLOTS[id].tier === c.tier);
+      const ids = DIY_CORPUS_SLOTS(c.tier);
       turn[c.tier] = (turn[c.tier] ?? -1) + 1;
       const base = ids[turn[c.tier] % ids.length];
       const chessId = c.elite ? DIY_SLOTS[base].goldenId : base;

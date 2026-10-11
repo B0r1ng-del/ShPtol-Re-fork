@@ -2,6 +2,12 @@
 // digest only (test/golden.test.js recomputes it). Its human seat (AI 托管) slots 推进之王 and prototypes; its shop draws
 // its 自选 pieces (and only from the slots' 调度中心 levels), its AI fields 推进之王 — the operator kit — in battle, the
 // stock ends where the held copies leave it, and the match ends without errors.
+//
+// Its fixture (tools/golden.mjs MATCH_DIY) fills the OFFICIAL four slots. The fork adds three more per tier (二.8, 5 + 5);
+// the corpus deliberately does not rotate onto them — every slot of a tier shares its `status`, so which one a piece is
+// fielded as cannot change a battle, and rotating over the fork's slots too would only rewrite the digests. The fork's
+// ten slots are covered by test/fork-data.test.js (the data-layer drift guard) and test/fork-diy-slots.test.js (a real
+// match with all ten filled).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -9,12 +15,14 @@ import { readFileSync } from 'node:fs';
 const read = (p) => JSON.parse(readFileSync(new URL(p, import.meta.url), 'utf8'));
 const MATCHES = read('./golden/matches.json');
 const BACKUPS = read('../data/backups.json');
+/** The official season's two slots per tier (`…_diy1_a` / `…_diy2_a`) — what the fixture fills. */
+const OFFICIAL_SLOTS = Object.keys(BACKUPS.diy.slots).filter((id) => /_diy[12]_a$/.test(id)).sort();
 
 test('matches: the 自选 match\'s human seat draws its 自选 pieces in its shop and fields 推进之王 in battle', () => {
   const [id, dg] = Object.entries(MATCHES.scenarios).find(([k]) => /-coverage-diy$/.test(k)) || [];
   assert.ok(dg, 'scenario present');
   assert.deepEqual(dg.errors, { engine: 0, logged: 0, sim: 0, dispatcher: 0 }, id);
-  assert.deepEqual(Object.keys(dg.diy.picks).sort(), Object.keys(BACKUPS.diy.slots).sort(), 'all four slots filled');
+  assert.deepEqual(Object.keys(dg.diy.picks).sort(), OFFICIAL_SLOTS, 'the fixture fills the official four slots');
   assert.equal(dg.diy.picks.chess_char_5_diy1_a.charId, 'char_112_siege');
   const draws = dg.diy.rounds.flatMap(([, d]) => (d ? d.split(' ') : []));
   assert.ok(draws.length >= 2, `shop draws: ${draws.join(', ')}`);

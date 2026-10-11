@@ -1,6 +1,6 @@
 // 0.2.0 自选编队 — client side (research 0.2.0 §2; the owner's decisions of 2026-10-05): the 自选编队 tab's model (storage,
 // the slots, the picker's operators with the kit list, skill / module choices without 集成战略 modules, export / import)
-// and its server sync (room.diy; welcome.diyKitted), the tab's components (four slots, the picker, 确认), and the match
+// and its server sync (room.diy; welcome.diyKitted), the tab's components (ten slots, the picker, 确认), and the match
 // UI of a 自选 piece — the shop / reward card and the detail card show the operator (name, art, class, derived bonds,
 // the pick's skill and module) with a 「自选」 badge, the own pieces get a tag, placement reads the operator's position, and
 // the bond popup lists the 自选 member (own and a teammate's).
@@ -79,8 +79,22 @@ describe('自选编队 model (ui/diyModel.js)', () => {
     assert.deepEqual(M.setPick({}, T6A, { charId: SHARP }), { [T6A]: { charId: SHARP } });
   });
 
-  test('the four slots by tier, with the 调度中心 level that sells them', () => {
-    assert.deepEqual(M.diySlotList(D).map((s) => [s.slotId, s.tier, s.shopLevel]), [[T5A, 5, 5], [T5B, 5, 5], [T6A, 6, 6], [T6B, 6, 6]]);
+  test('the ten slots by tier, with the 调度中心 level that sells them', () => {
+    // 5 per tier: 2 official + 3 fork (二.8), the fork ones entering the shop at their tier's level
+    assert.deepEqual(M.diySlotList(D).map((s) => [s.slotId, s.tier, s.shopLevel]), [
+      [T5A, 5, 5], [T5B, 5, 5], ['chess_char_5_diy3_a', 5, 5], ['chess_char_5_diy4_a', 5, 5], ['chess_char_5_diy5_a', 5, 5],
+      [T6A, 6, 6], [T6B, 6, 6], ['chess_char_6_diy3_a', 6, 6], ['chess_char_6_diy4_a', 6, 6], ['chess_char_6_diy5_a', 6, 6],
+    ]);
+  });
+
+  test('the 自选 tab\'s top-bar denominator follows the data, not a literal (二.8)', () => {
+    // the count of slots is data (diy.slots): the tab shows 已选 N / <slot count>, so raising the count must raise the
+    // denominator too. Regression guard: it was a hardcoded /4 while the tab already rendered ten.
+    const src = readFileSync(path.join(ROOT, 'public/js/screens/loadout.js'), 'utf8');
+    assert.ok(!/num t-dim">\/4</.test(src), 'the 自选 count must not hardcode a denominator');
+    assert.match(src, /\/\$\{nDiySlots\}/, 'it renders the slot count from the data');
+    assert.match(src, /diySlotList\(diyData\(\)\)\.length/, 'which comes from diySlotList');
+    assert.equal(M.diySlotList(D).length, 10);
   });
 
   test('the picker lists only kitted operators (prototypes first), marks one another slot holds', () => {
@@ -241,16 +255,21 @@ describe('自选编队 tab (screens/diy.js)', () => {
     }
   }
 
-  test('four slots by tier: an empty slot to fill, a filled one shows the operator, its tag, skill and module', () => {
+  test('ten slots by tier: an empty slot to fill, a filled one shows the operator, its tag, skill and module', () => {
     const tree = expand(DiyPanelView({ m: data.get('assets'), picks: { [T5A]: SIEGE_PICK, [T6A]: { charId: SHARP } }, legal: { [T5A]: SIEGE_PICK, [T6A]: { charId: SHARP } }, kitted: KIT, onSet() {}, picking: null, onPicking() {} }));
     const slots = [...walk(tree)].filter((v) => hasClass(v, 'diy-slot'));
-    assert.deepEqual(slots.map((v) => v.props['data-slot']), [T5A, T5B, T6A, T6B]);
-    const siege = slots[0];
+    // 5 per tier: 2 official + 3 fork (二.8)
+    assert.deepEqual(slots.map((v) => v.props['data-slot']), [
+      T5A, T5B, 'chess_char_5_diy3_a', 'chess_char_5_diy4_a', 'chess_char_5_diy5_a',
+      T6A, T6B, 'chess_char_6_diy3_a', 'chess_char_6_diy4_a', 'chess_char_6_diy5_a',
+    ]);
+    const bySlot = new Map(slots.map((v) => [v.props['data-slot'], v]));
+    const siege = bySlot.get(T5A);
     assert.equal(siege.props['data-char'], SIEGE);
     const txt = textOf(siege);
     assert.ok(txt.includes(DATA.backups.units[SIEGE].name) && txt.includes('已持有') && txt.includes('S3') && txt.includes('SOL-X'), txt);
-    assert.ok(textOf(slots[2]).includes('原型'));
-    assert.ok(hasClass(slots[1], 'is-empty') && textOf(slots[1]).includes('选择干员'));
+    assert.ok(textOf(bySlot.get(T6A)).includes('原型'));
+    assert.ok(hasClass(bySlot.get(T5B), 'is-empty') && textOf(bySlot.get(T5B)).includes('选择干员'));
   });
 
   test('the picker: the slot\'s operators; choosing one and its skill / module confirms the pick', () => {
