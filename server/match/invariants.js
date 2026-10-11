@@ -39,6 +39,8 @@ export function collectViolations(m, { limit = 25 } = {}) {
   const fail = (msg) => { if (out.length < limit) out.push(msg); };
   const gd = m.gd;
   const held = new Map();
+  /** 共享卡池 off: playerId → (baseId → copies that player holds), for the per-player pool check below. */
+  const heldPerPlayer = new Map();
   const uids = new Set();
   const banned = new Set(m.bannedChess || []);
   const note = (ps, p) => {
@@ -111,6 +113,11 @@ export function collectViolations(m, { limit = 25 } = {}) {
         const base = gd.baseIdOf(p.id);
         const tally = rec.isDiy ? diyHeld : held;
         tally.set(base, (tally.get(base) || 0) + (p.poolCopies || 0));
+        if (!rec.isDiy) {
+          let mine = heldPerPlayer.get(id);
+          if (!mine) heldPerPlayer.set(id, (mine = new Map()));
+          mine.set(base, (mine.get(base) || 0) + (p.poolCopies || 0));
+        }
       } else if (p.kind === 'item') {
         if (!gd.item(p.id)) fail(`${id}: unknown item ${p.id}`);
         countItem(p);
@@ -194,11 +201,17 @@ export function collectViolations(m, { limit = 25 } = {}) {
     for (const [base, n] of diyHeld) if (!(ps.diyStock && ps.diyStock.has(base)) && n !== 0) fail(`${id}: 自选 slot ${base} without stock holds ${n} copies`);
   }
 
-  // shared pool accounting
-  for (const [base, e] of m.pool.entries) {
-    if (!(Number.isInteger(e.left) && e.left <= e.cap)) fail(`pool ${base}: balance ${e.left} cap ${e.cap}`);
-    const h = held.get(base) || 0;
-    if (e.left + h !== e.cap) fail(`pool ${base}: left ${e.left} + held ${h} != cap ${e.cap}`);
+  // 干员 pool accounting. 共享卡池 on (the official behaviour): one pool for the team, every copy of every player counted
+  // against it. Off (房主配置): each player's own pool counts that player's copies alone (MatchInfra.poolFor).
+  const pools = m.sharedPool === false && m.privatePools instanceof Map && m.privatePools.size
+    ? [...m.privatePools].map(([pid, pool]) => [pool, (base) => heldPerPlayer.get(pid)?.get(base) || 0])
+    : [[m.pool, (base) => held.get(base) || 0]];
+  for (const [pool, heldOf] of pools) {
+    for (const [base, e] of pool.entries) {
+      if (!(Number.isInteger(e.left) && e.left <= e.cap)) fail(`pool ${base}: balance ${e.left} cap ${e.cap}`);
+      const h = heldOf(base);
+      if (e.left + h !== e.cap) fail(`pool ${base}: left ${e.left} + held ${h} != cap ${e.cap}`);
+    }
   }
   for (const [base, n] of held) if (!m.pool.has(base) && n !== 0) fail(`non-pool chess ${base} holds ${n} copies`);
 

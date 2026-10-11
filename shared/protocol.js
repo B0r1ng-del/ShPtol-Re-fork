@@ -1,7 +1,7 @@
 // Normative message catalogue (DESIGN §8). Used by server (validation) and client (building requests).
 // Every client→server message is `{ t, rid?, ...fields }`. Unknown `t` or invalid fields ⇒ ERR.BAD_MSG.
 
-import { DIFFICULTIES, NAME_MAX_LEN, ROOM_CODE_LEN, ROOM_MODES, ULTIMATE_SEATS, EMOTES, GEO } from './constants.js';
+import { DIFFICULTIES, NAME_MAX_LEN, ROOM_CODE_LEN, ROOM_MODES, ULTIMATE_SEATS, HOST_CONFIG_KEYS, EMOTES, GEO } from './constants.js';
 import { isDroppableChess } from './standIn.js';
 import { diySlotIds, validateDiyPicks } from './diy.js';
 import { cultivatedStats, isPotential, isCultivate, POTENTIAL_DEFAULT, CULTIVATE_DEFAULT } from './potential.js';
@@ -389,6 +389,9 @@ export const C2S = {
   // the co-op room option 「AI 队友最后选择」 (GitHub #338; host, before the match): the strategy and 机变 drafts order every
   // human seat before every AI seat (server/match/match/phases.js humansFirst); room.state.aiPicksLast
   'room.setAiPicksLast': { on: isBool },
+  // 房主配置 (host, before the match): one HOST_CONFIG_KEYS entry at a time. The room keeps the value across its matches
+  // and the next match reads it; an unknown key is BAD_MSG (the key list is normative in shared/constants.js)
+  'room.setHostConfig': { key: (v) => HOST_CONFIG_KEYS.includes(v), on: isBool },
   'room.addBot': {},
   // seat indexes are validated against the widest room (终极模拟, ULTIMATE_SEATS); the lobby refuses a seat its own room
   // does not have (server/lobby.js removeBot/kick read room.seats[seat])

@@ -59,7 +59,17 @@ export class MatchSpDraft {
     return s.picks[playerId] != null || (s.parallel && s.randomVotes.has(playerId));
   }
 
-  spCardAvailable(card) { return !!card && this.sp?.taken[card.idx] == null && (card.kind !== 'item' || this.itemPool.canGain(card.id)); }
+  /**
+   * Whether a card of the current draft is contended between the players: the 悬赏决策 draft while 共享悬赏 is on (the
+   * official rule 「全队共用一套悬赏决策牌，先选先得」 — the first pick consumes the card). A draft of any other family is
+   * always contended (the option names 悬赏 only), and 共享悬赏 off gives every player its own set of 悬赏 cards, so
+   * nothing is denied to anybody.
+   * [ASSUMED] No official source states what the option does to the 教鞭's own personal choice (offerBountyChoice,
+   * which is per-player by construction) — it is left alone; the option covers the 悬赏决策 draft the label names.
+   */
+  get spCardsShared() { return this.sharedBounty || this.sp?.family !== 'bounty'; }
+
+  spCardAvailable(card) { return !!card && (this.sp?.taken[card.idx] == null || !this.spCardsShared) && (card.kind !== 'item' || this.itemPool.canGain(card.id)); }
 
   startSpTurn() {
     const s = this.sp;
@@ -68,7 +78,7 @@ export class MatchSpDraft {
     if (s.parallel) {
       // 二.4: no clock — everyone decides at once and the draft ends when every alive player has picked or voted
       this.setDeadline(0);
-      const available = s.cards.map((c) => c.idx).filter((i) => s.taken[i] == null);
+      const available = s.cards.filter((c) => this.spCardAvailable(c)).map((c) => c.idx);
       const pending = s.order.map((pid) => this.players.get(pid)).filter((ps) => ps && ps.alive && !this.spDone(ps.playerId));
       if (!pending.length || !available.length) { this.later(0, () => this.finishSpDraft()); return; }
       for (const ps of pending) if (ps.botControlled) this.scheduleSpBot(ps.playerId);
@@ -318,7 +328,7 @@ export class MatchSpDraft {
    * bonds (the player's data view: a slotted slot's operator) — 0.2.0 WE2.
    * @returns {{ kind: 'item'|'chess', id: string, golden?: boolean } | null}
    */
-  rollPool(poolId, { shopLevel = 6, extra = null, chessOf = null } = {}) {
+  rollPool(poolId, { shopLevel = 6, extra = null, chessOf = null, pool = null } = {}) {
     const pools = this.gd.choices.pools && typeof this.gd.choices.pools === 'object' ? this.gd.choices.pools : {};
     const p = typeof poolId === 'string' && Object.hasOwn(pools, poolId) ? pools[poolId] : null;
     if (!p || typeof p !== 'object') return null;
@@ -329,10 +339,12 @@ export class MatchSpDraft {
     }
     if (p.kind !== 'chess') return null;
     const rng = this.rngMeta;
+    // 共享卡池 off: the caller's own pool (a per-player 机变 / 特质 draw must not read the team's stock)
+    const stock = pool || this.pool;
     const free = (id) => {
       if (typeof id !== 'string' || !this.gd.chess(id)) return false;
       const base = this.gd.baseIdOf(id);
-      return !this.pool.has(base) || this.pool.left(base) > 0;
+      return !stock.has(base) || stock.left(base) > 0;
     };
     let id = null;
     if (Array.isArray(p.weighted) && p.weighted.length) {
@@ -346,7 +358,7 @@ export class MatchSpDraft {
       const minTier = Number.isInteger(p.minTier) ? p.minTier : 1;
       const bond = typeof p.bond === 'string' ? p.bond : null;
       const recOf = typeof chessOf === 'function' ? chessOf : (cid) => this.gd.chess(cid);
-      id = this.pool.roll(rng, {
+      id = stock.roll(rng, {
         tier: Number.isInteger(p.tier) ? p.tier : null,
         maxTier,
         filter: (cid, e) => e.tier >= minTier && (!bond || (Array.isArray(recOf(cid)?.bonds) && recOf(cid).bonds.includes(bond))),

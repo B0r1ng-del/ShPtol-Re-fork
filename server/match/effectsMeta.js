@@ -583,7 +583,10 @@ export function makeCtx(m, ps, source, hook, ev = null) {
         return typeof opts.filter === 'function' ? !!opts.filter(id) : true;
       };
       const extra = typeof ps.diyStockEntries === 'function' ? ps.diyStockEntries() : null;
-      return m.pool.roll(m.rngMeta, { maxTier: Number.isInteger(opts.maxTier) ? opts.maxTier : 6, tier: Number.isInteger(opts.tier) ? opts.tier : null, filter: f, extra, ignoreCounts: opts.ignoreCounts === true });
+      // 共享卡池 off: this player's own pool (MatchInfra.poolFor via PlayerState.stock) — a per-player roll must never
+      // read the team's stock
+      const pool = typeof ps.stock === 'function' ? ps.stock() : m.pool;
+      return pool.roll(m.rngMeta, { maxTier: Number.isInteger(opts.maxTier) ? opts.maxTier : 6, tier: Number.isInteger(opts.tier) ? opts.tier : null, filter: f, extra, ignoreCounts: opts.ignoreCounts === true });
     },
     rollItem: (opts = {}) => m.rollItemId(opts),
     /**
@@ -594,6 +597,8 @@ export function makeCtx(m, ps, source, hook, ev = null) {
       shopLevel: ps.shop.level,
       // a shared-pool draw also takes the player's 自选 stock, its bonds read through the player's view (rollChess)
       extra: typeof ps.diyStockEntries === 'function' ? ps.diyStockEntries() : null, chessOf: (id) => gd.chess(id),
+      // 共享卡池 off: the player's own pool, never the team's (PlayerState.stock)
+      pool: typeof ps.stock === 'function' ? ps.stock() : m.pool,
       ...opts,
     }),
     /**

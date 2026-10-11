@@ -99,7 +99,7 @@
 //     a player seat (the seat is kept and given back on resume).
 
 import { randomBytes, randomInt } from 'node:crypto';
-import { ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, roomSeatCap, ULTIMATE_DIFFICULTY, modeIdFor } from '../shared/constants.js';
+import { ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, HOST_CONFIG_KEYS, HOST_CONFIG_DEFAULTS, roomSeatCap, ULTIMATE_DIFFICULTY, modeIdFor } from '../shared/constants.js';
 import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks } from '../shared/protocol.js';
 import { encode, isDroppable, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
@@ -179,6 +179,14 @@ export class Room {
      * put every human seat before every AI seat (Match opts.aiPicksLast). Kept across the room's matches.
      */
     this.aiPicksLast = false;
+    /**
+     * 房主配置 — the room options the host sets in the 准备房间 (room.setHostConfig, room.state.hostConfig): one boolean
+     * per HOST_CONFIG_KEYS entry, the official behaviour of each by default (HOST_CONFIG_DEFAULTS). Kept across the
+     * room's matches; the match reads them when it starts. `aiPicksLast` above mirrors hostConfig.aiPicksLast, because
+     * room.setAiPicksLast (GitHub #338) predates this panel and stays the message that field's clients send.
+     * @type {Record<string, boolean>}
+     */
+    this.hostConfig = { ...HOST_CONFIG_DEFAULTS };
     /** @type {string | null} */
     this.hostId = null;
     /** @type {(Seat | null)[]} */
@@ -229,6 +237,9 @@ export class Room {
       mode: this.mode,
       difficulty: this.difficulty,
       aiPicksLast: this.aiPicksLast,
+      // 房主配置: the four room options (shared/constants.js HOST_CONFIG_KEYS) — the panel shows the same values to
+      // everybody, only the host may change them (room.setHostConfig)
+      hostConfig: { ...this.hostConfig },
       inMatch: !!this.match,
       seats: this.seats.map((s) => (s
         ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left }
@@ -339,6 +350,7 @@ export class Lobby {
       case 'room.ready': return this.ready(session, msg);
       case 'room.setDifficulty': return this.setDifficulty(session, msg);
       case 'room.setAiPicksLast': return this.setAiPicksLast(session, msg);
+      case 'room.setHostConfig': return this.setHostConfig(session, msg);
       case 'room.addBot': return this.addBot(session);
       case 'room.removeBot': return this.removeBot(session, msg);
       case 'room.kick': return this.kick(session, msg);
@@ -537,12 +549,31 @@ export class Lobby {
   setAiPicksLast(session, { on }) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
+    // GitHub #338's own message stays valid for the field's clients: it is the same option the 房主配置 panel sets
+    return this.setHostConfig(session, { key: 'aiPicksLast', on }, { allowSolo: true });
+  }
+
+  /**
+   * 房主配置 (room.setHostConfig): one HOST_CONFIG_KEYS entry, host-only and before the match. The value is kept on the
+   * room across its matches, so the next match reads it; like a difficulty change it un-readies the other humans (a
+   * change the others should see before they commit). A room with a single seat has nobody to share anything with, so
+   * the two 共享 options and 多同盟模式 are refused there — the panel hides itself in that case.
+   * @param {{ allowSolo?: boolean }} [opts] internal: setAiPicksLast's own gate (solo = "no AI teammates")
+   */
+  setHostConfig(session, { key, on }, { allowSolo = false } = {}) {
+    const room = this.roomOf(session);
+    if (!room) return fail(ERR.NOT_IN_ROOM);
     if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
     if (room.match) return fail(ERR.ROOM_STARTED);
-    if (room.mode === 'solo') return fail(ERR.BAD_TARGET, 'solo rooms have no AI teammates');
+    if (!HOST_CONFIG_KEYS.includes(key)) return fail(ERR.BAD_MSG, 'unknown room option'); // i18n-ignore (developer diagnostic)
+    if (room.mode === 'solo') {
+      return allowSolo ? fail(ERR.BAD_TARGET, 'solo rooms have no AI teammates') : fail(ERR.BAD_TARGET, 'solo rooms have nothing to share'); // i18n-ignore (developer diagnostics)
+    }
     this.dropReplay(room, session.playerId);
-    if (room.aiPicksLast !== on) {
-      room.aiPicksLast = on;
+    if (room.hostConfig[key] !== on || (key === 'aiPicksLast' && room.aiPicksLast !== on)) {
+      room.hostConfig[key] = on;
+      // keep the pre-existing field in step: room.setAiPicksLast clients and room.state.aiPicksLast read it
+      if (key === 'aiPicksLast') room.aiPicksLast = on;
       for (const s of room.seats) if (s && !s.isBot && s.playerId !== room.hostId) s.ready = false;
       this.broadcastState(room);
     }
@@ -742,6 +773,12 @@ export class Lobby {
         modeId: modeIdFor(room.mode, room.difficulty),
         // 「AI 队友最后选择」 (GitHub #338): fixed for the match
         aiPicksLast: room.mode !== 'solo' && room.aiPicksLast === true,
+        // 房主配置 (room.setHostConfig): the shared/多同盟 options the match reads. The two 共享 ones default ON (the
+        // official behaviour) and 多同盟模式 OFF. A solo room cannot change them (setHostConfig refuses), so it always
+        // passes the official values — the same ones a caller that passes nothing gets.
+        sharedPool: room.hostConfig.sharedPool === true,
+        sharedBounty: room.hostConfig.sharedBounty === true,
+        multiAlliance: room.hostConfig.multiAlliance === true,
         seats,
         // the spectator seats (header): watched like eliminated players, never players
         spectators: room.spectators.map((s) => s.playerId),

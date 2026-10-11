@@ -40,10 +40,12 @@ export function normalizeDraft(draft, players = []) {
 /**
  * Normalise m.public.sp ({family, cards, turn, picks, order?}).
  * Cards: string ids or objects; picks: {playerId: cardIdx} | [{playerId, idx}] | card.takenBy.
+ * `opts.shared` (房主配置 共享悬赏, m.public.hostConfig.sharedBounty): false = every player has its own set of 悬赏 cards,
+ * so a teammate's pick does not consume one. `opts.myId` is whose pick marks a card when it does not.
  * @param {any} sp
  * @param {any[]} [players]
  */
-export function normalizeSp(sp, players = []) {
+export function normalizeSp(sp, players = [], { shared = true, myId = null } = {}) {
   if (!isObj(sp)) return null;
   const ids = (Array.isArray(players) ? players : []).filter(isObj).map((p) => p.playerId);
   const order = Array.isArray(sp.order) && sp.order.length ? sp.order.filter((x) => typeof x === 'string') : ids;
@@ -56,7 +58,10 @@ export function normalizeSp(sp, players = []) {
   const src = sp.picks;
   const add = (pid, idx) => {
     if (typeof pid !== 'string' || !Number.isInteger(idx) || idx < 0 || idx >= cards.length) return;
-    takenBy.set(idx, pid);
+    // 共享悬赏 off (房主配置): a 悬赏决策 the host opened to every player — a teammate's pick does not consume the card,
+    // so only MY pick marks one as taken and a card a teammate took stays pickable (the server's spCardAvailable and
+    // 「每人各自独立一份，互不抢占」 say the same). pickOf still names everybody's pick.
+    if (shared !== false || pid === myId) takenBy.set(idx, pid);
     pickOf.set(pid, idx);
   };
   if (Array.isArray(src)) src.forEach((v, i) => { if (isObj(v)) add(v.playerId, v.idx); else if (Number.isInteger(v) && order[i]) add(order[i], v); });

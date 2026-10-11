@@ -200,9 +200,18 @@ export class PlayerDiy {
     return { stock, banned: Object.freeze(banned) };
   }
 
-  /** The copy accounting of base chess `baseId` for this player: its own stock for a slotted DIY slot, else the shared pool. */
+  /** The copy accounting of base chess `baseId` for this player: its own stock for a slotted DIY slot, else its 干员 pool. */
   poolOf(baseId) {
-    return this.diyStock && this.diyStock.has(baseId) ? this.diyStock : this.m.pool;
+    return this.diyStock && this.diyStock.has(baseId) ? this.diyStock : this.stock();
+  }
+
+  /**
+   * The 干员 pool this player draws from (MatchInfra.poolFor): the match's shared pool while 共享卡池 is on — the official
+   * behaviour — else this player's own. Every roll and every copy of a player goes through here, so the option needs no
+   * other reader.
+   */
+  stock() {
+    return this.m.poolFor(this.playerId);
   }
 
   /**

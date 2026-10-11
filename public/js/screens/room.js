@@ -25,7 +25,7 @@ import { LoadoutButton } from './loadout.js';
 import { net } from '../net.js';
 import { store, useStore, shallowEqual, emptyMatch, isSpectating } from '../store.js';
 import { difficultyInfo } from './lobby.js';
-import { t, tc } from '../../../shared/i18n.js';
+import { t, tc, N_ } from '../../../shared/i18n.js';
 
 /**
  * Seats padded to the room's capacity (ultimate 6, co-op 4, solo 1), each null or a seat record.
@@ -72,16 +72,50 @@ export function roomFacts(room, myId) {
 }
 
 /**
- * The co-op room option 「AI 队友最后选择」 (GitHub #338; room.setAiPicksLast, room.state.aiPicksLast): in the strategy and
- * 机变 drafts every human picks before the AI teammates. null in a solo room (no AI teammates); otherwise its state (off
- * when the server sends none) and whether this player may switch it — the host only, the others see it read-only.
+ * 房主配置 (room.setHostConfig, room.state.hostConfig): the room options the host sets in the 准备房间, in the order the
+ * panel shows them. `on` is the option's own default (HOST_CONFIG_DEFAULTS) when the server sends nothing.
+ * `key` is the room.setHostConfig key, `label` the switch's text and `tip` its one-line explanation — both msgids
+ * (N_: the table is built once, before a language can change; the panel calls t() where they are shown).
+ */
+export const HOST_CONFIG_ROWS = Object.freeze([
+  { key: 'sharedPool', label: N_('共享卡池'), tip: N_('全同盟共用一个干员池'), on: true },
+  { key: 'sharedBounty', label: N_('共享悬赏'), tip: N_('全队共用一套悬赏决策牌，先选先得'), on: true },
+  { key: 'aiPicksLast', label: N_('AI 队友最后选择'), tip: N_('策略与机变轮选时，所有博士先于 AI 队友选择'), on: false },
+  { key: 'multiAlliance', label: N_('多同盟模式'), tip: N_('官方规则：每个策略只能由一位博士选择'), on: false },
+]);
+
+/**
+ * The 房主配置 panel of a room: one row per HOST_CONFIG_ROWS entry, `{ key, label, tip, on, editable }`, or null when
+ * the panel does not apply. It shows in every 准备房间 with somebody to share with — the host edits it, everybody else
+ * sees the same values read-only (like the difficulty picker and 「AI 队友最后选择」). A single-seat room (独立模拟) has
+ * no teammates, so the panel is hidden there: the server refuses those options in a solo room anyway.
  * @param {any} room room.state payload
  * @param {any} myId
- * @returns {{ on: boolean, editable: boolean } | null}
+ * @returns {Array<{ key: string, label: string, tip: string, on: boolean, editable: boolean }> | null}
  */
-export function aiLastOption(room, myId) {
+export function hostConfigPanel(room, myId) {
   if (!room || room.mode === 'solo') return null;
-  return { on: room.aiPicksLast === true, editable: room.hostId != null && room.hostId === myId };
+  const cfg = room.hostConfig;
+  const editable = room.hostId != null && room.hostId === myId;
+  return HOST_CONFIG_ROWS.map((r) => ({
+    key: r.key,
+    label: r.label,
+    tip: r.tip,
+    // 「AI 队友最后选择」 predates the panel and keeps its own room.state field; the rest live in hostConfig
+    on: r.key === 'aiPicksLast' ? room.aiPicksLast === true : (cfg && typeof cfg[r.key] === 'boolean' ? cfg[r.key] : r.on),
+    editable,
+  }));
+}
+
+/**
+ * The 房主配置 row of one option key, or null in a solo room (no teammates: the server refuses those options there).
+ * 「AI 队友最后选择」 (GitHub #338) is one of the four and reads its own pre-existing room.state field.
+ * @param {any} room room.state payload @param {any} myId @param {string} key
+ * @returns {{ key: string, label: string, tip: string, on: boolean, editable: boolean } | null}
+ */
+export function hostConfigOption(room, myId, key) {
+  const rows = hostConfigPanel(room, myId);
+  return rows ? rows.find((r) => r.key === key) || null : null;
 }
 
 /** Invite link for a room code (current page URL with ?room=CODE). */
@@ -211,18 +245,30 @@ function DifficultyPicker({ room, isHost, busy, onPick }) {
   </div>`;
 }
 
-/** The 「AI 队友最后选择」 switch (co-op): the host toggles it, everybody else sees its state. */
-function AiLastToggle({ option, busy, onToggle }) {
-  if (!option) return null;
-  return html`<div class="ailast">
-    <${Tooltip} text=${t('策略与机变轮选时，所有博士先于 AI 队友选择')}>
-      <button type="button" role="switch" aria-checked=${option.on ? 'true' : 'false'}
-          class=${`dpick__opt ailast__opt${option.on ? ' is-active' : ''}`} disabled=${!option.editable || !!busy}
-          onClick=${() => option.editable && onToggle(!option.on)}>
-        <${Icon} name="check" class=${option.on ? 'is-on' : ''} />${t('AI 队友最后选择')}
-      </button>
-    <//>
-    ${option.editable ? null : html`<span class="t-dim">${t('由创建者设置')}</span>`}
+/**
+ * 房主配置 — the host's room options, one row per option: the switch and, under it, the option's own explanation (the
+ * mock's layout: 共享卡池 / 共享悬赏 / AI 队友最后选择 / 多同盟模式). The host toggles them; everybody else sees the same
+ * state read-only, with a dim 「由创建者设置」 in the head saying who owns them. Hidden in a single-seat room (null rows).
+ */
+function HostConfigPanel({ rows, busy, onToggle }) {
+  if (!rows || !rows.length) return null;
+  const editable = rows.some((r) => r.editable);
+  return html`<div class="hostcfg">
+    <div class="hostcfg__head">
+      <span class="hostcfg__title">${t('房主配置')}<${MicroLabel}>HOST CONFIG<//></span>
+      ${editable ? null : html`<span class="t-dim">${t('由创建者设置')}</span>`}
+    </div>
+    <div class="hostcfg__rows">
+      ${rows.map((r) => html`<div class="hostcfg__row" key=${r.key}>
+        <button type="button" role="switch" aria-checked=${r.on ? 'true' : 'false'}
+            data-testid=${`hostcfg-${r.key}`}
+            class=${`dpick__opt hostcfg__opt${r.on ? ' is-active' : ''}`} disabled=${!r.editable || !!busy}
+            onClick=${() => r.editable && onToggle(r.key, !r.on)}>
+          <${Icon} name="check" class=${r.on ? 'is-on' : ''} />${t(r.label)}
+        </button>
+        <span class="hostcfg__desc">${t(r.tip)}</span>
+      </div>`)}
+    </div>
   </div>`;
 }
 
@@ -266,7 +312,10 @@ export function RoomScreen() {
     if (ok) run(`kick${seat}`, () => net.request('room.kick', { seat, playerId }));
   };
   const setDifficulty = (difficulty) => run('diff', () => net.request('room.setDifficulty', { difficulty }));
-  const setAiLast = (on) => run('ailast', () => net.request('room.setAiPicksLast', { on }));
+  // 房主配置 (room.setHostConfig): one option at a time, the key naming which (shared/constants.js HOST_CONFIG_KEYS).
+  // 「AI 队友最后选择」 is one of the four rows and goes through the same message; room.setAiPicksLast (GitHub #338) stays
+  // valid on the server for older clients.
+  const setHostConfig = (key, on) => run(`hcfg${key}`, () => net.request('room.setHostConfig', { key, on }));
   // spectator seats: the host frees one; a spectator takes a free player seat with room.join of this room
   const removeSpectator = (playerId) => run(`rs${playerId}`, () => net.request('room.removeSpectator', { playerId }));
   const sit = () => run('sit', () => net.request('room.join', { code: room.code }));
@@ -342,6 +391,7 @@ export function RoomScreen() {
         </ul>
       </aside>`}
     </main>
+    <${HostConfigPanel} rows=${hostConfigPanel(room, me.playerId)} busy=${busy} onToggle=${setHostConfig} />
     <${SpectatorBar} facts=${facts} myId=${me.playerId} busy=${busy} onRemove=${removeSpectator} onSit=${sit} />
 
     <footer class="room-bar">
@@ -349,7 +399,6 @@ export function RoomScreen() {
         <span class="room-bar__label">${t('模拟难度')}<${MicroLabel}>DIFFICULTY<//></span>
         <div class="room-bar__opts">
           <${DifficultyPicker} room=${room} isHost=${facts.isHost} busy=${busy} onPick=${setDifficulty} />
-          <${AiLastToggle} option=${aiLastOption(room, me.playerId)} busy=${busy} onToggle=${setAiLast} />
         </div>
       </div>
       <div class="room-bar__center">
