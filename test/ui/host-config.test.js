@@ -68,14 +68,23 @@ test('「AI 队友最后选择」 reads its own pre-existing room.state field, t
   assert.equal(hostConfigOption(mixed, 'h', 'aiPicksLast').on, true);
 });
 
-test('room.js sends room.setHostConfig { key, on } and renders a switch per row with English in en.json', () => {
+test('room.js sends room.setHostConfig { key, on } and opens the dialog from the ready bar', () => {
   assert.match(SRC, /net\.request\('room\.setHostConfig', \{ key, on \}\)/);
-  assert.match(SRC, /<[$]\{HostConfigPanel\} rows=[$]\{hostConfigPanel\(room, me\.playerId\)\}/, 'the panel is rendered in the room screen');
+  // the panel is a dialog opened by a button in the ready bar (the 干员调配 pattern), not a band under the seats
+  assert.match(SRC, /<[$]\{HostConfigDialog\} rows=[$]\{cfgRows\} open=[$]\{cfgOpen\}/, 'the dialog is rendered');
+  assert.match(SRC, /<[$]\{HostConfigButton\} rows=[$]\{cfgRows\}/, 'the entry button is in the ready bar');
+  assert.match(SRC, /const \[cfgOpen, setCfgOpen\] = useState\(false\)/);
+  assert.match(SRC, /const cfgRows = hostConfigPanel\(room, me\.playerId\)/);
+  assert.match(SRC, /<[$]\{Modal\} open=[$]\{open\}/, 'the dialog uses the shared Modal');
   assert.match(SRC, /role="switch"/);
   assert.match(SRC, /data-testid=[$]\{`hostcfg-[$]\{r\.key\}`\}/);
+  assert.match(SRC, /data-testid="hostcfg-open"/);
   // the explanation is visible under each switch (the mock's layout), not hidden in a tooltip
   assert.match(SRC, /class="hostcfg__desc">[$]\{t\(r\.tip\)\}/);
   assert.match(CSS, /\.hostcfg__desc \{/);
+  // the removed inline band left no dead rule behind
+  assert.ok(!/\.hostcfg__head/.test(CSS), 'no stale inline-band rules');
+  assert.ok(!/\.hostcfg__title/.test(CSS), 'no stale inline-band rules');
   // the labels and explanations are msgids with a real English translation
   for (const zh of ['房主配置', '共享卡池', '全同盟共用一个干员池', '共享悬赏', '全队共用一套悬赏决策牌，先选先得', '多同盟模式', '官方规则：每个策略只能由一位博士选择']) {
     assert.ok(SRC.includes(`N_('${zh}')`) || SRC.includes(`t('${zh}')`), zh);

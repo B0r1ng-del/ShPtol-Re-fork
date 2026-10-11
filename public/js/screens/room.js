@@ -12,9 +12,9 @@
 // Texts go through t() (docs/I18N.md).
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SPECTATORS, roomSeatCap } from '../../../shared/constants.js';
+import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SPECTATORS, HOST_CONFIG_DEFAULTS, roomSeatCap } from '../../../shared/constants.js';
 import {
-  html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyTag, DifficultyIcon, Tooltip, confirmDialog, doctorNo,
+  html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyTag, DifficultyIcon, Tooltip, Modal, confirmDialog, doctorNo,
 } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { copyText } from '../ui/clipboard.js';
@@ -26,6 +26,8 @@ import { net } from '../net.js';
 import { store, useStore, shallowEqual, emptyMatch, isSpectating } from '../store.js';
 import { difficultyInfo } from './lobby.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
+
+const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /**
  * Seats padded to the room's capacity (ultimate 6, co-op 4, solo 1), each null or a seat record.
@@ -246,30 +248,44 @@ function DifficultyPicker({ room, isHost, busy, onPick }) {
 }
 
 /**
- * 房主配置 — the host's room options, one row per option: the switch and, under it, the option's own explanation (the
- * mock's layout: 共享卡池 / 共享悬赏 / AI 队友最后选择 / 多同盟模式). The host toggles them; everybody else sees the same
- * state read-only, with a dim 「由创建者设置」 in the head saying who owns them. Hidden in a single-seat room (null rows).
+ * 房主配置 — the host's room options in a dialog (the 干员调配 button's pattern: a button in the ready bar opens it). One
+ * row per option: the switch and, under it, the option's own explanation. The host toggles them; everybody else sees the
+ * same state read-only, with a dim 「由创建者设置」 in the header saying who owns them. Nothing is rendered in a
+ * single-seat room (null rows).
  */
-function HostConfigPanel({ rows, busy, onToggle }) {
+function HostConfigDialog({ rows, open, busy, onClose, onToggle }) {
   if (!rows || !rows.length) return null;
   const editable = rows.some((r) => r.editable);
-  return html`<div class="hostcfg">
-    <div class="hostcfg__head">
-      <span class="hostcfg__title">${t('房主配置')}<${MicroLabel}>HOST CONFIG<//></span>
-      ${editable ? null : html`<span class="t-dim">${t('由创建者设置')}</span>`}
+  return html`<${Modal} open=${open} onClose=${onClose} tone="mint" width="min(7.6rem, 96vw)"
+      title=${t('房主配置')} micro="HOST CONFIG"
+      actions=${html`<${Button} variant="secondary" onClick=${onClose}>${t('完成')}<//>`}>
+    <div class="hostcfg">
+      ${editable ? null : html`<p class="hostcfg__note">${t('由创建者设置：只有房主可以修改这些选项。')}</p>`}
+      <div class="hostcfg__rows">
+        ${rows.map((r) => html`<div class="hostcfg__row" key=${r.key}>
+          <button type="button" role="switch" aria-checked=${r.on ? 'true' : 'false'}
+              data-testid=${`hostcfg-${r.key}`}
+              class=${`dpick__opt hostcfg__opt${r.on ? ' is-active' : ''}`} disabled=${!r.editable || !!busy}
+              onClick=${() => r.editable && onToggle(r.key, !r.on)}>
+            <${Icon} name="check" class=${r.on ? 'is-on' : ''} />${t(r.label)}
+          </button>
+          <span class="hostcfg__desc">${t(r.tip)}</span>
+        </div>`)}
+      </div>
     </div>
-    <div class="hostcfg__rows">
-      ${rows.map((r) => html`<div class="hostcfg__row" key=${r.key}>
-        <button type="button" role="switch" aria-checked=${r.on ? 'true' : 'false'}
-            data-testid=${`hostcfg-${r.key}`}
-            class=${`dpick__opt hostcfg__opt${r.on ? ' is-active' : ''}`} disabled=${!r.editable || !!busy}
-            onClick=${() => r.editable && onToggle(r.key, !r.on)}>
-          <${Icon} name="check" class=${r.on ? 'is-on' : ''} />${t(r.label)}
-        </button>
-        <span class="hostcfg__desc">${t(r.tip)}</span>
-      </div>`)}
-    </div>
-  </div>`;
+  <//>`;
+}
+
+/** The ready bar's 房主配置 button (the 干员调配 button's shape), showing how many options differ from their default. */
+function HostConfigButton({ rows, busy, onClick }) {
+  if (!rows || !rows.length) return null;
+  const n = rows.filter((r) => r.on !== HOST_CONFIG_DEFAULTS[r.key]).length;
+  return html`<button type="button" class=${cx('btn', 'btn--secondary', 'btn--lg', 'hostcfg-entry')} data-testid="hostcfg-open"
+      disabled=${!!busy} onClick=${onClick} title=${t('房主配置 · 只有房主可以修改')}>
+    <${Icon} name="crown" class="btn__icon" />
+    <span class="btn__label">${t('房主配置')}</span>
+    ${n ? html`<span class="lo-entry__n num" aria-label=${t('{n} 项已调整', { n })}>${n}</span>` : null}
+  </button>`;
 }
 
 /** Room screen component. */
@@ -278,6 +294,8 @@ export function RoomScreen() {
   const me = useStore((s) => s.me, shallowEqual);
   const conn = useStore((s) => s.connection, shallowEqual);
   const [busy, setBusy] = useState(null);
+  // 房主配置 opens as a dialog over the room (the 干员调配 button's pattern), not as a band under the seats
+  const [cfgOpen, setCfgOpen] = useState(false);
   const alive = useRef(true);
   const inFlight = useRef(false); // synchronous guard against double clicks (state updates are async)
   useEffect(() => () => { alive.current = false; }, []);
@@ -288,6 +306,8 @@ export function RoomScreen() {
   const facts = roomFacts(room, me.playerId);
   const myReady = !!facts.mine?.ready;
   const info = difficultyInfo(room.mode, room.difficulty);
+  // 房主配置 (null in a single-seat room: nothing to share with, so neither the button nor the dialog renders)
+  const cfgRows = hostConfigPanel(room, me.playerId);
 
   const run = async (kind, fn) => {
     if (inFlight.current) return;
@@ -391,7 +411,6 @@ export function RoomScreen() {
         </ul>
       </aside>`}
     </main>
-    <${HostConfigPanel} rows=${hostConfigPanel(room, me.playerId)} busy=${busy} onToggle=${setHostConfig} />
     <${SpectatorBar} facts=${facts} myId=${me.playerId} busy=${busy} onRemove=${removeSpectator} onSit=${sit} />
 
     <footer class="room-bar">
@@ -412,6 +431,7 @@ export function RoomScreen() {
         <div class="room-bar__status">${statusLine}</div>
       </div>
       <div class="room-bar__right">
+        <${HostConfigButton} rows=${cfgRows} busy=${busy} onClick=${() => setCfgOpen(true)} />
         <${LoadoutButton} from="room" size="lg" class="room-loadout" label=${t('干员调配')} />
         ${facts.isHost
           ? html`<${Tooltip} text=${facts.canStart ? null : t('仍有博士未准备就绪')}>
@@ -423,5 +443,6 @@ export function RoomScreen() {
               loading=${busy === 'ready'} disabled=${!online || !facts.mine} onClick=${toggleReady}>${myReady ? t('已就绪') : t('准备就绪')}<//>`}
       </div>
     </footer>
+    <${HostConfigDialog} rows=${cfgRows} open=${cfgOpen} busy=${busy} onClose=${() => setCfgOpen(false)} onToggle=${setHostConfig} />
   </div>`;
 }

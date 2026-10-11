@@ -34,7 +34,7 @@ test('the 「AI 队友最后选择」 row: hidden in solo, editable by the host 
 
 test('room.js sends the option through room.setHostConfig and shows it through t(); en.json has the English', () => {
   assert.match(SRC, /net\.request\('room\.setHostConfig', \{ key, on \}\)/);
-  for (const zh of ['AI 队友最后选择', '策略与机变轮选时，所有博士先于 AI 队友选择', '由创建者设置']) {
+  for (const zh of ['AI 队友最后选择', '策略与机变轮选时，所有博士先于 AI 队友选择', '由创建者设置：只有房主可以修改这些选项。']) {
     assert.ok(SRC.includes(`N_('${zh}')`) || SRC.includes(`t('${zh}')`), zh);
     assert.equal(typeof EN[zh], 'string', `en.json: ${zh}`);
     assert.ok(EN[zh].length > 0 && !/[一-鿿]/.test(EN[zh]), `English for ${zh}`);
