@@ -61,7 +61,7 @@
 // 'g.emote' is relayed as m.emote (1 s cooldown) so clients can test broadcast plumbing.
 
 import { C2S } from '../../shared/protocol.js';
-import { PHASE, ERR, EMOTE_COOLDOWN_MS, GEO, modeIdFor } from '../../shared/constants.js';
+import { PHASE, ERR, EMOTE_COOLDOWN_MS, GEO, ULTIMATE_DIFFICULTY, modeIdFor } from '../../shared/constants.js';
 import { getConfig, getMode } from '../data.js';
 
 const GAME_TYPES = new Set(Object.keys(C2S).filter((t) => Object.hasOwn(C2S, t) && t.startsWith('g.')));
@@ -82,8 +82,10 @@ export class StubMatch {
     }
     this.roomCode = opts.roomCode;
     this.mode = opts.mode;
-    this.difficulty = opts.difficulty;
-    this.modeId = opts.modeId || modeIdFor(opts.mode, opts.difficulty);
+    // 终极模拟 has one difficulty and one config record (see Match: the clamp keeps an absent mode_ultimate_* id from
+    // making GameData fall back to the difficulty ban table)
+    this.difficulty = opts.mode === 'ultimate' ? ULTIMATE_DIFFICULTY : opts.difficulty;
+    this.modeId = opts.mode === 'ultimate' ? modeIdFor('ultimate') : opts.modeId || modeIdFor(opts.mode, opts.difficulty);
     this.seed = opts.seed >>> 0;
     this.log = opts.log || noopLog;
     this.now = opts.now || Date.now;
