@@ -13,7 +13,7 @@
 
 import { ResumeMatchButton } from '../ui/resumeMatch.js';
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, MAX_SPECTATORS, modeIdFor, ERR } from '../../../shared/constants.js';
+import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, ULTIMATE_SEATS, ULTIMATE_DIFFICULTY, ROOM_MODES, MAX_SPECTATORS, modeIdFor, ERR } from '../../../shared/constants.js';
 import { html, Button, Icon, MicroLabel, Panel, TextField, PingPill, AvatarFrame, Tooltip, Spinner, DifficultyIcon, doctorNo } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { GuideButton } from '../ui/guide.js';
@@ -38,6 +38,10 @@ export const MODE_TEXT = {
     FUNNY: { code: 'AC-1', desc: N_('敌方攻击强度较低的模拟训练'), effects: [N_('作战环境较为温和'), N_('常规奖励')] },
     NORMAL: { code: 'AC-2', desc: N_('敌方攻击强度较高的模拟训练'), effects: [N_('可使用盟约数增加'), N_('大幅增加奖励')] },
     HARD: { code: 'AC-3', desc: N_('敌方攻击强度极高的模拟训练'), effects: [N_('作战环境困难'), N_('出现更加危险的敌人')] },
+    ABYSS: { code: 'AC-4', desc: N_('敌方攻击强度到达极限的模拟训练'), effects: [N_('作战环境无比困难'), N_('出现极度危险的敌人')] },
+  },
+  // 终极模拟 (the fork's third mode): one difficulty only — the AC-4 table, up to six 博士
+  ultimate: {
     ABYSS: { code: 'AC-4', desc: N_('敌方攻击强度到达极限的模拟训练'), effects: [N_('作战环境无比困难'), N_('出现极度危险的敌人')] },
   },
 };
@@ -75,7 +79,8 @@ export function stageNote(stages) {
   return Number.isInteger(stages) && stages > 1 ? t('战场随机（共{stages}张）', { stages }) : '';
 }
 
-const MODE_CARDS = [
+/** The lobby's mode cards, in display order: 独立模拟 / 同盟模拟 / 终极模拟 (the fork's six-博士 mode). */
+export const MODE_CARDS = [
   {
     id: 'solo', name: N_('独立模拟'), en: 'SOLO SIMULATION', icon: 'user',
     desc: N_('独自调配资金与干员，以自己的节奏完成整场模拟。'),
@@ -86,16 +91,22 @@ const MODE_CARDS = [
     desc: N_('与至多 {n} 名博士组成同盟，共享干员池，联防协作抵御敌潮。'), params: { n: MAX_SEATS - 1 },
     points: [N_('1–{n} 名博士 · 可由 AI 队友补位'), N_('联防阶段 · 最终攻势合并生命值')], pointParams: { n: MAX_SEATS },
   },
+  {
+    id: 'ultimate', name: N_('终极模拟'), en: 'ULTIMATE SIMULATION', icon: 'crown',
+    desc: N_('与至多 {n} 名博士组成同盟，共享干员池，联防协作抵御敌潮。'), params: { n: ULTIMATE_SEATS },
+    points: [N_('1–{n} 名博士 · 盟约与干员全部解锁'), N_('固定为终极难度')], pointParams: { n: ULTIMATE_SEATS },
+  },
 ];
 
 /**
  * Text for a difficulty card, preferring data/config.json.
- * @param {'solo'|'coop'} roomMode
+ * @param {'solo'|'coop'|'ultimate'} roomMode
  * @param {string} difficulty
  * @returns {{ code: string, desc: string, effects: string[], rounds: number, hidden: boolean, stageNote: string }}
  */
 export function difficultyInfo(roomMode, difficulty) {
-  const fallback = MODE_TEXT[roomMode === 'solo' ? 'single' : 'multi'][difficulty] || { code: '', desc: '', effects: [] };
+  const kind = roomMode === 'solo' ? 'single' : roomMode === 'ultimate' ? 'ultimate' : 'multi';
+  const fallback = MODE_TEXT[kind][difficulty] || { code: '', desc: '', effects: [] };
   // modeIdFor() lower-cases the difficulty: never call it with a value the server did not validate.
   const m = DIFFICULTIES.includes(difficulty) ? getMode(modeIdFor(roomMode, difficulty)) : null;
   const effects = Array.isArray(m?.effectDescList)
@@ -244,7 +255,10 @@ export function LobbyScreen() {
   const me = useStore((s) => s.me, shallowEqual);
   const conn = useStore((s) => s.connection, shallowEqual);
   useData('config');
-  const [roomMode, setRoomMode] = useState(() => (loadPref('lobby.mode', 'coop') === 'solo' ? 'solo' : 'coop'));
+  const [roomMode, setRoomMode] = useState(() => {
+    const m = loadPref('lobby.mode', 'coop');
+    return ROOM_MODES.includes(m) ? m : 'coop';
+  });
   const [difficulty, setDifficulty] = useState(() => {
     const d = loadPref('lobby.difficulty', 'FUNNY');
     return DIFFICULTIES.includes(d) ? d : 'FUNNY';
@@ -258,6 +272,9 @@ export function LobbyScreen() {
 
   const online = conn.status === 'online';
   const codeOk = CODE_RE.test(code);
+  // 终极模拟 has no difficulty picker: whatever card is (not) picked, the room is created for AC-4 (the server forces it)
+  const effDifficulty = roomMode === 'ultimate' ? ULTIMATE_DIFFICULTY : difficulty;
+  const diffChoices = roomMode === 'ultimate' ? [ULTIMATE_DIFFICULTY] : DIFFICULTIES;
 
   const pickMode = (m) => { setRoomMode(m); savePref('lobby.mode', m); };
   const pickDifficulty = (d) => { setDifficulty(d); savePref('lobby.difficulty', d); };
@@ -272,7 +289,7 @@ export function LobbyScreen() {
       if (alive.current) setBusy(null);
     }
   };
-  const create = () => run('create', () => net.request('room.create', { mode: roomMode, difficulty }));
+  const create = () => run('create', () => net.request('room.create', { mode: roomMode, difficulty: effDifficulty }));
   const join = (c = code) => {
     // `onClick=${join}` hands the click EVENT as the first argument, and a default parameter only applies to
     // `undefined` — codeArg keeps an event target out of the key and falls back to the input field
@@ -364,7 +381,7 @@ export function LobbyScreen() {
       <section class="lobby-right">
         <div class="section-label"><span class="section-label__idx num">02</span>${t('模拟难度')}<${MicroLabel}>DIFFICULTY<//></div>
         <div class="diff-list">
-          ${DIFFICULTIES.map((d) => html`<${DifficultyCard} key=${d} roomMode=${roomMode} difficulty=${d} selected=${difficulty === d} onSelect=${pickDifficulty} />`)}
+          ${diffChoices.map((d) => html`<${DifficultyCard} key=${d} roomMode=${roomMode} difficulty=${d} selected=${effDifficulty === d} onSelect=${pickDifficulty} />`)}
         </div>
         <div class="create-box">
           <${Tooltip} block=${true} text=${online ? null : t('正在连接服务器…')}>
