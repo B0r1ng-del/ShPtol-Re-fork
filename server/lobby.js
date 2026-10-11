@@ -75,7 +75,7 @@
 //     every operator) and keeps it for its whole length: the setting is out of match ("局外设置，下一局生效"), so while
 //     the room's match runs a new list is only stored for the next match (ROOM_STARTED 'stored for the next match',
 //     never handed to the match). A spectator's list stays on its session.
-//   * 自选编队 (0.2.0 DIY, the owner's decisions of 2026-10-05): room.diy { picks } — the player's picks for the four DIY
+//   * 自选编队 (0.2.0 DIY, the owner's decisions of 2026-10-05): room.diy { picks } — the player's picks for the 自选
 //     slots ({ [slotBaseId]: { charId, skillIndex?, uniEquipId? } | null }) — is checked leniently (shared/protocol.js
 //     checkDiyPicks against the game data and the kit registry, server/sim/content/kits/index.js KITTED_CHARS: an
 //     illegal pick — an operator without a kit, another tier's prototype, a prototype off its locked skill, a second slot

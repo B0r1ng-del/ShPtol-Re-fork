@@ -4,11 +4,13 @@
 // record, so normalizeChess, resolveLoadout / loadoutRecord and the detail card read it unchanged.
 //
 // The rules (research 0.2.0 §2; PRTS 卫戍协议, 卫戍协议：盟约 下半/PRTS盟约记录; the owner's decisions of 2026-10-05):
-// - two slots per tier, 5 and 6: chess_char_5_diy1/2_a, chess_char_6_diy1/2_a, each with its `_b` elite twin (tier,
-//   price, merge of the slot: buy 4, sell 1);
+// - slots per tier, 5 and 6: the official season ships two — chess_char_5_diy1/2_a, chess_char_6_diy1/2_a — and the fork
+//   raises it to five (`chess_char_{5,6}_diy1..5_a`, tools/fork-overrides.mjs 二.8), each with its `_b` elite twin (tier,
+//   price, merge of the slot: buy 4, sell 1). Every slot of a tier shares that tier's `status`, so the rules below are
+//   per TIER, never per slot, and the count is data (`diy.slots`), not a constant;
 // - the picks of a tier: the owned 6★ outside the chess pool (`diy.ownedPool`: no preset operator, no collab) and the
 //   nine 6★ prototypes at both tiers, the six 4★ reserves (not 先锋 / 特种) at tier 5 only (`diy.prototypes[tier]`);
-// - a prototype may fill one tier-5 and one tier-6 slot, an owned operator one slot; the two picks of a tier differ;
+// - a prototype may fill one tier-5 and one tier-6 slot, an owned operator one slot; the picks of a tier differ;
 // - no 特质 (PRTS "甄选加入的干员不会拥有任何特质"); bonds from the operator's factions (`diy.operators[id].bonds`);
 // - the normal form is E2 Lv1, skill rank 4, no module; the elite E2 Lv60, rank 7, its module at stage 1 (tier 5) or 3
 //   (tier 6) — the slot record's `status` (activity_table diyChessDict) picks the unit form;

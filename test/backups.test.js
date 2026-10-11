@@ -34,9 +34,10 @@ const isFiniteNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const ELITES = ['char_608_acpion', 'char_609_acguad', 'char_610_acfend', 'char_611_acnipe', 'char_612_accast', 'char_613_acmedc', 'char_614_acsupo', 'char_615_acspec', 'char_617_sharp2'];
 const RESERVES = ['char_600_cpione', 'char_601_cguard', 'char_602_cdfend', 'char_603_csnipe', 'char_604_ccast', 'char_605_cmedic', 'char_606_csuppo', 'char_607_cspec'];
 
-test('chess: 133 base chess — 74 PRESET / 55 NORMAL / 4 DIY — and every record keeps the five official backup fields', () => {
-  assert.equal(base.length, 133);
-  assert.deepEqual([ofType('PRESET').length, ofType('NORMAL').length, ofType('DIY').length], [74, 55, 4]);
+test('chess: 139 base chess — 74 PRESET / 55 NORMAL / 10 DIY — and every record keeps the five official backup fields', () => {
+  assert.equal(base.length, 139);
+  // 4 official DIY slots + the fork's 6 extra ones (二.8, 5 per tier): tools/fork-overrides.mjs applyForkChess
+  assert.deepEqual([ofType('PRESET').length, ofType('NORMAL').length, ofType('DIY').length], [74, 55, 10]);
   for (const c of all) {
     assert.deepEqual(Object.keys(c.backup), ['charId', 'tmplId', 'skillIndex', 'uniEquipId', 'potRank'], `${c.chessId}: backup fields`);
     assert.deepEqual(c.backup, chess[c.baseId].backup, `${c.chessId}: the elite shares its base row's backup`);
@@ -195,9 +196,13 @@ test('backups: the stand-in numbers re-derived from the raw official tables', { 
   assert.equal(n, 110);
 });
 
-test('DIY: four slots (tiers 5, 5, 6, 6) — price 4, sell 1, TIER_6, no 特质, no bonds; listed from the matching shop level', () => {
+test('DIY: ten slots (5 × tier 5, 5 × tier 6) — price 4, sell 1, TIER_6, no 特质, no bonds; listed from the matching shop level', () => {
   const slots = backups.diy.slots;
-  assert.deepEqual(Object.keys(slots), ['chess_char_5_diy1_a', 'chess_char_5_diy2_a', 'chess_char_6_diy1_a', 'chess_char_6_diy2_a']);
+  // the official 4 (diy1/diy2 per tier) then the fork's 3 extra per tier (二.8, tools/fork-overrides.mjs applyForkBackups)
+  assert.deepEqual(Object.keys(slots), [
+    'chess_char_5_diy1_a', 'chess_char_5_diy2_a', 'chess_char_5_diy3_a', 'chess_char_5_diy4_a', 'chess_char_5_diy5_a',
+    'chess_char_6_diy1_a', 'chess_char_6_diy2_a', 'chess_char_6_diy3_a', 'chess_char_6_diy4_a', 'chess_char_6_diy5_a',
+  ]);
   for (const [id, s] of Object.entries(slots)) {
     assert.equal(s.goldenId, id.replace(/_a$/, '_b'));
     assert.equal(s.shopLevel, s.tier, `${id}: enters the shop at the shop level of its tier`);

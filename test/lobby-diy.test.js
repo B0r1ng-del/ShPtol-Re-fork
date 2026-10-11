@@ -5,6 +5,7 @@
 // the picks as m.private.diy.
 import { describe, test, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import { startServer } from '../server/index.js';
 import { StubMatch } from '../server/match/StubMatch.js';
@@ -138,6 +139,32 @@ describe('room.diy (lobby + real match)', () => {
   });
   afterEach(async () => { await pool.closeAll(); });
   after(async () => { await srv?.close(); });
+
+  test('a full 10-slot roster survives the socket round-trip and reaches the match (二.8)', async () => {
+    // 5 per tier (the fork's count). A prototype may fill one slot per tier, so the cleanest legal 10 is five distinct
+    // prototypes per tier — the picks of a tier must differ and an owned operator fills one slot only.
+    const backups = JSON.parse(readFileSync(new URL('../data/backups.json', import.meta.url), 'utf8'));
+    const slots = Object.keys(backups.diy.slots);
+    const t5 = slots.filter((id) => backups.diy.slots[id].tier === 5);
+    const t6 = slots.filter((id) => backups.diy.slots[id].tier === 6);
+    assert.equal(t5.length, 5);
+    assert.equal(t6.length, 5);
+    const picks = Object.fromEntries([
+      ...t5.map((id, i) => [id, { charId: backups.diy.prototypes[5][i] }]),
+      ...t6.map((id, i) => [id, { charId: backups.diy.prototypes[6][i] }]),
+    ]);
+    const a = await pool.player('Ten');
+    await ok(a, { t: 'room.diy', picks });
+    await createRoom(a, 'solo');
+    await ok(a, { t: 'room.start' });
+    await a.waitFor('m.public', (p) => p.phase === PHASE.INFO_CHECK, 5000);
+    const priv = await a.waitFor('m.private', (p) => p.diy && typeof p.diy === 'object', 3000);
+    assert.deepEqual(Object.keys(priv.diy).sort(), slots.slice().sort(), 'all ten slots kept and handed to the match');
+    assert.deepEqual(priv.diyBanned, []);
+    // 11 entries exceed the wire limit
+    await err(a, { t: 'room.diy', picks: { ...picks, chess_char_5_diy6_a: null } }, ERR.BAD_MSG);
+    assert.deepEqual(cap.errors, []);
+  });
 
   test('the picks the seat had at the start are the match\'s m.private.diy; a change during the briefing waits for the next match', async () => {
     const a = await pool.player('Solo');

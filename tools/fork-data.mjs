@@ -1,20 +1,23 @@
 // tools/fork-data.mjs — apply the fork's data layer (tools/fork-overrides.mjs) to the committed data files.
 //
 // `npm run build-data` (tools/build-data.mjs) rebuilds every data/*.json from the official tables and preserves the fork
-// layer by calling applyForkOverrides() / applyForkChoices() before writing. This CLI is the other direction: it patches
-// the COMMITTED files in place, so a fork change stays a small, reviewable diff instead of a full regeneration that would
-// re-encode megabytes of untouched data.
+// layer by calling the appliers before writing. This CLI is the other direction: it patches the COMMITTED files in place,
+// so a fork change stays a small, reviewable diff instead of a full regeneration that would re-encode megabytes of
+// untouched data.
 //
 // Idempotent: running it twice writes the same bytes (the second run only reports that each file is up to date).
 // Usage: node tools/fork-data.mjs [--check]   (--check exits 1 when a file is stale, for CI)
 //
-// Files written: every entry of LAYER below — data/config.json and data/choices.json today (compact JSON, exactly like
-// build-data.mjs writes them).
+// Files written: every entry of LAYER below — data/config.json and data/choices.json (the 终极模拟 mode and its 机变
+// schedule) and data/chess.json / data/backups.json (the extra 自选编队 slots, 二.8). Compact JSON, exactly like
+// build-data.mjs writes them.
 
 import { readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { applyForkOverrides, applyForkChoices, FORK_MODE_ID } from './fork-overrides.mjs';
+import {
+  applyForkOverrides, applyForkChoices, applyForkChess, applyForkBackups, FORK_MODE_ID,
+} from './fork-overrides.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const check = process.argv.includes('--check');
@@ -38,6 +41,25 @@ const LAYER = [
     apply: (json) => {
       if (!json || typeof json !== 'object' || !json.schedule || typeof json.schedule !== 'object') return null;
       return applyForkChoices(json);
+    },
+  },
+  {
+    // 二.8: the extra 自选编队 slot pairs (`…_diyN_a` / `…_diyN_b`). The file is keyed by chess id and the build writes
+    // the keys in natural sort order, so `what` is only the log's word for the block the applier owns.
+    name: 'chess',
+    what: '自选 slots',
+    apply: (json) => {
+      if (!json || typeof json !== 'object' || !json.chess_char_5_diy1_a || !json.chess_char_6_diy1_a) return null;
+      return applyForkChess(json);
+    },
+  },
+  {
+    // 二.8: `diy.slots` — the slot metadata (tier, goldenId, shopLevel, requirement) the shop and the UI enumerate.
+    name: 'backups',
+    what: 'diy.slots',
+    apply: (json) => {
+      if (!json || typeof json !== 'object' || !json.diy || typeof json.diy !== 'object' || !json.diy.slots) return null;
+      return applyForkBackups(json);
     },
   },
 ];

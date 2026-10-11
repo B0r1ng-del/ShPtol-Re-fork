@@ -79,8 +79,12 @@ describe('自选编队 model (ui/diyModel.js)', () => {
     assert.deepEqual(M.setPick({}, T6A, { charId: SHARP }), { [T6A]: { charId: SHARP } });
   });
 
-  test('the four slots by tier, with the 调度中心 level that sells them', () => {
-    assert.deepEqual(M.diySlotList(D).map((s) => [s.slotId, s.tier, s.shopLevel]), [[T5A, 5, 5], [T5B, 5, 5], [T6A, 6, 6], [T6B, 6, 6]]);
+  test('the ten slots by tier, with the 调度中心 level that sells them', () => {
+    // 5 per tier: 2 official + 3 fork (二.8), the fork ones entering the shop at their tier's level
+    assert.deepEqual(M.diySlotList(D).map((s) => [s.slotId, s.tier, s.shopLevel]), [
+      [T5A, 5, 5], [T5B, 5, 5], ['chess_char_5_diy3_a', 5, 5], ['chess_char_5_diy4_a', 5, 5], ['chess_char_5_diy5_a', 5, 5],
+      [T6A, 6, 6], [T6B, 6, 6], ['chess_char_6_diy3_a', 6, 6], ['chess_char_6_diy4_a', 6, 6], ['chess_char_6_diy5_a', 6, 6],
+    ]);
   });
 
   test('the picker lists only kitted operators (prototypes first), marks one another slot holds', () => {
@@ -241,16 +245,21 @@ describe('自选编队 tab (screens/diy.js)', () => {
     }
   }
 
-  test('four slots by tier: an empty slot to fill, a filled one shows the operator, its tag, skill and module', () => {
+  test('ten slots by tier: an empty slot to fill, a filled one shows the operator, its tag, skill and module', () => {
     const tree = expand(DiyPanelView({ m: data.get('assets'), picks: { [T5A]: SIEGE_PICK, [T6A]: { charId: SHARP } }, legal: { [T5A]: SIEGE_PICK, [T6A]: { charId: SHARP } }, kitted: KIT, onSet() {}, picking: null, onPicking() {} }));
     const slots = [...walk(tree)].filter((v) => hasClass(v, 'diy-slot'));
-    assert.deepEqual(slots.map((v) => v.props['data-slot']), [T5A, T5B, T6A, T6B]);
-    const siege = slots[0];
+    // 5 per tier: 2 official + 3 fork (二.8)
+    assert.deepEqual(slots.map((v) => v.props['data-slot']), [
+      T5A, T5B, 'chess_char_5_diy3_a', 'chess_char_5_diy4_a', 'chess_char_5_diy5_a',
+      T6A, T6B, 'chess_char_6_diy3_a', 'chess_char_6_diy4_a', 'chess_char_6_diy5_a',
+    ]);
+    const bySlot = new Map(slots.map((v) => [v.props['data-slot'], v]));
+    const siege = bySlot.get(T5A);
     assert.equal(siege.props['data-char'], SIEGE);
     const txt = textOf(siege);
     assert.ok(txt.includes(DATA.backups.units[SIEGE].name) && txt.includes('已持有') && txt.includes('S3') && txt.includes('SOL-X'), txt);
-    assert.ok(textOf(slots[2]).includes('原型'));
-    assert.ok(hasClass(slots[1], 'is-empty') && textOf(slots[1]).includes('选择干员'));
+    assert.ok(textOf(bySlot.get(T6A)).includes('原型'));
+    assert.ok(hasClass(bySlot.get(T5B), 'is-empty') && textOf(bySlot.get(T5B)).includes('选择干员'));
   });
 
   test('the picker: the slot\'s operators; choosing one and its skill / module confirms the pick', () => {

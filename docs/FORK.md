@@ -177,6 +177,45 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
   `test/lobby-host-config.test.js` (protocol, host-only, defaults, un-ready, keep-across-matches, solo refusal),
   `test/match/host-config.test.js` (each option's engine behaviour and that none of them draws from a random stream),
   `test/ui/host-config.test.js` and `test/ui/ai-picks-last.test.js` (the panel and its rows).
+- **二.8 自选编队 10 个名额** — the 自选编队 tab has **5 slots per tier (5 × 5阶 + 5 × 6阶 = 10)** instead of the official
+  2 + 2. A 自选 slot is not a UI concept: it is a `data/chess.json` record pair (`…_diyN_a` normal / `…_diyN_b` elite)
+  listed in `data/backups.json` `diy.slots`, and both files are build products of `tools/build-data.mjs` (the official
+  `act.diyChessDict` / `charShopChessDatas` tables have exactly four slots), so the extra ones are built in the fork
+  layer like every other fork value:
+  - `applyForkChess(chess)` — the three extra pairs per tier, copied from that tier's first official slot pair. Every
+    official slot of a tier shares its `status` (normal E2 Lv1 rank 4; elite E2 Lv60 rank 7 with the module at stage 1
+    for tier 5 / 3 for tier 6), its price (4 / sell 1) and its merge (3), and the operator comes from the PICK rather
+    than the record — so a copy is that tier's slot under new ids. `identifier` continues the official run (the official
+    自选 records end at 265) and `shopSortId` continues the tier's own 自选 sequence (tier 5: 24, 25 → 26…; tier 6:
+    21, 22 → 23…). Neither is read for a 自选 record (`visible: false`, so the shop-order readers skip it) — they are
+    carried because the record shape is (`shared/standIn.js IDENTITY_FIELDS`).
+  - `applyForkBackups(backups)` — the matching `diy.slots` entries. Each copies its tier's official slot metadata
+    (`shopLevel` — the 调度中心 level the slot enters the shop at — and `requirement`); only `goldenId` differs. Nothing
+    else in `backups` needed a fork entry: the unit forms and the summon variants are keyed by `statusKey` (a new slot
+    reuses its tier's `status`) and `diy.prototypes` / `locked` / `ownedPool` are keyed by tier, not by slot.
+  - Both appliers are pure and **own** their ids exactly like `applyForkOverrides` owns the fork mode record: every id
+    in `FORK_DIY_SLOT_IDS` is dropped and rebuilt from its tier's official template, so a hand-edit of one is reverted
+    and caught by the drift guard. They must recognise the `_b` twin of a previous run too, or a second pass reads it as
+    an official anchor and reorders the file.
+  - `tools/fork-data.mjs` applies both to the committed `data/chess.json` / `data/backups.json`, and
+    `tools/build-data.mjs` applies them inside the **per-potential-rank loop** (`main()`), before `buildBackups` — not
+    once on the full-potential pass: `attachPotential` rebuilds each chess record from `passes.map((p) => p.chess[id])`
+    and reports "missing at a rank" for an id only one pass has. Applying before `buildBackups` also lets the new
+    slots' forms and prototype picks be validated like the official ones, and `applyForkBackups` then replaces the
+    `shopLevel: null` that `buildBackups` gives them (the official shop-level table lists only the four official slots).
+  - `DIY_LIMITS.slots` rises 8 → 10 (`shared/protocol.js`) so a full roster fits the wire check. The tier rules are
+    **count-independent** and needed no change: "the same operator twice in one tier" and "an owned operator in one
+    slot" are `Map`/`Set`-based, not count-based.
+  - **Scope** — the official 4 slots and their data are untouched (the applier only appends), the official modes' rules
+    are untouched, and the golden corpus deliberately keeps rotating its 自选 configurations onto the **official** two
+    slots per tier (`tools/golden.mjs DIY_CORPUS_SLOTS`): every slot of a tier shares its `status`, so which one a piece
+    is fielded as cannot change a battle — rotating over the fork's slots too would only rewrite all 140 diy digests
+    with a different slot id and carry no information. **No golden file moved** (verified: all 140 diy scenarios are
+    byte-identical once the slot id is normalised).
+  `test/fork-data.test.js` (the drift guard for both files, purity, idempotence, build order, and that `backups` needed
+  nothing else), `test/fork-diy-slots.test.js` (a full 10-slot roster through the real match engine: wire limit, stocks,
+  shop levels, battle records, tier rules), plus the updated count assertions in `test/data.test.js`,
+  `test/backups.test.js`, `test/diy.test.js`, `test/ui/diy-ui.test.js` and `test/golden-diy.test.js`.
 
 ## Fork change log
 
@@ -190,3 +229,4 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
 | 二.5 版面 | 三个模式卡是一行三个等宽的竖向选择；终极模拟房间是六个等宽的竖向席位（同盟模拟的四座网格与独立模拟都不受影响） | `public/css/screens/lobby.css` (`.mode-cards`), `public/css/screens/room.css` (`.seats--ultimate`), `public/js/screens/room.js`, `test/client-static.test.js` |
 | 二.6 表情：一键十连 + 弹幕 | one tap sends an emote 10 times (one `g.emoteBurst`, one cooldown); emotes also fall like snowflakes from a random x, fading out past the bottom edge, on every client's screen | `shared/constants.js` (`EMOTE_BURST_COUNT`/`EMOTE_BARRAGE_MS`), `shared/protocol.js` (`g.emoteBurst`), `server/match/match/intents.js` (`emoteBurst`), `public/js/ui/emotes.js` (`EmoteBarrage`, `emotePrefsStore`, the two switches), `public/css/emotes.css` (`emo-fall`), `public/js/ui/gameActions.js`, `public/js/screens/game.js`, `test/fork-emote-burst.test.js`, `test/client-static.test.js` |
 | 二.7 房主配置 | 每个模式的准备房间都有一个房主配置面板（仅房主可改）：共享卡池、共享悬赏、AI 队友最后选择、多同盟模式；房间跨对局保留，开局时交给对局。私人房间按用户要求不做 | `shared/constants.js` (`HOST_CONFIG_KEYS`/`HOST_CONFIG_DEFAULTS`), `shared/protocol.js` (`room.setHostConfig`), `server/lobby.js`, `server/match/Match.js`, `server/match/match/infra.js` (`poolFor`), `server/match/match/spDraft.js`, `server/match/match/phases.js`, `server/match/player/*`, `server/match/bot.js`, `server/match/invariants.js`, `server/match/audit.js`, `public/js/screens/room.js`, `public/css/screens/room.css`, `public/js/screens/bandDraft.js`, `public/js/ui/gameLogic/draft.js`, `test/lobby-host-config.test.js`, `test/match/host-config.test.js`, `test/ui/host-config.test.js` |
+| 二.8 自选编队 10 个名额 | 自选编队每阶 5 个名额（5 阶 5 + 6 阶 5 = 10，官方为每阶 2）：额外 6 个槽位由 fork 数据层生成（`chess.json` 的 `…_diyN_a`/`_b` 记录对 + `backups.json` 的 `diy.slots`），复制同阶官方槽位的 status/价格/合成数；`DIY_LIMITS.slots` 8 → 10；官方 4 槽位与所有官方模式规则不变，**golden 未移动** | `tools/fork-overrides.mjs` (`applyForkChess`/`applyForkBackups`), `tools/fork-data.mjs` (LAYER), `tools/build-data.mjs` (per-rank 循环), `shared/protocol.js` (`DIY_LIMITS`), `data/chess.json`, `data/backups.json`, `tools/golden.mjs` (`DIY_CORPUS_SLOTS`), `test/fork-data.test.js`, `test/fork-diy-slots.test.js` |

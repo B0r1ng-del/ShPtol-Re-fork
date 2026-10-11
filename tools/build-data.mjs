@@ -40,9 +40,10 @@ import { bandBondIds } from '../shared/bandBonds.js';
 import { statusKey, composeUnitRecord, standInRecord, unitForm } from '../shared/standIn.js';
 import { extendedGrid } from '../shared/loadoutRecord.js';
 import { FULL_RANK, atRank, stripPotential } from '../shared/potential.js';
-// The fork's own mode/field layer over the built config and choices (终极模拟 …): kept out of the official-data
-// derivation so a regeneration from the game's tables cannot drop it, and so every fork-only value sits in one file.
-import { applyForkOverrides, applyForkChoices } from './fork-overrides.mjs';
+// The fork's own mode/field layer over the built config and choices (终极模拟 …), and its extra 自选编队 slots over the
+// built chess/backups (二.8): kept out of the official-data derivation so a regeneration from the game's tables cannot
+// drop it, and so every fork-only value sits in one file.
+import { applyForkOverrides, applyForkChoices, applyForkChess, applyForkBackups } from './fork-overrides.mjs';
 
 // ===== CLI & IO ==================================================================================
 
@@ -4077,7 +4078,13 @@ async function main() {
   for (let r = 0; r <= FULL_RANK; r++) {
     const pctx = { ...ctx, potRank: r };
     const built = buildChess(pctx);
-    passes.push({ ctx: pctx, chess: built.chess, tokenOwners: built.tokenOwners, backups: buildBackups(pctx, built.chess) });
+    // 二.8: the fork's extra 自选 slots join EVERY pass, not just the full-potential one — attachPotential rebuilds each
+    // record from `passes.map((p) => p.chess[id])` and reports "missing at a rank" for an id only one pass has. The
+    // applier runs before buildBackups so the new slots' forms / prototype picks are validated like the official ones;
+    // applyForkBackups then replaces the `shopLevel: null` buildBackups gives them (the official shop-level table lists
+    // only the four official slots) with their tier's own.
+    const chess = applyForkChess(built.chess);
+    passes.push({ ctx: pctx, chess, tokenOwners: built.tokenOwners, backups: applyForkBackups(buildBackups(pctx, chess)) });
   }
   const { chess, backups } = passes[FULL_RANK];
   const effects = buildEffects(ctx);
