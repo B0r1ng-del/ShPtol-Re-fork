@@ -48,8 +48,10 @@
 /* emoji_bkg is 313×231 with a soft shadow margin; its opaque plate spans x 15–297, y 13–212. The cells, the pager
    and the CSS fallback plate all use that geometry. */
 .ewheel__panel {
-  position: absolute; left: -.15rem; bottom: calc(100% + .02rem); z-index: 5;
-  width: 3.13rem; height: 2.31rem; padding: 0; box-sizing: border-box;
+  position: absolute; left: -.15rem; bottom: 100%; z-index: 5;
+  /* the plate art is 2.31rem tall; the panel is 2.66rem so that the .49rem extension band (::after below) is INSIDE it
+     — that band is where 一键十连 / 弹幕 live, so the two switches belong to the panel instead of floating under it */
+  width: 3.13rem; height: 2.66rem; padding: 0; box-sizing: border-box;
   background: none; border: 0; border-radius: 0; box-shadow: none;
   transform-origin: .45rem 100%;
   animation: emo-panel-in 160ms var(--ease-out);
@@ -59,8 +61,20 @@
   content: ''; position: absolute; left: .15rem; top: .13rem; width: 2.82rem; height: 1.99rem; border-radius: .06rem;
   background: rgba(19, 19, 19, .92); box-shadow: 0 .04rem .16rem rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(255, 255, 255, .07);
 }
-.ewheel__panel.has-sprite { background: var(--ewheel-bg) center / 100% 100% no-repeat; }
+/* the sprite is pinned to the plate's own 3.13 × 2.31rem instead of being stretched over the taller box */
+.ewheel__panel.has-sprite { background: var(--ewheel-bg) left top / 3.13rem 2.31rem no-repeat; }
 .ewheel__panel.has-sprite::before { content: none; }
+/* the extension band that makes the panel read as ONE taller plate: same colour and 1px inner hairline as `::before`,
+   starting exactly at the plate's own 2.12rem bottom edge, with rounded bottom corners. Generated content paints after
+   the panel's real children, so the switches carry a `z-index` to stay above it. */
+.ewheel__panel::after {
+  content: ''; position: absolute; left: .15rem; top: 2.11rem; width: 2.82rem; height: .49rem;
+  background: rgba(19, 19, 19, .92);
+  /* hairlines on the two SIDES and the bottom only. A full 1px ring (inset 0 0 0 1px) also drew a bright line across the
+     panel exactly where the emote grid ends and this band starts — that is the "cut" the panel showed. */
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, .07), inset -1px 0 0 rgba(255, 255, 255, .07), inset 0 -1px 0 rgba(255, 255, 255, .07);
+  border-radius: 0;
+}
 .ewheel__viewport { position: absolute; left: .205rem; top: .19rem; width: 2.71rem; height: 1.78rem; overflow: hidden; touch-action: pan-y; cursor: grab; }
 .ewheel__viewport:active { cursor: grabbing; }
 .ewheel__page {
@@ -147,4 +161,43 @@
 @media (prefers-reduced-motion: reduce) {
   .ewheel__panel, .ewheel__page, .ewheel__page.is-from-right, .ewheel__page.is-from-left { animation: none; }
   .ebubble { animation: emo-bubble-out 1ms linear calc(var(--ebubble-ttl) - 1ms - var(--ebubble-age)) forwards; }
+}
+
+/* ---- fork: the two emote switches in the panel --------------------------------------------------- */
+/* 两个开关：面板里其余子元素全是绝对定位，所以这一行原来落在普通流里、压在表情格子上（用户看到的坏排版）。
+   现在它们坐在面板加高出来的那条延伸带子里（见 .ewheel__panel::after），各占一半宽度；z-index 让它们压在带子之上。 */
+.ewheel__opts { position: absolute; left: .22rem; top: 2.21rem; width: 2.68rem; height: .28rem; display: flex; gap: .08rem; padding: 0; z-index: 1; }
+.ewheel__opts .ewheel__opt { flex: 1 1 0; min-width: 0; height: .28rem; padding: 0 .04rem; font-size: .13rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ewheel__opt {
+  flex: 1; height: .26rem; padding: 0 .06rem; font-size: .13rem; letter-spacing: .06em;
+  color: var(--text-md); background: rgba(8, 11, 10, .78); border: 1px solid var(--line-2); cursor: pointer;
+}
+.ewheel__opt:hover { color: var(--text-hi); border-color: var(--line-3); }
+.ewheel__opt.is-on { color: var(--text-on-mint); background: var(--mint-500); border-color: var(--mint-400); font-weight: 700; }
+
+/* ---- fork: the 弹幕 layer — the emotes FALL like snow --------------------------------------------- */
+.ebarrage { position: absolute; inset: 0; z-index: 40; overflow: hidden; pointer-events: none; }
+.ebarrage__item {
+  position: absolute; top: -.6rem; left: var(--eb-x, 50%);
+  width: .5rem; height: .5rem; display: grid; place-items: center;
+  filter: drop-shadow(0 .03rem .08rem rgba(0, 0, 0, .8));
+  animation: emo-fall var(--eb-ms, 9s) linear forwards;
+}
+.ebarrage__item.is-mine { filter: drop-shadow(0 0 .1rem rgba(23, 249, 183, .75)); }
+.ebarrage__item img { width: 100%; height: 100%; object-fit: contain; }
+/* a snowflake: drops the height of the screen, swaying sideways and turning a little on the way down, then is gone —
+   fully below the bottom edge AND transparent, so nothing can linger there if a frame is dropped. `--eb-x`, `--eb-sway`,
+   `--eb-rot` and `--eb-ms` are drawn per item (see ui/emotes.js EmoteBarrage), which is what makes the spawn positions
+   random instead of a fixed lane pattern. */
+@keyframes emo-fall {
+  0% { transform: translate(0, 0) rotate(var(--eb-rot, 0deg)); opacity: 0; }
+  10% { opacity: 1; }
+  50% { transform: translate(var(--eb-sway, .3rem), 55vh) rotate(calc(var(--eb-rot, 0deg) + 25deg)); opacity: 1; }
+  100% { transform: translate(0, 118vh) rotate(calc(var(--eb-rot, 0deg) + 55deg)); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* the barrage is pure motion: with motion reduced, show the recent ones statically instead of disabling the feature */
+  .ebarrage { display: flex; gap: .06rem; align-items: flex-start; justify-content: flex-end; padding: .1rem; }
+  .ebarrage__item { position: static; left: auto; top: auto; animation: none; opacity: .85; }
 }

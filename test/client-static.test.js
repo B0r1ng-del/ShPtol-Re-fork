@@ -1482,4 +1482,79 @@ describe('explicit local match recovery (#431)', () => {
       local.setItem('sp.matches', bad); assert.deepEqual(a.recoverable(), []);
     }
   });
+
+  test('emotes: 一键十连 and 弹幕 — the prefs, the falling layer and the burst intent are wired', async () => {
+    const emotes = await mod('ui/emotes.js');
+    const { actions } = await mod('ui/gameActions.js');
+    assert.equal(typeof emotes.EmoteWheel, 'function');
+    assert.equal(typeof emotes.EmoteBarrage, 'function', 'the 弹幕 layer exists');
+    assert.equal(typeof emotes.tenPullOn, 'function');
+    assert.equal(typeof emotes.barrageOn, 'function');
+    // the 弹幕 switch only ADDS the falling layer: the avatar bubble that shows what a player sent must never depend on
+    // it — tying them would hide every sent emote in-match as soon as the switch is on
+    const teamSrc = readFileSync(path.join(ROOT, 'public/js/ui/teamPanel.js'), 'utf8');
+    assert.equal(/barrageOn/.test(teamSrc), false, 'teamPanel must not gate the bubble on 弹幕');
+    assert.match(teamSrc, /bubble \? html`<\$\{EmoteBubble\}/, 'the bubble renders whenever there is one');
+    assert.equal(typeof emotes.PREF_TEN_PULL, 'string');
+    assert.equal(typeof emotes.PREF_BARRAGE, 'string');
+    // both default off and follow the local pref (per device). The harness has no localStorage, so one is faked here:
+    // loadPref/savePref read globalThis.localStorage on every call, and it is removed again in the finally block.
+    assert.equal(emotes.tenPullOn(), false);
+    assert.equal(emotes.barrageOn(), false);
+    const store = new Map();
+    globalThis.localStorage = {
+      getItem: (k) => (store.has(k) ? store.get(k) : null),
+      setItem: (k, v) => { store.set(k, String(v)); },
+      removeItem: (k) => { store.delete(k); },
+    };
+    try {
+      const { savePref } = await mod('store.js');
+      savePref(emotes.PREF_TEN_PULL, true);
+      savePref(emotes.PREF_BARRAGE, true);
+      assert.equal(emotes.tenPullOn(), true);
+      assert.equal(emotes.barrageOn(), true);
+      savePref(emotes.PREF_TEN_PULL, false);
+      savePref(emotes.PREF_BARRAGE, false);
+      assert.equal(emotes.tenPullOn(), false);
+      assert.equal(emotes.barrageOn(), false);
+    } finally {
+      delete globalThis.localStorage;
+    }
+    // the ×10 switch picks a different intent than the plain send, and the wheel must actually hand that choice on
+    assert.equal(typeof actions.emoteBurst, 'function');
+    assert.equal(typeof actions.emote, 'function');
+    assert.notEqual(actions.emoteBurst, actions.emote);
+    const gameSrc = readFileSync(path.join(ROOT, 'public/js/screens/game.js'), 'utf8');
+    assert.match(gameSrc, /o && o\.burst \? actions\.emoteBurst\(id\) : actions\.emote\(id\)/,
+      'game.js forwards the wheel\'s burst choice — dropping it would make 一键十连 send a single emote');
+    assert.match(gameSrc, /barrage \? html`<\$\{EmoteBarrage\}/, 'the falling layer is mounted when the switch is on');
+    // flipping the switch must re-render the screen: the pref lives in localStorage, which notifies nothing
+    assert.equal(typeof emotes.emotePrefsStore.set, 'function');
+    assert.equal(typeof emotes.setEmotePref, 'function');
+    assert.match(gameSrc, /useStore\(\(s\) => s\.barrage, Object\.is, emotePrefsStore\)/, 'game.js subscribes to it');
+    emotes.emotePrefsStore.set({ ten: true, barrage: true });
+    assert.deepEqual(emotes.emotePrefsStore.get(), { ten: true, barrage: true });
+    emotes.emotePrefsStore.set({ ten: false, barrage: false });
+    const { EMOTE_BURST_COUNT, EMOTE_BARRAGE_MS } = await import('../shared/constants.js');
+    assert.equal(EMOTE_BURST_COUNT, 10);
+    assert.equal(EMOTE_BARRAGE_MS, 9000);
+  });
+
+  test('emotes: the 弹幕 falls like a snowflake — random spawn, and gone at the bottom edge', async () => {
+    // The requirement is a snow-like FALL (random start, disappears past the bottom edge), not a horizontal scroll, and
+    // the same layer on every client (it renders the broadcast `m.emote` stream, so a teammate's emote falls for all).
+    const css = readFileSync(path.join(ROOT, 'public/css/emotes.css'), 'utf8');
+    assert.match(css, /@keyframes emo-fall/, 'the fall animation exists');
+    assert.match(css, /100% \{ transform: translate\(0, 118vh\)/, 'it ends BELOW the bottom edge');
+    assert.match(css, /opacity: 0; \}/, 'and fades out there, so nothing lingers');
+    assert.match(css, /left: var\(--eb-x, 50%\)/, 'each item starts at its own random x');
+    assert.match(css, /@keyframes emo-fall[\s\S]*?var\(--eb-sway/, 'and sways sideways like a snowflake');
+    const src = readFileSync(path.join(ROOT, 'public/js/ui/emotes.js'), 'utf8');
+    assert.match(src, /x: 3 \+ Math\.random\(\) \* 90/, 'the x position is drawn at random');
+    assert.match(src, /sway: \(Math\.random\(\) \* 2 - 1\)/, 'so is the sway');
+    // the random parameters are remembered per emote, so a re-render cannot make a falling icon jump
+    assert.match(src, /function spawnOf\(seq\)/, 'the spawn parameters are memoised by seq');
+    // and an item is dropped once its flight has run out (`forwards` would otherwise park it at the end of its path)
+    assert.match(src, /now - \(Number\.isFinite\(e\.at\) \? e\.at : now\) < EMOTE_BARRAGE_MS/, 'expired items are dropped');
+  });
 });
