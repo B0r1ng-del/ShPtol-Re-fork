@@ -13,8 +13,9 @@ import { fileURLToPath } from 'node:url';
 import { cultivationCharIds } from '../../shared/protocol.js';
 import {
   parseStored, parseStoredOps, toStored, opsOf, setOps, resetOps, sanitizeOps, exportPayload, parseImport, changedCount,
-  rosterOf, filterRoster,
+  rosterOf, filterRoster, maxAllOps, maxAllOpsCount,
 } from '../../public/js/ui/loadoutModel.js';
+import { POTENTIAL_MAX, POTENTIAL_DEFAULT, CULTIVATE_MAX, CULTIVATE_DEFAULT } from '../../shared/potential.js';
 import { installLoadoutSync, SYNC_DEBOUNCE_MS, applyLoadoutEntries, loadoutStore, setEntries, setOpsMap } from '../../public/js/ui/loadoutSync.js';
 import { createStore } from '../../public/js/store.js';
 import { chessLoadout, unitCultivation, standInLoadout, standInOf, ownDiyPick, ownDiyRecord, cardDiy } from '../../public/js/ui/gameLogic.js';
@@ -53,6 +54,32 @@ test('helpers: opsOf / setOps / resetOps keep only non-default values; sanitizeO
   assert.deepEqual(resetOps({ [V]: { potential: 2 }, [KALTS]: { cultivate: 1 } }, V), { [KALTS]: { cultivate: 1 } });
   assert.deepEqual(sanitizeOps({ [V]: { potential: 2 }, [KALTS]: { cultivate: 1 }, char_609_acguad: { potential: 1 }, char_999_x: { potential: 1 }, [CHESS.chess_char_1_01_a.charId]: { potential: 6 } }, isOp),
     { [V]: { potential: 2 }, [KALTS]: { cultivate: 1 } }, 'a prototype / unknown operator / defaults dropped');
+});
+
+test('fork 二.9 一键满配: every named operator back to the maximum, others untouched, skills / modules never involved', () => {
+  // the maximum IS the default (潜能 6, 精英阶段2-60级 = POTENTIAL_DEFAULT / CULTIVATE_DEFAULT), so "set to max" clears
+  // the lowered entries rather than writing anything — this is the whole point of the feature and adds no stat math
+  assert.deepEqual([POTENTIAL_DEFAULT, CULTIVATE_DEFAULT], [POTENTIAL_MAX, CULTIVATE_MAX]);
+  const lowered = { [V]: { potential: 1, cultivate: 0 }, [KALTS]: { potential: 2 }, char_999_x: { potential: 1 } };
+  const ids = [V, KALTS, CHESS.chess_char_1_01_a.charId];
+  assert.deepEqual(maxAllOps(lowered, ids), { char_999_x: { potential: 1 } }, 'the named operators go to max; an unnamed one keeps its setting');
+  assert.equal(maxAllOpsCount(lowered, ids), 2, 'two of the named operators were below max');
+  assert.equal(maxAllOpsCount(lowered, [CHESS.chess_char_1_01_a.charId]), 0, 'an operator already at max is not counted');
+  assert.deepEqual(maxAllOps(lowered, []), lowered, 'no operators named: nothing changes');
+  assert.deepEqual(maxAllOps(null, ids), {}, 'no stored settings: still {}');
+  // the result is exactly what the server keeps: an operator it does not know is dropped, and the rest survives
+  const after = maxAllOps(lowered, ids);
+  assert.deepEqual(sanitizeOps(after, isOp), {}, 'char_999_x is not an operator the server knows, so nothing survives');
+  assert.deepEqual(sanitizeOps(maxAllOps(lowered, ids), isOp), sanitizeOps({ char_999_x: { potential: 1 } }, isOp));
+  assert.deepEqual(sanitizeOps({ [V]: { potential: 1 } }, isOp), { [V]: { potential: 1 } }, 'a known operator does survive');
+  // idempotent: a second click is a no-op (and the button is disabled, since the count is 0)
+  assert.deepEqual(maxAllOps(after, ids), after);
+  assert.equal(maxAllOpsCount(after, ids), 0);
+  // it must never involve the skills / modules: the result is an `ops` map only, and every value is a 潜能 / 练度 pair
+  for (const e of Object.values(maxAllOps(lowered, ids))) {
+    assert.ok(Object.keys(e).every((k) => k === 'potential' || k === 'cultivate'), `only 潜能 / 练度 keys, got ${Object.keys(e)}`);
+  }
+  assert.deepEqual(Object.keys(maxAllOps({ [V]: { potential: 1 } }, ids)), [], 'a maxed operator leaves no entry at all');
 });
 
 test('导出 / 导入: the envelope carries ops; an older export keeps the current settings; settings alone import', () => {

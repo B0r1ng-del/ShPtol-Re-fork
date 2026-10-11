@@ -13,7 +13,9 @@
 // SP recovery, 初始 / 消耗 SP, duration, description at 普通 Lv.4 or 精锐 Lv.7), 局内数值 (the stats, 攻击范围, 特性 and
 // 天赋 the chosen variant — 精锐 first, 普通 on the toggle — fights with under the chosen skill and module: the detail
 // card's own block and pure functions, GitHub issue #64) and the elite's modules (不装备 / X / Y … with the stat bonus,
-// the trait upgrade and the talent changes), 恢复默认; 全部恢复默认 in the top bar. The detail's 普通 / 精锐 skill toggle is one
+// the trait upgrade and the talent changes), 恢复默认; 全部恢复默认 in the top bar, beside the fork's 一键满配 (二.9: set
+// every roster operator back to the maximum 潜能 / 练度 — the defaults — without touching skills or modules). The detail's
+// 普通 / 精锐 skill toggle is one
 // preview for the skills, the 特质 and the rows' skill details (display only: never stored).
 // The loadout lives in ui/loadoutSync.js (localStorage + room.loadout); the model is ui/loadoutModel.js.
 // The second tab, 干员持有 (0.2.0 补位, screens/ownership.js): which NORMAL chess the player owns — a chess marked 未持有 is
@@ -33,7 +35,7 @@ import { PHASE } from '../../../shared/constants.js';
 import {
   MODULE_NONE, PROF_ORDER, PROF_NAME, rosterOf, filterRoster, recordsOf, chessOptions, effectiveChoice, setChoice, resetChoice,
   changedCount, skillLabel, moduleBadge, attrRows, skillTags, quickSkillTags, traitLines, serializeExport, parseImport, LOADOUT_IMPORT_MAX_BYTES,
-  opsOf, setOps, resetOps, moduleRecord,
+  opsOf, setOps, resetOps, moduleRecord, maxAllOps, maxAllOpsCount,
 } from '../ui/loadoutModel.js';
 import { loadoutStore, openLoadout, closeLoadout, setEntries, setOpsMap, applyLoadoutEntries, setNotOwned, applyOwnershipImport, setDiyPicks, applyDiyImport } from '../ui/loadoutSync.js';
 import { OperatorVoice } from '../ui/operatorVoice.js';
@@ -482,6 +484,11 @@ function LoadoutScreen({ st }) {
   const selId = st.sel && roster.some((c) => c.chessId === st.sel) ? st.sel : list[0]?.chessId || roster[0]?.chessId || null;
   const { base, golden } = selId ? recordsOf(selId, getChess) : { base: null, golden: null };
   const nChanged = changedCount(st.entries, getChess, st.ops, roster);
+  // fork 二.9 「一键满配」: the operators it may set are the roster's (the 干员调配 tab's list — the same scope as
+  // 全部恢复默认; a 自选 pick's 潜能 / 练度 is set on its own slot card on the 自选编队 tab). Deduplicated by charId:
+  // the normal, elite and 自选 forms of an operator share one setting.
+  const maxableIds = useMemo(() => new Set(roster.map((c) => c.charId).filter(Boolean)), [ready, roster]);
+  const nMaxable = ready ? maxAllOpsCount(st.ops, maxableIds) : 0;
   const locked = (inMatch && phase && phase !== PHASE.INFO_CHECK && phase !== PHASE.LOBBY) || st.sync === 'locked';
   const gridRef = useRef(null);
   const fileRef = useRef(null);                            // hidden <input type=file> of the 导入 dialog
@@ -536,6 +543,15 @@ function LoadoutScreen({ st }) {
     for (const [id, e] of Object.entries(loadoutStore.get().ops || {})) if (!rosterChars.has(id)) keep[id] = e;
     setOpsMap(keep);
     setEntries({});
+  };
+  // fork 二.9: one click sets every operator back to the maximum 潜能 / 练度 (潜能 6, 精英阶段2-60级 = the defaults), so
+  // a player who lowered some operators for a faithful-to-official run does not have to restore them one by one. It
+  // touches ONLY 潜能 / 练度 (never the skills / modules — 「全部恢复默认」 is the button for those) and adds no stat math.
+  const maxAll = async () => {
+    if (!nMaxable) return;
+    const ok = await confirmDialog({ title: t('一键满配'), text: t('将 {n} 名干员的潜能与练度设为满配（潜能 6、精英阶段2-60级）？技能与模组不受影响。', { n: nMaxable }), okText: t('一键满配') });
+    if (!ok) return;
+    setOpsMap(maxAllOps(loadoutStore.get().ops, maxableIds));
   };
 
   // 导出 / 导入 the loadout (or, on the 干员持有 tab, the not-owned list) as the versioned payload (a downloaded file,
@@ -678,6 +694,8 @@ function LoadoutScreen({ st }) {
         <span class="lo-count">${t('已调整')} <b class="num">${nChanged}</b><span class="num t-dim">/${roster.length}</span></span>
         <${Button} variant="ghost" size="sm" data-testid="loadout-export" disabled=${!nChanged} onClick=${openExport} title=${t('导出当前调配（可复制或下载）')}>${t('导出')}<//>
         <${Button} variant="ghost" size="sm" data-testid="loadout-import" disabled=${!ready} onClick=${openImport} title=${t('导入调配（粘贴或选择文件）')}>${t('导入')}<//>
+        <${Button} variant="secondary" size="sm" icon="crown" data-testid="loadout-max-all" disabled=${!nMaxable} onClick=${maxAll}
+          title=${t('把所有干员的潜能与练度设为满配（潜能 6、精英阶段2-60级）；不影响技能与模组')}>${t('一键满配')}<//>
         <${Button} variant="secondary" size="sm" icon="refresh" disabled=${!nChanged} onClick=${resetAll}>${t('全部恢复默认')}<//>
       </div>`}
     </header>

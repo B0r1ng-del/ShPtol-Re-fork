@@ -219,6 +219,30 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
   nothing else), `test/fork-diy-slots.test.js` (a full 10-slot roster through the real match engine: wire limit, stocks,
   shop levels, battle records, tier rules), plus the updated count assertions in `test/data.test.js`,
   `test/backups.test.js`, `test/diy.test.js`, `test/ui/diy-ui.test.js` and `test/golden-diy.test.js`.
+- **二.9 一键满配** — the 干员调配 tab's top bar gains **一键满配** beside 全部恢复默认: one confirmed click puts every
+  operator of the roster back to 潜能 6 / 精英阶段2-60级, so a player who lowered operators for a faithful-to-the-official
+  run does not have to restore them one by one (the requester's purpose: 「不用手动一个个切换干员强度」).
+  - **It adds no stat math, and that is the whole design.** 潜能 6 / 精英阶段2-60级 already ARE
+    `POTENTIAL_DEFAULT` / `CULTIVATE_DEFAULT` (`shared/potential.js` — the owner's 「默认满潜满加成」 of 2026-10-08), and
+    `setOps` keeps an entry only when a value **differs** from the default. So "the maximum" is the **absence** of a
+    setting: the button clears the lowered entries (`maxAllOps` → `setOps(ops, id, { potential: POTENTIAL_MAX,
+    cultivate: CULTIVATE_MAX })`) and the sim, the shop cards and 局内数值 then read exactly the defaults they read
+    before the player ever touched the selects. Nothing about the official 潜能 / 练度 rules, the wire format
+    (`room.loadout.ops`) or the sim changes; the two values come from `POTENTIAL_MAX` / `CULTIVATE_MAX` rather than a
+    literal 6 / 3, so a data change would move them.
+  - **Scope** — it is deliberately scoped to the **roster** (`maxableIds` = the 干员调配 tab's list, the same scope as
+    全部恢复默认) and touches **only** `ops`: skills and modules are never written (that is what 全部恢复默认 is for), and
+    a 自选 pick's 潜能 / 练度 stays on its own slot card on the 自选编队 tab. The button is disabled while
+    `maxAllOpsCount` is 0, so it is never a no-op click, and it confirms first because it changes many operators at once.
+  - **Not mode-gated, following the fork's own precedent** — like 自选编队 (official 0.2.0) and 二.7 房主配置, this is a
+    **局外设置** convenience on a screen shared by all three modes; it changes no rule of any mode, writes only values
+    the player could have written by hand with the existing selects, and leaves the official modes' behaviour (and their
+    潜能 / 练度 semantics) exactly as it was. The 精锐 Lv.7 the requester named is **not** a setting at all: it is the
+    elite chess record's own skill level in the data (`skills[].level = 7`, and the 普通 / 精锐 toggle on the detail is
+    display-only), so nothing was added for it.
+  `test/ui/potential-ui.test.js` (the model: the maximum is the default, only the named operators move, idempotence, the
+  result is what the server keeps, only 潜能 / 练度 keys) and `test/ui/loadout-rows.test.js` (the button's wiring, its
+  roster scope, its disabled state, and that it never touches the entries).
 
 ## Fork change log
 
@@ -233,3 +257,4 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
 | 二.6 表情：一键十连 + 弹幕 | one tap sends an emote 10 times (one `g.emoteBurst`, one cooldown); emotes also fall like snowflakes from a random x, fading out past the bottom edge, on every client's screen | `shared/constants.js` (`EMOTE_BURST_COUNT`/`EMOTE_BARRAGE_MS`), `shared/protocol.js` (`g.emoteBurst`), `server/match/match/intents.js` (`emoteBurst`), `public/js/ui/emotes.js` (`EmoteBarrage`, `emotePrefsStore`, the two switches), `public/css/emotes.css` (`emo-fall`), `public/js/ui/gameActions.js`, `public/js/screens/game.js`, `test/fork-emote-burst.test.js`, `test/client-static.test.js` |
 | 二.7 房主配置 | 每个模式的准备房间都有一个房主配置面板（仅房主可改）：共享卡池、共享悬赏、AI 队友最后选择、多同盟模式；房间跨对局保留，开局时交给对局。私人房间按用户要求不做 | `shared/constants.js` (`HOST_CONFIG_KEYS`/`HOST_CONFIG_DEFAULTS`), `shared/protocol.js` (`room.setHostConfig`), `server/lobby.js`, `server/match/Match.js`, `server/match/match/infra.js` (`poolFor`), `server/match/match/spDraft.js`, `server/match/match/phases.js`, `server/match/player/*`, `server/match/bot.js`, `server/match/invariants.js`, `server/match/audit.js`, `public/js/screens/room.js`, `public/css/screens/room.css`, `public/js/screens/bandDraft.js`, `public/js/ui/gameLogic/draft.js`, `test/lobby-host-config.test.js`, `test/match/host-config.test.js`, `test/ui/host-config.test.js` |
 | 二.8 自选编队 10 个名额 | 自选编队每阶 5 个名额（5 阶 5 + 6 阶 5 = 10，官方为每阶 2）：额外 6 个槽位由 fork 数据层生成（`chess.json` 的 `…_diyN_a`/`_b` 记录对 + `backups.json` 的 `diy.slots`），复制同阶官方槽位的 status/价格/合成数；`DIY_LIMITS.slots` 8 → 10；官方 4 槽位与所有官方模式规则不变，**golden 未移动** | `tools/fork-overrides.mjs` (`applyForkChess`/`applyForkBackups`), `tools/fork-data.mjs` (LAYER), `tools/build-data.mjs` (per-rank 循环), `shared/protocol.js` (`DIY_LIMITS`), `data/chess.json`, `data/backups.json`, `tools/golden.mjs` (`DIY_CORPUS_SLOTS`), `test/fork-data.test.js`, `test/fork-diy-slots.test.js` |
+| 二.9 一键满配 | 干员调配顶栏加「一键满配」（在「全部恢复默认」旁）：一次确认把所有干员的潜能与练度设回满配（潜能 6、精英阶段2-60级）。满配本来就是默认值，所以这个按钮只是清掉被调低的条目——**不引入任何数值计算**，也不碰技能与模组。全模式通用（需求方决定） | `public/js/ui/loadoutModel.js` (`maxAllOps`/`maxAllOpsCount`), `public/js/screens/loadout.js`, `public/i18n/*.json`, `test/ui/potential-ui.test.js`, `test/ui/loadout-rows.test.js` |

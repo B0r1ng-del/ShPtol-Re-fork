@@ -14,7 +14,7 @@
 // has none = the defaults) and sent with `room.loadout { entries, ops }` (shared/protocol.js checkLoadoutOps).
 
 import { loadoutOptions, checkLoadout, checkLoadoutOps, resolveLoadout, MODULE_NONE, LOADOUT_LIMITS } from '../../../shared/protocol.js';
-import { isPotential, isCultivate, POTENTIAL_DEFAULT, CULTIVATE_DEFAULT } from '../../../shared/potential.js';
+import { isPotential, isCultivate, POTENTIAL_MAX, CULTIVATE_MAX, POTENTIAL_DEFAULT, CULTIVATE_DEFAULT } from '../../../shared/potential.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
 export { MODULE_NONE };
@@ -149,6 +149,44 @@ export function sanitizeOps(ops, isOperator) {
     }
   }
   return out;
+}
+
+/**
+ * Set every operator of `charIds` to the maximum 潜能 and 练度 — the 干员调配 screen's 「一键满配」 (fork, the owner's
+ * request: 「干员调配添加一键切换6潜能，精二60级」, whose purpose is 「不用手动一个个切换干员强度」).
+ *
+ * This adds **no stat math**: 潜能 6 / 精英阶段2-60级 already ARE `POTENTIAL_DEFAULT` / `CULTIVATE_DEFAULT`
+ * (shared/potential.js — the owner's 「默认满潜满加成」 of 2026-10-08), so "maximum" is the ABSENCE of a setting. Lowering
+ * an operator writes an entry (`setOps`); this button clears those entries again, so the sim, the shop cards and the
+ * 局内数值 read exactly the defaults they read before the player ever touched the selects. The two values come from
+ * POTENTIAL_MAX / CULTIVATE_MAX rather than a literal 6 / 3, and `setOps` drops an entry equal to the defaults — so if
+ * a future data change moved the maximum away from the default, this would write the real maximum instead.
+ *
+ * Operators not in `charIds` keep their settings (the roster's 自选 owned pool is passed in by the caller, so their
+ * per-operator settings survive). An entry for an operator the server would refuse is dropped by checkLoadoutOps anyway.
+ * @param {Record<string, any>|null|undefined} ops the stored 潜能 / 练度
+ * @param {Iterable<string>|null} [charIds] the operators to set to the maximum
+ * @returns {Record<string, { potential?: number, cultivate?: number }>} a new map
+ */
+export function maxAllOps(ops, charIds = null) {
+  let out = { ...(ops || {}) };
+  if (charIds == null) return out;
+  for (const id of charIds) out = setOps(out, id, { potential: POTENTIAL_MAX, cultivate: CULTIVATE_MAX });
+  return out;
+}
+
+/**
+ * How many operators 「一键满配」 would change: those of `charIds` carrying a stored 潜能 / 练度 below the maximum
+ * (an entry is only ever written for a value that differs from the defaults — see `setOps`). Drives the button's
+ * disabled state, so it is never a no-op click.
+ * @param {Record<string, any>|null|undefined} ops @param {Iterable<string>|null} [charIds]
+ * @returns {number}
+ */
+export function maxAllOpsCount(ops, charIds = null) {
+  if (charIds == null) return 0;
+  let n = 0;
+  for (const id of charIds) if (opsOf(ops, id).changed) n++;
+  return n;
 }
 
 // ---- export / import ----------------------------------------------------------------------------------------------
