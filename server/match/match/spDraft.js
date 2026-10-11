@@ -24,18 +24,39 @@ export class MatchSpDraft {
     if (!this.isSolo) this.rngDraft.shuffle(order);
     // 「AI 队友最后选择」 (GitHub #338): humans before AI seats, after the same shuffle (MatchPhases.humansFirst)
     order = this.humansFirst(order);
-    // untimed: solo and any single-human match (soloUntimed); the co-op order / 6 cards stay
-    const untimed = this.soloUntimed;
-    this.sp = { ...draft, order, idx: 0, picks: {}, taken: {}, untimed, turnDeadline: 0 };
+    // untimed: solo and any single-human match (soloUntimed); the co-op order / 6 cards stay. A MODE may switch the
+    // whole draft untimed and parallel and offer the random-allocation vote (fork 二.4 — GameData.spDraftRules).
+    const rules = this.gd.spDraftRules;
+    const untimed = this.soloUntimed || rules.untimed;
+    this.sp = {
+      ...draft, order, idx: 0, picks: {}, taken: {}, untimed, turnDeadline: 0,
+      parallel: rules.parallel, randomOffer: rules.randomFamilies, randomVotes: new Set(), randomResolved: false,
+    };
     this.setDeadline(0);
     this.startSpTurn();
     this.markPublic();
   }
 
+  /**
+   * The 机变 draft rules of the mode (`GameData.spDraftRules`; fork 二.4): `untimed`, `parallel` and
+   * `randomFamilies` — all off for every official mode, which keeps the sequential timed draft exactly as it was.
+   */
+  get spRules() { return this.gd.spDraftRules; }
+
   spTurn() {
     const s = this.sp;
     if (!s) return null;
+    // a parallel draft has no turn: the "current" player is simply the first one still to act (the bot scheduler
+    // and the client's turn cue read this, nothing gates a pick on it)
+    if (s.parallel) return s.order.find((pid) => !this.spDone(pid)) ?? null;
     return s.order[s.idx] ?? null;
+  }
+
+  /** Whether a player has finished its 机变 turn: it picked a card, or (parallel) it voted for the random draw. */
+  spDone(playerId) {
+    const s = this.sp;
+    if (!s) return true;
+    return s.picks[playerId] != null || (s.parallel && s.randomVotes.has(playerId));
   }
 
   spCardAvailable(card) { return !!card && this.sp?.taken[card.idx] == null && (card.kind !== 'item' || this.itemPool.canGain(card.id)); }
@@ -44,6 +65,17 @@ export class MatchSpDraft {
     const s = this.sp;
     this.cancel(this._turnTimer);
     this._turnTimer = null;
+    if (s.parallel) {
+      // 二.4: no clock — everyone decides at once and the draft ends when every alive player has picked or voted
+      this.setDeadline(0);
+      const available = s.cards.map((c) => c.idx).filter((i) => s.taken[i] == null);
+      const pending = s.order.map((pid) => this.players.get(pid)).filter((ps) => ps && ps.alive && !this.spDone(ps.playerId));
+      if (!pending.length || !available.length) { this.later(0, () => this.finishSpDraft()); return; }
+      for (const ps of pending) if (ps.botControlled) this.scheduleSpBot(ps.playerId);
+      this.markPublic();
+      return;
+    }
+    const token = ++this._turnToken;
     while (s.idx < s.order.length) {
       const ps = this.players.get(s.order[s.idx]);
       if (ps && ps.alive && s.picks[ps.playerId] == null) break;
@@ -51,7 +83,6 @@ export class MatchSpDraft {
     }
     const available = s.cards.filter(c => this.spCardAvailable(c)).map(c => c.idx);
     if (s.idx >= s.order.length || !available.length) { this.setDeadline(0); this.later(0, () => this.finishSpDraft()); return; }
-    const token = ++this._turnToken;
     if (!s.untimed) {
       const first = s.idx === 0;
       const secs = first ? this.gd.timer('spFirst') : this.gd.timer('spTurn');
@@ -72,12 +103,15 @@ export class MatchSpDraft {
     this.markPublic();
   }
 
-  scheduleSpBot() {
+  /** The AI seat `playerId` (default: the current turn) takes its 机变 action. */
+  scheduleSpBot(playerId = this.spTurn()) {
     const token = this._turnToken;
     this.later(this.scaled(DELAYS.BOT_ACTION), () => {
-      if (this.phase !== PHASE.SP_DRAFT || token !== this._turnToken || !this.sp) return;
-      const ps = this.players.get(this.spTurn());
-      if (!ps || !ps.botControlled) return;
+      if (this.phase !== PHASE.SP_DRAFT || !this.sp) return;
+      const ps = this.players.get(playerId);
+      if (!ps || !ps.botControlled || this.spDone(ps.playerId)) return;
+      // the sequential draft keeps the turn token / turn rule; a parallel one only needs the player to be pending
+      if (!this.sp.parallel && (token !== this._turnToken || this.spTurn() !== ps.playerId)) return;
       const avail = this.sp.cards.filter(c => this.spCardAvailable(c)).map(c => c.idx);
       if (!avail.length) return;
       this._applyCard(ps, botPickCard(this, ps, this.sp.cards, avail));
@@ -88,11 +122,81 @@ export class MatchSpDraft {
     if (this.phase !== PHASE.SP_DRAFT || !this.sp) return fail(ERR.WRONG_PHASE);
     if (!ps.alive) return fail(ERR.ELIMINATED);
     if (this.sp.picks[ps.playerId] != null) return fail(ERR.ALREADY);
-    if (this.spTurn() !== ps.playerId) return fail(ERR.NOT_YOUR_TURN);
+    // a parallel draft (fork 二.4) accepts every pick at any time; the sequential one keeps the turn rule
+    if (!this.sp.parallel && this.spTurn() !== ps.playerId) return fail(ERR.NOT_YOUR_TURN);
     if (!Number.isInteger(idx) || idx < 0 || idx >= this.sp.cards.length) return fail(ERR.BAD_TARGET);
     if (!this.spCardAvailable(this.sp.cards[idx])) return fail(ERR.SOLD_OUT);
     this._applyCard(ps, idx);
     return OK;
+  }
+
+  /**
+   * 机变 随机分配 vote (fork 二.4): the player votes for the random allocation instead of picking a card. As soon as
+   * HALF of the alive players have voted (`votes × 2 ≥ alive`) the system hands the cards out at random — one per
+   * alive player, over their own pick — and the round moves on; below that every player keeps the card it picked.
+   * Refused unless the mode offers the vote, and never in a 悬赏决策 draft ("悬赏类不要添加随机机制").
+   * @returns {{ ok: true } | { error: string, detail?: string }}
+   */
+  voteRandomChoice(ps) {
+    if (this.phase !== PHASE.SP_DRAFT || !this.sp) return fail(ERR.WRONG_PHASE);
+    if (!ps.alive) return fail(ERR.ELIMINATED);
+    const s = this.sp;
+    if (!s.parallel || !s.randomOffer || !this.randomVoteOffered()) return fail(ERR.WRONG_PHASE, '随机分配 is not offered in this 机变'); // i18n-ignore (developer diagnostic)
+    if (s.randomVotes.has(ps.playerId) || s.picks[ps.playerId] != null) return fail(ERR.ALREADY);
+    s.randomVotes.add(ps.playerId);
+    this.markPublic();
+    if (this.voteRandomReached()) { this.resolveRandomChoice(); return OK; }
+    this.startSpTurn();
+    return OK;
+  }
+
+  /** Whether this draft offers the vote at all: the mode lists the family, and the family is never 悬赏. */
+  randomVoteOffered() {
+    const s = this.sp;
+    if (!s || !s.randomOffer) return false;
+    return s.family !== 'bounty' && s.randomOffer.includes(s.family);
+  }
+
+  /** Whether HALF of the alive players (inclusive) have voted for the random allocation. */
+  voteRandomReached() {
+    const s = this.sp;
+    if (!s) return false;
+    const alive = this.alivePlayers().length;
+    return alive > 0 && s.randomVotes.size * 2 >= alive;
+  }
+
+  /** Whether the random draw may hand `card` out: a listed family, and never a 悬赏 card. */
+  randomChoiceEligible(card) {
+    const s = this.sp;
+    if (!s || !s.randomOffer || !card) return false;
+    if (card.family === 'bounty') return false; // 悬赏 adds its enemies to the PICKER's own battles — never handed out
+    return s.randomOffer.includes(card.family);
+  }
+
+  /**
+   * Hand the draft's random-eligible cards out, one per alive player, in a shuffled order — the picker's own choice is
+   * overridden, which is the point of the vote. Every player still gets at most one card, and the pick/taken maps stay
+   * consistent for the audit.
+   */
+  resolveRandomChoice() {
+    const s = this.sp;
+    if (!s || s.randomResolved) return;
+    s.randomResolved = true;
+    const alive = this.alivePlayers().filter((p) => p.alive);
+    const pool = s.cards.filter((c) => s.taken[c.idx] == null && this.randomChoiceEligible(c));
+    this.rngDraft.shuffle(alive);
+    this.rngDraft.shuffle(pool);
+    const n = Math.min(pool.length, alive.length);
+    for (let k = 0; k < n; k++) {
+      const ps = alive[k];
+      const card = pool[k];
+      s.picks[ps.playerId] = card.idx;
+      s.taken[card.idx] = ps.playerId;
+      try { applyCard(this, ps, card); } catch (e) { this.reportError(`applyCard ${card.id}`, e); }
+      this.markPrivate(ps);
+    }
+    this.markPublic();
+    this.finishSpDraft();
   }
 
   _applyCard(ps, idx) {

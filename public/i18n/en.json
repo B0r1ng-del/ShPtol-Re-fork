@@ -1215,5 +1215,12 @@
   "库存不足": "Out of stock",
   "1–{n} 名博士 · 盟约与干员全部解锁": "1–{n} Doctors · every Alliance and operator unlocked",
   "固定为终极难度": "Fixed to the Ultimate difficulty",
-  "终极模拟固定难度": "Ultimate Simulation has one fixed difficulty"
+  "终极模拟固定难度": "Ultimate Simulation has one fixed difficulty",
+  "随机分配": "Random allocation",
+  "随机票": "Random votes",
+  "已投票：随机分配": "Voted: random allocation",
+  "等待其他博士决策…": "Waiting for the other Doctors…",
+  " · 也可投票给「随机分配」：过半即由系统随机发放": " · You may also vote for \"Random allocation\": past half and the system hands the cards out at random",
+  "达到半数票后由系统随机分配（覆盖个人选择）": "Past half the votes and the system allocates at random (overrides personal picks)",
+  "投票给「随机分配」：达到半数票后由系统把卡牌随机发放给每名博士（覆盖个人选择）": "Vote for \"Random allocation\": past half the votes and the system hands the cards out to each Doctor at random (overrides personal picks)"
 }

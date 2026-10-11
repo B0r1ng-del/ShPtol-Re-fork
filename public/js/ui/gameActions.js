@@ -10,6 +10,7 @@ import { audio } from '../audio.js';
 const SUCCESS_SFX = {
   'g.buy': 'buy', 'g.sell': 'sell', 'g.refresh': 'refresh', 'g.freeze': 'freeze', 'g.levelUp': 'levelup',
   'g.move': 'drop', 'g.equip': 'equip', 'g.art': 'artPlace', 'g.reward': 'pick', 'g.choice': 'pick',
+  'g.choiceRandom': 'confirm',
   'g.band': 'confirm', 'g.bandSkip': 'back', 'g.infoReady': 'ready', 'g.emote': 'emote', 'g.destroy': 'back',
 };
 
@@ -68,6 +69,8 @@ export const actions = {
   destroy: (uid) => act('g.destroy', { uid }),
   reward: (idx) => act('g.reward', { idx }),
   choice: (idx, choiceId) => act('g.choice', choiceId === undefined ? { idx } : { idx, choiceId }),
+  // 机变 随机分配 vote (fork 二.4): vote for the random allocation instead of picking a card
+  choiceRandom: () => act('g.choiceRandom', {}),
   ready: (ready) => act('g.ready', { ready }, { sfx: ready ? 'ready' : 'back' }),
   emote: (id) => act('g.emote', { id }, { quiet: true }),
   // `playerId`: the player tapped in the team panel (a shared field shows two) — what an eliminated viewer follows

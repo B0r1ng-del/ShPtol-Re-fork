@@ -154,7 +154,9 @@ export class GameData {
     let base = boss && boss.bloodPoint && Number.isFinite(boss.bloodPoint[diff]) ? boss.bloodPoint[diff] : null;
     if (base == null && boss && boss.bloodPoint) base = Object.values(boss.bloodPoint).find((v) => Number.isFinite(v)) ?? null;
     if (base == null) base = 500000;
-    return Math.max(1, Math.round(base * this.bossPoolShare(aliveCount)));
+    // × the fork's per-class extra (二.3): the leader's and the hidden core's factors are looked up separately by boss
+    // id (`bossHpExtra`), so this is a per-boss value and not one blanket multiplier over the pool. 1 officially.
+    return Math.max(1, Math.round(base * this.bossPoolShare(aliveCount) * this.bossHpExtra(bossId)));
   }
 
   /**
@@ -429,6 +431,87 @@ export class GameData {
     return this.baseEnemyScale(r);
   }
 
+  /**
+   * The MODE's own enemy adjustments (`modes[modeId].enemyAdjust`), or null — a fork-only extension of the official
+   * table, so the official modes keep their numbers exactly. Shape:
+   * `{ fromRound, normal: { hp }, leader: { hp, def, atk }, hidden: { hp, def, atk } }`, every value a multiplier
+   * (1.2 = +20 %); a missing field means 1.
+   */
+  get enemyAdjust() {
+    const a = this.mode.enemyAdjust;
+    return a && typeof a === 'object' && !Array.isArray(a) ? a : null;
+  }
+
+  /** Whether the mode's round-based enemy adjustment applies in round r (round ≥ fromRound; fromRound defaults to 1). */
+  enemyAdjustActive(r) {
+    const a = this.enemyAdjust;
+    if (!a) return false;
+    const from = Number.isInteger(a.fromRound) && a.fromRound > 0 ? a.fromRound : 1;
+    return (Number(r) || 0) >= from;
+  }
+
+  /** One adjustment class's multiplier for `key`, or 1 (also for a malformed entry). */
+  _adjMul(cls, key) {
+    return cls && Number.isFinite(cls[key]) && cls[key] > 0 ? cls[key] : 1;
+  }
+
+  /**
+   * The spawn multipliers of round r that sit ON TOP of the official table, by spawn class:
+   *   * `normalHp` — every ordinary spawn (leader escorts, bounty adds …), but never a 部位/part (`isPart`) and never
+   *     the leader itself, whose HP is the shared pool;
+   *   * `bossAtk` / `bossDef` — the leader (最终攻势) or the hidden core (隐秘核心), whichever round r is.
+   * All three are 1 when the mode has no adjustment or r is before `fromRound`.
+   */
+  enemyExtras(r) {
+    const one = { normalHp: 1, bossAtk: 1, bossDef: 1 };
+    if (!this.enemyAdjustActive(r)) return one;
+    const a = this.enemyAdjust;
+    const kind = Number(r) === this.hiddenRound ? a.hidden : a.leader;
+    return {
+      normalHp: this._adjMul(a.normal, 'hp'),
+      bossAtk: this._adjMul(kind, 'atk'),
+      bossDef: this._adjMul(kind, 'def'),
+    };
+  }
+
+  /**
+   * HP multiplier of ONE boss's shared pool (the fork's 二.3 "领袖和隐秘核心分开计算"): a hidden core is a boss id
+   * listed in `mode.hiddenBossWeights` (boss_8 … boss_10), anything else is a Final Assault leader. Its own
+   * `bloodPoint[difficulty]` is multiplied by that class's factor — never one blanket multiplier over the pool, so a
+   * change to the leader's number can never move the hidden core's (and vice versa).
+   * @param {string} bossId
+   * @returns {number} 1 without an adjustment (every official mode)
+   */
+  bossHpExtra(bossId) {
+    const a = this.enemyAdjust;
+    if (!a || typeof bossId !== 'string') return 1;
+    // the boss rounds are always inside the adjustment window when one exists; gate anyway so `fromRound` is honoured
+    if (!this.enemyAdjustActive(this.bossRound) && !this.enemyAdjustActive(this.hiddenRound)) return 1;
+    const hw = this.mode.hiddenBossWeights;
+    const hidden = !!(hw && typeof hw === 'object' && Object.hasOwn(hw, bossId));
+    return this._adjMul(hidden ? a.hidden : a.leader, 'hp');
+  }
+
+  /** The mode's 机变 rules (`modes[modeId].spDraft`; fork 二.4), or null. */
+  get spDraft() {
+    const d = this.mode.spDraft;
+    return d && typeof d === 'object' && !Array.isArray(d) ? d : null;
+  }
+
+  /**
+   * The mode's 机变 draft rules, normalised: `{ untimed, parallel, randomFamilies }` — all off (and
+   * `randomFamilies` null, i.e. no vote button) without an `spDraft` block, so every official mode is unchanged.
+   * `randomFamilies` is the allow-list of card families the random allocation may hand out; a 悬赏 card is never
+   * eligible even when listed (`Match.randomChoiceEligible`).
+   */
+  get spDraftRules() {
+    const d = this.spDraft;
+    if (!d) return { untimed: false, parallel: false, randomFamilies: null };
+    const vote = d.randomVote && typeof d.randomVote === 'object' && !Array.isArray(d.randomVote) ? d.randomVote : null;
+    const fams = vote && Array.isArray(vote.families) ? vote.families.filter((f) => typeof f === 'string') : [];
+    return { untimed: d.untimed === true, parallel: d.parallel === true, randomFamilies: fams.length ? fams : null };
+  }
+
   timer(key) {
     const t = this.config.timers && this.config.timers[key];
     return typeof t === 'number' && Number.isFinite(t) && t > 0 ? t : DEFAULTS.timers[key] ?? 10;
@@ -477,9 +560,17 @@ export class GameData {
       difficulties: Array.isArray(h.difficulties) ? h.difficulties : DEFAULTS.hiddenCore.difficulties,
     };
   }
+  /**
+   * Per-match ban counts of a difficulty: how many core / add-on bonds the seeded draw removes from play
+   * (server/match/pool.js drawDisabledBonds). `config.bans` is difficulty-keyed, but a MODE may carry a table of its
+   * own (`modes[modeId].bans`, the fork's 终极模拟 = `{ core: 0, addon: 0 }` — "此模式下所有盟约不会被禁用"), which
+   * wins when present so a fork mode can switch the draw off without disturbing its difficulty's official numbers.
+   * A mode table that leaves a field out means 0, never the difficulty's default.
+   */
   bans(difficulty) {
-    const b = this.config.bans && this.config.bans[difficulty];
-    const d = DEFAULTS.bans[difficulty] || { core: 0, addon: 0 };
+    const own = this.mode && typeof this.mode.bans === 'object' && this.mode.bans !== null && !Array.isArray(this.mode.bans) ? this.mode.bans : null;
+    const b = own || (this.config.bans && this.config.bans[difficulty]);
+    const d = own ? { core: 0, addon: 0 } : (DEFAULTS.bans[difficulty] || { core: 0, addon: 0 });
     if (!b || typeof b !== 'object') return { ...d };
     return { core: Number.isInteger(b.core) && b.core >= 0 ? b.core : d.core, addon: Number.isInteger(b.addon) && b.addon >= 0 ? b.addon : d.addon };
   }
