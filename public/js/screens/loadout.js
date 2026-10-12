@@ -25,7 +25,7 @@
 // Keyboard: Esc closes, ←/→ move through the (filtered) roster when focus is not in the search field (干员调配 tab).
 
 import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
-import { html, Icon, MicroLabel, Button, TierChip, TextField, Countdown, Spinner, confirmDialog, hasDeadline, Modal, Fragment } from '../ui/components.js';
+import { html, Icon, MicroLabel, Button, TierChip, TextField, Countdown, Spinner, confirmDialog, hasDeadline, Modal, Fragment, Tooltip } from '../ui/components.js';
 import { Img, RichText, UnitThumb } from '../ui/gameComponents.js';
 import { chessAvatarUrl, chessPortraitUrl, subProfIconUrl, bondIconUrl, moduleTypeIconUrl } from '../ui/assetUrls.js';
 import { GarrisonBlock } from '../ui/detailPanel.js';
@@ -694,8 +694,10 @@ function LoadoutScreen({ st }) {
         <span class="lo-count">${t('已调整')} <b class="num">${nChanged}</b><span class="num t-dim">/${roster.length}</span></span>
         <${Button} variant="ghost" size="sm" data-testid="loadout-export" disabled=${!nChanged} onClick=${openExport} title=${t('导出当前调配（可复制或下载）')}>${t('导出')}<//>
         <${Button} variant="ghost" size="sm" data-testid="loadout-import" disabled=${!ready} onClick=${openImport} title=${t('导入调配（粘贴或选择文件）')}>${t('导入')}<//>
-        <${Button} variant="secondary" size="sm" icon="crown" data-testid="loadout-max-all" disabled=${!nMaxable} onClick=${maxAll}
-          title=${t('把所有干员的潜能与练度设为满配（潜能 6、精英阶段2-60级）；不影响技能与模组')}>${t('一键满配')}<//>
+        <${Tooltip} text=${nMaxable ? null : t('所有干员都已是满配（潜能 6、精英阶段2-60级）——满配就是默认值，先把某个干员的潜能或练度调低才会用到这个按钮')}>
+          <${Button} variant="secondary" size="sm" icon="crown" data-testid="loadout-max-all" disabled=${!nMaxable} onClick=${maxAll}
+            title=${t('把所有干员的潜能与练度设为满配（潜能 6、精英阶段2-60级）；不影响技能与模组')}>${t('一键满配')}<//>
+        <//>
         <${Button} variant="secondary" size="sm" icon="refresh" disabled=${!nChanged} onClick=${resetAll}>${t('全部恢复默认')}<//>
       </div>`}
     </header>
