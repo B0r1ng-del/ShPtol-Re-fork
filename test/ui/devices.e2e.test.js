@@ -248,7 +248,7 @@ describe('multi-device (Chrome device emulation)', { skip: !ENABLED && 'set SP_E
   }
 
   for (const dev of ['phone-min', 'iphone14']) {
-    test(`${dev}: the left detail card leaves the corner buttons (⚙ 📖 ⛶) usable`, async () => {
+    test(`${dev}: the left detail card leaves the top bar's ⚙ 📖 ⛶ row usable`, async () => {
       const { page, problems } = await open(dev, 'phase=PREP');
       // not a card that completes a merge: it lights its elite's board tile, and the card moves to the right slot when that
       // tile lies under the left one (screens/game.js dSide, DESIGN §20.11) — 20–40 ms after it opened on the left, at
@@ -258,7 +258,7 @@ describe('multi-device (Chrome device emulation)', { skip: !ENABLED && 'set SP_E
       await page.waitForSelector('.dpanel:not(.dpanel--right)', { timeout: 3000 });
       await sleep(400);
       assert.equal(await page.$('.dpanel.dpanel--right'), null, `${dev}: the card stays in the left slot`);
-      const covered = await page.evaluate(() => [...document.querySelectorAll('.gm__corner .gm__gear')].map((el) => {
+      const covered = await page.evaluate(() => [...document.querySelectorAll('.gm__tools .gm__gear')].map((el) => {
         const r = el.getBoundingClientRect();
         const t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
         return t && el.contains(t) ? null : `${el.getAttribute('aria-label') || el.className} under ${t?.className}`;

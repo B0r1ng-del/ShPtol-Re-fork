@@ -245,6 +245,39 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
   result is what the server keeps, only 潜能 / 练度 keys) and `test/ui/loadout-rows.test.js` (the button's wiring, its
   roster scope, its disabled state, and that it never touches the entries).
 
+- **三.1–三.3 UI 回顾（电脑 + 手机一并看）** — three items from the requester's screenshots, all **universal interface
+  work**: no mode rule moves, no golden file moves.
+  - **三.1 隐藏滚动条** — the 局内盟约 popup (`.bpop`) and the operator detail card's scroller (`.dpanel__scroll`) each
+    showed a native scrollbar on their right edge (`public/css/screens/game-panels.css`). Both now use
+    `scrollbar-width: none` plus a zero-width `::-webkit-scrollbar` (the repo's existing idiom: `stats.css` `.st-tabs`,
+    `loadout.css`); scrolling and the content are unchanged.
+  - **三.2 局内 ⚙ / 📖 / ⛶ 移到顶栏左侧** — the three buttons used to be a row in the bottom-left corner beside 交流. The
+    requester asked for them **above, level with the top bar, 交流 excluded**. They are now `.gm__tools` in the top
+    bar's left block (`public/js/ui/hud.js` `TopBar`'s `tools` slot, filled by `public/js/screens/game.js`), and 交流
+    keeps the corner (`.gm__corner`) alone.
+    - Desktop: `.56rem`, the same order as 离开's `.64rem` square; short touch screens: `max(.5rem, 28px)` with
+      `max(.16rem, 10px)` gaps, so the 44 px hit areas are 44 px apart and never cover each other.
+    - Narrow phones (< 768 CSS px, where the root scale is clamped at 40 px): the row does not fit beside
+      离开 + ping + 难度 before the centre brackets (a 观战席 capsule widens that group again), so `css/devices.css`
+      wraps it onto a **second line in the top-left** and lets `.gm__bonds` start right of it (`left: 3.4rem`). The
+      strip's own top is deliberately unchanged, so `HUD_REM.bondStripBottom` (2.16 rem) and the prep camera's top band
+      do not move, and the bench is never covered by a lowered strip.
+    - `ui/fieldHost.js` `cornerBand` now measures the 交流 button alone (the corner's only control), so the folded
+      shop's board grows a little; `HUD_REM.cornerTop` (.24 + .56 rem) is unchanged. The narrow-phone left detail card
+      only has to clear 交流 now.
+  - **三.3 大厅顶栏两侧平衡** — the requester: the two left squares were too large and the two right buttons too small.
+    The left `.topbar__tools` squares drop 40 → **36 px** on touch screens (10 px gap, 46 px between hit-area centres);
+    干员调配 rises from `size="sm"` to the default size and is floored at **36 px** tall with an 11 px label on touch
+    screens, and the player chip takes the same `min-height` — both sides one height
+    (`public/css/components.css`, `public/js/screens/lobby.js`).
+  - **The standing convention** — the requester's long-term instruction: 「以后任何界面改动都要同时兼顾电脑与手机」.
+    It is written down as the two-device rule in `docs/design/client.md` §10: `css/devices.css` is the last layer and
+    carries the phone overrides, `test/ui/devices.e2e.test.js` runs the real HUD at 640×360 … 1366×768, and every
+    further UI change is verified on both.
+  `test/ui/playtest5-ui.test.js` + `test/ui/issue5-fold-camera.test.js` (the CSS rules and the HUD bands),
+  `test/ui/playtest5-ui.e2e.test.js` (the three glyphs: regular gear, square, half the button; the screenshot moved to
+  the top bar), `test/ui/devices.e2e.test.js` (the ≥ 44 px hit areas and the card never covering the row).
+
 ## Fork change log
 
 | Change | What it does | Where |
@@ -259,3 +292,4 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
 | 二.7 房主配置 | 每个模式的准备房间都有一个房主配置面板（仅房主可改）：共享卡池、共享悬赏、AI 队友最后选择、多同盟模式；房间跨对局保留，开局时交给对局。私人房间按用户要求不做 | `shared/constants.js` (`HOST_CONFIG_KEYS`/`HOST_CONFIG_DEFAULTS`), `shared/protocol.js` (`room.setHostConfig`), `server/lobby.js`, `server/match/Match.js`, `server/match/match/infra.js` (`poolFor`), `server/match/match/spDraft.js`, `server/match/match/phases.js`, `server/match/player/*`, `server/match/bot.js`, `server/match/invariants.js`, `server/match/audit.js`, `public/js/screens/room.js`, `public/css/screens/room.css`, `public/js/screens/bandDraft.js`, `public/js/ui/gameLogic/draft.js`, `test/lobby-host-config.test.js`, `test/match/host-config.test.js`, `test/ui/host-config.test.js` |
 | 二.8 自选编队 10 个名额 | 自选编队每阶 5 个名额（5 阶 5 + 6 阶 5 = 10，官方为每阶 2）：额外 6 个槽位由 fork 数据层生成（`chess.json` 的 `…_diyN_a`/`_b` 记录对 + `backups.json` 的 `diy.slots`），复制同阶官方槽位的 status/价格/合成数；`DIY_LIMITS.slots` 8 → 10；官方 4 槽位与所有官方模式规则不变，**golden 未移动** | `tools/fork-overrides.mjs` (`applyForkChess`/`applyForkBackups`), `tools/fork-data.mjs` (LAYER), `tools/build-data.mjs` (per-rank 循环), `shared/protocol.js` (`DIY_LIMITS`), `data/chess.json`, `data/backups.json`, `tools/golden.mjs` (`DIY_CORPUS_SLOTS`), `test/fork-data.test.js`, `test/fork-diy-slots.test.js` |
 | 二.9 一键满配 | 干员调配顶栏加「一键满配」（在「全部恢复默认」旁）：一次确认把所有干员的潜能与练度设回满配（潜能 6、精英阶段2-60级）。满配本来就是默认值，所以这个按钮只是清掉被调低的条目——**不引入任何数值计算**，也不碰技能与模组。全模式通用（需求方决定） | `public/js/ui/loadoutModel.js` (`maxAllOps`/`maxAllOpsCount`), `public/js/screens/loadout.js`, `public/i18n/*.json`, `test/ui/potential-ui.test.js`, `test/ui/loadout-rows.test.js` |
+| 三.1–三.3 UI 回顾 | 隐藏局内盟约与干员详细两处滚动条；⚙ / 📖 / ⛶ 从角落移到顶栏左侧（交流留在角落），窄屏换到第二行并给盟约栏让出左侧；大厅顶栏左右两组按钮同高（触摸屏 36 px）；「界面改动要兼顾电脑与手机」写成 client.md §10 的设备规则 | `public/css/screens/game-panels.css`, `public/css/screens/game.css`, `public/css/devices.css`, `public/css/components.css`, `public/js/ui/hud.js`, `public/js/screens/game.js`, `public/js/ui/fieldHost.js`, `public/js/screens/lobby.js`, `docs/design/client.md`, `test/ui/playtest5-ui.test.js`, `test/ui/issue5-fold-camera.test.js`, `test/ui/playtest5-ui.e2e.test.js`, `test/ui/devices.e2e.test.js` |

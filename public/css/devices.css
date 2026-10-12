@@ -84,9 +84,12 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
 @media (max-height: 600px) and (pointer: coarse), (max-height: 600px) and (any-pointer: coarse) {
   .readybtn { height: max(.56rem, 34px); }
   .toolbtn { min-height: max(.5rem, 30px); }
-  .gm__gear { width: max(.56rem, 34px); height: max(.56rem, 34px); }
-  /* ⚙ / 📖 / ⛶ keep their desktop proportion (half the button) instead of an 11 px glyph in the grown button */
-  .gm__corner .gm__gear .icon { width: max(.28rem, 17px); height: max(.28rem, 17px); }
+  /* ⚙ / 📖 / ⛶ now live in the top bar's left block (user report 图 2: they moved out of the bottom-left corner, which
+     keeps the 交流 button alone): a size between the check buttons (26 px) and 离开 (34 px), so the row sits in the bar
+     without pushing the centre brackets; 10 px gaps keep their 44 px hit areas from covering each other. */
+  .gm__tools { gap: max(.16rem, 10px); }
+  .gm__tools .gm__gear { width: max(.5rem, 28px); height: max(.5rem, 28px); }
+  .gm__tools .gm__gear .icon { width: max(.26rem, 14px); height: max(.26rem, 14px); }
   .gtop__exit { min-width: max(.56rem, 34px); min-height: max(.56rem, 34px); }
   .gtop__iconbtn.has-sprite, .enemybtn.has-sprite { height: max(.46rem, 26px); width: calc(max(.46rem, 26px) * 35 / 29); }
   .gtop__iconbtn.has-sprite.is-wide, .enemybtn.has-sprite.is-wide { width: calc(max(.46rem, 26px) * 61 / 29); }
@@ -117,22 +120,26 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
    generic rule above — covered the bottom-right quarter of a phone's 67 × 97 px card and half of its 确认购买 strip, so
    the confirming tap re-opened the detail instead; user playtest #6 item 10) */
 
-/* Narrow viewports (< 768 CSS px: the root scale is clamped at 40 px, so the layout is narrower than the 19.2 rem
-   design): the shop bar would cover the corner's ⚙ / 📖 / ⛶ buttons — they wrap into a row above the 交流 button. */
-/* The left-docked detail card then ends above that two-row corner (.24rem + 交流 + .1rem gap + ⚙ row + .1rem): at its
-   desktop bottom (1.02rem) it hid ⚙ / 📖 / ⛶. (gameLogic panelSlots keeps the taller desktop slot: conservative.) */
+/* Narrow viewports (< 768 CSS px: the root scale is clamped at 40 px, so the top bar is narrower than the 19.2 rem
+   design): the ⚙ / 📖 / ⛶ row cannot sit beside 离开 + ping + 难度 before the centre brackets — a spectator capsule
+   widens that group again — so it wraps onto its own line in the top-left, level with the top bar (user report 图 2:
+   these three moved out of the bottom-left corner). The bond strip starts right of that line, which keeps its own top —
+   and the prep camera's top band — where it was (game.css .gm__bonds top 1.36rem, fieldHost.js HUD_REM.bondStripBottom;
+   the row must therefore stay clear of it instead of lowering the strip onto the bench). */
 @media (max-width: 767px) {
-  .gm__corner { flex-wrap: wrap-reverse; align-content: flex-start; width: max(72px, calc(3 * .56rem + .2rem)); }
-  .dpanel:not(.dpanel--right) { bottom: calc(.44rem + max(1.51rem, 72px) * 55 / 151 + .56rem); }
+  .gtop__left { flex-wrap: wrap; }
+  /* on its own line it takes 离开's 34 px size with 10 px gaps: the 44 px hit areas are exactly 44 px apart, so a tap
+     never lands on a neighbour */
+  .gm__tools .gm__gear { width: max(.56rem, 34px); height: max(.56rem, 34px); }
+  .gm__tools .gm__gear .icon { width: max(.28rem, 17px); height: max(.28rem, 17px); }
+  .gm__bonds { left: 3.4rem; }
+  /* The left-docked detail card now only has to clear the 交流 button left in the corner (.24rem + the sprite's height,
+     55/151 of its width): at its desktop bottom (1.02rem) it covered that button's hit area. (gameLogic panelSlots
+     keeps the taller desktop slot: conservative.) */
+  .dpanel:not(.dpanel--right) { bottom: calc(.38rem + max(1.51rem, 72px) * 55 / 151); }
 }
 @media (max-width: 767px) and (pointer: coarse), (max-width: 767px) and (any-pointer: coarse) {
-  .gm__corner { width: max(96px, calc(3 * max(.56rem, 34px) + .2rem)); }
-  .dpanel:not(.dpanel--right) { bottom: calc(.44rem + max(1.51rem, 96px) * 55 / 151 + max(.56rem, 34px)); }
-}
-/* With the shop folded (收起) no bar covers the corner: one row again, so the folded shop's prep camera, which keeps the
-   bench above the corner's hit areas (ui/fieldHost.js hudBands), grows the board on narrow phones too (public issue #5). */
-@media (max-width: 767px) {
-  .gm.is-collapsed .gm__corner { flex-wrap: nowrap; width: auto; }
+  .dpanel:not(.dpanel--right) { bottom: calc(.38rem + max(1.51rem, 96px) * 55 / 151); }
 }
 
 /* Short landscape phones (≤ 460 CSS px tall, 1rem = 40 px): the lobby's two columns are compressed so the

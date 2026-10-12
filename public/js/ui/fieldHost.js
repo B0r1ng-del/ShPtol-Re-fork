@@ -46,10 +46,11 @@ export function hudPadding(kind, size) {
  * bottom .2rem + .shopbar__row padding .1rem ×2 + card height 2.24rem, plus its 2 px + 1 px borders). The shop bar
  * sits on the viewport's bottom edge even on a notched phone (css/devices.css, DESIGN §18.1).
  * The folded shop (public issue #5): the tab's top edge (.shopbar-tab bottom .2rem + padding .08rem ×2 + its .44rem
- * button, plus its 2 px + 1 px borders; it sits inside the HUD layer, above the bottom safe-area inset) and the corner
- * buttons' top edge (css/screens/game.css .gm__corner bottom .24rem + a .56rem row — the fallback when the corner
- * cannot be measured: on phones its buttons grow to 34 px and below 768 CSS px of width they wrap into two rows,
- * css/devices.css).
+ * button, plus its 2 px + 1 px borders; it sits inside the HUD layer, above the bottom safe-area inset) and the 交流
+ * button's top edge (css/screens/game.css .gm__corner bottom .24rem + its .56rem row — the fallback when the corner
+ * cannot be measured: with art the sprite is 55/151 of its width, max(1.51rem, 96px) on a touch screen, css/emotes.css).
+ * The ⚙ / 📖 / ⛶ buttons left this corner for the top bar (user report 图 2), so they no longer raise this band — the
+ * top bar sits inside the top band already.
  */
 export const HUD_REM = Object.freeze({
   bondStripBottom: 2.16, shopBarTop: 2.64, shopBarBorderPx: 3, shopTabTop: 0.8, shopTabBorderPx: 3, cornerTop: 0.8,
@@ -64,9 +65,10 @@ export const HUD_REM = Object.freeze({
  * there, while a camera following the bar's presence would have to re-frame whenever it appears, e.g. when the private
  * state arrives after the prep camera was set) — unless `opts.shop === false`: the player folded the shop (收起) and the
  * own prep board moved to the official shop-collapsed camera (public issue #5: the board did not grow; screens/game.js
- * asks for it only while a folded bar is shown). Its band is the higher of the folded tab (bottom right) and the corner
- * buttons' hit areas (交流 / ⚙ / 📖 / ⛶, bottom left, measured by `cornerBand`: on a narrow phone two rows of 34 px buttons
- * with 44 px touch areas) — under the official collapsed camera the bench's left pads reach under the corner, and with
+ * asks for it only while a folded bar is shown). Its band is the higher of the folded tab (bottom right) and the 交流
+ * button's hit area (bottom left, the corner's only control since the ⚙ / 📖 / ⛶ row moved into the top bar for user
+ * report 图 2, measured by `cornerBand`: a 44 px touch area on a sprite ≈ 35 px tall on a phone) — under the official
+ * collapsed camera the bench's left pads reach under the corner, and with
  * the tab alone it would cover bench pad 0 at the user's 756×366 Android and the near edge of pads 0–2 at 844×390; both
  * are 1-D bands like the bar's, so every bench pad stays fully pressable. Scouting a
  * teammate's board uses the 'normal' camera: no band. An armed shop card (two-tap buy, css/screens/game-shop.css
@@ -105,14 +107,14 @@ export function hudBands(kind, size, opts) {
 }
 
 /**
- * CSS px from the viewport's bottom edge (`h` high) up to the top of the corner buttons' hit areas (交流 / ⚙ / 📖 / ⛶,
- * .gm__corner), 0 when they are not on the page. On a touch screen every one of them takes taps from an invisible area
- * of at least --tap-min (44 px) centred on it (css/devices.css touch targets), 5 px above a 34 px phone button — a bench
- * pad edge there is not pressable.
+ * CSS px from the viewport's bottom edge (`h` high) up to the top of the 交流 button's hit area (.gm__corner), 0 when it
+ * is not on the page. On a touch screen it takes taps from an invisible area of at least --tap-min (44 px) centred on it
+ * (css/devices.css touch targets), above the sprite's own height — a bench pad edge there is not pressable. The
+ * ⚙ / 📖 / ⛶ buttons were in this corner until user report 图 2 moved them into the top bar (inside the top band).
  * @param {number} h
  */
 function cornerBand(h) {
-  const btns = document.querySelectorAll('.gm__corner .gm__gear, .gm__corner .ewheel__btn');
+  const btns = document.querySelectorAll('.gm__corner .ewheel__btn');
   if (!btns || !btns.length) return 0;
   const root = document.documentElement;
   const tap = root?.classList?.contains('sp-coarse') ? parseFloat(getComputedStyle(root).getPropertyValue('--tap-min')) || 0 : 0;

@@ -179,11 +179,11 @@ describe('user playtest #5 — UI items 8 / 9 (mock harness, headless Chrome)', 
     await page.close();
   });
 
-  test('8: the corner gear is the regular glyph, square and as large as its neighbours', async () => {
+  test('8: the top bar\'s ⚙ / 📖 / ⛶ row is the regular glyph, square and as large as its neighbours', async () => {
     const { GLYPHS } = await import('../../public/js/ui/gameComponents.js');
     for (const [name, w, h, touch] of [view('844x390'), view('756x366'), view('1920x1080')]) {
       const { page, problems } = await open('phase=PREP', { w, h, touch });
-      const r = await page.evaluate(() => [...document.querySelectorAll('.gm__corner .gm__gear')].map((b) => {
+      const r = await page.evaluate(() => [...document.querySelectorAll('.gm__tools .gm__gear')].map((b) => {
         const svg = b.querySelector('svg.icon');
         const s = svg.getBoundingClientRect(), br = b.getBoundingClientRect();
         return { cls: b.className, w: s.width, h: s.height, bw: br.width, d: svg.querySelector('path')?.getAttribute('d') };
@@ -194,7 +194,7 @@ describe('user playtest #5 — UI items 8 / 9 (mock harness, headless Chrome)', 
         assert.ok(Math.abs(b.w - b.h) < 0.01, `${name}: ${b.cls} square (${b.w}×${b.h})`);
         assert.ok(b.w >= 0.45 * b.bw && b.w <= 0.55 * b.bw, `${name}: ${b.cls} icon ${b.w} in a ${b.bw} button`);
       }
-      await page.screenshot({ path: path.join(OUT, `p5-corner-${name}.png`), clip: { x: 0, y: h - 90, width: 420, height: 90 } });
+      await page.screenshot({ path: path.join(OUT, `p5-tools-${name}.png`), clip: { x: 0, y: 0, width: 420, height: 90 } });
       assert.deepEqual(problems, [], name);
       await page.close();
     }
