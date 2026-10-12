@@ -234,12 +234,13 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
     全部恢复默认) and touches **only** `ops`: skills and modules are never written (that is what 全部恢复默认 is for), and
     a 自选 pick's 潜能 / 练度 stays on its own slot card on the 自选编队 tab. The button is disabled while
     `maxAllOpsCount` is 0, so it is never a no-op click, and it confirms first because it changes many operators at once.
-  - **Not mode-gated, following the fork's own precedent** — like 自选编队 (official 0.2.0) and 二.7 房主配置, this is a
-    **局外设置** convenience on a screen shared by all three modes; it changes no rule of any mode, writes only values
-    the player could have written by hand with the existing selects, and leaves the official modes' behaviour (and their
-    潜能 / 练度 semantics) exactly as it was. The 精锐 Lv.7 the requester named is **not** a setting at all: it is the
-    elite chess record's own skill level in the data (`skills[].level = 7`, and the 普通 / 精锐 toggle on the detail is
-    display-only), so nothing was added for it.
+  - **Not mode-gated — universal, by the requester's own call** (2026-10-09: 「PR13的功能实现在干员调配设置里，也就是
+    全模式通用」). It lives in the 干员调配 tab, so it shows in every mode. Like 自选编队 (official 0.2.0) and 二.7
+    房主配置, it is a **局外设置** convenience on a screen shared by all three modes; it changes no rule of any mode,
+    writes only values the player could have written by hand with the existing selects, and leaves the official modes'
+    behaviour (and their 潜能 / 练度 semantics) exactly as it was. The 精锐 Lv.7 the requester named is **not** a setting
+    at all: it is the elite chess record's own skill level in the data (`skills[].level = 7`, and the 普通 / 精锐 toggle
+    on the detail is display-only), so nothing was added for it.
   `test/ui/potential-ui.test.js` (the model: the maximum is the default, only the named operators move, idempotence, the
   result is what the server keeps, only 潜能 / 练度 keys) and `test/ui/loadout-rows.test.js` (the button's wiring, its
   roster scope, its disabled state, and that it never touches the entries).
