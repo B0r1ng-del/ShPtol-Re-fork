@@ -210,4 +210,10 @@ test('fork 二.9: the top bar carries 一键满配 beside 全部恢复默认, wi
   assert.match(maxAll, /confirmDialog\(/);
   // the 自选编队 / 干员持有 top bars must NOT carry it (their own reset buttons stay alone)
   assert.equal((src.match(/data-testid="loadout-max-all"/g) || []).length, 1, 'exactly one button, in the 干员调配 bar');
+  // the grey state must say WHY it is grey (a disabled button shows no native title): the reason names the fact that
+  // 满配 IS the default, so a fresh install has nothing to restore — the question players actually ask
+  const tip = src.slice(src.indexOf('data-testid="loadout-max-all"') - 400, src.indexOf('data-testid="loadout-max-all"'));
+  assert.match(tip, /<\$\{Tooltip\} text=\$\{nMaxable \? null :/, 'wrapped in a Tooltip whose text explains the grey state');
+  assert.match(src, /t\('所有干员都已是满配（潜能 6、精英阶段2-60级）——满配就是默认值，先把某个干员的潜能或练度调低才会用到这个按钮'\)/,
+    'and the reason is translated (a native title would not show on a disabled button)');
 });
