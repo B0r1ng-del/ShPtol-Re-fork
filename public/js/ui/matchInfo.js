@@ -44,7 +44,9 @@ const cx = (...p) => p.flat().filter(Boolean).join(' ');
  *   banned: the banned chess ids the data knows, by tier (ties keep the server's order); perBond: bondId → banned members
  */
 export function matchInfoModel(pub, { bonds = [], chess = () => null, mode = null, priv = null, diyData = null } = {}) {
-  const sets = disabledBondSets(pub, mode?.inactiveBondIds);
+  // Mod 开关 关闭盟约禁用 (pub.mods.noBondBan): the match disabled nothing, so the mode's own static list must not be
+  // re-derived here either — `disabledBonds` already comes back empty and the 本局禁用 marks must match it.
+  const sets = disabledBondSets(pub, pub?.mods?.noBondBan === true ? [] : mode?.inactiveBondIds);
   const stateOf = (id) => (sets.off.has(id) ? 'off' : sets.drawn.has(id) ? 'drawn' : null);
   const list = (Array.isArray(bonds) ? bonds : []).filter((b) => !!b && typeof b === 'object' && typeof b.bondId === 'string')
     .sort((a, b) => (a.bondOrder ?? 0) - (b.bondOrder ?? 0) || (a.identifier ?? 0) - (b.identifier ?? 0));

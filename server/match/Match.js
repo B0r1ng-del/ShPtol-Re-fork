@@ -252,7 +252,7 @@ export class Match {
     this.broadcastFn = opts.broadcast;
     this.onEndFn = opts.onEnd;
     this.data = opts.data && typeof opts.data === 'object' ? opts.data : {};
-    this.gd = new GameData(this.data, this.modeId);
+    this.gd = new GameData(this.data, this.modeId, opts.mods);
     if (!this.difficulty) this.difficulty = this.gd.difficulty;
     this.isSolo = this.mode === 'solo' || this.gd.isSolo;
     /** 「AI 队友最后选择」 (opts.aiPicksLast, GitHub #338): humans draft before AI seats (MatchPhases.humansFirst) */
@@ -267,6 +267,15 @@ export class Match {
     this.sharedPool = this.isSolo ? true : opts.sharedPool !== false;
     this.sharedBounty = this.isSolo ? true : opts.sharedBounty !== false;
     this.multiAlliance = this.isSolo ? false : opts.multiAlliance === true;
+    /**
+     * Mod 开关 (MOD_KEYS, `room.create.mods`): the lobby's per-device gameplay switches, fixed for the match like the
+     * difficulty. All OFF by default, so a caller that passes nothing (the golden scenarios, the rehearsal tools, every
+     * test) is byte-identical to the official mode. The GameData built above already carries them — it is what reads
+     * them (`bans()`, `modeInactiveBonds`, `spDraftRules`) — and this copy is what the match reports back to its
+     * clients (`views.js` m.public.mods), so the client can mark what the switch changed.
+     * @type {Record<string, boolean>}
+     */
+    this.mods = this.gd.mods;
     this.ownsScheduler = !opts.scheduler;
     this.sched = opts.scheduler || new RealScheduler({ now: opts.now || Date.now, onError: (e) => this.reportError('timer', e) });
     this.registry = opts.registry || getDefaultRegistry();

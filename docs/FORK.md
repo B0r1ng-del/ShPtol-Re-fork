@@ -251,7 +251,45 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
   result is what the server keeps, only 潜能 / 练度 keys) and `test/ui/loadout-rows.test.js` (the button's wiring, its
   roster scope, its disabled state, and that it never touches the entries).
 
-  `test/ui/devices.e2e.test.js` (the ≥ 44 px hit areas and the card never covering the row).
+- **四.1 Mod 开关（模式界面）** — the 模式界面's top bar gains a **Mod** button with a submenu, laid out beside 干员调配
+  (the requester's 图一: 「在模式界面添加 Mod 开关，mod开关只会在当前页面有，Mod 开关拥有一个子菜单，与顶栏干员调配平行放置」).
+  The submenu holds the fork's gameplay switches; each one defaults OFF, so a player who never opens it plays the
+  official game exactly.
+  - **What a switch is, and what it is not.** A Mod 开关 is a **per-device preference**, not a room option: it lives in
+    `localStorage` (`sp.pref.mods`, `public/js/ui/mods.js` — the `ui/emotes.js` 一键十连 / 弹幕 pattern), the 模式界面 is
+    the only place that shows it, and the creator carries it into the room it makes (`room.create.mods`, the new
+    optional field of `shared/protocol.js`). The room keeps it across its matches and hands it to the match as
+    `opts.mods`; a joiner therefore plays **the host's** rules, the same way it plays the host's mode and difficulty.
+    This is the requester's own choice (「本机偏好，开局时带到自己创建的房间」), and it is what makes the switches usable
+    without a second lobby panel and without disturbing 房主配置 (二.7), which stays the host-only room option set.
+  - **The catalogue is `MOD_KEYS` / `MOD_DEFAULTS` / `normalizeMods` in `shared/constants.js`.** `normalizeMods` is pure
+    and total: a missing, malformed or unknown-keyed payload becomes the official default, so an unknown switch can
+    never turn anything on. `room.create.mods` is validated against `MOD_KEYS` with boolean values — an unknown key is
+    `BAD_MSG` rather than a silent drop, because a client asking for a switch the server does not have is a version
+    mismatch and silently ignoring it would run a match the player did not ask for.
+  - **`GameData` is where the switches act** (`server/match/gamedata.js`, built with `new GameData(data, modeId, mods)`),
+    on three seams, each of which falls back to the official value when the switch is off:
+    - **`noBondBan` 关闭盟约禁用** — `bans()` returns `{ core: 0, addon: 0 }` for every mode, and `modeInactiveBonds` is
+      emptied. Both halves are needed: the per-match draw comes from `config.bans` (the difficulty table) or
+      `modes[].bans`, while 标准模拟's ten 本局禁用 盟约 come from the mode's own `inactiveBondIds` list — leaving the
+      second in place would make the switch half a switch. This is 二.1's 「此模式下所有盟约不会被禁用」 generalised
+      from a property of 终极模拟 into a switch that works in **all** modes, which is exactly what the requester asked
+      for. The client must not re-derive the config's list behind the server's back, so `modeOffBonds(mode, mods)`
+      (`public/js/ui/gameLogic/bonds.js`) and `matchInfoModel` read `m.public.mods` and grey nothing with it on.
+    - **`untimedSp` 机变不限时** — `spDraftRules.untimed` turns on for every mode, the 终极模拟 `spDraft` block or not,
+      so `startSpTurn` arms no clock (`spFirst` / `spTurn` are not read) and the draft ends when every alive player has
+      picked. The switch never touches `parallel` or `randomFamilies` — those belong to the mode (二.4) and to 四.2.
+    - The third seam the switch reaches is the client's own countdown, which needs no code: the server sends
+      `sp.untimed` (already the field 独立模拟's untimed draft uses) and `choiceOverlay.js` hides the timer from it.
+  - **The match reports the switches back** on every frame (`m.public.mods`, `server/match/match/views.js`), like
+    `hostConfig`, so a client can mark what a switch changed; `room.state.mods` shows them in the room.
+  - **No golden file moves** (verified: roster 49 / bonds 46 / fields 22 / matches 20 / standins 10 / diy 140 all
+    match). Every switch defaults off, so a match created without them — the golden scenarios, the rehearsal tools,
+    every pre-existing test — is byte-identical to before; the 20 match scenarios pin exactly that.
+  `test/fork-mod-switches.test.js` (the catalogue, `normalizeMods`'s totality, both switches' rules in every mode, a
+  real match's pool and `m.public.mods`), `test/lobby-mods.test.js` (the wire: an official room without mods, a
+  creator's switches reaching the match, partial payloads, the unknown-key refusal, the room keeping them across its
+  matches and a host migration), and the `room.create.mods` protocol cases in `test/lobby-ultimate.test.js`.
 
 - **三.1–三.3 UI 回顾（电脑 + 手机一并看）** — three items from the requester's screenshots, all **universal interface
   work**: no mode rule moves, no golden file moves.
@@ -327,3 +365,4 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
 | 二.9 一键满配 | 干员调配顶栏加「一键满配」（在「全部恢复默认」旁）：一次确认把所有干员的潜能与练度设回满配（潜能 6、精英阶段2-60级）。满配本来就是默认值，所以这个按钮只是清掉被调低的条目——**不引入任何数值计算**，也不碰技能与模组。全模式通用（需求方决定） | `public/js/ui/loadoutModel.js` (`maxAllOps`/`maxAllOpsCount`), `public/js/screens/loadout.js`, `public/i18n/*.json`, `test/ui/potential-ui.test.js`, `test/ui/loadout-rows.test.js` |
 | 三.1–三.3 UI 回顾 | 隐藏局内盟约与干员详细两处滚动条；⚙ / 📖 / ⛶ 从角落移到顶栏左侧（交流留在角落），窄屏换到第二行并给盟约栏让出左侧；大厅顶栏左右两组按钮同高（触摸屏 36 px）；「界面改动要兼顾电脑与手机」写成 client.md §10 的设备规则 | `public/css/screens/game-panels.css`, `public/css/screens/game.css`, `public/css/devices.css`, `public/css/components.css`, `public/js/ui/hud.js`, `public/js/screens/game.js`, `public/js/ui/fieldHost.js`, `public/js/screens/lobby.js`, `docs/design/client.md`, `test/ui/playtest5-ui.test.js`, `test/ui/issue5-fold-camera.test.js`, `test/ui/playtest5-ui.e2e.test.js`, `test/ui/devices.e2e.test.js` |
 | 三.4–三.6 三个玩法 bug | 三.4 机变恢复轮次顺序（见 二.4）；三.5 升级调度中心立刻补上新栏位的干员（全模式，0.2.2 §27.52 的反转）；三.6 场上没有成员的盟约不再留在盟约栏（层数仍保留，结算记录例外） | `tools/fork-overrides.mjs` (`spDraft`), `data/config.json`, `server/match/match/spDraft.js`, `server/match/match/views.js`, `public/js/ui/choiceOverlay.js`, `server/match/player/economy.js`, `server/match/audit.js`, `server/match/bondsMeta.js` (`bondList`), `server/match/results.js`, `docs/META.md`, `docs/PLAYING.md`, `tools/golden.mjs`, `test/golden/matches.json`, `test/fork-ultimate-sp-vote.test.js`, `test/fork-data.test.js`, `test/match/feedback5-shop-levelslots.test.js`, `test/match/bonds.test.js`, `test/match/watch-bonds.test.js`, `test/match/bot-smarter.test.js`, `test/golden-diy.test.js`, `test/golden-standins.test.js` |
+| 四.1 Mod 开关 | 模式界面顶栏加「Mod」按钮与子菜单（与干员调配平行，只在该页出现）：本机偏好，随创建的房间生效。`noBondBan` 关闭盟约禁用——全模式都不再有随机禁用与固有禁用盟约（把二.1 从终极模拟的属性推广成开关）；`untimedSp` 机变不限时——全模式机变不再计时。两个开关默认关闭，golden 未移动 | `shared/constants.js` (`MOD_KEYS`/`MOD_DEFAULTS`/`normalizeMods`), `shared/protocol.js` (`room.create.mods`), `server/match/gamedata.js` (`mods`, `bans()`, `modeInactiveBonds`, `spDraftRules`), `server/match/Match.js`, `server/match/match/views.js`, `server/lobby.js`, `public/js/ui/mods.js`, `public/js/screens/lobby.js`, `public/js/ui/gameLogic/bonds.js`, `public/js/ui/matchInfo.js`, `public/js/screens/game.js`, `public/js/screens/bandDraft.js`, `public/css/screens/lobby.css`, `public/i18n/*.json`, `test/fork-mod-switches.test.js`, `test/lobby-mods.test.js`, `test/lobby-ultimate.test.js` |

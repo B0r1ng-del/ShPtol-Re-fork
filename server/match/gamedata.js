@@ -14,6 +14,7 @@
 import { getConfig, getMode } from '../data.js';
 import { isShopItem } from '../sim/simdata.js';
 import { standInRecord } from '../../shared/standIn.js';
+import { normalizeMods } from '../../shared/constants.js';
 
 const own = (map, id) => (map && typeof map === 'object' && typeof id === 'string' && Object.hasOwn(map, id) && map[id] && typeof map[id] === 'object' ? map[id] : null);
 const numOr = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -90,12 +91,18 @@ export class GameData {
   /**
    * @param {Readonly<Record<string, any>>} data server/data.js getData() (may be partial)
    * @param {string} modeId e.g. 'mode_multi_hard'
+   * @param {any} [mods] Mod 开关 (shared/constants.js MOD_KEYS, `room.create.mods`): the per-device gameplay switches the
+   *   room creator carried in. Normalised here so an unknown / malformed value is the official default, and read by
+   *   `modeInactiveBonds`, `bans()` and `spDraftRules` — the three rule seams the switches change. Absent = all off =
+   *   the official mode, byte-identical to before (the golden scenarios, the tools and every test pass nothing).
    */
-  constructor(data, modeId) {
+  constructor(data, modeId, mods) {
     this.raw = data && typeof data === 'object' ? data : {};
     this.config = getConfig(this.raw) || {};
     this.modeId = modeId;
     this.mode = getMode(modeId, this.raw) || {};
+    /** Mod 开关 of this match (MOD_KEYS, all off by default). @type {Record<string, boolean>} */
+    this.mods = normalizeMods(mods);
     this.economy = this.config.economy && typeof this.config.economy === 'object' ? this.config.economy : {};
     const chess = this.raw.chess && typeof this.raw.chess === 'object' ? this.raw.chess : {};
     this._chess = chess;
@@ -118,7 +125,15 @@ export class GameData {
     }
     for (const k of Object.keys(this.shopItemsByTier)) this.shopItemsByTier[k].sort();
     this.bondIds = Object.keys(this._bonds).sort((a, b) => (numOr(this._bonds[a].identifier, 99) - numOr(this._bonds[b].identifier, 99)) || (a < b ? -1 : 1));
-    this.modeInactiveBonds = new Set(Array.isArray(this.mode.inactiveBondIds) ? this.mode.inactiveBondIds : []);
+    /**
+     * The 盟约 this mode never activates ("本局禁用"): the mode record's `inactiveBondIds` (标准模拟 leaves 拉特兰 阿戈尔
+     * 卡西米尔 灵巧 奥术 奇迹 投资人 突袭 独行 绝技 off). Mod 开关 `noBondBan` 关闭盟约禁用 empties it in EVERY mode: the
+     * switch's whole point is that no 盟约 is disabled this match, so the static list must go with the drawn one —
+     * otherwise 标准模拟 would still refuse its ten and the switch would be half a switch. Read by the pool draw
+     * (pool.js drawDisabledBonds), the bot's bond weighting, bondsMeta's listing and MatchInfra.bondLive.
+     * @type {Set<string>}
+     */
+    this.modeInactiveBonds = new Set(this.mods.noBondBan ? [] : (Array.isArray(this.mode.inactiveBondIds) ? this.mode.inactiveBondIds : []));
     /** bandBondIds memo */
     this._bandBonds = new Map();
     this.inactiveEnemies = new Set(Array.isArray(this.mode.inactiveEnemyKeys) ? this.mode.inactiveEnemyKeys : []);
@@ -503,13 +518,17 @@ export class GameData {
    * `randomFamilies` null, i.e. no vote button) without an `spDraft` block, so every official mode is unchanged.
    * `randomFamilies` is the allow-list of card families the random allocation may hand out; a 悬赏 card is never
    * eligible even when listed (`Match.randomChoiceEligible`).
+   *
+   * Mod 开关 `untimedSp` 机变不限时 turns `untimed` on for ANY mode, the 终极模拟 `spDraft` block or not — the switch's
+   * whole point is that no mode's 机变 runs on a clock. It never touches `parallel` or `randomFamilies`: those are the
+   * mode's own (fork 二.4) and the 随机抽取 switch's business, not the timer's.
    */
   get spDraftRules() {
     const d = this.spDraft;
-    if (!d) return { untimed: false, parallel: false, randomFamilies: null };
+    if (!d) return { untimed: this.mods.untimedSp, parallel: false, randomFamilies: null };
     const vote = d.randomVote && typeof d.randomVote === 'object' && !Array.isArray(d.randomVote) ? d.randomVote : null;
     const fams = vote && Array.isArray(vote.families) ? vote.families.filter((f) => typeof f === 'string') : [];
-    return { untimed: d.untimed === true, parallel: d.parallel === true, randomFamilies: fams.length ? fams : null };
+    return { untimed: this.mods.untimedSp || d.untimed === true, parallel: d.parallel === true, randomFamilies: fams.length ? fams : null };
   }
 
   timer(key) {
@@ -566,8 +585,12 @@ export class GameData {
    * own (`modes[modeId].bans`, the fork's 终极模拟 = `{ core: 0, addon: 0 }` — "此模式下所有盟约不会被禁用"), which
    * wins when present so a fork mode can switch the draw off without disturbing its difficulty's official numbers.
    * A mode table that leaves a field out means 0, never the difficulty's default.
+   *
+   * Mod 开关 `noBondBan` 关闭盟约禁用 overrides everything with `{ core: 0, addon: 0 }`: no 盟约 is drawn out of play in
+   * ANY mode, which is the switch's whole point. The mode's static list is emptied with it (modeInactiveBonds).
    */
   bans(difficulty) {
+    if (this.mods.noBondBan) return { core: 0, addon: 0 };
     const own = this.mode && typeof this.mode.bans === 'object' && this.mode.bans !== null && !Array.isArray(this.mode.bans) ? this.mode.bans : null;
     const b = own || (this.config.bans && this.config.bans[difficulty]);
     const d = own ? { core: 0, addon: 0 } : (DEFAULTS.bans[difficulty] || { core: 0, addon: 0 });

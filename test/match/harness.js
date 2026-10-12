@@ -84,6 +84,8 @@ export function makeMatch(o = {}) {
     sharedPool: o.sharedPool,
     sharedBounty: o.sharedBounty,
     multiAlliance: o.multiAlliance,
+    // Mod 开关 (opts.mods, MOD_KEYS): undefined = every switch off = the official mode (Match.js / GameData)
+    mods: o.mods,
   });
   const m = h.m;
   if (m.clientCombat && o.clients !== false) {

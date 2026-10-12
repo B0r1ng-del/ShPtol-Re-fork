@@ -314,9 +314,14 @@ export function briefingBondTip(name, state, bannedN = 0) {
  * and the bond popup mark these 本局禁用 (briefingBondTip 'off'); since 0.1.3 the server also lists such a bond the player
  * has members of (`off: true`, server/match/bondsMeta.js offBondCounts) and the strip shows it as a grey 本局禁用 disc.
  * @param {any} mode config.json modes[modeId] (data.js getMode), or null
+ * @param {any} [mods] m.public.mods (Mod 开关, shared/constants.js MOD_KEYS). `noBondBan` 关闭盟约禁用 empties this set:
+ *   the match drew no bans AND the mode's own static list is off, so nothing is 本局禁用 and nothing may be marked so —
+ *   the server sends an empty `disabledBonds` with the switch on, and the client must not re-derive the config's list
+ *   behind its back (it would grey ten bonds the match plays with).
  * @returns {Set<string>}
  */
-export function modeOffBonds(mode) {
+export function modeOffBonds(mode, mods = null) {
+  if (mods && mods.noBondBan === true) return new Set();
   const list = isObj(mode) && Array.isArray(mode.inactiveBondIds) ? mode.inactiveBondIds : [];
   return new Set(list.filter((b) => typeof b === 'string'));
 }

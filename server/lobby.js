@@ -99,7 +99,7 @@
 //     a player seat (the seat is kept and given back on resume).
 
 import { randomBytes, randomInt } from 'node:crypto';
-import { ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, HOST_CONFIG_KEYS, HOST_CONFIG_DEFAULTS, roomSeatCap, ULTIMATE_DIFFICULTY, modeIdFor } from '../shared/constants.js';
+import { ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, HOST_CONFIG_KEYS, HOST_CONFIG_DEFAULTS, MOD_DEFAULTS, normalizeMods, roomSeatCap, ULTIMATE_DIFFICULTY, modeIdFor } from '../shared/constants.js';
 import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks } from '../shared/protocol.js';
 import { encode, isDroppable, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
@@ -187,6 +187,13 @@ export class Room {
      * @type {Record<string, boolean>}
      */
     this.hostConfig = { ...HOST_CONFIG_DEFAULTS };
+    /**
+     * Mod 开关 (MOD_KEYS, `room.create.mods`): the per-device gameplay switches the creator carried in, normalised to
+     * exactly MOD_KEYS booleans (all off = the official mode). Kept across the room's matches like the mode and the
+     * difficulty — a joiner plays the host's rules — and read by the match when it starts (Match.mods).
+     * @type {Record<string, boolean>}
+     */
+    this.mods = { ...MOD_DEFAULTS };
     /** @type {string | null} */
     this.hostId = null;
     /** @type {(Seat | null)[]} */
@@ -240,6 +247,9 @@ export class Room {
       // 房主配置: the four room options (shared/constants.js HOST_CONFIG_KEYS) — the panel shows the same values to
       // everybody, only the host may change them (room.setHostConfig)
       hostConfig: { ...this.hostConfig },
+      // Mod 开关 (MOD_KEYS, room.create.mods): the gameplay switches the creator carried in. Everybody in the room
+      // sees them (a joiner plays the host's rules); nobody may change them after the room exists.
+      mods: { ...this.mods },
       inMatch: !!this.match,
       seats: this.seats.map((s) => (s
         ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left }
@@ -410,7 +420,7 @@ export class Lobby {
   // room.* handlers
   // ---------------------------------------------------------------------------------------------------
 
-  create(session, { mode, difficulty }) {
+  create(session, { mode, difficulty, mods }) {
     const cur = this.roomOf(session);
     if (cur && cur.match) return fail(ERR.ROOM_STARTED, 'leave your running match first');
     if (this.rooms.size >= this.opts.maxRooms) return fail(ERR.INTERNAL, 'too many rooms');
@@ -430,6 +440,9 @@ export class Lobby {
     const diff = mode === 'ultimate' ? ULTIMATE_DIFFICULTY : difficulty;
     const room = new Room(code, mode, diff, this.now());
     room.ownerKey = key;
+    // Mod 开关 (room.create.mods, MOD_KEYS): the creator's switches, normalised — a missing / malformed value is the
+    // official default, and the room keeps them for every match it runs (the protocol already refused an unknown key).
+    room.mods = normalizeMods(mods);
     room.seats[0] = this.humanSeat(0, session);
     room.hostId = session.playerId;
     this.rooms.set(code, room);
@@ -779,6 +792,9 @@ export class Lobby {
         sharedPool: room.hostConfig.sharedPool === true,
         sharedBounty: room.hostConfig.sharedBounty === true,
         multiAlliance: room.hostConfig.multiAlliance === true,
+        // Mod 开关 (room.create.mods, MOD_KEYS): the room's gameplay switches, fixed for the match. All off unless the
+        // creator switched one on, so a room created without them (and every test / tool) is the official mode.
+        mods: { ...room.mods },
         seats,
         // the spectator seats (header): watched like eliminated players, never players
         spectators: room.spectators.map((s) => s.playerId),
