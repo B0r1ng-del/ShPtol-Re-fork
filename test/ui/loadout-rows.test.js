@@ -191,3 +191,23 @@ test('css: the head and the rows share one grid (columns aligned), quick targets
   assert.match(block, /\.lo-detail-wrap \{ display: none; \}/);
   assert.ok(!/\.lo-grid\b/.test(css), 'the old card grid is gone');
 });
+
+test('fork 二.9: the top bar carries 一键满配 beside 全部恢复默认, wired to maxAllOps over the roster', () => {
+  // The button lives in the 干员调配 tab's top bar (not the 自选编队 / 干员持有 ones: their scope is a different list).
+  const src = readFileSync(path.join(ROOT, 'public/js/screens/loadout.js'), 'utf8');
+  assert.match(src, /data-testid="loadout-max-all"/, 'the button is there');
+  assert.match(src, /t\('一键满配'\)/, 'with its label through t()');
+  assert.match(src, /setOpsMap\(maxAllOps\(loadoutStore\.get\(\)\.ops, maxableIds\)\)/, 'it writes the maxed ops map');
+  // it is scoped to the roster (the 干员调配 tab's list), like 全部恢复默认, and disabled when nothing is below max
+  assert.match(src, /const maxableIds = useMemo\(\(\) => new Set\(roster\.map\(\(c\) => c\.charId\)/, 'scoped to the roster');
+  assert.match(src, /const nMaxable = ready \? maxAllOpsCount\(st\.ops, maxableIds\) : 0/);
+  assert.match(src, /data-testid="loadout-max-all" disabled=\$\{!nMaxable\}/, 'disabled when it would be a no-op');
+  // it must never touch the skill / module choices: maxAllOps is called with ops only, and resetAll keeps setEntries
+  const maxAll = src.slice(src.indexOf('const maxAll = async'), src.indexOf('// 导出 / 导入 the loadout'));
+  assert.ok(!/setEntries/.test(maxAll), '一键满配 never writes the entries');
+  assert.ok(!/setChoice|resetChoice/.test(maxAll), 'and never a skill / module choice');
+  // a confirmation first, since it changes many operators at once
+  assert.match(maxAll, /confirmDialog\(/);
+  // the 自选编队 / 干员持有 top bars must NOT carry it (their own reset buttons stay alone)
+  assert.equal((src.match(/data-testid="loadout-max-all"/g) || []).length, 1, 'exactly one button, in the 干员调配 bar');
+});
