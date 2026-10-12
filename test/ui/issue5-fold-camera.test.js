@@ -93,8 +93,12 @@ function withDom({ rem, hudTop = 0, hudBottom = null, corner = null, coarse = fa
   try { return fn(); } finally { g.document = saved.document; g.getComputedStyle = saved.getComputedStyle; }
 }
 
-/** A one-row corner of `n` buttons `size` px high at bottom .24rem (css/screens/game.css .gm__corner). */
-const cornerRow = (h, rem, size, n = 4) => Array.from({ length: n }, () => ({ top: h - 0.24 * rem - size, height: size }));
+/**
+ * A one-row corner of `n` buttons `size` px high at bottom .24rem (css/screens/game.css .gm__corner). The corner holds
+ * the 交流 button alone since user report 图 2 moved ⚙ / 📖 / ⛶ into the top bar (inside the top band): `n` > 1 only
+ * covers a hypothetical second control.
+ */
+const cornerRow = (h, rem, size, n = 1) => Array.from({ length: n }, () => ({ top: h - 0.24 * rem - size, height: size }));
 
 describe('hudBands: the folded shop\'s band', () => {
   test('HUD_REM mirrors the CSS of the folded tab and the corner', () => {
@@ -109,8 +113,11 @@ describe('hudBands: the folded shop\'s band', () => {
     assert.match(game, /\.gm__corner \{ position: absolute; left: \.24rem; bottom: \.24rem;/);
     assert.match(game, /\.gm__gear \{\n {2}width: \.56rem; height: \.56rem;/);
     assert.ok(Math.abs(HUD_REM.cornerTop - (0.24 + 0.56)) < 1e-9);
-    // folded, the narrow phones' corner is one row again (the bar that made it wrap is gone)
-    assert.match(read('public/css/devices.css'), /@media \(max-width: 767px\) \{\n {2}\.gm\.is-collapsed \.gm__corner \{ flex-wrap: nowrap; width: auto; \}\n\}/);
+    // narrow phones (< 768 px): the ⚙ / 📖 / ⛶ row wraps into the top-left and the strip starts right of it (user report
+    // 图 2) — the strip's own top, and with it HUD_REM.bondStripBottom and the prep camera's top band, is unchanged
+    const devices = read('public/css/devices.css');
+    assert.match(devices, /@media \(max-width: 767px\) \{\n {2}\.gtop__left \{ flex-wrap: wrap; \}/);
+    assert.match(devices, /\.gm__bonds \{ left: 3\.4rem; \}/);
   });
 
   test('prep / Final Assault prep only; open = the bar (unchanged), folded = the higher of the tab and the corner', () => {
@@ -128,13 +135,13 @@ describe('hudBands: the folded shop\'s band', () => {
     withDom({ rem: 100 }, () => assert.deepEqual(hudBands('prep', { width: 1920, height: 1080 }, { shop: false }), { top: 216, bottom: 83 }));
   });
 
-  test('the corner buttons are measured, touch hit areas included; the tab sits above the bottom safe-area inset', () => {
+  test('the corner\'s 交流 button is measured, touch hit areas included; the tab sits above the bottom safe-area inset', () => {
     const h = 390, rem = 40;
-    // desktop-like pointer: the buttons' own top
+    // desktop-like pointer: the button's own top
     withDom({ rem, corner: cornerRow(h, rem, 34) }, () => assert.ok(Math.abs(hudBands('prep', { width: 844, height: h }, { shop: false }).bottom - (9.6 + 34)) < 1e-9));
     // touch: a 44 px hit area centred on a 34 px button reaches 5 px higher
     withDom({ rem, corner: cornerRow(h, rem, 34), coarse: true }, () => assert.ok(Math.abs(hudBands('prep', { width: 844, height: h }, { shop: false }).bottom - (9.6 + 34 + 5)) < 1e-9));
-    // two rows (a narrow phone with the bar open would wrap them): the higher row decides
+    // a second control in the corner would be the higher one that decides (the band takes the top-most hit area)
     const two = [...cornerRow(366, rem, 34, 1), { top: 366 - 9.6 - 34 - 4 - 34, height: 34 }];
     withDom({ rem, corner: two, coarse: true }, () => assert.ok(Math.abs(hudBands('prep', { width: 756, height: 366 }, { shop: false }).bottom - (9.6 + 72 + 5)) < 1e-9));
     // a low corner: the tab wins; a notched phone's bottom inset lifts the tab (it lives inside the HUD layer)
@@ -157,16 +164,17 @@ describe('the folded board grows and every bench / temp tile stays clear of the 
     const ys = (r, c0, c1) => { const out = []; for (let c = c0; c <= c1; c++) for (const p of tileQuad(cam, r, c, heightAt(r, c))) out.push(p.y); return out; };
     return { benchBottom: Math.max(...ys(rows.bench, 0, 9)), tempBottom: Math.max(...ys(rows.temp, 4, 8)), backTop: Math.min(...ys(rows.back, 4, 10)) };
   }
-  // [w, h, coarse pointer, corner rows when folded (css/devices.css: one row again)]
+  // [w, h, coarse pointer] — the corner is the 交流 button alone since user report 图 2 (css/emotes.css sprite size)
   const VIEWPORTS = [[1920, 1080, false], [1280, 720, false], [1680, 1050, false], [844, 390, true], [756, 366, true], [800, 360, true], [915, 412, true], [932, 430, true]];
 
   test('fold → shop-collapsed camera (bigger tiles), bench above the band, back row under the bond strip; unfold → the shop camera', () => {
     for (const [w, h, coarse] of VIEWPORTS) {
       const rem = remAt(w, h);
-      const btn = coarse ? Math.max(0.56 * rem, 34) : 0.56 * rem;
+      // .ewheel__btn.has-sprite: 55/151 of its width, max(1.51rem, 96px) on touch screens / max(1.51rem, 72px) otherwise
+      const talk = (Math.max(1.51 * rem, coarse ? 96 : 72) * 55) / 151;
       for (const [kind, rows, opts] of [['prep', { bench: 7, temp: 8, back: 12 }, { rect: { ...GEO.NORMAL_RECT }, side: 'L' }],
         ['bossPrep', { bench: 0, temp: 1, back: 5 }, { side: 'L' }], ['bossPrep', { bench: 0, temp: 1, back: 5 }, { side: 'R' }]]) {
-        const dom = { rem, corner: cornerRow(h, rem, btn), coarse };
+        const dom = { rem, corner: cornerRow(h, rem, talk), coarse };
         const openHud = withDom(dom, () => hudBands(kind, { width: w, height: h }, { shop: true }));
         const foldHud = withDom(dom, () => hudBands(kind, { width: w, height: h }, { shop: false }));
         const openCam = presetCamera(kind, { width: w, height: h }, { ...opts, shop: true, hud: openHud });

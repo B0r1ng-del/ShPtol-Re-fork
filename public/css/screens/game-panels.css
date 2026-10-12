@@ -68,7 +68,10 @@
 .dpanel__close { position: absolute; right: .08rem; top: .08rem; z-index: 2; width: .38rem; height: .38rem; display: grid; place-items: center; background: rgba(0, 0, 0, .5); border: 1px solid var(--line-2); color: var(--text-lo); }
 .dpanel__close:hover { color: #fff; border-color: var(--line-3); }
 .dpanel__close .icon { width: .2rem; height: .2rem; }
-.dpanel__scroll { flex: 1; min-height: 0; overflow: auto; padding: .18rem .2rem .2rem; display: flex; flex-direction: column; gap: .14rem; }
+/* The themed 6 px scrollbar (css/theme.css) is a stray grey bar down the side of this narrow card (user report:
+   干员详细子窗口). Hidden, not removed: the card still scrolls by wheel, touch drag and keyboard. */
+.dpanel__scroll { flex: 1; min-height: 0; overflow: auto; scrollbar-width: none; padding: .18rem .2rem .2rem; display: flex; flex-direction: column; gap: .14rem; }
+.dpanel__scroll::-webkit-scrollbar { width: 0; height: 0; }
 .dhead { display: flex; gap: .16rem; }
 .dhead__art { position: relative; width: 1.3rem; height: 1.9rem; flex: none; overflow: hidden; background: linear-gradient(180deg, #1c2421, #0e1210); border: 1px solid var(--line-2); }
 .dhead__art img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
@@ -248,12 +251,16 @@
 .dabil li.is-off .rt-term { color: var(--text-dim); border-bottom-color: transparent; }
 
 /* ---- bond popup ---- */
+/* The themed 6 px scrollbar (css/theme.css) is a stray grey bar down the side of this popup (user report: 局内盟约).
+   Hidden, not removed: it still scrolls by wheel, touch drag and keyboard. */
 .bpop {
   position: absolute; left: 2.3rem; top: 2.1rem; width: 5.4rem; max-height: calc(100% - 2.4rem); z-index: 8; overflow: auto;
+  scrollbar-width: none;
   display: flex; flex-direction: column; gap: .12rem; padding: .2rem .22rem;
   background: rgba(11, 15, 13, .97); border: 1px solid var(--line-2); box-shadow: 0 .14rem .4rem rgba(0, 0, 0, .65);
   animation: pop-in var(--t-med) var(--ease-out);
 }
+.bpop::-webkit-scrollbar { width: 0; height: 0; }
 /* placement (gameLogic bondPopupPlace / BPOP — keep in sync): beside the left-docked detail card, left of the
    right-docked one, against the right edge, or over the card it was opened from — never over the selected unit's
    underframe when a place is free */

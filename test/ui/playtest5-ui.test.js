@@ -1,8 +1,9 @@
 // Regression tests (Node) of user playtest #5, UI items (workstream W5):
-//   8  the settings button's gear (bottom-left corner, next to 交流 / 📖 / ⛶) looked deformed: the hand-written path had
+//   8  the settings button's gear (now in the top bar's left block, beside 离开 / ping / 📖 / ⛶ — user report 图 2 moved
+//      it out of the bottom-left corner, which keeps 交流 alone) looked deformed: the hand-written path had
 //      teeth of different sizes on a rim that was not round. It is now a regular 8-tooth gear (ui/gameComponents.js
 //      gearPath): every vertex on the tip / root circle, 8-fold rotational and mirror symmetric, a centred round hole.
-//      On phones the corner glyphs keep half the grown button (css/devices.css).
+//      On phones the tool glyphs keep half the grown button (css/devices.css).
 //   9  on phones in landscape the shop bar covered the lower part of the bench (整备区, row 7): the prep camera keeps
 //      the bench / temp rows and the field's back row between the HUD bands (ui/fieldHost.js hudBands →
 //      render/app.js → render/projection.js clearHud; the camera math itself: test/render/projection.test.js). The
@@ -88,12 +89,12 @@ describe('8: the settings gear is a clean, regular icon', () => {
     assert.equal(p.props['fill-rule'], 'evenodd');
   });
 
-  test('phones: the corner glyphs keep half of the grown 34 px buttons (not an 11 px glyph)', () => {
+  test('phones: the top bar\'s ⚙ / 📖 / ⛶ glyphs keep half of the grown 28 px buttons (not an 11 px glyph)', () => {
     const css = read('public/css/devices.css');
     const phone = css.slice(css.indexOf('@media (max-height: 600px) and (pointer: coarse)'));
     const block = phone.slice(0, phone.indexOf('\n}\n'));
-    assert.match(block, /\.gm__gear \{ width: max\(\.56rem, 34px\); height: max\(\.56rem, 34px\); \}/);
-    assert.match(block, /\.gm__corner \.gm__gear \.icon \{ width: max\(\.28rem, 17px\); height: max\(\.28rem, 17px\); \}/);
+    assert.match(block, /\.gm__tools \.gm__gear \{ width: max\(\.5rem, 28px\); height: max\(\.5rem, 28px\); \}/);
+    assert.match(block, /\.gm__tools \.gm__gear \.icon \{ width: max\(\.26rem, 14px\); height: max\(\.26rem, 14px\); \}/);
     // desktop: .28rem in a .56rem button — the same half
     assert.match(read('public/css/screens/game.css'), /\.gm__gear \.icon \{ width: \.28rem; height: \.28rem; \}/);
   });
