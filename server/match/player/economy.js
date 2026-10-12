@@ -94,14 +94,16 @@ export class PlayerEconomy {
   }
 
   /**
-   * The 调度中心's upgrade opens the new level's extra slots at once — EMPTY: no card is drawn into them (a `null` slot).
-   * The next roll (a manual refresh or the round start) fills them with the other unfrozen slots; the cards already shown
-   * stay where they are (chess slots keep their index, the item slot stays after them). Official: the footage of a 1→2
-   * upgrade (bilibili BV1AXwuzdEys 1:39, GitHub #332 / PR #333 by @2321Robin) shows the new slot appear and stay empty, and
-   * the texts only name the slots — the tutorial's 休整期 page 「升级后将出现更多的商品栏位」, PRTS 帮助 「增加刷新栏位」 —,
-   * never a card that comes with them. 0.2.0 drew a card into each new slot instead (item 19 of the community report of
-   * 2026-10-06, 「升级商店获得新的商店位时用新卡补上，而不是空着」, one uncorroborated remark; its follow-on, that the new card
-   * follows the freeze toggle, was [ASSUMED]); until then the extra slots waited for the next roll as well.
+   * The 调度中心's upgrade opens the new level's extra slots at once, each with a new card drawn at the new level; the
+   * cards already shown stay where they are (chess slots keep their index, the item slot(s) stay after them).
+   *
+   * The owner's ruling of 2026-10-12, on a live report that the new slot looked broken: a fresh operator appears in the
+   * new slot straight away. 0.2.0 drew one (item 19 of the community report of 2026-10-06, 「升级商店获得新的商店位时用新卡
+   * 补上，而不是空着」); 0.2.2 §27.52 reverted that to a `null` slot on the strength of a second-hand reading of bilibili
+   * BV1AXwuzdEys 1:39 (GitHub #332 / PR #333 by @2321Robin — the note itself says the frame rests on the reporter, not on
+   * a watched video) and the fact that the texts only ever name the slots (the tutorial's 休整期 page 「升级后将出现更多的
+   * 商品栏位」, PRTS 帮助 「增加刷新栏位」). The owner's experience wins over that: the slot is filled, and the 0.2.2 empty
+   * slot is the documented deviation. [ASSUMED] the new card follows the freeze toggle, as a manual refresh's cards do.
    */
   _openLevelSlots() {
     const { chess: nChess, item: nItem } = this.gd.shopSlots(this.shop.level);
@@ -110,8 +112,9 @@ export class PlayerEconomy {
     if (nChess <= layout.chess && nItem <= layout.item) return;
     const chess = old.slice(0, layout.chess);
     const items = old.slice(layout.chess);
-    while (chess.length < nChess) chess.push(null);
-    while (items.length < nItem) items.push(null);
+    const fresh = (s) => { if (s) s.frozen = this.shop.frozen; return s; };
+    while (chess.length < nChess) chess.push(fresh(this._rollChessSlot()));
+    while (items.length < nItem) items.push(fresh(this._rollItemSlot()));
     this.shop.slots = [...chess, ...items];
     this.shop.layout = { chess: chess.length, item: items.length };
   }

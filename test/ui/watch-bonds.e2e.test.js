@@ -73,7 +73,7 @@ const bondsOf = (c, name) => c.page.evaluate((name) => {
   const p = s.match.public.players.find((x) => x.name === name);
   const own = p && p.playerId === s.me.playerId;
   const list = own ? s.match.private.bonds : p.bonds;
-  return { ids: list.filter((b) => b.count > 0 || b.layers > 0 || b.active).map((b) => b.bondId).sort(), counts: Object.fromEntries(list.map((b) => [b.bondId, String(b.count)])) };
+  return { ids: list.filter((b) => b.count > 0 || b.active).map((b) => b.bondId).sort(), counts: Object.fromEntries(list.map((b) => [b.bondId, String(b.count)])) };
 }, name);
 
 /**
@@ -224,7 +224,7 @@ async function watchMate(c, name) {
 const matchView = (c) => c.page.evaluate(() => {
   const s = globalThis.__SP__.store.get();
   const pub = s.match.public;
-  const ids = (list) => (list || []).filter((b) => b.count > 0 || b.layers > 0 || b.active).map((b) => b.bondId).sort();
+  const ids = (list) => (list || []).filter((b) => b.count > 0 || b.active).map((b) => b.bondId).sort();
   return {
     me: s.me.playerId,
     names: Object.fromEntries(pub.players.map((p) => [p.playerId, p.name])),

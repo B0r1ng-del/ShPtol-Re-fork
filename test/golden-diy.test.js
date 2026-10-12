@@ -19,7 +19,11 @@ const BACKUPS = read('../data/backups.json');
 const OFFICIAL_SLOTS = Object.keys(BACKUPS.diy.slots).filter((id) => /_diy[12]_a$/.test(id)).sort();
 
 test('matches: the 自选 match\'s human seat draws its 自选 pieces in its shop and fields 推进之王 in battle', () => {
-  const [id, dg] = Object.entries(MATCHES.scenarios).find(([k]) => /-coverage-diy$/.test(k)) || [];
+  // The 调度中心 upgrade filling its new slot (三.5) moved this seat's shop stream: seed 5 now draws 6 自选 pieces but
+  // fields none, so the companion seed 20 (tools/golden.mjs) carries the shop → deployment → battle path this test is
+  // about. Both scenarios stay in the corpus; this one reads the one that still covers it.
+  const [id, dg] = Object.entries(MATCHES.scenarios).find(([k]) => /coverage-diy$/.test(k) && k.includes('-20-'))
+    || Object.entries(MATCHES.scenarios).find(([k]) => /coverage-diy$/.test(k)) || [];
   assert.ok(dg, 'scenario present');
   assert.deepEqual(dg.errors, { engine: 0, logged: 0, sim: 0, dispatcher: 0 }, id);
   assert.deepEqual(Object.keys(dg.diy.picks).sort(), OFFICIAL_SLOTS, 'the fixture fills the official four slots');

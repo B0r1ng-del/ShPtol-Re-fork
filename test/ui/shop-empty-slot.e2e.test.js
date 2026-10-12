@@ -1,12 +1,13 @@
 // Browser check of the shop bar's empty slot (GitHub #332 / PR #333; opt-in, ~8 s) on the in-match mock harness:
 //   SP_E2E=1 CHROME_PATH=… node --test test/ui/shop-empty-slot.e2e.test.js
 //
-// A 调度中心 upgrade opens the new level's extra slot EMPTY (server/match/player/economy.js _openLevelSlots: a null slot
-// in m.private shop.slots) and the next refresh or round start fills it. The bar used to draw every null slot like a
-// bought one — the SOLD OUT frame with 「已招募」 — which on this slot says that somebody was recruited where nothing was.
-// Asserted: the null slot is a bare frame (no text, a tooltip saying it fills at the next refresh), a bought slot still
-// says 已招募, a real card is still a card, the empty frame is not a buyable card (`.scard:not(.scard--sold)` skips it)
-// and a tap on it opens nothing; the refresh the mock answers fills it.
+// A null slot in m.private shop.slots still reaches the bar — the shop effects that take a card straight from the shop
+// (紧急调度券, the strategy that recruits one every n rounds, …) clear its slot to null — and the bar must draw it as a
+// bare frame, not as a bought one (the SOLD OUT frame with 「已招募」 says somebody was recruited where nothing was).
+// The 调度中心 upgrade no longer produces one: since the owner's ruling of 2026-10-12 (三.5) it fills the new slot at
+// once, which the second test covers. Asserted: the null slot is a bare frame (no text, a tooltip saying it fills at the
+// next refresh), a bought slot still says 已招募, a real card is still a card, the empty frame is not a buyable card
+// (`.scard:not(.scard--sold)` skips it) and a tap on it opens nothing; the refresh the mock answers fills it.
 
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -84,7 +85,7 @@ describe('the empty slot of the shop bar', { skip: !ENABLED && 'set SP_E2E=1 (an
     await page.close();
   });
 
-  test('the upgrade itself: tapping the level card twice opens the fifth slot empty, the cards shown stay', async () => {
+  test('the upgrade itself: tapping the level card twice opens the fifth slot WITH a card, the cards shown stay', async () => {
     const page = await browser.newPage();
     await page.setViewport({ width: 1600, height: 900 });
     const problems = [];
@@ -106,12 +107,14 @@ describe('the empty slot of the shop bar', { skip: !ENABLED && 'set SP_E2E=1 (an
     await page.click('.lvcard');                      // two taps: select, confirm
     await sleep(200);
     await page.click('.lvcard');
-    await page.waitForFunction(() => document.querySelectorAll('.shopbar__cards .scard--empty').length === 1, { timeout: 5000 });
+    // the owner's ruling of 2026-10-12 (三.5): the new slot carries a card straight away, at the new level — no empty frame
+    await page.waitForFunction(() => document.querySelectorAll('.shopbar__cards .scard').length === 5, { timeout: 5000 });
     const after = await cards(page);
     assert.equal(after.length, 5);
-    assert.deepEqual(after.map((c) => c.empty), [false, false, false, false, true]);
+    assert.deepEqual(after.map((c) => c.empty), [false, false, false, false, false], 'no empty frame anywhere');
+    assert.deepEqual(after.map((c) => c.sold), [false, false, false, false, false], 'nothing sold either');
     assert.deepEqual(after.slice(0, 4).map((c) => c.text), before.map((c) => c.text), 'the cards shown stay as they were');
-    assert.ok(after.slice(0, 4).every((c) => !/已招募/.test(c.text)));
+    assert.ok(after[4].text, 'the fifth slot shows a card');
     assert.deepEqual(problems, []);
     await page.close();
   });

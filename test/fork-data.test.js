@@ -135,7 +135,8 @@ describe('fork data layer (tools/fork-overrides.mjs ⇄ data/)', () => {
 
   test('二.4: the fork mode carries the 机变 rules, and only the fork mode', () => {
     const m = config.modes[FORK_MODE_ID];
-    assert.deepEqual(m.spDraft, { untimed: true, parallel: true, randomVote: { families: ['supply', 'shop', 'tactic'] } });
+    // parallel: false — the turn order is kept (the owner's report of 2026-10-12); the vote is offered at any time
+    assert.deepEqual(m.spDraft, { untimed: true, parallel: false, randomVote: { families: ['supply', 'shop', 'tactic'] } });
     for (const [id, mode] of Object.entries(config.modes)) {
       if (id === FORK_MODE_ID) continue;
       assert.equal(mode.spDraft, undefined, `${id} must not carry a fork 机变 block`);

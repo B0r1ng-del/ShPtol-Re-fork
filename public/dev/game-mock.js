@@ -604,8 +604,13 @@ async function mockRequest(t, f = {}) {
       if (p.shop.upgradePrice > p.funds) fail('NO_FUNDS');
       p.funds -= p.shop.upgradePrice; p.shop.level++; p.shop.upgradePrice = [5, 8, 11, 12, 13][p.shop.level - 1] ?? 0;
       const n = p.shop.level >= 4 ? 5 : 4;
-      // the upgrade opens the new slot EMPTY (server/match/player/economy.js _openLevelSlots: a null slot; a refresh fills it)
-      while (p.shop.slots.filter((s) => !s || s.kind !== 'item').length < n) p.shop.slots.splice(p.shop.slots.length - 1, 0, null);
+      // the upgrade fills the new slot at once, at the new level (server/match/player/economy.js _openLevelSlots: a fresh
+      // card, frozen when the toggle is on — the owner's ruling of 2026-10-12)
+      while (p.shop.slots.filter((s) => !s || s.kind !== 'item').length < n) {
+        const slot = makeSlot(p.shop.level);
+        if (slot) slot.frozen = p.shop.frozen;
+        p.shop.slots.splice(p.shop.slots.length - 1, 0, slot);
+      }
       toast(`调度中心等级提升至 ${p.shop.level}`, 'success');
       refreshPrivate(); return {};
     }

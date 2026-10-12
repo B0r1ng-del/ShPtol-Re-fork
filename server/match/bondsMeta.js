@@ -188,15 +188,20 @@ export function activatedLayers(bonds) {
 }
 
 /**
- * View list for m.private / m.public: bonds with members or layers, active first, then layers desc, then data order.
- * An entry whose count includes 调和's +1 carries `harmony: 1` (both views; absent otherwise). `off` (offBondCounts): the
- * mode-off bonds the player has members of follow, in data order, as `{ bondId, count, active: false, tier: 0, layers,
- * off: true }` — the strip's grey 本局禁用 discs; never in computeBonds, so never in the battle input.
+ * View list for m.private / m.public: bonds with members, active first, then layers desc, then data order. A bond whose
+ * members have all left the field is NOT listed even while it keeps its layers (the owner's report of 2026-10-12: 「场上
+ * 没有相应的干员，盟约显示区还是继续显示对应的盟约」) — the layers stay stored (`ps.layers`), so re-fielding a member
+ * brings the bond back with them. `keepLayerOnly` is for the settlement record only (results.js), which lists what the
+ * player ended the match with. An entry whose count includes 调和's +1 carries `harmony: 1` (both views; absent
+ * otherwise). `off` (offBondCounts): the mode-off bonds the player has members of follow, in data order, as `{ bondId,
+ * count, active: false, tier: 0, layers, off: true }` — the strip's grey 本局禁用 discs; never in computeBonds, so never
+ * in the battle input.
  * @param {import('./gamedata.js').GameData} gd
  * @param {ReturnType<typeof computeBonds>} bonds
- * @param {{ full?: boolean, off?: ReturnType<typeof offBondCounts> }} [opts] full → include thresholds/countsHand (m.private)
+ * @param {{ full?: boolean, off?: ReturnType<typeof offBondCounts>, keepLayerOnly?: boolean }} [opts] full → include
+ *   thresholds/countsHand (m.private); keepLayerOnly → also list a member-less bond that kept layers (results.js)
  */
-export function bondList(gd, bonds, { full = false, off = null } = {}) {
+export function bondList(gd, bonds, { full = false, off = null, keepLayerOnly = false } = {}) {
   const order = new Map(gd.bondIds.map((id, i) => [id, i]));
   const list = [];
   const extras = (e) => {
@@ -207,7 +212,7 @@ export function bondList(gd, bonds, { full = false, off = null } = {}) {
     return e;
   };
   for (const [bondId, b] of Object.entries(bonds || {})) {
-    if (!(b.count > 0 || b.layers > 0 || b.active)) continue;
+    if (!(b.count > 0 || b.active || (keepLayerOnly && b.layers > 0))) continue;
     const e = { bondId, count: b.count, active: b.active, tier: b.tier, layers: b.layers };
     if (b.harmony > 0) e.harmony = b.harmony;
     list.push(extras(e));

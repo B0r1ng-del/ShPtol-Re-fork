@@ -203,9 +203,13 @@ test('items: 信标 on a bench single; both 博士投影 on a normal operator ev
   const cell = itemTarget(m, ps, giveItem(m, ps, 'chess_item_5_08_e_a'));
   assert.ok(cell && !m.gd.isGolden(cell.id) && tierOf(cell) < 6, '突变细胞 on a normal operator below VI');
   assert.ok(![pairA.uid, pairB.uid].includes(cell.uid), '…never one of a merge pair');
-  // 拟态物质 (a third copy when two are owned): the pair
+  // 拟态物质 (a third copy when two are owned): a merge pair. The hand pair below is the one this test seeds, but the
+  // bot's own board may hold a merge pair too — its shop stream moved when the 调度中心 upgrade started filling the new
+  // slot (the same RNG-stream consequence 0.2.2 §27.52 recorded for that change) — and any pair is a correct target, so
+  // assert the rule and not one specific pair.
   const mimic = itemTarget(m, ps, giveItem(m, ps, 'chess_item_5_05_e_a'));
-  assert.ok(mimic && [pairA.uid, pairB.uid].includes(mimic.uid), '拟态物质 on the pair');
+  const copiesOf = (base) => [...ps.board.values(), ...ps.hand].filter((p) => p && p.kind === 'chess' && m.gd.baseIdOf(p.id) === base).length;
+  assert.ok(mimic && copiesOf(m.gd.baseIdOf(mimic.id)) >= 2, '拟态物质 on a merge pair');
   // …but not once the pool has no third copy: the item would give nothing (GitHub #207)
   m.pool.take(pairId, m.pool.left(pairId));
   const mimic2 = itemTarget(m, ps, giveItem(m, ps, 'chess_item_5_05_e_a'));
