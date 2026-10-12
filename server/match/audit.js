@@ -231,7 +231,8 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
         if (f0 - ps.funds !== price && !fx && !hasSpendEffects(m, ps)) fail(`${ps.playerId}: level-up paid ${f0 - ps.funds}, price ${price}`);
         const next = gd.upgradeBase(ps.shop.level) ?? 0;
         if (ps.shop.upgradePrice !== next) fail(`${ps.playerId}: upgrade price after level-up ${ps.shop.upgradePrice}, expected ${next}`);
-        // the new level's extra slots open at once, empty (GitHub #332 / PR #333); the cards shown before stay in place
+        // the new level's extra slots open at once, each with a freshly drawn card (the owner's ruling of 2026-10-12;
+        // 0.2.2 §27.52 had them open empty); the cards shown before stay in place
         const { chess, item } = gd.shopSlots(ps.shop.level);
         const want = Math.max(chess, layout0.chess) + Math.max(item, layout0.item);
         if (ps.shop.slots.length !== want) fail(`${ps.playerId}: ${ps.shop.slots.length} shop slots after the level-up to ${ps.shop.level}, expected ${want}`);
@@ -352,9 +353,9 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
       const want = m.isSolo ? 3 : 6;
       if (s.cards.length > want) fail(`${s.cards.length} 机变 cards (max ${want})`);
       if (s.order.length !== alive.length) fail(`机变 order ${s.order.length} for ${alive.length} alive`);
-      // fork 二.4: a parallel draft lets a player end after only voting for the random draw when the vote lost —
+      // fork 二.4: a voter for the random allocation may end the draft with no card when the vote lost —
       // "未过半则各自拿走自己选择的道具", and a voter who picked nothing takes nothing this round
-      const votedOnly = (pid) => !!(s.parallel && s.randomVotes && s.randomVotes.has(pid));
+      const votedOnly = (pid) => !!(s.randomVotes && s.randomVotes.has(pid));
       for (const pid of alive) {
         const idx = s.picks[pid];
         if (idx == null) {

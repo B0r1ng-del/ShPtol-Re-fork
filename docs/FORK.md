@@ -98,20 +98,26 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
   `bloodPoint[difficulty]` — so the two classes are computed separately and neither can move the other's pool.
   Boss-owned runtime summons (`server/sim/content/bosses.js` `summon.hp_ratio`) never come from `enemyScale` and so
   stay outside all of it. `test/fork-ultimate-enemy-stats.test.js`.
-- **二.4 机变阶段改造** — the mode carries `spDraft: { untimed: true, parallel: true, randomVote: { families: ['supply',
+- **二.4 机变阶段改造** — the mode carries `spDraft: { untimed: true, parallel: false, randomVote: { families: ['supply',
   'shop', 'tactic'] } }`. `GameData.spDraftRules` normalises it (all off without the block), `Match.enterSpDraft` turns
-  the draft untimed and parallel, and `Match.voteRandomChoice` (the `g.choiceRandom` intent, `Match.js` SP_DRAFT
-  section) tallies votes: `votes × 2 ≥ alive` resolves the draft by `resolveRandomChoice`, which shuffles the
-  random-eligible cards and the alive players and hands one card to each — over their own pick, which is the point of
-  the vote; below half every player keeps the card it picked, and a voter who picked nothing takes nothing. UNTIMED
-  ("移除原有的时间限制") means the phase ends when every alive player has picked or voted; PARALLEL replaces the
-  sequential turn order, because without a clock waiting on one player at a time could stall the round forever
-  (`g.choice` from any player, `spTurn()` = the first player still to act, the AI seats schedule themselves). 悬赏 cards
-  are never drawn (`randomChoiceEligible` refuses `family === 'bounty'`) and in a 悬赏决策 draft the vote is not offered
-  at all — "悬赏类不要添加随机机制" (a bounty adds its enemies to the PICKER's own next battles, so handing it to
+  the draft untimed, and `Match.voteRandomChoice` (the `g.choiceRandom` intent, `Match.js` SP_DRAFT section) tallies
+  votes: `votes × 2 ≥ alive` resolves the draft by `resolveRandomChoice`, which shuffles the random-eligible cards and
+  the alive players and hands one card to each — over their own pick, which is the point of the vote; below half every
+  player keeps the card it picked, and a voter who picked nothing takes nothing. UNTIMED ("移除原有的时间限制") means the
+  phase ends when every alive player has picked or voted.
+  The turn order is KEPT (`parallel: false`, the owner's report of 2026-10-12: 「无论在哪个机变阶段，它都没有按照顺序来，而是谁
+  手快谁先抢到」 — the official 机变 is a turn order, the overlay's 决策顺序 row, one 博士 at a time). 二.4 first made the
+  whole draft parallel on the theory that no clock + one player at a time could stall the round; the order came back, and
+  the vote is what keeps an untimed sequential draft from ever stalling: `g.choiceRandom` is accepted at ANY time, not
+  only on the voter's turn (`voteRandomChoice` no longer requires `parallel`; `spDone` counts a vote as done, so the
+  turn advances past a voter; `m.public`'s status reads a voter as ready). A seat that neither picks nor votes can still
+  hold the round — as in any untimed turn-based draft — and the host can hand it to the AI (AI 托管), which picks for it.
+  悬赏 cards are never drawn (`randomChoiceEligible` refuses `family === 'bounty'`) and in a 悬赏决策 draft the vote is not
+  offered at all — "悬赏类不要添加随机机制" (a bounty adds its enemies to the PICKER's own next battles, so handing it to
   somebody else would break the attribution). The draft's `randomOffer` in `m.public` is non-null exactly when the vote
-  is offered for that draft, so `public/js/ui/choiceOverlay.js` renders the 随机分配 button on the frame alone.
-  `server/match/audit.js` accepts a player ending after only a lost vote. `test/fork-ultimate-sp-vote.test.js`.
+  is offered for that draft, so `public/js/ui/choiceOverlay.js` renders the 随机分配 button on the frame alone — keyed on
+  `randomOffer`, never on `parallel`. `server/match/audit.js` accepts a player ending after only a lost vote.
+  `test/fork-ultimate-sp-vote.test.js`.
 - **二.4 also needed a 机变 schedule** — `choices.schedule` is keyed by modeId and the official data has no entry for a
   mode that never shipped, so without one the fork mode fell back to a plain 道具补给 draft every round (no 悬赏 at all,
   and the vote would have had nothing to gate). `applyForkChoices()` in `tools/fork-overrides.mjs` copies AC-4's
@@ -245,6 +251,8 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
   result is what the server keeps, only 潜能 / 练度 keys) and `test/ui/loadout-rows.test.js` (the button's wiring, its
   roster scope, its disabled state, and that it never touches the entries).
 
+  `test/ui/devices.e2e.test.js` (the ≥ 44 px hit areas and the card never covering the row).
+
 - **三.1–三.3 UI 回顾（电脑 + 手机一并看）** — three items from the requester's screenshots, all **universal interface
   work**: no mode rule moves, no golden file moves.
   - **三.1 隐藏滚动条** — the 局内盟约 popup (`.bpop`) and the operator detail card's scroller (`.dpanel__scroll`) each
@@ -278,6 +286,31 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
   `test/ui/playtest5-ui.e2e.test.js` (the three glyphs: regular gear, square, half the button; the screenshot moved to
   the top bar), `test/ui/devices.e2e.test.js` (the ≥ 44 px hit areas and the card never covering the row).
 
+- **三.4–三.6 三个玩法 bug** — the requester's three reports of 2026-10-12, fixed in one change. Only 三.4 is a fork
+  matter; 三.5 and 三.6 are universal rules (see the fork change log for the one golden move).
+  - **三.4 机变恢复轮次顺序** — 「无论在哪个机变阶段，它都没有按照顺序来，而是谁手快谁先抢到」. 二.4's `parallel: true` was
+    exactly that: it replaced the official turn order with "everyone decides at once". The order is back
+    (`parallel: false`) and the 随机分配 vote stays, now castable at any time so an untimed sequential draft can still
+    never stall. Details and the files in the 二.4 entry above.
+  - **三.5 升级补货** — 「商店升级后，新的购买槽位不会自动刷新出现干员」. `PlayerState._openLevelSlots` draws a card into
+    every position the new level opens, at the new level, instead of leaving it `null`. 0.2.2 §27.52 had made it empty
+    on a second-hand reading of an official recording; the owner's ruling of 2026-10-12 puts the 0.2.0 behaviour back
+    (the record stays in `docs/history/0.2.2.md` as the deviation). The cards already shown stay where they are, and
+    the new card follows the freeze toggle as a refresh's do [ASSUMED]. **All modes** — the shop rule is not
+    fork-specific. `server/match/player/economy.js`, `server/match/audit.js`, `docs/META.md` §3, `docs/PLAYING.md`.
+    Golden: `matches` — **all 20 scenarios** move, because every bot levels its shop and now draws the new card (a
+    shifted shop RNG stream, the same class of move §27.52 recorded); roster / bonds / fields / standins / diy are
+    unchanged, and the fork mode is not in the golden corpus at all.
+  - **三.6 撤下干员后盟约图标不激活** — 「场上没有相应的干员，盟约显示区还是继续显示对应的盟约」. The bond counting was never
+    wrong (server `computeBonds` / the pushed `m.private` / the real client DOM all follow the count, 独行 included:
+    2 deployed → dim, withdraw one → lit). What stayed on screen was a bond whose members had **all** left the field but
+    which still had banked layers: `bondList` listed it on `b.layers > 0`, so the strip kept a dim disc for a bond with
+    nobody on the field. It is now listed only while it has a member on the field or an active tier (`ps.layers` keeps
+    the layers, so re-fielding a member brings the bond back with them). The settlement record is the one exception —
+    `results.js` passes `keepLayerOnly` and still lists what the player ended the match with. `server/match/bondsMeta.js`
+    (`bondList`), `server/match/results.js`, `docs/META.md` §3/§5. Golden: unchanged (the digests read `ps.bonds`
+    directly, not `bondList`).
+
 ## Fork change log
 
 | Change | What it does | Where |
@@ -286,10 +319,11 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
 | 二.1 盟约不禁用 | the mode draws 0 bond bans (`bans: { core: 0, addon: 0 }`), `modeIdFor('ultimate', …)` always resolves `mode_ultimate_abyss` and a 终极模拟 room's difficulty is clamped to ABYSS; its card says 盟约与干员全部解锁 | `tools/fork-overrides.mjs`, `server/match/gamedata.js` (`bans()`), `shared/constants.js` (`modeIdFor`), `server/match/Match.js`, `server/match/StubMatch.js`, `test/fork-ultimate-bans.test.js` |
 | 二.2 商店升级槽位 | one 干员槽 per operator level (3→7) and a second 道具槽 at level 6 | `tools/fork-overrides.mjs` (`shopSlots`), `test/fork-ultimate-shop.test.js` |
 | 二.3 敌人属性调整 | R4 on: ordinary +10 % HP; leader +20 % HP/+20 % DEF/+8 % ATK; hidden core +35 % HP/+35 % DEF/+16 % ATK — HP per boss id | `tools/fork-overrides.mjs` (`enemyAdjust`), `server/match/gamedata.js` (`enemyExtras`/`bossHpExtra`), `server/match/waves.js`, `server/match/finalAssault.js`, `test/fork-ultimate-enemy-stats.test.js` |
-| 二.4 机变去时限 + 投票 | untimed, parallel draft with a 随机分配 vote (half the alive players resolves it randomly, one card each; 悬赏 never drawn and never voted on) + the AC-4 机变 schedule for the fork mode | `tools/fork-overrides.mjs` (`spDraft`, `applyForkChoices`), `server/match/Match.js` (SP_DRAFT), `server/match/gamedata.js` (`spDraftRules`), `shared/protocol.js` (`g.choiceRandom`), `server/match/audit.js`, `public/js/ui/choiceOverlay.js`, `public/js/ui/gameLogic.js`, `public/js/ui/gameActions.js`, `public/js/screens/game.js`, `test/fork-ultimate-sp-vote.test.js` |
+| 二.4 机变去时限 + 轮次顺序 + 投票 | untimed draft that KEEPS the turn order (`parallel: false` — the owner's 2026-10-12 report 「谁手快谁先抢到」) with a 随机分配 vote castable at any time (half the alive players resolves it randomly, one card each; 悬赏 never drawn and never voted on) + the AC-4 机变 schedule for the fork mode | `tools/fork-overrides.mjs` (`spDraft`, `applyForkChoices`), `data/config.json`, `server/match/Match.js` (SP_DRAFT), `server/match/gamedata.js` (`spDraftRules`), `server/match/match/spDraft.js` (`spDone`/`startSpTurn`/`voteRandomChoice`), `server/match/match/views.js`, `shared/protocol.js` (`g.choiceRandom`), `server/match/audit.js`, `public/js/ui/choiceOverlay.js`, `public/js/ui/gameLogic/draft.js`, `public/js/screens/game.js`, `test/fork-ultimate-sp-vote.test.js`, `test/fork-data.test.js` |
 | 二.5 版面 | 三个模式卡是一行三个等宽的竖向选择；终极模拟房间是六个等宽的竖向席位（同盟模拟的四座网格与独立模拟都不受影响） | `public/css/screens/lobby.css` (`.mode-cards`), `public/css/screens/room.css` (`.seats--ultimate`), `public/js/screens/room.js`, `test/client-static.test.js` |
 | 二.6 表情：一键十连 + 弹幕 | one tap sends an emote 10 times (one `g.emoteBurst`, one cooldown); emotes also fall like snowflakes from a random x, fading out past the bottom edge, on every client's screen | `shared/constants.js` (`EMOTE_BURST_COUNT`/`EMOTE_BARRAGE_MS`), `shared/protocol.js` (`g.emoteBurst`), `server/match/match/intents.js` (`emoteBurst`), `public/js/ui/emotes.js` (`EmoteBarrage`, `emotePrefsStore`, the two switches), `public/css/emotes.css` (`emo-fall`), `public/js/ui/gameActions.js`, `public/js/screens/game.js`, `test/fork-emote-burst.test.js`, `test/client-static.test.js` |
 | 二.7 房主配置 | 每个模式的准备房间都有一个房主配置面板（仅房主可改）：共享卡池、共享悬赏、AI 队友最后选择、多同盟模式；房间跨对局保留，开局时交给对局。私人房间按用户要求不做 | `shared/constants.js` (`HOST_CONFIG_KEYS`/`HOST_CONFIG_DEFAULTS`), `shared/protocol.js` (`room.setHostConfig`), `server/lobby.js`, `server/match/Match.js`, `server/match/match/infra.js` (`poolFor`), `server/match/match/spDraft.js`, `server/match/match/phases.js`, `server/match/player/*`, `server/match/bot.js`, `server/match/invariants.js`, `server/match/audit.js`, `public/js/screens/room.js`, `public/css/screens/room.css`, `public/js/screens/bandDraft.js`, `public/js/ui/gameLogic/draft.js`, `test/lobby-host-config.test.js`, `test/match/host-config.test.js`, `test/ui/host-config.test.js` |
 | 二.8 自选编队 10 个名额 | 自选编队每阶 5 个名额（5 阶 5 + 6 阶 5 = 10，官方为每阶 2）：额外 6 个槽位由 fork 数据层生成（`chess.json` 的 `…_diyN_a`/`_b` 记录对 + `backups.json` 的 `diy.slots`），复制同阶官方槽位的 status/价格/合成数；`DIY_LIMITS.slots` 8 → 10；官方 4 槽位与所有官方模式规则不变，**golden 未移动** | `tools/fork-overrides.mjs` (`applyForkChess`/`applyForkBackups`), `tools/fork-data.mjs` (LAYER), `tools/build-data.mjs` (per-rank 循环), `shared/protocol.js` (`DIY_LIMITS`), `data/chess.json`, `data/backups.json`, `tools/golden.mjs` (`DIY_CORPUS_SLOTS`), `test/fork-data.test.js`, `test/fork-diy-slots.test.js` |
 | 二.9 一键满配 | 干员调配顶栏加「一键满配」（在「全部恢复默认」旁）：一次确认把所有干员的潜能与练度设回满配（潜能 6、精英阶段2-60级）。满配本来就是默认值，所以这个按钮只是清掉被调低的条目——**不引入任何数值计算**，也不碰技能与模组。全模式通用（需求方决定） | `public/js/ui/loadoutModel.js` (`maxAllOps`/`maxAllOpsCount`), `public/js/screens/loadout.js`, `public/i18n/*.json`, `test/ui/potential-ui.test.js`, `test/ui/loadout-rows.test.js` |
 | 三.1–三.3 UI 回顾 | 隐藏局内盟约与干员详细两处滚动条；⚙ / 📖 / ⛶ 从角落移到顶栏左侧（交流留在角落），窄屏换到第二行并给盟约栏让出左侧；大厅顶栏左右两组按钮同高（触摸屏 36 px）；「界面改动要兼顾电脑与手机」写成 client.md §10 的设备规则 | `public/css/screens/game-panels.css`, `public/css/screens/game.css`, `public/css/devices.css`, `public/css/components.css`, `public/js/ui/hud.js`, `public/js/screens/game.js`, `public/js/ui/fieldHost.js`, `public/js/screens/lobby.js`, `docs/design/client.md`, `test/ui/playtest5-ui.test.js`, `test/ui/issue5-fold-camera.test.js`, `test/ui/playtest5-ui.e2e.test.js`, `test/ui/devices.e2e.test.js` |
+| 三.4–三.6 三个玩法 bug | 三.4 机变恢复轮次顺序（见 二.4）；三.5 升级调度中心立刻补上新栏位的干员（全模式，0.2.2 §27.52 的反转）；三.6 场上没有成员的盟约不再留在盟约栏（层数仍保留，结算记录例外） | `tools/fork-overrides.mjs` (`spDraft`), `data/config.json`, `server/match/match/spDraft.js`, `server/match/match/views.js`, `public/js/ui/choiceOverlay.js`, `server/match/player/economy.js`, `server/match/audit.js`, `server/match/bondsMeta.js` (`bondList`), `server/match/results.js`, `docs/META.md`, `docs/PLAYING.md`, `tools/golden.mjs`, `test/golden/matches.json`, `test/fork-ultimate-sp-vote.test.js`, `test/fork-data.test.js`, `test/match/feedback5-shop-levelslots.test.js`, `test/match/bonds.test.js`, `test/match/watch-bonds.test.js`, `test/match/bot-smarter.test.js`, `test/golden-diy.test.js`, `test/golden-standins.test.js` |

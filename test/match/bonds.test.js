@@ -113,7 +113,14 @@ test('layers persist on every bond; Σ activated layers only counts active bonds
   assert.equal(activatedLayers(s), 40);
   const list = bondList(gd, s);
   assert.equal(list[0].bondId, 'yanShip', 'active first');
-  assert.ok(list.some((x) => x.bondId === 'egirShip' && !x.active), 'inactive bonds with layers are listed');
+  // the owner's report of 2026-10-12 (三.6): 场上没有相应的干员，盟约显示区还是继续显示对应的盟约. 独行 (egirShip here has
+  // layers but no members) is not listed — the layers stay stored, so a member brings the bond back.
+  assert.ok(!list.some((x) => x.bondId === 'egirShip'), 'a member-less bond is not listed, layers or not');
+  assert.equal(s.egirShip.layers, 100, '… but its layers are still stored');
+  const back = computeBonds(gd, state({ board: [piece(a), piece(b), piece(c), ...members('egirShip', 2).map((x) => piece(x))], layers: { yanShip: 40, egirShip: 100 } }));
+  assert.ok(bondList(gd, back).some((x) => x.bondId === 'egirShip' && x.layers === 100), 'a member brings it back with its layers');
+  // the settlement record is the exception: it lists what the player ended the match with
+  assert.ok(bondList(gd, s, { keepLayerOnly: true }).some((x) => x.bondId === 'egirShip'), 'results.js keeps the layer-only row');
   const funny = new GameData(DATA, 'mode_multi_funny');
   const f = computeBonds(funny, state({ board: [piece(a)] }));
   for (const off of DATA.config.modes.mode_multi_funny.inactiveBondIds) assert.ok(!(off in f), `${off} omitted in FUNNY`);

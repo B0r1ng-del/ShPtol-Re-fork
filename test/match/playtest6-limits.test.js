@@ -44,7 +44,11 @@ test('PlayerState.addLayers: a gain stops at 999; onLayers reports the clamped c
   ps.layers.lateranoShip = 996;
   assert.equal(ps.addLayers('lateranoShip', 10), 3);
   assert.equal(ps.layers.lateranoShip, 999);
-  // what the client sees: m.private bonds and the public bond list
+  // what the client sees: m.private bonds and the public bond list. The bond needs a member to be listed at all (三.6:
+  // a bond whose members all left the field is dropped from the views while `ps.layers` keeps its layers) — the count
+  // bonus stands in for one so this stays a layer-cap test.
+  ps.bondCountBonus.yanShip = 1;
+  ps.recompute();
   const priv = ps.privateView();
   assert.equal(priv.bonds.find((b) => b.bondId === 'yanShip').layers, 999);
   assert.deepEqual(collectViolations(m), []);

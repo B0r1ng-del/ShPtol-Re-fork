@@ -43,6 +43,9 @@ export class MatchViews {
         return this.draft && this.draftTurn() === ps.playerId ? 'deciding' : 'acting';
       case PHASE.SP_DRAFT:
         if (this.sp && this.sp.picks[ps.playerId] != null) return 'ready';
+        // a voter for the random allocation is done too (fork 二.4): it must not read as still deciding while the
+        // sequential draft waits on somebody else
+        if (this.sp && this.sp.randomVotes && this.sp.randomVotes.has(ps.playerId)) return 'ready';
         // a parallel draft (fork 二.4) has no turn: every pending player is deciding
         if (this.sp && this.sp.parallel) return this.spDone(ps.playerId) ? 'ready' : 'deciding';
         return this.sp && this.spTurn() === ps.playerId ? 'deciding' : 'acting';

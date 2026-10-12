@@ -544,7 +544,8 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
 * **Shop**: `shopSlots[level]` chess slots + item slot(s), copy-weighted rolls over remaining pool copies of unbanned,
   visible chess with tier ≤ level; item slot: tier by the same shares, uniform item within the tier. Level-up price =
   base per mode, −1 each round start (floor 0), reset to the next base after upgrading; an upgrade opens the new level's
-  extra slots at once, empty (the cards shown stay; the empty slots fill on the next roll); `MAX_LEVEL` at 6. One freeze
+  extra slots at once, each with a freshly drawn card (the owner's ruling of 2026-10-12; the cards already shown stay
+  where they are, and the new card follows the freeze toggle as a refresh's do [ASSUMED]); `MAX_LEVEL` at 6. One freeze
   toggle freezes every unsold slot until the next round start; a manual refresh rerolls everything (new slots stay
   frozen). Unfrozen slots are cleared at combat start. Slot positions are stable (frozen slots keep their index).
 * **Pool**: copies 12/14/18/16/8/5 (缪尔赛思 4); a normal piece holds 1 copy, an elite 3; displays never reserve copies;
@@ -630,7 +631,10 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   the same tiles (`ui/gameLogic.js summonRange`), the bot plans inside them. Battle side: SIM.md §1.1 token pieces.
 * **Bonds**: bondsMeta.js (BOARD distinct, BOARD_AND_DECK, 绝技 elites, 调和 +1 — the state and the views mark it
   `harmony: 1`, DESIGN §21.26 —, 独行 downward, 助力 upper tiers, 变形同构体 grants). Σ activated layers for the hidden
-  core = Σ layers of active bonds at the boss round's prep end.
+  core = Σ layers of active bonds at the boss round's prep end. `bondList` lists a bond only while it has a member on the
+  field (or an active tier): a bond whose members all left the field is dropped from `m.private` / `m.public` even though
+  `ps.layers` keeps its layers (the owner's report of 2026-10-12, 三.6 — re-fielding a member brings it back with them);
+  the settlement record is the exception (`results.js` passes `keepLayerOnly`, listing what the player ended with).
   **变形同构体** (变形者集群 "与特定装备一同装备时装备者将视为特定盟约成员", 缪尔赛思's 特质 hands it out): its wearer
   with a bond item (`giveBondId`, the 14 pairings of the item's official talent) is a member of that bond — counted like
   any member (on the board only: the 14 bonds are BOARD; one member per operator, normal and elite copies alike), and
@@ -773,7 +777,7 @@ drawn set; `disabledBonds` = drawn ∪ the mode's static list), `hiddenBossId`, 
 `combatMode` (`'client'` | `'server'`), `fields[].progress { killed, total, done }` (teammates' progress UI), `paused`
 (solo pause, §1.3a),
 `players[].autoplay`, `players[].uniteLeft` (UNITE, leakers only: their enemies still standing, uncapped — §4),
-`players[].bonds` = `ps.alive ? bondList(gd, ps.bondsView(), { off: offBondCounts(gd, ps) }) : []` — every bond with members, layers or an active tier
+`players[].bonds` = `ps.alive ? bondList(gd, ps.bondsView(), { off: offBondCounts(gd, ps) }) : []` — every bond with a member on the field or an active tier
 (and, last, every bond the mode never activates that the player has members of: `{ bondId, count, active: false, tier: 0, layers, off: true }`,
 the strip's grey 本局禁用 disc — bondsMeta.offBondCounts, never in the battle input), the same list
 and order as the player's own `m.private bonds` minus `thresholds` / `countsHand` (the client reads those from

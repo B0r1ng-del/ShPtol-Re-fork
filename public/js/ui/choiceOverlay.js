@@ -103,12 +103,13 @@ export function cardPickable(sp, card, { myId, solo, busyIdx = null }) {
 
 /**
  * Whether the 随机分配 vote may be cast right now (fork 二.4): the server offers it for THIS draft (`randomOffer`, null
- * in a 悬赏决策 draft and in every official mode) and this player has not acted yet.
+ * in a 悬赏决策 draft and in every official mode) and this player has not acted yet. Deliberately NOT gated on the turn:
+ * the draft is untimed, so the vote is the escape hatch that ends it without waiting for the seat that holds the turn
+ * (the owner's ruling of 2026-10-12 kept the sequential order AND the vote).
  * @param {any} sp normalizeSp(...) @param {{ myId: string, solo: boolean }} o
  */
-export function randomVoteAvailable(sp, { myId, solo }) {
-  if (!sp || !sp.parallel || !Array.isArray(sp.randomOffer) || !sp.randomOffer.includes(sp.family)) return false;
-  if (!(solo || sp.turnPid === myId || !sp.pickOf.has(myId))) return false;
+export function randomVoteAvailable(sp, { myId } = {}) {
+  if (!sp || !Array.isArray(sp.randomOffer) || !sp.randomOffer.includes(sp.family)) return false;
   return sp.pickOf.get(myId) == null && !(sp.randomVotes || []).includes(myId);
 }
 
@@ -180,7 +181,10 @@ export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = nu
   const turnName = players.get(sp.turnPid)?.name || t('队友');
   // fork 二.4: the random-allocation vote. `canVote` needs the server's per-draft offer (`sp.randomOffer`) AND a handler,
   // so the button never renders in an official mode or in a 悬赏决策 draft; `votesNeeded` is the half-of-alive threshold.
-  const canVote = !!onRandom && randomVoteAvailable(sp, { myId, solo });
+  // Keyed on `randomOffer`, never on `parallel`: the fork's draft keeps the sequential order (the owner's report of
+  // 2026-10-12) and the vote is still offered to every player who has not acted yet.
+  const voteOffered = !!sp.randomOffer && sp.randomOffer.includes(sp.family);
+  const canVote = !!onRandom && randomVoteAvailable(sp, { myId });
   const votes = (sp.randomVotes || []).length;
   const aliveCount = (Array.isArray(pub?.players) ? pub.players : []).filter((p) => p && p.alive !== false).length;
   const votesNeeded = Math.max(1, Math.ceil(aliveCount / 2));
@@ -203,7 +207,7 @@ export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = nu
         <div class="spov__titles">
           <${MicroLabel} tone="mint">${personal ? t('教鞭选择') : t('CONTINGENCY // 机变阶段')}</${MicroLabel}>
           <h2 class=${cx('spov__title', special && 'is-special')}>${sentText(sp.name, rawFam?.name, fam?.name) || fam?.name || t('机变')}<span class="spov__bar">|</span><span class="spov__desc"><${RichText} text=${sentText(sp.desc, rawFam?.desc, fam?.desc) || fam?.desc || t('选择一项')} /></span></h2>
-          <p class="spov__sub">${timed ? (personal ? t('休整期结束时未选择将自动选定') : t('倒计时结束后仍未选定将自动分配')) : t('选择一项（无时间限制）')}${sp.parallel && sp.randomOffer ? t(' · 也可投票给「随机分配」：过半即由系统随机发放') : ''}${mine == null && myTurn ? t(' · 点击卡牌选中，再次点击确认') : ''}</p>
+          <p class="spov__sub">${timed ? (personal ? t('休整期结束时未选择将自动选定') : t('倒计时结束后仍未选定将自动分配')) : t('选择一项（无时间限制）')}${voteOffered ? t(' · 也可投票给「随机分配」：过半即由系统随机发放') : ''}${mine == null && myTurn ? t(' · 点击卡牌选中，再次点击确认') : ''}</p>
         </div>
         <div class="spov__turn">
           ${personal ? html`<span class="spov__turntxt is-mine">${t('从候选中选择一项战术特训')}</span>`
@@ -212,7 +216,7 @@ export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = nu
             : sp.parallel ? html`<span class="spov__turntxt">${t('等待其他博士决策…')}<${Icon} name="hourglass" /></span>`
             : myTurn ? html`<span class="spov__turntxt is-mine">${t('当前轮到你决策')}</span>`
             : html`<span class="spov__turntxt">${t('{turnName} 正在决策…', { turnName })}<${Icon} name="hourglass" /></span>`}
-          ${sp.parallel && sp.randomOffer ? html`<span class="spov__votes num" title=${t('达到半数票后由系统随机分配（覆盖个人选择）')}>${t('随机票')} <b class="num">${votes}</b>/${votesNeeded}</span>` : null}
+          ${voteOffered ? html`<span class="spov__votes num" title=${t('达到半数票后由系统随机分配（覆盖个人选择）')}>${t('随机票')} <b class="num">${votes}</b>/${votesNeeded}</span>` : null}
           ${canVote ? html`<${Button} variant="secondary" size="lg" icon="dots" class="spov__random" data-testid="sp-random"
               title=${t('投票给「随机分配」：达到半数票后由系统把卡牌随机发放给每名博士（覆盖个人选择）')} onClick=${onRandom}>${t('随机分配')}<//>` : null}
           ${armed != null ? html`<${Button} variant="primary" size="lg" icon="check" class="spov__confirm" data-testid="sp-confirm"

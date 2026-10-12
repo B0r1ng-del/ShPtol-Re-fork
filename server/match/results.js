@@ -121,7 +121,10 @@ export function buildResult(m, outcome) {
       lp: Math.max(0, ps.lp),
       bandId: ps.bandId,
       lineup,
-      bonds: bondList(gd, ps.bonds).filter((b) => b.active || b.layers > 0),
+      // the settlement record keeps what the player ended the match with: a bond it accumulated layers in but whose
+      // members are all off the field is still shown here (`keepLayerOnly`) — the in-game strip is the one that drops it
+      // (bondsMeta.bondList, the owner's report of 2026-10-12)
+      bonds: bondList(gd, ps.bonds, { keepLayerOnly: true }).filter((b) => b.active || b.layers > 0),
       stats: {
         dmgDealt: Math.round(ps.stats.dmgDealt), kills: ps.stats.kills, leaks: ps.stats.leaks, gold: ps.stats.gold,
         refreshes: ps.stats.refreshes, merges: ps.stats.merges, itemsEquipped: ps.stats.itemsEquipped,

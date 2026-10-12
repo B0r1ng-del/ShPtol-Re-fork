@@ -1,9 +1,10 @@
 // The data behind the watched player's bond strip (DESIGN §20.15, user report after playtest #6): what the server
 // sends of every player's bonds and what the browser's battle runner adds live.
-//   * m.public players[].bonds = every bond with members, layers or an active tier — the player's own m.private list
-//     without the per-bond extras the client reads from bonds.json (thresholds / countsHand); nothing else (but `harmony`
-//     on an entry whose count holds 调和's +1, DESIGN §21.26: test/match/feedback1-gaps.test.js) — and nothing at all for
-//     an eliminated player (nobody can watch them).
+//   * m.public players[].bonds = every bond with a member on the field or an active tier — the player's own m.private
+//     list without the per-bond extras the client reads from bonds.json (thresholds / countsHand); nothing else (but
+//     `harmony` on an entry whose count holds 调和's +1, DESIGN §21.26: test/match/feedback1-gaps.test.js) — and nothing
+//     at all for an eliminated player (nobody can watch them). A bond whose members all left the field is in NEITHER
+//     list, even while it keeps its layers (the owner's report of 2026-10-12, 三.6); the layers stay in `ps.layers`.
 //   * From the end of COMBAT until the settlement the views (m.private and m.public) carry the finished normal battle's
 //     in-battle gains (PlayerState.bondsView / bondsMeta.bondsWithGains, capped at 999): the strip of a player — and of a
 //     teammate watching him in the 联防 — keeps the layers his battle reached. The persistent state is untouched and the
@@ -20,21 +21,29 @@ import { createBattleRunner } from '../../public/js/battle/runner.js';
 import { createStore, initialState } from '../../public/js/store.js';
 import * as specMod from '../../server/sim/spec.js';
 import { DataSource } from '../../server/sim/simdata.js';
-import { DATA, makeMatch, checkInvariants } from './harness.js';
+import { DATA, makeMatch, give, legalTileFor, checkInvariants } from './harness.js';
 import { FakeBattle } from './fakeBattle.js';
+
+/** Field a real member of `bond` on `ps`'s board (a bond needs a member to be listed at all, 三.6). */
+const field = (h, ps, id) => give(h.m, ps, id, 'board', legalTileFor(h.m, ps, id));
+/** List `bond` without putting a fighter on the board (its effects' count bonus): the same listing rule, no battle. */
+const countIn = (ps, bond) => { ps.bondCountBonus[bond] = 1; ps.recompute(); };
 
 const row = (h, pid) => h.m.publicView().players.find((p) => p.playerId === pid);
 const entry = (list, id) => (list || []).find((b) => b.bondId === id) || null;
 
-test('m.public players[].bonds: every bond with members, layers or a tier — the m.private list minus thresholds / countsHand', () => {
+test('m.public players[].bonds: every bond with a member or a tier — the m.private list minus thresholds / countsHand', () => {
   const h = makeMatch({ mode: 'coop', humans: 2, seed: 91, fake: true }).start();
   h.toPrep(1);
   const ps = h.ps('p_1');
-  ps.layers.sargonShip = 7; // layers, no member on the board: the own strip shows it (grey) — so does the teammate's
-  ps.recompute();
+  ps.layers.sargonShip = 7;
+  ps.layers.egirShip = 5; // layers but no member: NOT listed (三.6), on the teammate's row either
+  field(h, ps, 'chess_char_1_12_a'); // a real member makes sargonShip listed, carrying its stored layers
   const pub = row(h, 'p_1').bonds;
   const priv = ps.privateView().bonds;
-  assert.deepEqual(entry(pub, 'sargonShip'), { bondId: 'sargonShip', count: 0, active: false, tier: 0, layers: 7 });
+  assert.deepEqual(entry(pub, 'sargonShip'), { bondId: 'sargonShip', count: 1, active: false, tier: 0, layers: 7 });
+  assert.equal(entry(pub, 'egirShip'), null, 'a member-less bond is in neither list');
+  assert.equal(entry(priv, 'egirShip'), null);
   assert.deepEqual(pub.map((b) => b.bondId), priv.map((b) => b.bondId), 'the same bonds, the same order');
   for (const b of pub) assert.deepEqual(Object.keys(b).sort(), ['active', 'bondId', 'count', 'layers', 'tier'], `${b.bondId}: only what the strip needs`);
   assert.ok(priv.every((b) => Array.isArray(b.thresholds) && typeof b.countsHand === 'boolean'), 'm.private keeps its extras');
@@ -46,10 +55,10 @@ test('m.public players[].bonds of an eliminated player: [] (nobody can watch the
   h.toPrep(1);
   const ps = h.ps('p_1');
   ps.layers.sargonShip = 7;
-  ps.recompute();
-  assert.ok(entry(row(h, 'p_1').bonds, 'sargonShip'), 'alive: the layers-only bond is sent');
+  field(h, ps, 'chess_char_1_12_a');
+  assert.ok(entry(row(h, 'p_1').bonds, 'sargonShip'), 'alive: the bond is sent');
   ps.eliminate(1);
-  ps.layers.yanShip = 40; // layers survive the elimination (computeBonds still lists them) …
+  ps.layers.yanShip = 40; // layers survive the elimination (the state keeps them) …
   ps.pendingLayerGains = { sargonShip: 3 };
   ps.recompute();
   assert.ok(ps.bondsView().sargonShip.layers > 0, '… the state still has them');
@@ -57,7 +66,7 @@ test('m.public players[].bonds of an eliminated player: [] (nobody can watch the
   assert.equal(row(h, 'p_1').alive, false);
   const a = h.ps('p_0');
   a.layers.yanShip = 5;
-  a.recompute();
+  field(h, a, 'chess_char_1_03_a');
   assert.equal(entry(row(h, 'p_0').bonds, 'yanShip')?.layers, 5, 'a living teammate keeps the list');
   h.m.dispose();
 });
@@ -84,6 +93,8 @@ test('after COMBAT the views carry the battle\'s gains until SETTLE makes them p
   const m = h.m;
   h.toPrep(1);
   const [a, b] = [h.ps('p_0'), h.ps('p_1')];
+  countIn(a, 'yanShip'); // listed with no fighter on the board: the test is about the views, not the battle (三.6)
+  countIn(b, 'sargonShip');
   a.layers.yanShip = 980;
   a.recompute();
   // the COMBAT_END pause: every result is in, nothing settled yet
@@ -112,6 +123,7 @@ test('the 联防 phase keeps showing the gains (a teammate watching the helper s
   }).start();
   const m = h.m;
   h.toPrep(1);
+  countIn(h.ps('p_0'), 'yanShip'); // listed with no fighter on the board (三.6)
   h.drive(() => m.phase === PHASE.UNITE || m.phase === PHASE.SETTLE);
   assert.equal(m.phase, PHASE.UNITE, 'p_1 leaked, p_0 was perfect: 联防');
   assert.equal(h.ps('p_0').layers.yanShip || 0, 0, 'not settled during 联防');
@@ -133,6 +145,8 @@ test('the 联防 field fights with the layers the helper\'s own combat reached (
   const m = h.m;
   h.toPrep(1);
   const a = h.ps('p_0');
+  countIn(a, 'indomShip'); // both bonds listed with no fighter on the board (三.6)
+  countIn(a, 'yanShip');
   a.layers.indomShip = 230;
   a.layers.yanShip = 995;
   a.recompute();

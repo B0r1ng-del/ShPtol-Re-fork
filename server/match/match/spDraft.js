@@ -52,11 +52,15 @@ export class MatchSpDraft {
     return s.order[s.idx] ?? null;
   }
 
-  /** Whether a player has finished its 机变 turn: it picked a card, or (parallel) it voted for the random draw. */
+  /**
+   * Whether a player has finished its 机变 turn: it picked a card, or it voted for the random allocation (a voter that
+   * loses the vote takes nothing this round — the draft must not wait on it either way, which is also what keeps an
+   * untimed sequential draft moving; fork 二.4).
+   */
   spDone(playerId) {
     const s = this.sp;
     if (!s) return true;
-    return s.picks[playerId] != null || (s.parallel && s.randomVotes.has(playerId));
+    return s.picks[playerId] != null || (!!s.randomVotes && s.randomVotes.has(playerId));
   }
 
   /**
@@ -86,9 +90,11 @@ export class MatchSpDraft {
       return;
     }
     const token = ++this._turnToken;
+    // advance past every player who has finished its turn — a pick, or (fork 二.4) a vote for the random allocation,
+    // which must not hold the turn of an untimed sequential draft
     while (s.idx < s.order.length) {
       const ps = this.players.get(s.order[s.idx]);
-      if (ps && ps.alive && s.picks[ps.playerId] == null) break;
+      if (ps && ps.alive && !this.spDone(ps.playerId)) break;
       s.idx++;
     }
     const available = s.cards.filter(c => this.spCardAvailable(c)).map(c => c.idx);
@@ -145,13 +151,16 @@ export class MatchSpDraft {
    * HALF of the alive players have voted (`votes × 2 ≥ alive`) the system hands the cards out at random — one per
    * alive player, over their own pick — and the round moves on; below that every player keeps the card it picked.
    * Refused unless the mode offers the vote, and never in a 悬赏决策 draft ("悬赏类不要添加随机机制").
+   *
+   * Available at ANY time, not only on the voter's turn: the fork's draft is untimed, so the vote is the escape hatch
+   * that ends it without waiting for a seat that never acts (the owner's ruling of 2026-10-12 kept the order AND this).
    * @returns {{ ok: true } | { error: string, detail?: string }}
    */
   voteRandomChoice(ps) {
     if (this.phase !== PHASE.SP_DRAFT || !this.sp) return fail(ERR.WRONG_PHASE);
     if (!ps.alive) return fail(ERR.ELIMINATED);
     const s = this.sp;
-    if (!s.parallel || !s.randomOffer || !this.randomVoteOffered()) return fail(ERR.WRONG_PHASE, '随机分配 is not offered in this 机变'); // i18n-ignore (developer diagnostic)
+    if (!s.randomOffer || !this.randomVoteOffered()) return fail(ERR.WRONG_PHASE, '随机分配 is not offered in this 机变'); // i18n-ignore (developer diagnostic)
     if (s.randomVotes.has(ps.playerId) || s.picks[ps.playerId] != null) return fail(ERR.ALREADY);
     s.randomVotes.add(ps.playerId);
     this.markPublic();

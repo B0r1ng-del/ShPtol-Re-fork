@@ -6,8 +6,11 @@
 //     alive player, over their own pick; below half **each player keeps the card it picked**;
 //   * 悬赏类不要添加随机机制 — a 悬赏 card adds its enemies to the PICKER's own next battles, so it is never part of the
 //     random draw, and in a 悬赏决策 draft (AC-4 R3/R9) the vote is not offered at all;
-//   * the sequential turn order becomes a parallel one: with no clock, waiting on one player at a time could stall the
-//     round forever, so everyone decides at once and the draft ends when every alive player has picked or voted.
+//   * 保持轮次顺序 — the draft KEEPS the turn order (`parallel: false`). 二.4 first made the whole draft parallel, on the
+//     theory that no clock + one player at a time could stall the round; the owner's report of 2026-10-12 (「无论在哪个机变
+//     阶段，它都没有按照顺序来，而是谁手快谁先抢到」) shows that is not the official behaviour, and the official 机变 is a
+//     turn order (the overlay's 决策顺序 row). The order is back, and the vote — castable at ANY time, not only on the
+//     voter's turn — is what keeps an untimed sequential draft from stalling: half the alive players voting ends it.
 //
 // The draft machinery is driven through a real six-player match. The vote tests inject a synthetic 道具补给 draft after
 // reaching a real SP_DRAFT (a 悬赏 one at R3) so the random path is exercised with a family the vote is offered for.
@@ -47,10 +50,10 @@ function injectDraft(m, family = 'supply') {
   return m.sp;
 }
 
-describe('二.4 — 终极模拟 机变：去时限 + 随机分配投票', () => {
+describe('二.4 — 终极模拟 机变：去时限 + 轮次顺序 + 随机分配投票', () => {
   test('the mode declares the rules; every official mode keeps the sequential timed draft', () => {
     assert.deepEqual(new GameData(DATA, FORK).spDraftRules, {
-      untimed: true, parallel: true, randomFamilies: ['supply', 'shop', 'tactic'],
+      untimed: true, parallel: false, randomFamilies: ['supply', 'shop', 'tactic'],
     });
     assert.equal(new GameData(DATA, FORK).spDraft.randomVote.families.includes('bounty'), false, '悬赏 is never in the list');
     for (const id of [COOP, 'mode_multi_hard', 'mode_multi_normal', 'mode_single_abyss', 'mode_multi_funny']) {
@@ -65,26 +68,31 @@ describe('二.4 — 终极模拟 机变：去时限 + 随机分配投票', () =>
     assert.notEqual(validateC2S(null), null, 'a non-object stays BAD_MSG');
   });
 
-  test('a real R3 悬赏 draft: untimed, parallel, and the random vote is NOT offered', () => {
+  test('a real R3 悬赏 draft: untimed, sequential, and the random vote is NOT offered', () => {
     const h = atSpDraft(3);
     try {
       const m = h.m;
       assert.equal(m.phase, PHASE.SP_DRAFT);
       assert.equal(m.sp.family, 'bounty', 'AC-4 R3 is 悬赏决策 (the fork copies its schedule)');
       assert.equal(m.sp.untimed, true, '移除时间限制');
-      assert.equal(m.sp.parallel, true);
+      assert.equal(m.sp.parallel, false, '保持轮次顺序 (the owner\'s report of 2026-10-12)');
       assert.equal(m.deadline, 0, 'no clock at all');
       const pub = m.publicView().sp;
       assert.equal(pub.untimed, true);
-      assert.equal(pub.parallel, true);
+      assert.equal(pub.parallel, false);
       assert.equal(pub.randomOffer, null, '悬赏决策 never offers 随机分配');
       assert.deepEqual(pub.randomVotes, []);
-      // the vote is refused, every player may still pick at any time (no turn order)
+      // the vote is refused, and the turn order applies (one player at a time, no clock to run out)
       const pids = m.alivePlayers().map((p) => p.playerId);
       assert.equal(m.handle(pids[1], { t: 'g.choiceRandom' }).error, ERR.WRONG_PHASE);
-      for (let i = pids.length - 1; i >= 0; i--) {
+      const turn = m.spTurn();
+      const notTurn = pids.find((pid) => pid !== turn);
+      assert.equal(m.handle(notTurn, { t: 'g.choice', idx: 0 }).error, ERR.NOT_YOUR_TURN, '谁手快谁先抢到 is gone');
+      // each player picks in turn; the phase ends once every seat has acted — no timer needed
+      for (let i = 0; i < pids.length; i++) {
+        const cur = m.spTurn();
         const avail = m.sp.cards.map((c) => c.idx).find((k) => m.sp.taken[k] == null);
-        assert.deepEqual(m.handle(pids[i], { t: 'g.choice', idx: avail }), { ok: true }, `${pids[i]} picks out of order`);
+        assert.deepEqual(m.handle(cur, { t: 'g.choice', idx: avail }), { ok: true }, `${cur} picks in turn`);
       }
       h.sched.advance(1);
       assert.equal(m.phase, PHASE.PREP, '机变 ends once everyone has picked — no timer needed');
@@ -94,21 +102,24 @@ describe('二.4 — 终极模拟 机变：去时限 + 随机分配投票', () =>
     }
   });
 
-  test('a real six-player draft is untimed, and the bots act in parallel with the humans', () => {
+  test('a real six-player draft is untimed and sequential, and the bots wait for their turn', () => {
     const h = atSpDraft(3, { humans: 2, bots: 4, seed: 22 });
     try {
       const m = h.m;
       assert.equal(m.phase, PHASE.SP_DRAFT);
       assert.equal(m.deadline, 0);
+      assert.equal(m.sp.parallel, false);
       assert.equal(m.alivePlayers().length, 6);
-      // the humans pick; the four bots must have acted on their own (their own parallel schedules)
-      for (const pid of ['p_0', 'p_1']) {
+      // the humans pick as the turn reaches them; the bots take their own turns as the scheduler reaches them
+      for (let i = 0; i < 6; i++) {
+        const cur = m.spTurn();
+        if (cur == null) break;
         const avail = m.sp.cards.map((c) => c.idx).find((k) => m.sp.taken[k] == null);
-        assert.deepEqual(m.handle(pid, { t: 'g.choice', idx: avail }), { ok: true });
+        if (cur === 'p_0' || cur === 'p_1') assert.deepEqual(m.handle(cur, { t: 'g.choice', idx: avail }), { ok: true });
+        else h.sched.advance(2000);
       }
       h.sched.advance(2000);
       assert.equal(m.phase, PHASE.PREP, 'every seat ended the draft (humans picked, bots picked)');
-      for (const ps of m.players.values()) if (ps.alive) assert.ok(m.sp === null || true);
       checkInvariants(m);
     } finally {
       h.m.dispose();
@@ -129,16 +140,19 @@ describe('二.4 — 终极模拟 机变：去时限 + 随机分配投票', () =>
       assert.equal(m.voteRandomReached(), false);
       assert.deepEqual(m.publicView().sp.randomVotes, [pids[0]]);
       assert.equal(m.handle(pids[0], { t: 'g.choiceRandom' }).error, ERR.ALREADY, 'one vote each');
-      // the others pick their own cards; the voter picked none and gets none
+      // the others pick their own cards on their turns; the voter picked none and gets none
       const chosen = {};
-      for (const pid of pids.slice(1)) {
+      for (let i = 0; i < pids.length; i++) {
+        const cur = m.spTurn();
+        if (cur == null) break;
         const avail = s.cards.map((c) => c.idx).find((k) => s.taken[k] == null);
-        chosen[pid] = avail;
-        assert.deepEqual(m.handle(pid, { t: 'g.choice', idx: avail }), { ok: true });
+        chosen[cur] = avail;
+        assert.deepEqual(m.handle(cur, { t: 'g.choice', idx: avail }), { ok: true }, `${cur} picks on its turn`);
       }
       const picks = { ...s.picks };
       for (const [pid, idx] of Object.entries(chosen)) assert.equal(picks[pid], idx, `${pid} keeps its own pick`);
       assert.equal(picks[pids[0]], undefined, 'the losing voter takes nothing this round');
+      assert.equal(Object.keys(chosen).length, pids.length - 1, 'every non-voter picked');
       h.sched.advance(1);
       assert.equal(m.phase, PHASE.PREP);
       checkInvariants(m);
@@ -153,20 +167,25 @@ describe('二.4 — 终极模拟 机变：去时限 + 随机分配投票', () =>
       const m = h.m;
       const s = injectDraft(m, 'supply');
       const pids = m.alivePlayers().map((p) => p.playerId);
-      // two of four already had their own picks — the random draw overrides them
-      assert.deepEqual(m.handle(pids[0], { t: 'g.choice', idx: 0 }), { ok: true });
-      assert.deepEqual(m.handle(pids[1], { t: 'g.choice', idx: 1 }), { ok: true });
+      // two of four take their own picks on their turns — the random draw overrides them
+      const pickers = [];
+      for (let i = 0; i < 2; i++) {
+        const cur = m.spTurn();
+        pickers.push(cur);
+        assert.deepEqual(m.handle(cur, { t: 'g.choice', idx: i }), { ok: true }, `${cur} picks on its turn`);
+      }
       const before = { ...s.picks };
-      assert.deepEqual(m.handle(pids[2], { t: 'g.choiceRandom' }), { ok: true });
+      const voters = pids.filter((pid) => !pickers.includes(pid));
+      assert.deepEqual(m.handle(voters[0], { t: 'g.choiceRandom' }), { ok: true });
       assert.equal(s.randomResolved, false, '2 of 4 is half — one vote is not enough');
-      assert.deepEqual(m.handle(pids[3], { t: 'g.choiceRandom' }), { ok: true });
+      assert.deepEqual(m.handle(voters[1], { t: 'g.choiceRandom' }), { ok: true });
       assert.equal(s.randomResolved, true, '2 × 2 ≥ 4 → resolved at once');
       // every alive player ends with exactly one card, and the cards are a set of distinct indexes
       const picks = pids.map((pid) => s.picks[pid]);
       assert.ok(picks.every((i) => Number.isInteger(i)), `every player got a card (${JSON.stringify(picks)})`);
       assert.equal(new Set(picks).size, pids.length, 'no card went to two players');
       for (const pid of pids) assert.equal(s.taken[s.picks[pid]], pid, 'taken ↔ picks agree');
-      assert.ok(before[pids[0]] != null, 'the earlier own picks were overridden by the draw');
+      for (const pid of pickers) assert.ok(before[pid] != null, `${pid}: the earlier own pick was overridden by the draw`);
       h.sched.advance(1);
       assert.equal(m.phase, PHASE.PREP);
       assert.equal(m.publicView().sp, undefined, 'the draft is over');
