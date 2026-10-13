@@ -402,6 +402,12 @@ Two upstream tests then failed for reasons the merge itself created, both fixed 
   on Windows, so `path.resolve` produced `H:\H:\port-work\.gitignore` and the read threw `ENOENT`. It now uses
   `fileURLToPath` like the other 64 suites. **This was upstream's own Windows bug, not a merge artifact.**
 
+The same merge also rescued a stranded fork change: **PR #18 (四.2 机变随机分配) had been merged into its base branch
+`feat/mod-switches` instead of `master`**, so `randomSpVote` never reached `master` even though the PR read as merged.
+It is cherry-picked onto this merge (`498f324e`), which is why `MOD_KEYS` here has three switches and not two. A
+stacked PR whose base is another feature branch must be **re-based onto `master` (or merged into it) before its base
+branch is closed** — GitHub reports the child as MERGED either way, so the gap is silent.
+
 ## Fork change log
 
 | Change | What it does | Where |
