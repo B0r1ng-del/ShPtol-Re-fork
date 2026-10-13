@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import { startServer } from '../server/index.js';
 import { StubMatch } from '../server/match/StubMatch.js';
 import { TestClient } from './helpers/wsClient.js';
-import { ERR, MAX_SEATS, ULTIMATE_SEATS, ULTIMATE_DIFFICULTY, ROOM_MODES, roomSeatCap, modeIdFor } from '../shared/constants.js';
+import { ERR, MAX_SEATS, ULTIMATE_SEATS, ULTIMATE_DIFFICULTY, ROOM_MODES, roomSeatCap, modeIdFor, MOD_KEYS } from '../shared/constants.js';
 import { validateC2S } from '../shared/protocol.js';
 
 function clientPool(getUrl) {
@@ -83,6 +83,8 @@ describe('终极模拟 rooms (6 seats, AC-4)', () => {
     assert.equal(validateC2S({ t: 'room.create', mode: 'coop', difficulty: 'ABYSS', mods: {} }), null);
     assert.equal(validateC2S({ t: 'room.create', mode: 'coop', difficulty: 'ABYSS', mods: { noBondBan: true } }), null);
     assert.equal(validateC2S({ t: 'room.create', mode: 'coop', difficulty: 'ABYSS', mods: { noBondBan: true, untimedSp: false } }), null);
+    // every catalogue key is accepted by the protocol, not just the ones 四.1 shipped
+    for (const k of MOD_KEYS) assert.equal(validateC2S({ t: 'room.create', mode: 'coop', difficulty: 'ABYSS', mods: { [k]: true } }), null, k);
     assert.notEqual(validateC2S({ t: 'room.create', mode: 'coop', difficulty: 'ABYSS', mods: { bogus: true } }), null, 'unknown switch');
     assert.notEqual(validateC2S({ t: 'room.create', mode: 'coop', difficulty: 'ABYSS', mods: { noBondBan: 'yes' } }), null, 'non-boolean');
     assert.notEqual(validateC2S({ t: 'room.create', mode: 'coop', difficulty: 'ABYSS', mods: [true] }), null, 'array');

@@ -1253,5 +1253,7 @@
   "这些开关只在本机保存，进入房间时随你创建的房间一起生效；加入他人的房间时以房主的设置为准。": "These switches are saved on this device only. They apply to any room you create; when you join someone else's room, the host's settings apply.",
   "Mod 开关 · 游戏性改动，只在本机保存": "Mod switches · gameplay changes, saved on this device only",
   "Mod": "Mod",
-  "{n} 项已开启": "{n} on"
+  "{n} 项已开启": "{n} on",
+  "机变随机分配": "Random Improv allocation",
+  "所有模式的机变阶段都可以投票「随机分配」：过半即由系统随机发放（悬赏决策除外）": "Every mode's Improv Phase offers the \"Random allocation\" vote: once half the players have voted, the system hands the cards out at random (Bounty drafts excluded)."
 }
