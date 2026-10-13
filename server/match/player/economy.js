@@ -4,7 +4,7 @@
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
 // the player state).
 
-import { ERR, layerGainRoom } from '../../../shared/constants.js';
+import { ERR, PHASE, layerGainRoom } from '../../../shared/constants.js';
 import { freeSlot } from '../board.js';
 import { OK, fail } from './common.js';
 
@@ -47,6 +47,10 @@ export class PlayerEconomy {
     if (add <= 0) return 0;
     this.layers[bondId] = before + add;
     this.recompute();
+    // A live prep gain, not a view delta: reconnects and combat-result backfill must not replay the cue.
+    if ([PHASE.ROUND_START, PHASE.SP_DRAFT, PHASE.PREP].includes(this.m.phase)) {
+      this.m.sendTo(this.playerId, { t: 'm.layer', playerId: this.playerId, bondId, add });
+    }
     this.m.dispatch(this, 'onLayers', { bondId, from: before, to: before + add, reason });
     return add;
   }
@@ -60,10 +64,29 @@ export class PlayerEconomy {
     return Number.isFinite(p) ? Math.max(0, Math.round(p)) : slot.basePrice;
   }
 
-  _rollChessSlot() {
+  /**
+   * One 干员 card for the shop.
+   *
+   * `floor` is the 商店保底 of requirement 4 (GameData.shopFloor): the tiers the FIRST slot must be filled from, or null
+   * for the ordinary draw. With a floor the tier is picked from `floor` with the shop rng (deterministic per seed like
+   * every other roll) and the card comes from that exact tier; a listed tier with no copies left falls through to the
+   * next one, and if none of them has anything the ordinary draw runs instead — a guarantee must never hand back an
+   * empty slot. The 自选 pieces join either draw exactly as they do without a floor (their own shop level decides).
+   * @param {number[] | null} [floor] tiers the first slot must come from, in order of preference
+   */
+  _rollChessSlot(floor = null) {
     // the slotted 自选 pieces join the draw once the 调度中心 reaches their slot's level (player/diy.js diyRollEntries);
     // 共享卡池 off rolls this player's own pool (PlayerState.stock)
-    const id = this.stock().roll(this.m.rngShop, { maxTier: this.shop.level, extra: this.diyRollEntries() });
+    const extra = this.diyRollEntries();
+    let id = null;
+    if (Array.isArray(floor) && floor.length) {
+      const tiers = this.m.rngShop.shuffle(floor.slice());
+      for (const tier of tiers) {
+        id = this.stock().roll(this.m.rngShop, { maxTier: this.shop.level, tier, extra });
+        if (id) break;
+      }
+    }
+    if (!id) id = this.stock().roll(this.m.rngShop, { maxTier: this.shop.level, extra });
     return id ? { kind: 'chess', id, basePrice: this.gd.chessPrice(id), frozen: false, sold: false } : null;
   }
 
@@ -83,9 +106,12 @@ export class PlayerEconomy {
     const oldChess = old.slice(0, layout.chess);
     const oldItems = old.slice(layout.chess);
     const keep = (s, kind) => (keepFrozen && s && s.kind === kind && !s.sold && s.frozen ? { ...s } : null);
-    // frozen slots keep their position; sold / empty / unfrozen positions are rerolled
+    // frozen slots keep their position; sold / empty / unfrozen positions are rerolled.
+    // 商店保底 (requirement 4): the FIRST 干员槽位 is drawn from the level's floor — and only when it is actually being
+    // rerolled. A frozen first slot keeps its card, exactly as every other slot keeps its own.
+    const floor = this.gd.shopFloor(this.shop.level);
     const slots = [];
-    for (let i = 0; i < nChess; i++) slots.push(keep(oldChess[i], 'chess') ?? this._rollChessSlot());
+    for (let i = 0; i < nChess; i++) slots.push(keep(oldChess[i], 'chess') ?? this._rollChessSlot(i === 0 ? floor : null));
     for (let i = 0; i < nItem; i++) slots.push(keep(oldItems[i], 'item') ?? this._rollItemSlot());
     this.shop.slots = slots;
     this.shop.layout = { chess: nChess, item: nItem };
@@ -113,7 +139,11 @@ export class PlayerEconomy {
     const chess = old.slice(0, layout.chess);
     const items = old.slice(layout.chess);
     const fresh = (s) => { if (s) s.frozen = this.shop.frozen; return s; };
-    while (chess.length < nChess) chess.push(fresh(this._rollChessSlot()));
+    // 商店保底 (requirement 4): the level's first 干员槽位 takes a floored card. Reaching level 5 or 6 keeps slot 0 where
+    // it is (the slots already shown stay put), so this only matters when the upgrade opens the shop from nothing —
+    // but the rule is stated for the first slot at that level, so it applies here too.
+    const floor = this.gd.shopFloor(this.shop.level);
+    while (chess.length < nChess) chess.push(fresh(this._rollChessSlot(chess.length === 0 ? floor : null)));
     while (items.length < nItem) items.push(fresh(this._rollItemSlot()));
     this.shop.slots = [...chess, ...items];
     this.shop.layout = { chess: chess.length, item: items.length };
@@ -145,10 +175,9 @@ export class PlayerEconomy {
       const rec = this.gd.chess(slot.id);
       // a DIY slot sells only as this player's own 自选 piece (a slotted slot's record carries `diyFor`)
       if (!rec || (rec.isDiy && !rec.diyFor)) return fail(ERR.BAD_TARGET);
-      const base = this.gd.baseIdOf(slot.id);
-      const need = rec.isGolden ? this.gd.goldenCopies : 1;
-      const pool = this.poolOf(base);
-      if (pool.has(base) && pool.left(base) < need) return fail(ERR.SOLD_OUT);
+      // Already displayed operators stay purchasable after stock runs out (#498; 路标月报#2,
+      // BV1eLXXBqEgF 2:50–2:57: nine owned + four shop offers => thirteen owned).
+      // acquireChess records every copy, including the deficit; future rolls still exclude empty stock.
       if (handFull) return fail(ERR.HAND_FULL);
       this.spend(price);
       slot.sold = true;

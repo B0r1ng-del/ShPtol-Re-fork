@@ -30,7 +30,7 @@
 //                 units > seat, research 08 §5); leakers = players with counted leaks
 //   settle        no unite ⇒ loss = min(cap, counted leaks); after 联防 a leaker loses ≤ cap (its leaked enemies'
 //                 offspring count too), everybody else ≤ min(cap, own counted leaks); LP ≤ 0 ⇔ eliminated
-//   final assault fields pair alive players by seat, team LP = Σ alive LP, boss pool = bossPoolHp(); hidden core only
+//   final assault fields follow the saved per-match pairs, team LP = Σ alive LP, boss pool = bossPoolHp(); hidden core only
 //                 after a win when hiddenEligible() holds
 //   result        each title ≤ once, ≤ 1 title per player, onlyOnWin titles only on a win, roundsPassed per player,
 //                 Σ alive players' LP = the merged team LP after the Final Assault
@@ -44,7 +44,7 @@
 import { PHASE } from '../../shared/constants.js';
 import { collectViolations } from './invariants.js';
 import { mergeTile, pieceDir, canPlace, placeClass } from './board.js';
-import { pairPlayers, bossPoolHp, hiddenEligible } from './finalAssault.js';
+import { bossPoolHp, hiddenEligible } from './finalAssault.js';
 import { helperOrder } from './unite.js';
 import { BAND_TURN_SECONDS } from './Match.js';
 
@@ -119,8 +119,10 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
       if (res && res.ok && on) check('ready', () => { if (!ps.tempEmpty) fail(`${ps.playerId}: ready with a non-empty temp`); });
       return res;
     });
-    wrap(ps, '_rollChessSlot', function (orig) {
-      const s = orig();
+    wrap(ps, '_rollChessSlot', function (orig, floor) {
+      // the arguments must be forwarded: `_rollChessSlot(floor)` is how the 商店保底 of requirement 4 reaches the draw,
+      // and an audit that dropped the floor would silently turn the guarantee off whenever verification is on
+      const s = orig(floor);
       if (s) {
         const t = gd.tierOf(s.id);
         const row = (audit.odds[ps.shop.level] ||= {});
@@ -132,6 +134,14 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
           const diy = ps.diyStock && ps.diyStock.has(base) ? ps.diyStock.entries.get(base) : null;
           // 共享卡池 off: the shop rolls this player's own pool (PlayerState.stock)
           const stock = typeof ps.stock === 'function' ? ps.stock() : m.pool;
+          // 商店保底: a floored draw must land on one of the tiers the floor lists (the fall-through to the ordinary
+          // draw is allowed only when none of them has a copy left — `roll` reads without taking, and the 自选 entries
+          // count as copies exactly as they do for the draw itself)
+          if (Array.isArray(floor) && floor.length && !floor.includes(t)) {
+            const extra = typeof ps.diyRollEntries === 'function' ? ps.diyRollEntries() : null;
+            const anyLeft = floor.some((ft) => stock.roll(() => 0, { maxTier: ps.shop.level, tier: ft, extra }) != null);
+            if (anyLeft) fail(`${ps.playerId}: floored roll landed on tier ${t}, outside [${floor}]`);
+          }
           if (!stock.has(base) && !diy) fail(`${ps.playerId}: rolled ${s.id} outside the match pool (banned/hidden)`);
           if (diy && ps.shop.level < diy.shopLevel) fail(`${ps.playerId}: rolled 自选 ${s.id} at shop level ${ps.shop.level} < ${diy.shopLevel}`);
           if (s.basePrice !== gd.chessPrice(s.id)) fail(`${ps.playerId}: ${s.id} basePrice ${s.basePrice} != ${gd.chessPrice(s.id)}`);
@@ -458,15 +468,23 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
   });
   wrap(m, 'startFinalAssault', function (orig, hidden) {
     const alive = m.alivePlayers();
+    const before = m.bossPairs?.map(g => g.slice()) ?? null;
     const lpSum = alive.reduce((s, p) => s + Math.max(0, p.lp), 0);
     const teamLp0 = m.teamLp;
     const res = orig(hidden);
     runInvariants();
     check('final assault', () => {
       if (!alive.length) return;
-      const groups = pairPlayers(alive).map((g) => g.map((p) => p.playerId).join(','));
+      const pairs = m.bossPairs || [];
+      const memberIds = pairs.flat();
+      if (pairs.length !== Math.ceil(alive.length / 2) || pairs.some(g => g.length < 1 || g.length > 2)
+        || new Set(memberIds).size !== memberIds.length
+        || JSON.stringify([...memberIds].sort()) !== JSON.stringify(alive.map(p => p.playerId).sort())) fail('boss pairing does not cover every alive player once');
+      if (before && before.flat().every(id => alive.some(p => p.playerId === id)) && before.flat().length === alive.length
+        && JSON.stringify(before) !== JSON.stringify(pairs)) fail('boss pairing changed after preparation');
+      const groups = pairs.map(g => g.join(','));
       const fields = m.fields.map((f) => f.players.join(','));
-      if (JSON.stringify(groups) !== JSON.stringify(fields)) fail(`boss fields ${fields.join(' | ')} != seat pairs ${groups.join(' | ')}`);
+      if (JSON.stringify(groups) !== JSON.stringify(fields)) fail(`boss fields ${fields.join(' | ')} != saved pairs ${groups.join(' | ')}`);
       m.fields.forEach((f, i) => { if (f.fieldId !== `b${i + 1}`) fail(`boss field id ${f.fieldId}`); });
       if (!hidden && m.teamLp !== lpSum) fail(`team LP ${m.teamLp} != Σ alive LP ${lpSum}`);
       if (hidden && m.teamLp !== teamLp0) fail(`hidden core changed team LP ${teamLp0} → ${m.teamLp}`);

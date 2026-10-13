@@ -17,6 +17,9 @@ import { StubMatch } from '../server/match/StubMatch.js';
 import { TestClient } from './helpers/wsClient.js';
 import { MOD_KEYS, MOD_DEFAULTS, normalizeMods } from '../shared/constants.js';
 
+/** What the server must store for a payload that names only some switches: every catalogue key, the named ones set. */
+const modsOf = (named = {}) => normalizeMods(named);
+
 function clientPool(getUrl) {
   const open = new Set();
   return {
@@ -76,12 +79,12 @@ describe('room.create mods (lobby)', () => {
     const host = await pool.player('Host');
     await ok(host, { t: 'room.create', mode: 'coop', difficulty: 'NORMAL', mods: { noBondBan: true, untimedSp: true } });
     const st = await host.waitFor('room.state', (s) => s.hostId === host.id);
-    assert.deepEqual(st.mods, { noBondBan: true, untimedSp: true });
+    assert.deepEqual(st.mods, modsOf({ noBondBan: true, untimedSp: true }));
     // a joiner plays the host's rules and sees them
     const guest = await pool.player('Guest');
     await ok(guest, { t: 'room.join', code: st.code });
     const js = await guest.waitFor('room.state', (s) => s.code === st.code && !!seatOf(s, guest.id));
-    assert.deepEqual(js.mods, { noBondBan: true, untimedSp: true });
+    assert.deepEqual(js.mods, modsOf({ noBondBan: true, untimedSp: true }));
     // and the match is handed exactly them
     await ok(host, { t: 'room.addBot' });
     await ok(guest, { t: 'room.ready', ready: true });
@@ -90,19 +93,19 @@ describe('room.create mods (lobby)', () => {
     await ok(host, { t: 'room.start' });
     await guest.waitFor('room.state', (s) => s.inMatch);
     assert.equal(started.length, n + 1);
-    assert.deepEqual(started[n].mods, { noBondBan: true, untimedSp: true }, 'opts.mods');
+    assert.deepEqual(started[n].mods, modsOf({ noBondBan: true, untimedSp: true }), 'opts.mods');
   });
 
   test('a partial payload is completed with the official defaults', async () => {
     const host = await pool.player('Host');
     await ok(host, { t: 'room.create', mode: 'coop', difficulty: 'NORMAL', mods: { noBondBan: true } });
     const st = await host.waitFor('room.state', (s) => s.hostId === host.id);
-    assert.deepEqual(st.mods, { noBondBan: true, untimedSp: false });
+    assert.deepEqual(st.mods, modsOf({ noBondBan: true }));
     await ok(host, { t: 'room.addBot' });
     const n = started.length;
     await ok(host, { t: 'room.start' });
     await host.waitFor('room.state', (s) => s.inMatch);
-    assert.deepEqual(started[n].mods, { noBondBan: true, untimedSp: false });
+    assert.deepEqual(started[n].mods, modsOf({ noBondBan: true }));
   });
 
   test('an unknown switch key is refused before the room exists (a version mismatch, not a silent drop)', async () => {
@@ -127,20 +130,20 @@ describe('room.create mods (lobby)', () => {
     const n = started.length;
     await ok(host, { t: 'room.start' });
     await guest.waitFor('room.state', (s) => s.inMatch);
-    assert.deepEqual(started[n].mods, { noBondBan: false, untimedSp: true });
+    assert.deepEqual(started[n].mods, modsOf({ untimedSp: true }));
     // the stub match ends once every human confirmed the briefing → the room keeps the switches for the next match
     guest.clearInbox();
     await ok(host, { t: 'g.infoReady' });
     await ok(guest, { t: 'g.infoReady' });
     const back = await guest.waitFor('room.state', (s) => !s.inMatch);
-    assert.deepEqual(back.mods, { noBondBan: false, untimedSp: true }, 'kept across the room\'s matches');
+    assert.deepEqual(back.mods, modsOf({ untimedSp: true }), 'kept across the room\'s matches');
     // a second match gets them again
     const n2 = started.length;
     await ok(guest, { t: 'room.ready', ready: true });
     await host.waitFor('room.state', (s) => seatOf(s, guest.id)?.ready);
     await ok(host, { t: 'room.start' });
     await guest.waitFor('room.state', (s) => s.inMatch);
-    assert.deepEqual(started[n2].mods, { noBondBan: false, untimedSp: true });
+    assert.deepEqual(started[n2].mods, modsOf({ untimedSp: true }));
   });
 
   test('host migration keeps the switches: they belong to the room, not to the creator', async () => {
@@ -152,12 +155,12 @@ describe('room.create mods (lobby)', () => {
     await guest.waitFor('room.state', (s) => !!seatOf(s, guest.id));
     await ok(host, { t: 'room.leave' });
     const migrated = await guest.waitFor('room.state', (s) => s.hostId === guest.id);
-    assert.deepEqual(migrated.mods, { noBondBan: true, untimedSp: false });
+    assert.deepEqual(migrated.mods, modsOf({ noBondBan: true }));
   });
 
   test('normalizeMods is what the lobby stores: a non-boolean value never switches anything on', async () => {
     // the protocol refuses it first, but the room's own normalisation must not depend on that
-    assert.deepEqual(normalizeMods({ noBondBan: 1 }), { noBondBan: false, untimedSp: false });
+    assert.deepEqual(normalizeMods({ noBondBan: 1 }), modsOf());
     const host = await pool.player('Host');
     await err(host, { t: 'room.create', mode: 'coop', difficulty: 'NORMAL', mods: { noBondBan: 1 } }, 'BAD_MSG');
   });

@@ -14,7 +14,7 @@
 import { getConfig, getMode } from '../data.js';
 import { isShopItem } from '../sim/simdata.js';
 import { standInRecord } from '../../shared/standIn.js';
-import { normalizeMods } from '../../shared/constants.js';
+import { normalizeMods, MOD_RANDOM_SP_FAMILIES } from '../../shared/constants.js';
 
 const own = (map, id) => (map && typeof map === 'object' && typeof id === 'string' && Object.hasOwn(map, id) && map[id] && typeof map[id] === 'object' ? map[id] : null);
 const numOr = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -107,6 +107,10 @@ export class GameData {
     const chess = this.raw.chess && typeof this.raw.chess === 'object' ? this.raw.chess : {};
     this._chess = chess;
     this._items = this.raw.items && typeof this.raw.items === 'object' ? this.raw.items : {};
+    // Fixed operator gifts are unlimited outputs, but every produced normal/advanced item still occupies 1/2 copies
+    // (card-pool experiment BV1eLXXBqEgF, maintainer-confirmed 2026-10-11). Random subset gifts are not exempt.
+    this._fixedGiftItems = new Set(Object.values(this.raw.garrisons || {})
+      .filter(g => g.effectKey === 'SERVER_GAIN_EQUIP').map(g => g.bbStr?.chess).filter(id => this._items[id]));
     this._bonds = this.raw.bonds && typeof this.raw.bonds === 'object' ? this.raw.bonds : {};
     /** visible, shop-eligible base (normal) chess ids */
     this.visibleChess = Object.keys(chess).filter((id) => {
@@ -329,6 +333,9 @@ export class GameData {
     return Number.isInteger(count) && count >= 0 ? count : null;
   }
 
+  /** Whether a fixed trait gift may be produced beyond stock (including the advanced version of that item). */
+  isUnlimitedGiftItem(id) { return this._fixedGiftItems.has(this.baseIdOf(id)); }
+
   /** Copies needed to merge (0 = never merges: golden chess). */
   mergeCount(id) {
     const c = this.chess(id);
@@ -377,6 +384,26 @@ export class GameData {
     const chess = Number.isInteger(s.chess) && s.chess >= 0 ? s.chess : d.chess;
     const item = Number.isInteger(s.item) && s.item >= 0 ? s.item : d.item;
     return { chess: Math.min(chess, 8), item: Math.min(item, 4) };
+  }
+
+  /**
+   * 商店保底 (requirement 4): the 阶 the FIRST 干员槽位 of `level` must be filled from, or null when the level carries no
+   * floor. `modes[modeId].shopFloor = { [level]: { tiers: [t, …] } }` — the fork's 终极模拟 carries `{5: [5], 6: [5, 6]}`,
+   * so from level 5 on the first slot is always a 5 阶 (level 6: 5 阶 or 6 阶) operator, every roll. The tiers are
+   * filtered to 1…maxShopLevel and the level's own ceiling, so a malformed table can never ask for an impossible tier;
+   * an empty result means no floor, i.e. the official behaviour. Every official mode has no `shopFloor` at all.
+   *
+   * `PlayerState._rollChessSlot(floor)` draws from `tiers` with the shop rng, so the pick is deterministic per seed like
+   * every other shop roll, and it stays inside the pool's remaining copies (a tier with nothing left falls through to
+   * the next listed tier, then to the ordinary draw).
+   * @param {number} level the 调度中心 level
+   * @returns {number[] | null} the allowed tiers, or null
+   */
+  shopFloor(level) {
+    const f = this.mode.shopFloor && this.mode.shopFloor[String(level)];
+    if (!f || typeof f !== 'object' || !Array.isArray(f.tiers)) return null;
+    const tiers = f.tiers.filter((t) => Number.isInteger(t) && t >= 1 && t <= this.maxShopLevel && t <= level);
+    return tiers.length ? tiers : null;
   }
 
   /** Real-second prep timer for round r (null = untimed). */
@@ -521,14 +548,19 @@ export class GameData {
    *
    * Mod 开关 `untimedSp` 机变不限时 turns `untimed` on for ANY mode, the 终极模拟 `spDraft` block or not — the switch's
    * whole point is that no mode's 机变 runs on a clock. It never touches `parallel` or `randomFamilies`: those are the
-   * mode's own (fork 二.4) and the 随机抽取 switch's business, not the timer's.
+   * mode's own (fork 二.4) and the 随机分配 switch's business, not the timer's.
+   *
+   * Mod 开关 `randomSpVote` 机变随机分配 offers the 「随机分配」 vote in ANY mode. A mode that already lists its own
+   * families (终极模拟, 二.4) keeps them — the switch widens the offer, it never narrows a mode's own. A mode without an
+   * `spDraft` block gets `MOD_RANDOM_SP_FAMILIES` (道具补给 / 机密商店 / 战术决策; never 悬赏, see the constant).
    */
   get spDraftRules() {
     const d = this.spDraft;
-    if (!d) return { untimed: this.mods.untimedSp, parallel: false, randomFamilies: null };
-    const vote = d.randomVote && typeof d.randomVote === 'object' && !Array.isArray(d.randomVote) ? d.randomVote : null;
+    const vote = d && d.randomVote && typeof d.randomVote === 'object' && !Array.isArray(d.randomVote) ? d.randomVote : null;
     const fams = vote && Array.isArray(vote.families) ? vote.families.filter((f) => typeof f === 'string') : [];
-    return { untimed: this.mods.untimedSp || d.untimed === true, parallel: d.parallel === true, randomFamilies: fams.length ? fams : null };
+    const randomFamilies = fams.length ? fams : (this.mods.randomSpVote ? [...MOD_RANDOM_SP_FAMILIES] : null);
+    if (!d) return { untimed: this.mods.untimedSp, parallel: false, randomFamilies };
+    return { untimed: this.mods.untimedSp || d.untimed === true, parallel: d.parallel === true, randomFamilies };
   }
 
   timer(key) {

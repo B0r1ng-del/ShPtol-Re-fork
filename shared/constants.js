@@ -5,7 +5,7 @@ import { N_ } from './i18n.js';
 export const PROTOCOL_VERSION = 1;
 /** Release version shown to players (title screen, server banner, /healthz). Kept equal to package.json "version"
  * (test/version.test.js); PROTOCOL_VERSION above is the separate wire-format number. */
-export const APP_VERSION = '0.2.4';
+export const APP_VERSION = '0.2.5';
 /** A development build (the public `dev` branch): the title screen, the boot banner and the README say so, and
  * tools/package.mjs refuses to build a release zip from it without --allow-dev. */
 export const DEV_BUILD = /-dev$/.test(APP_VERSION);
@@ -77,10 +77,23 @@ export const HOST_CONFIG_DEFAULTS = Object.freeze({ sharedPool: true, sharedBoun
  *                                  it ends when every alive player has picked, exactly like 独立模拟's draft already
  *                                  does (`soloUntimed`).
  *                             off — the official timed draft (`config.timers.spFirst` / `spTurn`, auto-pick on expiry).
+ *   randomSpVote 机变随机分配 on  — the 机变 draft of ANY mode offers the 「随机分配」 vote: any player may vote instead of
+ *                                  picking, and as soon as half the alive players have voted the system hands the cards
+ *                                  out at random, one per alive player. 悬赏决策 never offers it (its card adds enemies
+ *                                  to the PICKER's own battles, so handing it to somebody else would break the
+ *                                  attribution) — the same rule 终极模拟's own `spDraft.randomVote` follows (二.4).
+ *                             off — no vote button anywhere the mode itself does not ask for it (the official draft).
  */
-export const MOD_KEYS = Object.freeze(['noBondBan', 'untimedSp']);
+export const MOD_KEYS = Object.freeze(['noBondBan', 'untimedSp', 'randomSpVote']);
 /** Defaults of MOD_KEYS: the official behaviour of each switch (all off). */
-export const MOD_DEFAULTS = Object.freeze({ noBondBan: false, untimedSp: false });
+export const MOD_DEFAULTS = Object.freeze({ noBondBan: false, untimedSp: false, randomSpVote: false });
+/**
+ * The card families the 随机分配 vote may hand out when the `randomSpVote` switch offers it in a mode whose own
+ * `spDraft` does not list any (二.4 lists its own; this is the switch's default). 悬赏 (`bounty`) is deliberately NOT
+ * here: 「悬赏类不要添加随机机制」 — its card adds its enemies to the picker's own next battles, so handing it to somebody
+ * else would break the attribution. A 悬赏决策 draft therefore never offers the vote, whatever the switch says.
+ */
+export const MOD_RANDOM_SP_FAMILIES = Object.freeze(['supply', 'shop', 'tactic']);
 /**
  * Normalise a `mods` payload to exactly MOD_KEYS booleans: a missing / malformed value is the official default, so an
  * unknown key can never switch anything on. Pure and total — GameData and the match both run every value through it.

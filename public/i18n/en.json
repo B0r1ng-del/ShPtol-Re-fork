@@ -141,6 +141,7 @@
   "输入你的代号（最多 {NAME_MAX_LEN} 字）": "Callsign (max {NAME_MAX_LEN} chars)",
   "开始": "Start",
   "非官方同人复刻 · 游戏素材版权归 上海鹰角网络 / Yostar 所有": "Unofficial fan remake · Game assets © Hypergryph / Yostar",
+  "项目仓库": "Repository",
   "高": "High",
   "中": "Medium",
   "低": "Low",
@@ -155,6 +156,8 @@
   "音效": "Sound Effects",
   "静音": "Mute",
   "显示伤害数字": "Damage Numbers",
+  "官方伤害数字": "Official Damage Numbers",
+  "只显示达到官方暴击条件的红色数字。关闭时仍显示每一次命中。": "Show only red numbers that meet the official crit rule. While off, every hit still shows a number.",
   "画面质量": "Graphics Quality",
   "触屏操作：点击单位选中（撤退 / 出售）· 长按单位或卡牌查看详情 · 拖动部署后滑动选择朝向": "Touch controls: tap a unit to select it (Retreat / Sell) · long-press a unit or card for details · after dragging to deploy, swipe to choose a direction",
   "快捷键": "Hotkeys",
@@ -715,6 +718,7 @@
   "冻结商店（下回合保留） · {key}": "Freeze Shop (kept next round) · {key}",
   "解冻": "Unfreeze",
   "刷新商店 · {key}": "Refresh Shop · {key}",
+  "正在刷新…": "Refreshing…",
   "免费 ×{free}": "Free ×{free}",
   "查看 {name} 的战场": "View {name}'s Battlefield",
   "与你在同一战场": "On your field",
@@ -1249,5 +1253,7 @@
   "这些开关只在本机保存，进入房间时随你创建的房间一起生效；加入他人的房间时以房主的设置为准。": "These switches are saved on this device only. They apply to any room you create; when you join someone else's room, the host's settings apply.",
   "Mod 开关 · 游戏性改动，只在本机保存": "Mod switches · gameplay changes, saved on this device only",
   "Mod": "Mod",
-  "{n} 项已开启": "{n} on"
+  "{n} 项已开启": "{n} on",
+  "机变随机分配": "Random Improv allocation",
+  "所有模式的机变阶段都可以投票「随机分配」：过半即由系统随机发放（悬赏决策除外）": "Every mode's Improv Phase offers the \"Random allocation\" vote: once half the players have voted, the system hands the cards out at random (Bounty drafts excluded)."
 }

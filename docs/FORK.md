@@ -254,7 +254,8 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
 - **四.1 Mod 开关（模式界面）** — the 模式界面's top bar gains a **Mod** button with a submenu, laid out beside 干员调配
   (the requester's 图一: 「在模式界面添加 Mod 开关，mod开关只会在当前页面有，Mod 开关拥有一个子菜单，与顶栏干员调配平行放置」).
   The submenu holds the fork's gameplay switches; each one defaults OFF, so a player who never opens it plays the
-  official game exactly.
+  official game exactly. **四.1 shipped the framework and its first two switches (`noBondBan`, `untimedSp`); 四.2 adds a
+  third (`randomSpVote`) and is the reference for how to add one.**
   - **What a switch is, and what it is not.** A Mod 开关 is a **per-device preference**, not a room option: it lives in
     `localStorage` (`sp.pref.mods`, `public/js/ui/mods.js` — the `ui/emotes.js` 一键十连 / 弹幕 pattern), the 模式界面 is
     the only place that shows it, and the creator carries it into the room it makes (`room.create.mods`, the new
@@ -290,6 +291,31 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
   real match's pool and `m.public.mods`), `test/lobby-mods.test.js` (the wire: an official room without mods, a
   creator's switches reaching the match, partial payloads, the unknown-key refusal, the room keeping them across its
   matches and a host migration), and the `room.create.mods` protocol cases in `test/lobby-ultimate.test.js`.
+
+- **四.2 Mod 开关 机变随机分配** — the third Mod 开关 (`randomSpVote`), the owner's requirement 3: 「机变阶段随机抽取选项：改为
+  全模式都有」. The vote machinery already exists — 二.4 built it for 终极模拟 (`g.choiceRandom`; half the alive players
+  resolve the draft, one card each) — so nothing about *how* the vote works changes here. What changes is **who is
+  offered it**.
+  - **Why it is a switch and not a default.** The owner's call of 2026-10-13: 「放进 Mod 子菜单，默认关闭（推荐）」. Turning
+    it on for every mode unconditionally would be a behavioural change to the official modes, which this fork only makes
+    deliberately; as a switch that defaults off, the official draft is untouched and the feature is opt-in, exactly like
+    四.1's two.
+  - **The seam is `GameData.spDraftRules.randomFamilies`** — the list the client's vote button (`choiceOverlay.js`
+    `randomVoteAvailable` / `voteOffered`) and the server's `randomVoteOffered()` both key on. The switch fills it in for
+    a mode whose own `spDraft` does not, and **never narrows one that does**: 终极模拟 keeps its own list, and a mode
+    that lists a narrower one keeps exactly that. `MOD_RANDOM_SP_FAMILIES` (`shared/constants.js`) is the switch's
+    default list — 道具补给 / 机密商店 / 战术决策.
+  - **悬赏 is never in the list**, whatever the switch says. That is 二.4's rule and it is structural, not cosmetic: a
+    悬赏 card adds its enemies to the *picker's* own next battles, so handing it to somebody else would break the
+    attribution. `randomVoteOffered()` already filters on the draft's family, so a 悬赏决策 draft offers no button.
+  - **It does not touch the timer or the turn order.** `untimed` and `parallel` are 四.1's and 二.4's business; the test
+    suite pins that turning this switch on leaves both exactly as they were (a real 险境模拟 draft stays timed and
+    sequential with the vote offered).
+  - **No golden file moves** (verified: roster 49 / bonds 46 / fields 22 / matches 22 / standins 10 / diy 140 all
+    match) — the switch defaults off, so every golden scenario's draft is the official one.
+  `test/fork-mod-random-sp.test.js` (the catalogue and its default, every official mode unchanged with it off and
+  offering the vote with it on, 终极模拟 keeping its own families, a malformed own list falling back to the switch's, a
+  real co-op draft accepting the vote and resolving at half, and independence from the other two switches).
 
 - **三.1–三.3 UI 回顾（电脑 + 手机一并看）** — three items from the requester's screenshots, all **universal interface
   work**: no mode rule moves, no golden file moves.
@@ -349,6 +375,68 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
     (`bondList`), `server/match/results.js`, `docs/META.md` §3/§5. Golden: unchanged (the digests read `ps.bonds`
     directly, not `bondList`).
 
+## Merging upstream
+
+The fork tracks [sganggs/Stronghold-Protocol](https://github.com/sganggs/Stronghold-Protocol) and periodically merges a
+release into `master` on a `merge/stronghold-<version>` branch. **Upstream wins every conflict in a file the fork does
+not own**; a file the fork *does* own keeps the fork's rule, and the two are adapted where both changed the same line.
+
+`v0.2.5` (2026-10-12, 77 commits, 221 files) was merged this way. Seven files conflicted:
+
+| File | Resolution |
+|---|---|
+| `data/choices.json` | generated — upstream's file taken wholesale, then `node tools/fork-data.mjs` re-applied the fork layer (`applyForkChoices`) |
+| `test/golden/matches.json` | generated — upstream's file taken, then `node tools/golden.mjs --update` (upstream 0.2.5 moves 43+ scenarios of its own; the fork's §三.5 shifts the shop RNG stream on top) |
+| `public/i18n/ko.json` | upstream's text wins for every key it changed (PR #490 added sentence-final periods); the fork's own keys are adapted in (38 kept) |
+| `server/match/player/acquire.js` | **both changes kept**: the fork's `this.stock()` (per-player pool while 共享卡池 is off) **and** upstream §30.23's `diyStockEntries()` (a reward offer of the newly reached tier includes 自选 of that tier). The fork's old `diyRollEntries()` here was the *shop's* set, which is exactly what §30.23 replaced |
+| `docs/PLAYING.md` | the fork's 10 自选 slots (二.8) kept; upstream's new promotion-reward sentence adapted in |
+| `test/match/diy-shop.test.js` | header comment merged (fork's per-slot stock + upstream's reward-tier rule) |
+| `test/match/watch-bonds.test.js` | import list merged (the fork's `give` + upstream's ordering) |
+
+Two upstream tests then failed for reasons the merge itself created, both fixed in this commit:
+
+- `test/match/funnel-redeploy.test.js` located Rockrock at a hard-coded `slots[3]`. The fork's §三.5 fills every slot a
+  level-up opens, which draws from the shop rng and so moves the card (it lands at slot 2 now). The test now finds the
+  card **by id** — same card, same route, same assertions.
+- `test/scene-assets.test.js` computed `ROOT` from `new URL(import.meta.url).pathname`, which is `/H:/port-work/test/…`
+  on Windows, so `path.resolve` produced `H:\H:\port-work\.gitignore` and the read threw `ENOENT`. It now uses
+  `fileURLToPath` like the other 64 suites. **This was upstream's own Windows bug, not a merge artifact.**
+
+The same merge also rescued a stranded fork change: **PR #18 (四.2 机变随机分配) had been merged into its base branch
+`feat/mod-switches` instead of `master`**, so `randomSpVote` never reached `master` even though the PR read as merged.
+It is cherry-picked onto this merge (`498f324e`), which is why `MOD_KEYS` here has three switches and not two. A
+stacked PR whose base is another feature branch must be **re-based onto `master` (or merged into it) before its base
+branch is closed** — GitHub reports the child as MERGED either way, so the gap is silent.
+
+- **四.3 商店保底（6 人模式）** — the owner's requirement 4: 「6人模式里的商店升到5级后，第一个槽位无论怎么刷新，必定是5阶干员，
+  到达6级商店后，第一个槽位无论怎么刷新，必是5阶或6阶干员」, and on when it applies: 「只要在该等级，每次刷新都保底」.
+  - **What it is.** In the six-博士 room (终极模拟), the **first 干员槽位** is filled from a guaranteed tier from level 5
+    on: level 5 → a 5 阶 operator, level 6 → a 5 阶 or 6 阶 operator. Every roll at that level obeys it — a manual
+    refresh, the round start's automatic refresh, and the level-up that opens the slot. Levels 1–4 carry no floor.
+  - **It is a data table, not a branch.** `modes[mode_ultimate_abyss].shopFloor = { 5: { tiers: [5] }, 6: { tiers: [5, 6] } }`
+    in `tools/fork-overrides.mjs` (so a `npm run build-data` keeps it, and `test/fork-data.test.js` is the drift guard),
+    read by `GameData.shopFloor(level)` and applied by `PlayerState._rollChessSlot(floor)`. A mode without `shopFloor`
+    has no floor at all, which is every official mode — the requirement names the SIX-博士 mode, and this way it cannot
+    leak into 同盟模拟 / 独立模拟. `shopFloor()` also filters the tiers to 1…maxShopLevel and to the level itself, so a
+    malformed table can never ask for an impossible tier.
+  - **The tier is drawn, not fixed.** `_rollChessSlot(floor)` shuffles the listed tiers with the shop rng and draws from
+    the first that has copies left, so the pick is deterministic per seed like every other shop roll and level 6 really
+    does produce both 5 阶 and 6 阶 cards (the test asserts both occur). A listed tier with nothing left falls through
+    to the next, and then to the ordinary draw — a guarantee must never hand back an **empty** slot.
+  - **Only the first slot, and only when it is rerolled.** A frozen first slot keeps its own card, exactly as every
+    other slot keeps its own; the floor applies to the positions being drawn.
+  - **`server/match/audit.js` had to forward the argument.** Its `_rollChessSlot` wrapper called `orig()` with no
+    arguments, so a floored draw would have silently become an ordinary one whenever verification is on. The wrapper now
+    forwards `floor` and additionally fails a floored draw that landed outside the listed tiers while one of them still
+    had copies.
+  - **No golden file moves** (verified: roster 49 / bonds 46 / fields 22 / matches 22 / standins 10 / diy 140 all
+    match) — the golden corpus is 同盟模拟 / 独立模拟 only (no 终极模拟 scenario at all), and those modes carry no
+    `shopFloor`.
+  `test/fork-shop-floor.test.js` (the table and its malformed-input handling, every official mode having none, 60 rolls
+  at level 5 all landing on 5 阶, 120 at level 6 on 5 阶 or 6 阶 with **both** tiers observed, the guarantee across all
+  three kinds of roll, a frozen first slot keeping its card, the other slots staying unfloored, levels 1–4 unfloored, an
+  official mode unfloored, and the fall-through when the guaranteed tier is empty).
+
 ## Fork change log
 
 | Change | What it does | Where |
@@ -366,3 +454,5 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
 | 三.1–三.3 UI 回顾 | 隐藏局内盟约与干员详细两处滚动条；⚙ / 📖 / ⛶ 从角落移到顶栏左侧（交流留在角落），窄屏换到第二行并给盟约栏让出左侧；大厅顶栏左右两组按钮同高（触摸屏 36 px）；「界面改动要兼顾电脑与手机」写成 client.md §10 的设备规则 | `public/css/screens/game-panels.css`, `public/css/screens/game.css`, `public/css/devices.css`, `public/css/components.css`, `public/js/ui/hud.js`, `public/js/screens/game.js`, `public/js/ui/fieldHost.js`, `public/js/screens/lobby.js`, `docs/design/client.md`, `test/ui/playtest5-ui.test.js`, `test/ui/issue5-fold-camera.test.js`, `test/ui/playtest5-ui.e2e.test.js`, `test/ui/devices.e2e.test.js` |
 | 三.4–三.6 三个玩法 bug | 三.4 机变恢复轮次顺序（见 二.4）；三.5 升级调度中心立刻补上新栏位的干员（全模式，0.2.2 §27.52 的反转）；三.6 场上没有成员的盟约不再留在盟约栏（层数仍保留，结算记录例外） | `tools/fork-overrides.mjs` (`spDraft`), `data/config.json`, `server/match/match/spDraft.js`, `server/match/match/views.js`, `public/js/ui/choiceOverlay.js`, `server/match/player/economy.js`, `server/match/audit.js`, `server/match/bondsMeta.js` (`bondList`), `server/match/results.js`, `docs/META.md`, `docs/PLAYING.md`, `tools/golden.mjs`, `test/golden/matches.json`, `test/fork-ultimate-sp-vote.test.js`, `test/fork-data.test.js`, `test/match/feedback5-shop-levelslots.test.js`, `test/match/bonds.test.js`, `test/match/watch-bonds.test.js`, `test/match/bot-smarter.test.js`, `test/golden-diy.test.js`, `test/golden-standins.test.js` |
 | 四.1 Mod 开关 | 模式界面顶栏加「Mod」按钮与子菜单（与干员调配平行，只在该页出现）：本机偏好，随创建的房间生效。`noBondBan` 关闭盟约禁用——全模式都不再有随机禁用与固有禁用盟约（把二.1 从终极模拟的属性推广成开关）；`untimedSp` 机变不限时——全模式机变不再计时。两个开关默认关闭，golden 未移动 | `shared/constants.js` (`MOD_KEYS`/`MOD_DEFAULTS`/`normalizeMods`), `shared/protocol.js` (`room.create.mods`), `server/match/gamedata.js` (`mods`, `bans()`, `modeInactiveBonds`, `spDraftRules`), `server/match/Match.js`, `server/match/match/views.js`, `server/lobby.js`, `public/js/ui/mods.js`, `public/js/screens/lobby.js`, `public/js/ui/gameLogic/bonds.js`, `public/js/ui/matchInfo.js`, `public/js/screens/game.js`, `public/js/screens/bandDraft.js`, `public/css/screens/lobby.css`, `public/i18n/*.json`, `test/fork-mod-switches.test.js`, `test/lobby-mods.test.js`, `test/lobby-ultimate.test.js` |
+| 四.2 机变随机分配 | Mod 子菜单第三个开关 `randomSpVote`（默认关）：全模式的机变都可以投票「随机分配」，过半即随机发放（悬赏决策除外，二.4 的规则）。投票机制本身就是二.4 的，这里只决定「谁被提供」——`spDraftRules.randomFamilies` 在模式自己没有 `spDraft` 时由开关填上，有则永不收窄（终极模拟保留自己的名单）。golden 未移动 | `shared/constants.js` (`randomSpVote`, `MOD_RANDOM_SP_FAMILIES`), `server/match/gamedata.js` (`spDraftRules`), `server/match/match/spDraft.js` (comments), `public/js/ui/mods.js` (`MOD_ROWS`), `public/js/ui/choiceOverlay.js` (comment), `public/i18n/*.json`, `test/fork-mod-random-sp.test.js` |
+| 四.3 商店保底 | 6 人模式（终极模拟）商店 5 级后第一个槽位必出 5 阶干员，6 级后必出 5 阶或 6 阶——**每次刷新都保底**（手动刷新、回合开始、升级开槽）。做成数据表 `modes[mode_ultimate_abyss].shopFloor`，官方模式没有这张表所以不受影响；保底阶无货时回落到下一阶再到普通抽取，绝不交出空槽位。golden 未移动（语料里没有终极模拟） | `tools/fork-overrides.mjs` (`shopFloor`), `data/config.json`, `server/match/gamedata.js` (`shopFloor()`), `server/match/player/economy.js` (`_rollChessSlot(floor)`/`rollShop`/`_openLevelSlots`), `server/match/audit.js` (转发 `floor`), `test/fork-shop-floor.test.js`, `test/fork-data.test.js` |

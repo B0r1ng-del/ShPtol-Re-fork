@@ -81,6 +81,17 @@ export function forkUltimateMode(modes) {
       5: { chess: 7, item: 1 },
       6: { chess: 7, item: 2 },
     },
+    // 商店保底 (requirement 4): the FIRST 干员槽位 is guaranteed a high-tier card from level 5 on. GameData.shopFloor(level)
+    // reads it and PlayerState._rollChessSlot draws the first slot at exactly that tier.
+    //   * level 5 — slot 0 is a 5 阶 operator, every roll (the owner's wording: 「6人模式里的商店升到5级后，第一个槽位无论
+    //     怎么刷新，必定是5阶干员」);
+    //   * level 6 — slot 0 is a 5 阶 or 6 阶 operator, every roll (「到达6级商店后，第一个槽位无论怎么刷新，必是5阶或6阶干员」).
+    // `tiers` is the allow-list the draw picks its tier from, in order of preference; the tier is chosen with the shop
+    // rng, so the guarantee is deterministic per seed like every other shop roll. Levels 1–4 carry no entry → no floor.
+    shopFloor: {
+      5: { tiers: [5] },
+      6: { tiers: [5, 6] },
+    },
     // 敌人属性调整 (requirement 二.3), from round 4 on, on top of the AC-4 table:
     //   * ordinary enemies — never the leader, never the hidden core, never one of their 部位/parts: +10 % HP only;
     //   * the 最终攻势 leader: +20 % HP, +20 % DEF, +8 % ATK;
