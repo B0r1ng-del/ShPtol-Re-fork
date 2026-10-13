@@ -65,18 +65,32 @@ export function teammateFieldShown(watching, player) {
 }
 
 /**
- * A single click on a teammate avatar calls onWatch only in server-run combat (no `observe`), and only when
- * that field is not already on screen. A double-click fires click first; the second click, and any later click
- * while the view is already theirs, must not open it again. Client combat never watches from the avatar click.
- * `askedRecently`: this avatar's click already called onWatch in the last moment (the other click of a double-click,
- * before `watching` has re-rendered).
- * @param {{ observe?: unknown, watching?: string|null, player?: { playerId?: string, fieldId?: string }|null, askedRecently?: boolean }} [o]
+ * A single click on a teammate avatar calls onWatch when that field is not already on screen, and the second click of a
+ * double-click (or any later click while the view is already theirs) must not open it again.
+ *
+ * Two shapes of `observe`:
+ *   * CLIENT-side combat passes `canObserve` — the click there only opens the 前往查看 confirm, so this returns false
+ *     and `TeamPanel`'s own branch runs instead (`observeCanConfirm` below).
+ *   * SERVER-run combat (the fork's shape) passes `observing` + `onBack` but NO `canObserve`: the click watches at
+ *     once, exactly as the pre-`observe` code did. That is the report 「作战时无法观战队友」 — a living player could not
+ *     reach a teammate's field at all, because the panel was only ever handed an `observe` in client combat.
+ * @param {{ observe?: { canObserve?: unknown }|null, watching?: string|null, player?: { playerId?: string, fieldId?: string }|null, askedRecently?: boolean }} [o]
  * @returns {boolean}
  */
 export function teammateClickWatches(o = {}) {
-  if (o.observe || o.askedRecently) return false;
+  if (observeCanConfirm(o.observe) || o.askedRecently) return false;
   if (teammateFieldShown(o.watching, o.player)) return false;
   return !!o.player;
+}
+
+/**
+ * True when this `observe` shape decides a teammate click by asking (`canObserve`), i.e. the client-side-combat path
+ * that opens 前往查看 first. Server-run combat passes no `canObserve`, so its click watches immediately.
+ * @param {{ canObserve?: unknown }|null|undefined} observe
+ * @returns {boolean}
+ */
+export function observeCanConfirm(observe) {
+  return typeof observe?.canObserve === 'function';
 }
 
 /**
@@ -124,6 +138,10 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
   useEffect(() => { setOpenPid(null); }, [phaseKey, watching, observe?.observing]);
   const players = sortedPlayers(pub);
   if (!players.length) return null;
+  // Two observe shapes: CLIENT-side combat passes `canObserve` (a teammate's field may be askable, so the first click
+  // opens the 前往查看 confirm); SERVER-run combat passes only `observing` + `onBack` — there the click watches at once,
+  // exactly as before, and all this adds is 返回战场 on the own row (the report 「作战时无法观战队友」).
+  const canObserve = observeCanConfirm(observe) ? observe.canObserve : null;
   // a boss round: the viewer's pair framed in green from the round's start (item 51 — the official bg_team_border,
   // tinted like the official green; a plain green ring without the local art)
   const team = teamFrameIds(pub, myId);
@@ -131,16 +149,13 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
   const askedRecently = (p) => askedAt.current.id === p?.playerId && Date.now() - askedAt.current.at < AVATAR_CLICK_GAP_MS;
   const noteAsked = (p) => { askedAt.current = { id: p.playerId, at: Date.now() }; };
   const click = (p, self) => {
-    if (!observe) {
-      // your own row still goes home; a teammate already on screen (or just opened by this double-click) does not
-      if (self || teammateClickWatches({ watching, player: p, askedRecently: askedRecently(p) })) {
-        if (!self) noteAsked(p);
-        onWatch(p);
-      }
+    if (self) { if (observe?.observing) observe.onBack(); setOpenPid(null); return; }
+    if (!canObserve) {
+      // server-run combat (and no observe at all): the click watches at once — no 前往查看 confirm step
+      if (teammateClickWatches({ observe, watching, player: p, askedRecently: askedRecently(p) })) { noteAsked(p); onWatch(p); }
       return;
     }
-    if (self) { if (observe.observing) observe.onBack(); setOpenPid(null); return; }
-    const view = observe.canObserve(p) || {};
+    const view = canObserve(p) || {};
     if (!view.fieldId) {
       setOpenPid(null);
       if (!askedRecently(p)) { noteAsked(p); onWatch(p); } // the game screen toasts the reason; a double-click toasts once
@@ -149,6 +164,7 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
     setOpenPid((cur) => (cur === p.playerId ? null : p.playerId));
   };
   const dblClick = (e, p, self) => {
+    if (!canObserve) return; // server-run combat: the single click already watched
     if (!prepDblClickWatches({ phase: pub?.phase, self, observe, watching, player: p, askedRecently: askedRecently(p) })) return;
     e.preventDefault();
     setOpenPid(null);
@@ -163,13 +179,13 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
       const watched = teammateFieldShown(watching, p);
       const bubble = bubbles?.get(p.playerId);
       const offline = p.connected === false && !p.isBot;
-      const open = !!observe && openPid === p.playerId && !self;
+      const open = !!canObserve && openPid === p.playerId && !self;
       const back = !!observe && self && observe.observing;
       const title = observe ? (self ? (observe.observing ? t('返回战场') : t('你自己')) : t('查看 {name} 的战场', { name: p.name })) : (self ? t('查看自己的阵地') : t('查看 {name} 的阵地', { name: p.name }));
       const lp = rowLp(p, pub, self ? selfLive : null, { uniteLocal, cap });
       const inTeam = team.has(p.playerId);
       return html`<div key=${p.playerId} class=${cx('team__row', self && 'is-self', inTeam && 'is-team', watched && 'is-watched', p.alive === false && 'is-dead', open && 'is-open')}>
-        <button type="button" class="team__btn" onClick=${() => click(p, self)} onDblClick=${(e) => dblClick(e, p, self)} title=${inTeam && !self ? `${title} · ${t('与你在同一战场')}` : title} aria-expanded=${observe && !self ? String(open) : undefined}>
+        <button type="button" class="team__btn" onClick=${() => click(p, self)} onDblClick=${(e) => dblClick(e, p, self)} title=${inTeam && !self ? `${title} · ${t('与你在同一战场')}` : title} aria-expanded=${canObserve && !self ? String(open) : undefined}>
           <${PlayerAvatar} player=${p} self=${self} />
           ${inTeam ? html`<span class=${cx('team__frame', !frameArt && 'team__frame--plain')} style=${frameArt ? `--frame:url("${frameArt}")` : undefined} aria-hidden="true"></span>` : null}
           <span class="team__seat num">P${(p.seat ?? 0) + 1}</span>
