@@ -1,11 +1,9 @@
 // test/match/diy-shop.test.js — 0.2.0 自选编队 on the server (research 0.2.0 §2; the owner's decisions of 2026-10-05):
 // the picks (room.diy → seats[].diy) are checked leniently, fixed for the match and applied to that player only — the
 // player's data view makes a slotted slot the operator (name, class, bonds from its factions, no 特质, the pick's skill
-// and module; the slot's tier, price and merge), each slotted piece has its own stock (8 at tier 5, 5 at tier 6, per
-// SLOT — the fork has five slots per tier: test/fork-diy-slots.test.js), never
+// and module; the slot's tier, price and merge), each slotted piece has its own stock (8 at tier 5, 5 at tier 6), never
 // enters the shared pool, joins only its player's shop once the 调度中心 reaches the slot's level, joins that player's
-// promotion reward at the reward tier (one shop level earlier: shop 4 → tier 5, shop 5 → tier 6 — upstream 0.2.5
-// §30.23), leaves the shop when
+// promotion reward at the reward tier (one shop level earlier: shop 4 → tier 5, shop 5 → tier 6), leaves the shop when
 // every bond of it is banned, merges 3 → elite, and fields its operator in battle (PlayerBattleInput `diy`), client-run
 // and server-run identical; prep scouting and the result name the operator.
 import { test } from 'node:test';

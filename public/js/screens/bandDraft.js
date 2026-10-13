@@ -177,7 +177,7 @@ export function BandDraftScreen() {
   const [infoOpen, setInfoOpen] = useState(false);
 
   const mode = gd.config?.modes?.[pub?.modeId];
-  const offBonds = modeOffBonds(mode, pub?.mods); // the bonds this mode never activates (标准: 10 of 23; none with 关闭盟约禁用)
+  const offBonds = modeOffBonds(mode); // the bonds this mode never activates (标准: 10 of 23)
   const solo = roomSolo || mode?.type === 'SINGLE' || String(pub?.modeId || '').includes('single');
   const bands = useMemo(() => allowedBands(gd.list('bands'), mode?.type || (solo ? 'SINGLE' : 'MULTI')), [gd.ready, mode?.type, solo, data.locale()]);
   const players = sortedPlayers(pub);
@@ -185,12 +185,8 @@ export function BandDraftScreen() {
   const myPick = draft.picks.get(myId) || priv?.bandId || null;
   const myTurn = !myPick && (solo || draft.turnPid === myId);
   const skipsLeft = draft.skipsLeft.has(myId) ? draft.skipsLeft.get(myId) : (skipped ? 0 : 1);
-  const canSkip = !solo && myTurn && skipsLeft > 0 && draft.order.length > 1;
-  // 多同盟模式 (房主配置, m.public.hostConfig.multiAlliance): the host lifted 「每个策略只能由一位博士选择」, so nothing is
-  // 队友已选 — the same `taken` map feeds the lock, the timeout default and the auto-pick, and an empty one lifts all
-  // three (match/phases.js bandTaken reads the same option on the server).
-  const multi = pub?.hostConfig?.multiAlliance === true;
-  const taken = solo || multi ? new Map() : teammateBands(draft.picks, myId);
+  const canSkip = !solo && myTurn && skipsLeft > 0 && draft.order.filter((pid) => !draft.picks.has(pid)).length > 1;
+  const taken = solo ? new Map() : teammateBands(draft.picks, myId);
   const pickers = new Map(); // bandId → players
   for (const [pid, bid] of draft.picks) {
     const p = players.find((x) => x.playerId === pid);

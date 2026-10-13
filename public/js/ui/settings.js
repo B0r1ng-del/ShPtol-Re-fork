@@ -1,4 +1,5 @@
-// Player settings (BGM/SFX/voice volume, the voice dub 语音语言, mute, damage numbers, render quality, 文字大小, the
+// Player settings (BGM/SFX/voice volume, the voice dub 语音语言, mute, damage numbers, the optional 弹药数量 under an ammo
+// skill's bar — not in the official HUD, off by default, PR #552 —, render quality, 文字大小, the
 // shortcut keys): a tiny observable store persisted in localStorage (`sp.pref.settings`), applied to the audio manager
 // and to the document on every change, plus the settings modal — which also holds the language switch (ui/lang.js; kept
 // apart in `sp.pref.lang`; under it a note while the current language's pack is a machine translation,
@@ -30,7 +31,7 @@ import { copyText } from './clipboard.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
-/** Settings store: { bgm, sfx, voice, voiceLang, voiceOverrides, muted, damageNumbers, quality, textSize, keys }. */
+/** Settings store: { bgm, sfx, voice, voiceLang, voiceOverrides, muted, damageNumbers, officialDamageNumbers, ammoCount, quality, textSize, keys }. */
 export const settingsStore = createStore(sanitizeSettings(loadPref('settings', null)));
 
 /**
@@ -264,8 +265,11 @@ export function SettingsModal({ open, onClose }) {
       <${Slider} label=${t('音效')} micro="SFX" icon="signal" value=${s.sfx}
                  onInput=${(v) => { updateSettings({ sfx: v }); if (!tested) { setTested(true); setTimeout(() => setTested(false), 400); audio.sfx('click'); } }} />
       <${Toggle} label=${t('静音')} micro="MUTE" value=${s.muted} onChange=${(v) => updateSettings({ muted: v })} />
-      <${Toggle} label=${t('显示伤害数字')} micro="DAMAGE NUMBERS" value=${s.damageNumbers} onChange=${(v) => updateSettings({ damageNumbers: v })} />      <${Toggle} label=${t('官方伤害数字')} micro="OFFICIAL NUMBERS" value=${s.officialDamageNumbers} onChange=${(v) => updateSettings({ officialDamageNumbers: v })} />
+      <${Toggle} label=${t('显示伤害数字')} micro="DAMAGE NUMBERS" value=${s.damageNumbers} onChange=${(v) => updateSettings({ damageNumbers: v })} />
+      <${Toggle} label=${t('官方伤害数字')} micro="OFFICIAL NUMBERS" value=${s.officialDamageNumbers} onChange=${(v) => updateSettings({ officialDamageNumbers: v })} />
       <p class="set-hint">${t('只显示达到官方暴击条件的红色数字。关闭时仍显示每一次命中。')}</p>
+      <${Toggle} label=${t('弹药数量')} micro="AMMO COUNT" value=${s.ammoCount} onChange=${(v) => updateSettings({ ammoCount: v })} />
+      <p class="set-hint">${t('弹药类技能开启时，在弹药条下方显示剩余弹药 / 总弹药数（如 13/14）。官方界面没有这个数字。')}</p>
       <${Toggle} label=${t('显示作弊菜单')} micro="CHEAT MENU" value=${cheatBall}
                  onChange=${(v) => setCheatBall(v)} />
       <p class="set-hint">${t('在备战阶段显示一个可拖动的悬浮球，用来开启仅对自己生效的作弊开关。默认关闭。')}</p>

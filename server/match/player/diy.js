@@ -214,6 +214,11 @@ export class PlayerDiy {
    * The 干员 pool this player draws from (MatchInfra.poolFor): the match's shared pool while 共享卡池 is on — the official
    * behaviour — else this player's own. Every roll and every copy of a player goes through here, so the option needs no
    * other reader.
+   *
+   * [KEEP-FORK] This accessor and the `poolOf` line above are the fork's 共享卡池 (房主配置) feature; the v0.2.6 merge
+   * resolved this file conflict to upstream and dropped both, which broke `PlayerState._rollChessSlot` /
+   * `_rollItemSlot` with "this.stock is not a function" at the first round start. `MatchInfra.poolFor` comes from the
+   * fork's own `server/match/match/infra.js`, which merges cleanly, so this is the only piece that had to come back.
    */
   stock() {
     return this.m.poolFor(this.playerId);
