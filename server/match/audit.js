@@ -119,8 +119,10 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
       if (res && res.ok && on) check('ready', () => { if (!ps.tempEmpty) fail(`${ps.playerId}: ready with a non-empty temp`); });
       return res;
     });
-    wrap(ps, '_rollChessSlot', function (orig) {
-      const s = orig();
+    wrap(ps, '_rollChessSlot', function (orig, floor) {
+      // the arguments must be forwarded: `_rollChessSlot(floor)` is how the 商店保底 of requirement 4 reaches the draw,
+      // and an audit that dropped the floor would silently turn the guarantee off whenever verification is on
+      const s = orig(floor);
       if (s) {
         const t = gd.tierOf(s.id);
         const row = (audit.odds[ps.shop.level] ||= {});
@@ -132,6 +134,14 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
           const diy = ps.diyStock && ps.diyStock.has(base) ? ps.diyStock.entries.get(base) : null;
           // 共享卡池 off: the shop rolls this player's own pool (PlayerState.stock)
           const stock = typeof ps.stock === 'function' ? ps.stock() : m.pool;
+          // 商店保底: a floored draw must land on one of the tiers the floor lists (the fall-through to the ordinary
+          // draw is allowed only when none of them has a copy left — `roll` reads without taking, and the 自选 entries
+          // count as copies exactly as they do for the draw itself)
+          if (Array.isArray(floor) && floor.length && !floor.includes(t)) {
+            const extra = typeof ps.diyRollEntries === 'function' ? ps.diyRollEntries() : null;
+            const anyLeft = floor.some((ft) => stock.roll(() => 0, { maxTier: ps.shop.level, tier: ft, extra }) != null);
+            if (anyLeft) fail(`${ps.playerId}: floored roll landed on tier ${t}, outside [${floor}]`);
+          }
           if (!stock.has(base) && !diy) fail(`${ps.playerId}: rolled ${s.id} outside the match pool (banned/hidden)`);
           if (diy && ps.shop.level < diy.shopLevel) fail(`${ps.playerId}: rolled 自选 ${s.id} at shop level ${ps.shop.level} < ${diy.shopLevel}`);
           if (s.basePrice !== gd.chessPrice(s.id)) fail(`${ps.playerId}: ${s.id} basePrice ${s.basePrice} != ${gd.chessPrice(s.id)}`);

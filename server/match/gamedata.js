@@ -386,6 +386,26 @@ export class GameData {
     return { chess: Math.min(chess, 8), item: Math.min(item, 4) };
   }
 
+  /**
+   * 商店保底 (requirement 4): the 阶 the FIRST 干员槽位 of `level` must be filled from, or null when the level carries no
+   * floor. `modes[modeId].shopFloor = { [level]: { tiers: [t, …] } }` — the fork's 终极模拟 carries `{5: [5], 6: [5, 6]}`,
+   * so from level 5 on the first slot is always a 5 阶 (level 6: 5 阶 or 6 阶) operator, every roll. The tiers are
+   * filtered to 1…maxShopLevel and the level's own ceiling, so a malformed table can never ask for an impossible tier;
+   * an empty result means no floor, i.e. the official behaviour. Every official mode has no `shopFloor` at all.
+   *
+   * `PlayerState._rollChessSlot(floor)` draws from `tiers` with the shop rng, so the pick is deterministic per seed like
+   * every other shop roll, and it stays inside the pool's remaining copies (a tier with nothing left falls through to
+   * the next listed tier, then to the ordinary draw).
+   * @param {number} level the 调度中心 level
+   * @returns {number[] | null} the allowed tiers, or null
+   */
+  shopFloor(level) {
+    const f = this.mode.shopFloor && this.mode.shopFloor[String(level)];
+    if (!f || typeof f !== 'object' || !Array.isArray(f.tiers)) return null;
+    const tiers = f.tiers.filter((t) => Number.isInteger(t) && t >= 1 && t <= this.maxShopLevel && t <= level);
+    return tiers.length ? tiers : null;
+  }
+
   /** Real-second prep timer for round r (null = untimed). */
   prepTime(r) {
     const rc = this.roundCfg(r);
