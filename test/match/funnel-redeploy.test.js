@@ -50,8 +50,9 @@ test('Rockrock killed by a real enemy and automatically revived by Ermengard sta
     act({ t: 'g.levelUp' });
     h.toPrep(5, { band: 'band_ermengard' });
     // The card is located by id, not by a hard-coded slot index: the fork's §三.5 fills every slot a level-up opens
-    // (`_openLevelSlots`), which draws from the shop rng and so shifts where a given card lands. Upstream 0.2.5 left the
+    // (`_openLevelSlots`), which draws from the shop rng and so shifts where a given card lands. Upstream 0.2.6 left the
     // new slots `null` (no draw), which is why this was `slots[3]` there. Same card, same route, same assertions.
+    // [KEEP-FORK] re-applied after the v0.2.6 merge took upstream's version of this test (docs/FORK.md, "Merging upstream").
     const slot = p.shop.slots.findIndex((s) => s?.id === 'chess_char_2_10_a');
     assert.ok(slot >= 0, `Rockrock is in the shop: ${p.shop.slots.map((s) => s?.id ?? 'null').join(', ')}`);
     act({ t: 'g.buy', slot });

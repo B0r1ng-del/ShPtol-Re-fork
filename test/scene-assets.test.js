@@ -12,9 +12,6 @@ import { fileURLToPath } from 'node:url';
 import { artPlan, formatSummary, isPlayerFile, isRefused } from '../tools/package.mjs';
 import { localGaps, sceneInstallPlan } from '../tools/setup.mjs';
 
-// fileURLToPath, not `new URL(import.meta.url).pathname`: the latter yields `/H:/port-work/test/...` on Windows, so
-// `path.resolve` produced `H:\H:\port-work\.gitignore` and the read threw ENOENT (every other suite in this repo
-// already uses fileURLToPath — this was the one place that did not).
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 test('sceneInstallPlan: fetch only with a client and extractor deps; otherwise the metal board', () => {

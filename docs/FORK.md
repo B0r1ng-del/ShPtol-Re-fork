@@ -419,8 +419,53 @@ The fork tracks [sganggs/Stronghold-Protocol](https://github.com/sganggs/Strongh
 release into `master` on a `merge/stronghold-<version>` branch. **Upstream wins every conflict in a file the fork does
 not own**; a file the fork *does* own keeps the fork's rule, and the two are adapted where both changed the same line.
 
-`v0.2.5` (2026-10-12, 77 commits, 221 files) was merged this way. Seven files conflicted:
+A merge must be a real merge commit (two parents, one of them the upstream release): `git merge <tag>`. The `v0.2.5`
+merge was landed as a **squash** (one parent), so `v0.2.5` never became an ancestor and every later merge fell back to
+the 0.2.4 merge base — the conflict surface of `v0.2.6` was 37 files instead of the handful the 0.2.5 sync had already
+settled. The `v0.2.6` merge restores the true history (`v0.2.6` **is** an ancestor of the merge now).
 
+### v0.2.6 (2026-10-14, 135 commits)
+
+37 files conflicted. The rule above resolved 24 of them by taking upstream wholesale (`CHANGELOG.md`, `README.md`,
+`package.json` / `package-lock.json`, `docs/DEPLOY.md`, `docs/DESIGN.md`, the whole `public/js/render/**` scene/audio
+work, `server/match/player/diy.js`'s neighbours, and the upstream-only tests). The rest:
+
+| File | Resolution |
+|---|---|
+| `data/choices.json` | generated — upstream's file taken, then `node tools/fork-data.mjs` re-applied `applyForkChoices` (+2346 bytes) |
+| `test/golden/matches.json` | generated — upstream's file taken, then `node tools/golden.mjs --update`. **Only `matches.json` moved content** (1323 lines); `roster` / `bonds` / `fields` / `standins` / `diy` came out byte-identical to upstream v0.2.6, which is the check that the fork changed nothing outside the shop-RNG stream (§三.5 shifts it) |
+| `public/i18n/*.json` (4 packs) | 3-way merge by key (upstream wins a key it changed; a key only the fork changed keeps the fork's text; deletions are honoured). The fork renamed the 二.8 key 「5阶与6阶各有**两个**自选名额」→「**五个**」, so the old key is dropped — a leftover of the rename, not a loss |
+| `shared/constants.js` | `APP_VERSION` '0.2.5' → '0.2.6' (upstream); `MOD_KEYS` untouched |
+| `public/js/ui/components.js` | **fork wins**: upstream has no `SwitchRow`, and the fork's Mod / 房主配置 panels share it (#23) |
+| `public/js/ui/settings.js` | **both**: upstream's 弹药数量 toggle *and* the fork's 显示作弊菜单 toggle, in upstream's corrected formatting |
+| `server/match/player/acquire.js` | **both** (the 0.2.5 rule again): the fork's `this.stock()` cascade **and** upstream's `diyStockEntries()` |
+| `server/match/player/economy.js` | fork's import line (adds `CHEAT_KEYS`, `CHEAT_FREE_REFRESH_STEP`, `CHEAT_GOLD_FLOOR`) |
+| `public/js/screens/game.js` | **fork wins**: both hunks are the cheat ball's `<CheatBall>` mount (#26) |
+| `docs/PLAYING.md` | hunk 1 = the fork's 10 自选 slots (二.8); hunks 2–3 = upstream's 弹药数量 + diagnostics |
+| `docs/design/client.md` | all three hunks upstream (the fork never changed those lines) |
+| `test/match/watch-bonds.test.js` | **fork wins** on all three: the merged import list, the `give`/`countIn` helpers and #27's mid-battle spectate expectations |
+
+**One fork feature was silently lost by a wrong `upstream wins` and had to be restored by hand:**
+`server/match/player/diy.js` — the fork's `stock()` accessor (and the `poolOf` line that routes through it) is the
+共享卡池 (房主配置) feature. Upstream has neither, so a plain take-theirs deleted them while the fork's
+`PlayerState._rollChessSlot` / `_rollItemSlot` still call `this.stock()`. The symptom was spectacular and misleading:
+**727 test failures**, every one of them `this.stock is not a function` thrown from the first `startRound`, reported by
+tests as unrelated as `could not reach PREP R1`. `MatchInfra.poolFor` comes from the fork's own
+`server/match/match/infra.js` (which merges cleanly), so only this one accessor had to come back. **Lesson for the next
+merge: a file the fork touched at all is fork-owned, however small the delta — check the fork-only symbols, not just
+whether upstream also touched it.**
+
+Two failures then remained, both **upstream's own** and neither a merge defect:
+
+- `test/match/funnel-redeploy.test.js` located Rockrock at a hard-coded `slots[3]`; the fork's §三.5 fills every slot a
+  level-up opens, so the card had moved. Fixed by finding it **by id** (the same fix the 0.2.5 merge made).
+- `test/lobby.test.js`'s two wall-clock tests (`rate limit … bucket refills`, `flooding … closes the socket`) fail at
+  this machine's default `node --test` concurrency (16 cores → 15 files at once) and pass at CI's: **6514 pass / 0 fail**
+  at `--test-concurrency=4`, and **pristine upstream v0.2.6 fails the same two** (162 failures in its own tree). The test
+  file and `server/net.js` are byte-identical to upstream, so nothing here is ours to fix; upstream already tried once
+  (`d4cdd567`, the flood test's burst loop).
+
+`v0.2.5` (2026-10-12, 77 commits, 221 files) was merged this way. Seven files conflicted:
 | File | Resolution |
 |---|---|
 | `data/choices.json` | generated — upstream's file taken wholesale, then `node tools/fork-data.mjs` re-applied the fork layer (`applyForkChoices`) |

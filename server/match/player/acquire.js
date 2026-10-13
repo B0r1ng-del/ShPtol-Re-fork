@@ -240,7 +240,7 @@ export class PlayerAcquire {
       const focusIds = focus ? this.gd.chessOfBond(focus) : null;
       for (let i = 0; i < ro.count; i++) {
         let id = null;
-        // Two changes meet on this line and BOTH are kept (upstream v0.2.5 × fork 共享卡池):
+        // Two changes meet on this line and BOTH are kept (upstream v0.2.6 × fork 共享卡池):
         //   * `this.stock()` — the fork's per-player stock while 共享卡池 is off (MatchInfra.poolFor); with the option
         //     on it returns the match's shared pool, i.e. exactly upstream's `this.m.pool`;
         //   * `diyStockEntries()` — upstream §30.23: a reward offer of the newly reached tier includes the player's
