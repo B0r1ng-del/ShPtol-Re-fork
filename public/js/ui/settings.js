@@ -23,6 +23,7 @@ import { audio } from '../audio.js';
 import { openGuide } from './guide.js';
 import { detectFeatures } from './device.js';
 import { LangToggle, machineTranslationNote } from './lang.js';
+import { useCheatBall, setCheatBall } from './cheats.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
 import { errorCount, currentBattle, diagnosticsText } from '../diag.js';
 import { copyText } from './clipboard.js';
@@ -239,6 +240,7 @@ function DiagSection() {
 export function SettingsModal({ open, onClose }) {
   const s = useSettings();
   const [tested, setTested] = useState(false);
+  const cheatBall = useCheatBall();
   const [touchUi] = useState(() => detectFeatures().coarse && !detectFeatures().fine);
   const mtNote = machineTranslationNote(); // a pack marked as machine translation says so under the switch
   return html`<${Modal} open=${open} onClose=${onClose} title=${t('设置')} micro="SETTINGS" width="7.4rem"
@@ -262,12 +264,13 @@ export function SettingsModal({ open, onClose }) {
       <${Slider} label=${t('音效')} micro="SFX" icon="signal" value=${s.sfx}
                  onInput=${(v) => { updateSettings({ sfx: v }); if (!tested) { setTested(true); setTimeout(() => setTested(false), 400); audio.sfx('click'); } }} />
       <${Toggle} label=${t('静音')} micro="MUTE" value=${s.muted} onChange=${(v) => updateSettings({ muted: v })} />
-      <${Toggle} label=${t('显示伤害数字')} micro="DAMAGE NUMBERS" value=${s.damageNumbers} onChange=${(v) => updateSettings({ damageNumbers: v })} />
-      <${Toggle} label=${t('官方伤害数字')} micro="OFFICIAL NUMBERS" value=${s.officialDamageNumbers} onChange=${(v) => updateSettings({ officialDamageNumbers: v })} />
+      <${Toggle} label=${t('显示伤害数字')} micro="DAMAGE NUMBERS" value=${s.damageNumbers} onChange=${(v) => updateSettings({ damageNumbers: v })} />      <${Toggle} label=${t('官方伤害数字')} micro="OFFICIAL NUMBERS" value=${s.officialDamageNumbers} onChange=${(v) => updateSettings({ officialDamageNumbers: v })} />
       <p class="set-hint">${t('只显示达到官方暴击条件的红色数字。关闭时仍显示每一次命中。')}</p>
+      <${Toggle} label=${t('显示作弊菜单')} micro="CHEAT MENU" value=${cheatBall}
+                 onChange=${(v) => setCheatBall(v)} />
+      <p class="set-hint">${t('在备战阶段显示一个可拖动的悬浮球，用来开启仅对自己生效的作弊开关。默认关闭。')}</p>
       <div class="set-row">
-        <span class="set-row__label">${t('画面质量')}<${MicroLabel}>QUALITY<//></span>
-        <div class="set-seg" role="radiogroup">
+        <span class="set-row__label">${t('画面质量')}<${MicroLabel}>QUALITY<//></span>        <div class="set-seg" role="radiogroup">
           ${QUALITY.map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${s.quality === id ? 'true' : 'false'}
             class=${s.quality === id ? 'is-on' : ''} onClick=${() => updateSettings({ quality: id })}>${t(label)}</button>`)}
         </div>

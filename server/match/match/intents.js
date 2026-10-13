@@ -41,6 +41,8 @@ export class MatchIntents {
       // 机变 随机分配 vote (fork 二.4): the player votes for the random allocation instead of picking
       case 'g.choiceRandom': return this.voteRandomChoice(ps);
       case 'g.ready': return ps.setReady(!!msg.ready);
+      // 作弊菜单 (the floating cheat ball, a local-only aid): this player's own cheats, PREP only
+      case 'g.cheat': return this.cheat(ps, msg);
       case 'g.emote': return this.emote(ps, msg.id);
       case 'g.emoteBurst': return this.emoteBurst(ps, msg.id);
       // playerId: the player tapped (a shared field names two) — the watch preference (item 56)
@@ -56,9 +58,25 @@ export class MatchIntents {
     }
   }
 
+  /**
+   * g.cheat {set?, freeRefresh?} — 作弊菜单 (the floating cheat ball, a local-only development aid). Every effect is the
+   * CALLER's own: the state lives on `ps` (PlayerState.cheats), the enemy-HP switch is only ever read while building that
+   * player's own normal field (`combat.js _cheatSpawns`), and 联防 / boss fields never read it at all.
+   *
+   * PREP ONLY, as the owner asked (「对局开始无法使用作弊功能，只有在准备阶段生效」): the check is the same `PHASE.PREP`
+   * gate the shop uses, plus the `ready` refusal, so a cheat cannot be flipped once the player has locked in. AI seats
+   * and eliminated players cannot cheat either.
+   */
+  cheat(ps, msg = {}) {
+    if (!ps || ps.isBot) return fail(ERR.BAD_MSG);
+    if (!ps.alive) return fail(ERR.ELIMINATED);
+    if (this.phase !== PHASE.PREP) return fail(ERR.WRONG_PHASE, 'cheats are PREP only');
+    if (ps.ready) return fail(ERR.WRONG_PHASE, 'ready');
+    return ps.cheat(msg);
+  }
+
   emote(ps, id) {
-    if (!EMOTES.includes(id)) return fail(ERR.BAD_MSG, 'unknown emote');
-    const now = this.sched.now();
+    if (!EMOTES.includes(id)) return fail(ERR.BAD_MSG, 'unknown emote');    const now = this.sched.now();
     if (now - ps.lastEmoteAt < EMOTE_COOLDOWN_MS) return fail(ERR.RATE);
     ps.lastEmoteAt = now;
     this.broadcast({ t: 'm.emote', playerId: ps.playerId, id });

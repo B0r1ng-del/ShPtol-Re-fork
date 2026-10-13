@@ -64,6 +64,8 @@ export class PlayerViews {
       alive: this.alive,
       lp: this.lp,
       funds: this.funds,
+      // 作弊菜单: this player's own switches, so the ball's controls render in the right state (never sent for a bot)
+      cheats: { ...this.cheats },
       bandId: this.bandId,
       ready: this.ready,
       canReady: this.alive && this.tempEmpty && !this.personalChoice && this.m.phase === PHASE.PREP,

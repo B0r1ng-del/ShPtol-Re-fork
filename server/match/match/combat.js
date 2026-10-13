@@ -3,7 +3,7 @@
 // (server-run streaming, client-side combat), the per-field results and the sim-error log, then 联防 or SETTLE.
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
-import { PHASE, GEO } from '../../../shared/constants.js';
+import { PHASE, GEO, CHEAT_ENEMY_HP } from '../../../shared/constants.js';
 import { deriveSeed } from '../../sim/rng.js';
 import { withBounties } from '../waves.js';
 import { planUnite } from '../unite.js';
@@ -49,6 +49,7 @@ export class MatchCombat {
     const spawns = withBounties(this.gd, this.round, wave, ps.bounties, ps.playerId).map((s) => ({ ...s, ownerPlayerId: ps.playerId }));
     const ev = { input, kind: 'normal', round: this.round, spawns };
     this.dispatch(ps, 'onBattleStart', ev);
+    const list = this._sanitizeSpawns(Array.isArray(ev.spawns) ? ev.spawns : spawns, ps.playerId);
     return {
       seed: deriveSeed(this.seed, `n:${this.round}:${ps.seat}`),
       kind: 'normal',
@@ -58,7 +59,7 @@ export class MatchCombat {
       rect: { ...GEO.NORMAL_RECT },
       timeLimit: wave.timeLimit,
       players: [ev.input && typeof ev.input === 'object' ? ev.input : input],
-      spawns: this._sanitizeSpawns(Array.isArray(ev.spawns) ? ev.spawns : spawns, ps.playerId),
+      spawns: this._cheatSpawns(ps, list, wave.overrides),
       routes: wave.routes,
       sharedBoss: null,
       flags: { layerGainsEnabled: true, ...this.gd.dp },
@@ -66,6 +67,40 @@ export class MatchCombat {
       enemyOverrides: wave.overrides,
       waveId: wave.templateId,
     };
+  }
+
+  /**
+   * 作弊菜单 「怪物血量降为 1 血」: stamp the HP multiplier onto a player's OWN normal-field spawns.
+   *
+   * `mods.hpMul` is the sim's existing per-spawn HP multiplier (`server/sim/battle/spawns.js`: the enemy's `def.maxHp`
+   * is multiplied by it before the unit is built, and `units.js` floors the result at 1), so setting it to
+   * `CHEAT_ENEMY_HP / base` lands every enemy on exactly `CHEAT_ENEMY_HP` whatever its own data HP is. The sim itself,
+   * the enemy data and the `enemyOverrides` table the mode already uses are all left alone.
+   *
+   * `base` must be the SAME number the sim will multiply: the enemy's own `stats.maxHp` (the server's generated record
+   * nests its numbers under `stats`; the sim's `normalizeEnemy` reads `stats.maxHp ?? stats.hp`), unless the wave's own
+   * `enemyOverrides` replaces it — that table is applied to `def` *before* the multiplier, so it wins when present.
+   * Reading `def.maxHp` off the raw record gives `undefined` and would silently skip every spawn.
+   *
+   * Deliberately NORMAL-FIELD ONLY: 联防 builds its spec through `_uniteOpts` (a shared field for several players), so
+   * a cheat enabled by one player can never reach it — the owner's 「联防阶段不生效」. Boss / hidden fields are a shared
+   * pool for the pair for the same reason and are not touched here either.
+   * @param {any} ps the player whose cheats to read
+   * @param {any[]} list the sanitized spawn list of that player's field
+   * @param {any} overrides the field's own `enemyOverrides` table (the wave's)
+   * @returns {any[]} the same list, with `mods.hpMul` forced where the switch is on
+   */
+  _cheatSpawns(ps, list, overrides = null) {
+    if (ps?.cheats?.enemyOneHp !== true) return list;
+    const ov = overrides && typeof overrides === 'object' ? overrides : {};
+    return list.map((s) => {
+      const def = this.gd.enemy(s.enemyKey);
+      const dataHp = def && def.stats ? def.stats.maxHp ?? def.stats.hp : def && def.maxHp;
+      const o = ov[(def && def.key) || s.enemyKey] ?? ov[s.enemyKey];
+      const base = o && o.stats ? o.stats.maxHp ?? o.stats.hp ?? dataHp : dataHp;
+      if (!Number.isFinite(base) || base <= 0) return s;
+      return { ...s, mods: { ...(s.mods && typeof s.mods === 'object' ? s.mods : {}), hpMul: CHEAT_ENEMY_HP / base } };
+    });
   }
 
   startCombat() {

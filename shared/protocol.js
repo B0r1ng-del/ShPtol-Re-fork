@@ -1,7 +1,7 @@
 // Normative message catalogue (DESIGN §8). Used by server (validation) and client (building requests).
 // Every client→server message is `{ t, rid?, ...fields }`. Unknown `t` or invalid fields ⇒ ERR.BAD_MSG.
 
-import { DIFFICULTIES, NAME_MAX_LEN, ROOM_CODE_LEN, ROOM_MODES, ULTIMATE_SEATS, HOST_CONFIG_KEYS, MOD_KEYS, EMOTES, GEO } from './constants.js';
+import { DIFFICULTIES, NAME_MAX_LEN, ROOM_CODE_LEN, ROOM_MODES, ULTIMATE_SEATS, HOST_CONFIG_KEYS, MOD_KEYS, CHEAT_KEYS, EMOTES, GEO } from './constants.js';
 import { isDroppableChess } from './standIn.js';
 import { diySlotIds, validateDiyPicks } from './diy.js';
 import { cultivatedStats, isPotential, isCultivate, POTENTIAL_DEFAULT, CULTIVATE_DEFAULT } from './potential.js';
@@ -444,6 +444,17 @@ export const C2S = {
   'g.refresh': {},
   'g.freeze': {},
   'g.levelUp': {},
+  // 作弊菜单 (the floating cheat ball, a local-only aid): the per-player cheats of ONE player, accepted in PREP only
+  // (`Match.cheat`). `set` carries the two toggles; `freeRefresh` is the one-shot 「免费刷新 +5」 button. Both fields are
+  // optional so one message can flip a switch, press the button, or do both.
+  'g.cheat': {
+    set: nullable((v) => {
+      if (v == null || typeof v !== 'object' || Array.isArray(v)) return false;
+      return Object.entries(v).every(([k, b]) => CHEAT_KEYS.includes(k) && typeof b === 'boolean');
+    }),
+    freeRefresh: nullable((v) => v === true),
+    $optional: ['set', 'freeRefresh'],
+  },
   'g.sell': { uid: isUid },
   // dir: the facing chosen on the deploy wheel for a board target (absent ⇒ RIGHT; the piece's own tile ⇒ re-orient)
   'g.move': { uid: isUid, to: target, dir: isDir, $optional: ['dir'] },

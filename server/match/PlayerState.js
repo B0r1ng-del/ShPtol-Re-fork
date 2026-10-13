@@ -121,6 +121,7 @@
 //   common.js     HAND_SIZE, TEMP_SIZE, MAX_OFFER_SLOTS, OK, fail
 
 import { FIELD } from './board.js';
+import { CHEAT_DEFAULTS } from '../../shared/constants.js';
 import { computeBonds } from './bondsMeta.js';
 import { HAND_SIZE, TEMP_SIZE } from './player/common.js';
 import { PlayerBasics } from './player/basics.js';
@@ -154,6 +155,16 @@ export class PlayerState {
     this.bandId = null;
     this.funds = 0;
     this.pendingFunds = 0;
+    /**
+     * 作弊菜单 (the floating cheat ball): THIS player's own cheats, all off by default. Per player by construction — the
+     * state lives on the player, never on the match — so one player cheating cannot reach anybody else's economy or
+     * battlefield. `infiniteFunds` remembers the funds it was turned on with in `cheatFundsSaved`, so turning it off
+     * restores exactly what the player had. Only `Match.cheat` writes these, and only during PREP.
+     * @type {{ infiniteFunds: boolean, enemyOneHp: boolean }}
+     */
+    this.cheats = { ...CHEAT_DEFAULTS };
+    /** The funds 「无限金币」 was switched on with (null when it is off): what turning it off restores. */
+    this.cheatFundsSaved = null;
     this.ready = false;
     this.infoReady = this.isBot;
     this.lastEmoteAt = -Infinity;
