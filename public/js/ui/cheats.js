@@ -23,7 +23,7 @@
 import { useState, useRef, useEffect } from '../../vendor/hooks.module.js';
 import { loadPref, savePref, createStore, useStore } from '../store.js';
 import { CHEAT_KEYS, CHEAT_DEFAULTS } from '../../../shared/constants.js';
-import { html } from './components.js';
+import { html, Icon } from './components.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
 /** localStorage key (under the app's `sp.pref.` prefix) for the "show the cheat ball at all" preference. */
@@ -166,7 +166,7 @@ export function CheatBall({ cheats = null, canUse = false, onSet, onFreeRefresh 
   return html`<div class="cheatball" style=${style} data-testid="cheat-ball">
   <button type="button" class="cheatball__btn" ref=${ballRef} aria-label=${t('作弊菜单')} title=${t('作弊菜单')}
     aria-expanded=${open ? 'true' : 'false'} data-testid="cheat-ball-btn"
-    onPointerDown=${start}>🎮</button>
+    onPointerDown=${start}><${Icon} name="gamepad" class="cheatball__glyph" /></button>
   ${open ? html`<div class="cheatball__panel cheatball__panel--${opensLeft ? 'left' : 'right'} cheatball__panel--${opensUp ? 'up' : 'down'}" data-testid="cheat-panel">
     <div class="cheatball__head">${t('作弊菜单')}</div>
     ${CHEAT_ROWS.map((r) => (r.kind === 'switch'
@@ -181,7 +181,7 @@ export function CheatBall({ cheats = null, canUse = false, onSet, onFreeRefresh 
         </div>`
       : html`<div class="cheatball__row" key=${r.action}>
           <span class="cheatball__label">${t(r.label)}</span>
-          <button type="button" class="btn btn--small" disabled=${!canUse}
+          <button type="button" class="btn btn--sm cheatball__act" disabled=${!canUse}
             data-testid=${`cheat-${r.action}`}
             onClick=${() => canUse && onFreeRefresh && onFreeRefresh()}>+5</button>
         </div>`))}
