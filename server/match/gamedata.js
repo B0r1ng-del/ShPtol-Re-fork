@@ -14,7 +14,7 @@
 import { getConfig, getMode } from '../data.js';
 import { isShopItem } from '../sim/simdata.js';
 import { standInRecord } from '../../shared/standIn.js';
-import { normalizeMods } from '../../shared/constants.js';
+import { normalizeMods, MOD_RANDOM_SP_FAMILIES } from '../../shared/constants.js';
 
 const own = (map, id) => (map && typeof map === 'object' && typeof id === 'string' && Object.hasOwn(map, id) && map[id] && typeof map[id] === 'object' ? map[id] : null);
 const numOr = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -521,14 +521,19 @@ export class GameData {
    *
    * Mod 开关 `untimedSp` 机变不限时 turns `untimed` on for ANY mode, the 终极模拟 `spDraft` block or not — the switch's
    * whole point is that no mode's 机变 runs on a clock. It never touches `parallel` or `randomFamilies`: those are the
-   * mode's own (fork 二.4) and the 随机抽取 switch's business, not the timer's.
+   * mode's own (fork 二.4) and the 随机分配 switch's business, not the timer's.
+   *
+   * Mod 开关 `randomSpVote` 机变随机分配 offers the 「随机分配」 vote in ANY mode. A mode that already lists its own
+   * families (终极模拟, 二.4) keeps them — the switch widens the offer, it never narrows a mode's own. A mode without an
+   * `spDraft` block gets `MOD_RANDOM_SP_FAMILIES` (道具补给 / 机密商店 / 战术决策; never 悬赏, see the constant).
    */
   get spDraftRules() {
     const d = this.spDraft;
-    if (!d) return { untimed: this.mods.untimedSp, parallel: false, randomFamilies: null };
-    const vote = d.randomVote && typeof d.randomVote === 'object' && !Array.isArray(d.randomVote) ? d.randomVote : null;
+    const vote = d && d.randomVote && typeof d.randomVote === 'object' && !Array.isArray(d.randomVote) ? d.randomVote : null;
     const fams = vote && Array.isArray(vote.families) ? vote.families.filter((f) => typeof f === 'string') : [];
-    return { untimed: this.mods.untimedSp || d.untimed === true, parallel: d.parallel === true, randomFamilies: fams.length ? fams : null };
+    const randomFamilies = fams.length ? fams : (this.mods.randomSpVote ? [...MOD_RANDOM_SP_FAMILIES] : null);
+    if (!d) return { untimed: this.mods.untimedSp, parallel: false, randomFamilies };
+    return { untimed: this.mods.untimedSp || d.untimed === true, parallel: d.parallel === true, randomFamilies };
   }
 
   timer(key) {

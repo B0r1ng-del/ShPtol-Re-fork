@@ -254,7 +254,8 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
 - **四.1 Mod 开关（模式界面）** — the 模式界面's top bar gains a **Mod** button with a submenu, laid out beside 干员调配
   (the requester's 图一: 「在模式界面添加 Mod 开关，mod开关只会在当前页面有，Mod 开关拥有一个子菜单，与顶栏干员调配平行放置」).
   The submenu holds the fork's gameplay switches; each one defaults OFF, so a player who never opens it plays the
-  official game exactly.
+  official game exactly. **四.1 shipped the framework and its first two switches (`noBondBan`, `untimedSp`); 四.2 adds a
+  third (`randomSpVote`) and is the reference for how to add one.**
   - **What a switch is, and what it is not.** A Mod 开关 is a **per-device preference**, not a room option: it lives in
     `localStorage` (`sp.pref.mods`, `public/js/ui/mods.js` — the `ui/emotes.js` 一键十连 / 弹幕 pattern), the 模式界面 is
     the only place that shows it, and the creator carries it into the room it makes (`room.create.mods`, the new
@@ -290,6 +291,31 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
   real match's pool and `m.public.mods`), `test/lobby-mods.test.js` (the wire: an official room without mods, a
   creator's switches reaching the match, partial payloads, the unknown-key refusal, the room keeping them across its
   matches and a host migration), and the `room.create.mods` protocol cases in `test/lobby-ultimate.test.js`.
+
+- **四.2 Mod 开关 机变随机分配** — the third Mod 开关 (`randomSpVote`), the owner's requirement 3: 「机变阶段随机抽取选项：改为
+  全模式都有」. The vote machinery already exists — 二.4 built it for 终极模拟 (`g.choiceRandom`; half the alive players
+  resolve the draft, one card each) — so nothing about *how* the vote works changes here. What changes is **who is
+  offered it**.
+  - **Why it is a switch and not a default.** The owner's call of 2026-10-13: 「放进 Mod 子菜单，默认关闭（推荐）」. Turning
+    it on for every mode unconditionally would be a behavioural change to the official modes, which this fork only makes
+    deliberately; as a switch that defaults off, the official draft is untouched and the feature is opt-in, exactly like
+    四.1's two.
+  - **The seam is `GameData.spDraftRules.randomFamilies`** — the list the client's vote button (`choiceOverlay.js`
+    `randomVoteAvailable` / `voteOffered`) and the server's `randomVoteOffered()` both key on. The switch fills it in for
+    a mode whose own `spDraft` does not, and **never narrows one that does**: 终极模拟 keeps its own list, and a mode
+    that lists a narrower one keeps exactly that. `MOD_RANDOM_SP_FAMILIES` (`shared/constants.js`) is the switch's
+    default list — 道具补给 / 机密商店 / 战术决策.
+  - **悬赏 is never in the list**, whatever the switch says. That is 二.4's rule and it is structural, not cosmetic: a
+    悬赏 card adds its enemies to the *picker's* own next battles, so handing it to somebody else would break the
+    attribution. `randomVoteOffered()` already filters on the draft's family, so a 悬赏决策 draft offers no button.
+  - **It does not touch the timer or the turn order.** `untimed` and `parallel` are 四.1's and 二.4's business; the test
+    suite pins that turning this switch on leaves both exactly as they were (a real 险境模拟 draft stays timed and
+    sequential with the vote offered).
+  - **No golden file moves** (verified: roster 49 / bonds 46 / fields 22 / matches 22 / standins 10 / diy 140 all
+    match) — the switch defaults off, so every golden scenario's draft is the official one.
+  `test/fork-mod-random-sp.test.js` (the catalogue and its default, every official mode unchanged with it off and
+  offering the vote with it on, 终极模拟 keeping its own families, a malformed own list falling back to the switch's, a
+  real co-op draft accepting the vote and resolving at half, and independence from the other two switches).
 
 - **三.1–三.3 UI 回顾（电脑 + 手机一并看）** — three items from the requester's screenshots, all **universal interface
   work**: no mode rule moves, no golden file moves.
@@ -366,3 +392,4 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
 | 三.1–三.3 UI 回顾 | 隐藏局内盟约与干员详细两处滚动条；⚙ / 📖 / ⛶ 从角落移到顶栏左侧（交流留在角落），窄屏换到第二行并给盟约栏让出左侧；大厅顶栏左右两组按钮同高（触摸屏 36 px）；「界面改动要兼顾电脑与手机」写成 client.md §10 的设备规则 | `public/css/screens/game-panels.css`, `public/css/screens/game.css`, `public/css/devices.css`, `public/css/components.css`, `public/js/ui/hud.js`, `public/js/screens/game.js`, `public/js/ui/fieldHost.js`, `public/js/screens/lobby.js`, `docs/design/client.md`, `test/ui/playtest5-ui.test.js`, `test/ui/issue5-fold-camera.test.js`, `test/ui/playtest5-ui.e2e.test.js`, `test/ui/devices.e2e.test.js` |
 | 三.4–三.6 三个玩法 bug | 三.4 机变恢复轮次顺序（见 二.4）；三.5 升级调度中心立刻补上新栏位的干员（全模式，0.2.2 §27.52 的反转）；三.6 场上没有成员的盟约不再留在盟约栏（层数仍保留，结算记录例外） | `tools/fork-overrides.mjs` (`spDraft`), `data/config.json`, `server/match/match/spDraft.js`, `server/match/match/views.js`, `public/js/ui/choiceOverlay.js`, `server/match/player/economy.js`, `server/match/audit.js`, `server/match/bondsMeta.js` (`bondList`), `server/match/results.js`, `docs/META.md`, `docs/PLAYING.md`, `tools/golden.mjs`, `test/golden/matches.json`, `test/fork-ultimate-sp-vote.test.js`, `test/fork-data.test.js`, `test/match/feedback5-shop-levelslots.test.js`, `test/match/bonds.test.js`, `test/match/watch-bonds.test.js`, `test/match/bot-smarter.test.js`, `test/golden-diy.test.js`, `test/golden-standins.test.js` |
 | 四.1 Mod 开关 | 模式界面顶栏加「Mod」按钮与子菜单（与干员调配平行，只在该页出现）：本机偏好，随创建的房间生效。`noBondBan` 关闭盟约禁用——全模式都不再有随机禁用与固有禁用盟约（把二.1 从终极模拟的属性推广成开关）；`untimedSp` 机变不限时——全模式机变不再计时。两个开关默认关闭，golden 未移动 | `shared/constants.js` (`MOD_KEYS`/`MOD_DEFAULTS`/`normalizeMods`), `shared/protocol.js` (`room.create.mods`), `server/match/gamedata.js` (`mods`, `bans()`, `modeInactiveBonds`, `spDraftRules`), `server/match/Match.js`, `server/match/match/views.js`, `server/lobby.js`, `public/js/ui/mods.js`, `public/js/screens/lobby.js`, `public/js/ui/gameLogic/bonds.js`, `public/js/ui/matchInfo.js`, `public/js/screens/game.js`, `public/js/screens/bandDraft.js`, `public/css/screens/lobby.css`, `public/i18n/*.json`, `test/fork-mod-switches.test.js`, `test/lobby-mods.test.js`, `test/lobby-ultimate.test.js` |
+| 四.2 机变随机分配 | Mod 子菜单第三个开关 `randomSpVote`（默认关）：全模式的机变都可以投票「随机分配」，过半即随机发放（悬赏决策除外，二.4 的规则）。投票机制本身就是二.4 的，这里只决定「谁被提供」——`spDraftRules.randomFamilies` 在模式自己没有 `spDraft` 时由开关填上，有则永不收窄（终极模拟保留自己的名单）。golden 未移动 | `shared/constants.js` (`randomSpVote`, `MOD_RANDOM_SP_FAMILIES`), `server/match/gamedata.js` (`spDraftRules`), `server/match/match/spDraft.js` (comments), `public/js/ui/mods.js` (`MOD_ROWS`), `public/js/ui/choiceOverlay.js` (comment), `public/i18n/*.json`, `test/fork-mod-random-sp.test.js` |

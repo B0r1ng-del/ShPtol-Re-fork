@@ -28,28 +28,36 @@ const NORMAL = 'mode_multi_normal';
 const ABYSS = 'mode_multi_abyss';
 
 describe('Mod 开关 — the catalogue and its defaults', () => {
-  test('MOD_KEYS is the two switches; every default is off (the official behaviour)', () => {
-    assert.deepEqual([...MOD_KEYS], ['noBondBan', 'untimedSp']);
+  test('every catalogue key defaults off (the official behaviour)', () => {
+    // The catalogue grows as switches are added (四.1 has two, 四.2 adds a third). Assert the INVARIANT — every key
+    // listed, every default off — rather than a frozen list, so adding a switch cannot silently pass by not being
+    // covered here; test/fork-mod-random-sp.test.js pins the individual switches' own rules.
     for (const k of MOD_KEYS) assert.equal(MOD_DEFAULTS[k], false, `${k} defaults off`);
+    assert.ok(MOD_KEYS.includes('noBondBan') && MOD_KEYS.includes('untimedSp'), '四.1 keys present');
+    assert.equal(Object.keys(MOD_DEFAULTS).length, MOD_KEYS.length, 'defaults cover exactly the catalogue');
+    for (const k of Object.keys(MOD_DEFAULTS)) assert.ok(MOD_KEYS.includes(k), `${k} is a catalogue key`);
   });
 
   test('normalizeMods is total: garbage and unknown keys never switch anything on', () => {
-    assert.deepEqual(normalizeMods(undefined), { noBondBan: false, untimedSp: false });
-    assert.deepEqual(normalizeMods(null), { noBondBan: false, untimedSp: false });
-    assert.deepEqual(normalizeMods('nope'), { noBondBan: false, untimedSp: false });
-    assert.deepEqual(normalizeMods([1, 2]), { noBondBan: false, untimedSp: false });
+    /** The all-off payload of the current catalogue (every key false). */
+    const allOff = () => Object.fromEntries(MOD_KEYS.map((k) => [k, false]));
+    assert.deepEqual(normalizeMods(undefined), allOff());
+    assert.deepEqual(normalizeMods(null), allOff());
+    assert.deepEqual(normalizeMods('nope'), allOff());
+    assert.deepEqual(normalizeMods([1, 2]), allOff());
     // a non-boolean truthy value is NOT `true` (the protocol only ever sends booleans)
-    assert.deepEqual(normalizeMods({ noBondBan: 1, untimedSp: 'yes' }), { noBondBan: false, untimedSp: false });
+    assert.deepEqual(normalizeMods(Object.fromEntries(MOD_KEYS.map((k) => [k, 1]))), allOff());
+    assert.deepEqual(normalizeMods({ untimedSp: 'yes' }), allOff());
     // an unknown key is dropped, not carried through
-    assert.deepEqual(normalizeMods({ noBondBan: true, bogus: true }), { noBondBan: true, untimedSp: false });
+    assert.deepEqual(normalizeMods({ noBondBan: true, bogus: true }), { ...allOff(), noBondBan: true });
   });
 
   test('an absent / partial payload is exactly the official mode', () => {
     for (const modeId of [FUNNY, NORMAL, ABYSS, 'mode_single_normal', 'mode_ultimate_abyss']) {
       const plain = gd(modeId);
-      assert.deepEqual(plain.mods, { noBondBan: false, untimedSp: false }, modeId);
-      // a partial payload that only names one switch leaves the other off
-      assert.deepEqual(gd(modeId, { noBondBan: true }).mods, { noBondBan: true, untimedSp: false }, modeId);
+      for (const k of MOD_KEYS) assert.equal(plain.mods[k], false, `${modeId}: ${k} off`);
+      // a partial payload that only names one switch leaves every other off
+      assert.deepEqual(gd(modeId, { noBondBan: true }).mods, { ...Object.fromEntries(MOD_KEYS.map((k) => [k, false])), noBondBan: true }, modeId);
     }
   });
 });
@@ -109,7 +117,7 @@ describe('Mod 开关 关闭盟约禁用 (noBondBan) — no 盟约 is disabled in
     try {
       assert.equal(off.m.disabledBonds.length, 7, '3 core + 4 add-on');
       assert.ok(off.m.pool.entries.size < off.m.gd.visibleChess.length, 'and that removes 干员 from the pool');
-      assert.deepEqual(off.m.mods, { noBondBan: false, untimedSp: false });
+      assert.deepEqual(off.m.mods, Object.fromEntries(MOD_KEYS.map((k) => [k, false])));
     } finally {
       off.m.dispose();
     }
@@ -120,7 +128,7 @@ describe('Mod 开关 关闭盟约禁用 (noBondBan) — no 盟约 is disabled in
     try {
       const pub = h.lastBc('m.public');
       assert.ok(pub, 'a public frame was broadcast');
-      assert.deepEqual(pub.mods, { noBondBan: true, untimedSp: false });
+      assert.deepEqual(pub.mods, { ...Object.fromEntries(MOD_KEYS.map((k) => [k, false])), noBondBan: true });
       // and the bonds the client greys: with the switch on nothing is 本局禁用
       assert.deepEqual(pub.disabledBonds, []);
       assert.deepEqual(pub.drawnDisabledBonds, []);

@@ -25,7 +25,8 @@ export class MatchSpDraft {
     // 「AI 队友最后选择」 (GitHub #338): humans before AI seats, after the same shuffle (MatchPhases.humansFirst)
     order = this.humansFirst(order);
     // untimed: solo and any single-human match (soloUntimed); the co-op order / 6 cards stay. A MODE may switch the
-    // whole draft untimed and parallel and offer the random-allocation vote (fork 二.4 — GameData.spDraftRules).
+    // whole draft untimed and parallel and offer the random-allocation vote (fork 二.4 — GameData.spDraftRules), and
+    // the 四.2 Mod 开关 does the same for every mode (its own families, or the switch's default list).
     const rules = this.gd.spDraftRules;
     const untimed = this.soloUntimed || rules.untimed;
     this.sp = {
@@ -38,8 +39,9 @@ export class MatchSpDraft {
   }
 
   /**
-   * The 机变 draft rules of the mode (`GameData.spDraftRules`; fork 二.4): `untimed`, `parallel` and
-   * `randomFamilies` — all off for every official mode, which keeps the sequential timed draft exactly as it was.
+   * The 机变 draft rules (`GameData.spDraftRules`): the MODE's own (fork 二.4) merged with the 四.2 Mod 开关 —
+   * `untimed`, `parallel` and `randomFamilies`. Every one of them is off for every official mode with the switches
+   * off, which keeps the sequential timed draft exactly as it was.
    */
   get spRules() { return this.gd.spDraftRules; }
 
