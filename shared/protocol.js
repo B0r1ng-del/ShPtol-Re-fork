@@ -1,7 +1,7 @@
 // Normative message catalogue (DESIGN §8). Used by server (validation) and client (building requests).
 // Every client→server message is `{ t, rid?, ...fields }`. Unknown `t` or invalid fields ⇒ ERR.BAD_MSG.
 
-import { DIFFICULTIES, NAME_MAX_LEN, ROOM_CODE_LEN, ROOM_MODES, ULTIMATE_SEATS, HOST_CONFIG_KEYS, EMOTES, GEO } from './constants.js';
+import { DIFFICULTIES, NAME_MAX_LEN, ROOM_CODE_LEN, ROOM_MODES, ULTIMATE_SEATS, HOST_CONFIG_KEYS, MOD_KEYS, EMOTES, GEO } from './constants.js';
 import { isDroppableChess } from './standIn.js';
 import { diySlotIds, validateDiyPicks } from './diy.js';
 import { cultivatedStats, isPotential, isCultivate, POTENTIAL_DEFAULT, CULTIVATE_DEFAULT } from './potential.js';
@@ -16,6 +16,13 @@ const isNum = (v, lo = -Infinity, hi = Infinity) => typeof v === 'number' && Num
 const isPlain = (v) => !!v && typeof v === 'object' && !Array.isArray(v) && Object.getPrototypeOf(v) === Object.prototype;
 const optional = (check) => (v) => v === undefined || check(v);
 const nullable = (check) => (v) => v === null || v === undefined || check(v);
+/**
+ * Structural check of `room.create.mods` (Mod 开关, shared/constants.js MOD_KEYS): a plain object whose keys are all
+ * MOD_KEYS and whose values are all booleans. A key outside MOD_KEYS is BAD_MSG rather than silently ignored — a
+ * client asking for a switch the server does not have is a client/server version mismatch, and swallowing it would
+ * run a match the player did not ask for. Every key is optional (a switch the player left alone is simply absent).
+ */
+const isMods = (v) => isPlain(v) && Object.keys(v).every((k) => MOD_KEYS.includes(k) && isBool(v[k]));
 /** A plain object with at most `max` own keys, every key passing `key` and every value passing `val`. */
 const isMap = (v, max, key, val) => {
   if (!isPlain(v)) return false;
@@ -382,7 +389,10 @@ export const C2S = {
   hello: { name: (v) => isStr(v, NAME_MAX_LEN) && v.trim().length > 0, token: (v) => v == null || isStr(v, 64), version: (v) => v == null || isInt(v, 0, 1e6),
     noReplace: isBool, claimAt: (v) => isNum(v, 0, Number.MAX_SAFE_INTEGER), $optional: ['token', 'version', 'noReplace', 'claimAt'] },
   ping: { c: (v) => typeof v === 'number' && Number.isFinite(v) },
-  'room.create': { mode: (v) => ROOM_MODES.includes(v), difficulty: (v) => DIFFICULTIES.includes(v) },
+  // Mod 开关 (模式界面, beside 干员调配): the per-device gameplay switches the creator carries into the room it makes.
+  // Optional — a client that sends none creates the room with every switch off (the official mode). The room keeps
+  // them across its matches like the mode and the difficulty, and the match reads them when it starts (Match.mods).
+  'room.create': { mode: (v) => ROOM_MODES.includes(v), difficulty: (v) => DIFFICULTIES.includes(v), mods: isMods, $optional: ['mods'] },
   'room.join': { code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v) },
   'room.leave': {},
   'room.ready': { ready: isBool },

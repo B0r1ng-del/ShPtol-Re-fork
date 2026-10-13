@@ -58,6 +58,43 @@ export const HOST_CONFIG_KEYS = Object.freeze(['sharedPool', 'sharedBounty', 'ai
 /** Defaults of HOST_CONFIG_KEYS: the official behaviour of each option. */
 export const HOST_CONFIG_DEFAULTS = Object.freeze({ sharedPool: true, sharedBounty: true, aiPicksLast: false, multiAlliance: false });
 
+/**
+ * Mod 开关 — the lobby's per-device gameplay switches (a fork feature, `room.create.mods`). They live in the 模式界面
+ * only, beside 干员调配, and they are NOT room options: they are a local preference the creator carries into the room it
+ * creates (`public/js/ui/mods.js`, localStorage), and the match then runs under them like it runs under the difficulty.
+ * A joiner plays the host's rules — the server keeps the room's mods, the same way it keeps the mode and the difficulty.
+ *
+ * Each one defaults OFF, so a room created without them, and every caller that passes nothing (the golden scenarios,
+ * the rehearsal tools, every test), is byte-identical to the official mode.
+ *
+ *   noBondBan  关闭盟约禁用  on  — no 盟约 is disabled this match, in ANY mode: neither the per-match draw of
+ *                                  server/match/pool.js (`config.bans` / `modes[].bans`) nor the mode's own static
+ *                                  `inactiveBondIds` list (标准模拟's ten, 终极模拟's none). This is the fork's original
+ *                                  二.1 "此模式下所有盟约不会被禁用", now a switch instead of a property of 终极模拟.
+ *                             off — the official rule, exactly as before: the difficulty draws its bans and the mode's
+ *                                  static list stays off ("本局禁用").
+ *   untimedSp  机变不限时  on  — the 机变 draft of ANY mode runs without a clock (`spFirst` / `spTurn` are not armed);
+ *                                  it ends when every alive player has picked, exactly like 独立模拟's draft already
+ *                                  does (`soloUntimed`).
+ *                             off — the official timed draft (`config.timers.spFirst` / `spTurn`, auto-pick on expiry).
+ */
+export const MOD_KEYS = Object.freeze(['noBondBan', 'untimedSp']);
+/** Defaults of MOD_KEYS: the official behaviour of each switch (all off). */
+export const MOD_DEFAULTS = Object.freeze({ noBondBan: false, untimedSp: false });
+/**
+ * Normalise a `mods` payload to exactly MOD_KEYS booleans: a missing / malformed value is the official default, so an
+ * unknown key can never switch anything on. Pure and total — GameData and the match both run every value through it.
+ * @param {any} mods
+ * @returns {Record<string, boolean>}
+ */
+export function normalizeMods(mods) {
+  const src = mods && typeof mods === 'object' && !Array.isArray(mods) ? mods : {};
+  /** @type {Record<string, boolean>} */
+  const out = {};
+  for (const k of MOD_KEYS) out[k] = src[k] === true;
+  return out;
+}
+
 export const DIFFICULTIES = ['FUNNY', 'NORMAL', 'HARD', 'ABYSS'];
 export const DIFFICULTY_NAMES = { FUNNY: N_('标准模拟'), NORMAL: N_('险境模拟'), HARD: N_('绝境模拟'), ABYSS: N_('终极模拟') };
 export const DIFFICULTY_COLORS = { FUNNY: '#f6a329', NORMAL: '#e85a1a', HARD: '#e73118', ABYSS: '#ff0024' };

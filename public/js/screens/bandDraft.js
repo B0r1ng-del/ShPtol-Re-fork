@@ -177,7 +177,7 @@ export function BandDraftScreen() {
   const [infoOpen, setInfoOpen] = useState(false);
 
   const mode = gd.config?.modes?.[pub?.modeId];
-  const offBonds = modeOffBonds(mode); // the bonds this mode never activates (标准: 10 of 23)
+  const offBonds = modeOffBonds(mode, pub?.mods); // the bonds this mode never activates (标准: 10 of 23; none with 关闭盟约禁用)
   const solo = roomSolo || mode?.type === 'SINGLE' || String(pub?.modeId || '').includes('single');
   const bands = useMemo(() => allowedBands(gd.list('bands'), mode?.type || (solo ? 'SINGLE' : 'MULTI')), [gd.ready, mode?.type, solo, data.locale()]);
   const players = sortedPlayers(pub);

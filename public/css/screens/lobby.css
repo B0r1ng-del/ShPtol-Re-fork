@@ -241,3 +241,28 @@
 .create-box { margin-top: .3rem; display: flex; flex-direction: column; gap: .12rem; }
 .create-box .btn--xl { height: .92rem; font-size: calc(.32 * var(--t)); letter-spacing: .3em; }
 .create-box__hint { display: flex; align-items: center; justify-content: center; min-height: .3rem; font-size: calc(.14 * var(--t)); color: var(--text-lo); }
+
+/* ---- Mod 开关 (the 模式界面's switch submenu, beside 干员调配) ----------------------------------------- */
+/* The entry button sits in the top bar's right group next to 干员调配; it takes the same height on touch screens so the
+   row stays level (the same rule as .lobby-loadout, components.css). */
+.mods-entry { position: relative; gap: .08rem; flex: none; }
+.sp-coarse .lobby-screen .mods-entry { height: max(.5rem, 36px); font-size: max(calc(.18 * var(--t)), 11px); }
+/* the submenu itself: one switch row per MOD_ROWS entry, the switch over its own explanation (房主配置's shape) */
+.mods { display: flex; flex-direction: column; gap: .12rem; }
+.mods__note { margin: 0; font-size: calc(.14 * var(--t)); line-height: 1.5; color: var(--line-3); }
+.mods__rows { display: flex; flex-direction: column; gap: .12rem; }
+.mods__row { display: flex; flex-direction: column; gap: .04rem; min-width: 0; }
+.mods__opt {
+  --d-color: var(--mint-400);
+  align-self: flex-start; justify-content: flex-start; height: .36rem; padding: 0 .14rem;
+  border: 1px solid var(--line-2); background: rgba(0, 0, 0, .3);
+  font-size: calc(.15 * var(--t)); letter-spacing: .04em;
+}
+.mods__opt .icon { opacity: .25; flex: none; }
+.mods__opt .icon.is-on { opacity: 1; }
+.mods__desc { font-size: calc(.13 * var(--t)); line-height: 1.35; color: var(--line-3); }
+/* Phones: the row wraps before the button and the chip; the submenu's switches stay tappable (≥ 36 px). */
+@media (max-width: 640px) {
+  .lobby-screen .topbar__right { flex-wrap: wrap; justify-content: flex-end; gap: .1rem; }
+  .sp-coarse .mods__opt { height: max(.42rem, 34px); }
+}

@@ -115,7 +115,9 @@ test('bond popup: 本局禁用 instead of 未激活, a note, and no misleading m
 
 test('the game screen hands the mode-disabled set to the shop bar, the detail card and the bond popup', () => {
   const src = read('public/js/screens/game.js');
-  assert.match(src, /const offBonds = modeOffBonds\(getMode\(pub\?\.modeId\)\)/);
+  // Mod 开关 关闭盟约禁用 (m.public.mods.noBondBan) is passed with the mode record: with it on the set is empty, so
+  // nothing is greyed as 本局禁用 even though config.json still lists the mode's own inactiveBondIds.
+  assert.match(src, /const offBonds = modeOffBonds\(getMode\(pub\?\.modeId\), pub\?\.mods\)/);
   assert.match(src, /<\$\{ShopBar\}[\s\S]*?offBonds=\$\{offBonds\}/);
   assert.match(src, /<\$\{DetailPanel\}[\s\S]*?offBonds=\$\{offBonds\}/);
   assert.match(src, /<\$\{BondPopup\}[\s\S]*?off=\$\{offBonds\.has\(bondPop\.bondId\)\}/);

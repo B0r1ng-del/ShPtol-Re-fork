@@ -1,0 +1,105 @@
+// Mod 开关 — the lobby's per-device gameplay switches (模式界面, beside 干员调配).
+//
+// WHAT THIS IS
+// The 模式界面 carries a 「Mod」 button with a submenu of gameplay switches, laid out beside 干员调配. The switches are a
+// LOCAL preference: they live in localStorage (`sp.pref.mods`), they are set on the lobby page only, and the creator
+// carries them into the room it makes (`room.create.mods` — shared/constants.js MOD_KEYS). The room keeps them across
+// its matches and the match reads them when it starts (server/match/gamedata.js GameData.mods), so a joiner plays the
+// host's rules — the same way the mode and the difficulty work.
+//
+// Each switch defaults OFF, so a player who never opens the submenu creates exactly the official room: the server's
+// GameData treats an absent switch as its default, and every caller that passes nothing (the golden scenarios, the
+// rehearsal tools, every test) is byte-identical to before.
+//
+// The store mirrors ui/emotes.js: the preference itself is localStorage (`savePref` notifies nothing), so the lobby
+// would keep rendering stale switches until some unrelated frame arrived. The store is what re-renders it.
+
+import { useState } from '../../vendor/hooks.module.js';
+import { loadPref, savePref, createStore, useStore } from '../store.js';
+import { MOD_KEYS, MOD_DEFAULTS, normalizeMods } from '../../../shared/constants.js';
+import { html, Icon, Button, Modal } from './components.js';
+import { t, N_ } from '../../../shared/i18n.js';
+
+/** localStorage key under the app's `sp.pref.` prefix (store.js loadPref/savePref). */
+export const PREF_MODS = 'mods';
+
+/** Read the switches from this device, normalised to exactly MOD_KEYS booleans (a corrupt value is all-off). */
+export function modsOn() {
+  return normalizeMods(loadPref(PREF_MODS, MOD_DEFAULTS));
+}
+
+/**
+ * The switches as a tiny store, so flipping one re-renders the lobby's submenu and its badge.
+ * @type {ReturnType<typeof createStore>}
+ */
+export const modsStore = createStore(modsOn());
+
+/** Set one switch: persist it for this device and notify every screen that shows it. Unknown keys are ignored. */
+export function setMod(key, on) {
+  if (!MOD_KEYS.includes(key)) return;
+  savePref(PREF_MODS, { ...modsOn(), [key]: on === true });
+  modsStore.set(modsOn());
+}
+
+/** How many switches are on (the Mod button's badge; 0 = the button shows no count). */
+export function modsCount(mods = null) {
+  const m = mods || modsOn();
+  return MOD_KEYS.reduce((n, k) => n + (m[k] === true ? 1 : 0), 0);
+}
+
+/** Hook: the switches of this device (re-renders on `setMod`). */
+export function useMods() {
+  return useStore((s) => s, Object.is, modsStore);
+}
+
+/**
+ * The submenu's rows, in display order: `key` (MOD_KEYS), `label` the switch's text and `tip` its one-line
+ * explanation — both msgids (N_: the table is built once, before a language can change; the component calls t()
+ * where they are shown). One row per switch the submenu offers.
+ */
+export const MOD_ROWS = Object.freeze([
+  { key: 'noBondBan', label: N_('关闭盟约禁用'), tip: N_('所有模式都不再禁用盟约：既不会有随机禁用，也不会保留模式固有的禁用盟约') },
+  { key: 'untimedSp', label: N_('机变不限时'), tip: N_('所有模式的机变阶段都不再有时间限制，全部选择完毕后结束') },
+]);
+
+/**
+ * The Mod submenu of the 模式界面: one switch row per MOD_ROWS entry, opened by <ModButton/>. It is a local
+ * preference — the switches apply to the room this device creates, and a joiner plays the host's rules.
+ */
+function ModDialog({ open, onClose, mods, onToggle }) {
+  return html`<${Modal} open=${open} onClose=${onClose} tone="mint" width="min(7.6rem, 96vw)"
+      title=${t('Mod 开关')} micro="MOD SWITCHES"
+      actions=${html`<${Button} variant="secondary" onClick=${onClose}>${t('完成')}<//>`}>
+    <div class="mods">
+      <p class="mods__note">${t('这些开关只在本机保存，进入房间时随你创建的房间一起生效；加入他人的房间时以房主的设置为准。')}</p>
+      <div class="mods__rows">
+        ${MOD_ROWS.map((r) => html`<div class="mods__row" key=${r.key}>
+          <button type="button" role="switch" aria-checked=${mods[r.key] === true ? 'true' : 'false'}
+              data-testid=${`mod-${r.key}`}
+              class=${`dpick__opt mods__opt${mods[r.key] === true ? ' is-active' : ''}`}
+              onClick=${() => onToggle(r.key, mods[r.key] !== true)}>
+            <${Icon} name="check" class=${mods[r.key] === true ? 'is-on' : ''} />${t(r.label)}
+          </button>
+          <span class="mods__desc">${t(r.tip)}</span>
+        </div>`)}
+      </div>
+    </div>
+  <//>`;
+}
+
+/**
+ * The 模式界面's Mod button (the 干员调配 button's shape, laid out beside it): opens the submenu above and carries a
+ * count of the switches that are on. Local to the lobby page — the submenu is not offered anywhere else.
+ */
+export function ModButton({ class: cls }) {
+  const mods = useMods();
+  const [open, setOpen] = useState(false);
+  const n = modsCount(mods);
+  return html`<button type="button" class=${`btn btn--secondary btn--md mods-entry${cls ? ` ${cls}` : ''}`} data-testid="mod-open"
+      onClick=${() => setOpen(true)} title=${t('Mod 开关 · 游戏性改动，只在本机保存')}>
+    <${Icon} name="sliders" class="btn__icon" />
+    <span class="btn__label">${t('Mod')}</span>
+    ${n ? html`<span class="lo-entry__n num" aria-label=${t('{n} 项已开启', { n })}>${n}</span>` : null}
+    ${open ? html`<${ModDialog} open=${true} onClose=${() => setOpen(false)} mods=${mods} onToggle=${setMod} />` : null}
+  </button>`;
+}

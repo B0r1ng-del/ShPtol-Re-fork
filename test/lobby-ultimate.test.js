@@ -79,6 +79,14 @@ describe('终极模拟 rooms (6 seats, AC-4)', () => {
     assert.equal(validateC2S({ t: 'room.create', mode: 'coop', difficulty: 'ABYSS' }), null);
     assert.notEqual(validateC2S({ t: 'room.create', mode: 'ultimate2', difficulty: 'ABYSS' }), null);
     assert.notEqual(validateC2S({ t: 'room.create', mode: 'MULTI', difficulty: 'ABYSS' }), null);
+    // Mod 开关 (room.create.mods, MOD_KEYS): optional, all-boolean, and no key outside MOD_KEYS
+    assert.equal(validateC2S({ t: 'room.create', mode: 'coop', difficulty: 'ABYSS', mods: {} }), null);
+    assert.equal(validateC2S({ t: 'room.create', mode: 'coop', difficulty: 'ABYSS', mods: { noBondBan: true } }), null);
+    assert.equal(validateC2S({ t: 'room.create', mode: 'coop', difficulty: 'ABYSS', mods: { noBondBan: true, untimedSp: false } }), null);
+    assert.notEqual(validateC2S({ t: 'room.create', mode: 'coop', difficulty: 'ABYSS', mods: { bogus: true } }), null, 'unknown switch');
+    assert.notEqual(validateC2S({ t: 'room.create', mode: 'coop', difficulty: 'ABYSS', mods: { noBondBan: 'yes' } }), null, 'non-boolean');
+    assert.notEqual(validateC2S({ t: 'room.create', mode: 'coop', difficulty: 'ABYSS', mods: [true] }), null, 'array');
+    assert.notEqual(validateC2S({ t: 'room.create', mode: 'coop', difficulty: 'ABYSS', mods: null }), null, 'null');
     for (const t of ['room.removeBot', 'room.kick']) {
       const msg = (seat) => (t === 'room.kick' ? { t, seat, playerId: 'p_0123456789' } : { t, seat });
       for (let seat = 0; seat <= ULTIMATE_SEATS - 1; seat++) assert.equal(validateC2S(msg(seat)), null, `${t} seat ${seat}`);
