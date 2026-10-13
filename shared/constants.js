@@ -84,9 +84,14 @@ export const HOST_CONFIG_DEFAULTS = Object.freeze({ sharedPool: true, sharedBoun
  *                                  attribution) — the same rule 终极模拟's own `spDraft.randomVote` follows (二.4).
  *                             off — no vote button anywhere the mode itself does not ask for it (the official draft).
  */
-export const MOD_KEYS = Object.freeze(['noBondBan', 'untimedSp', 'randomSpVote']);
+export const MOD_KEYS = Object.freeze(['noBondBan', 'untimedSp', 'randomSpVote', 'extraRounds', 'targetedPick']);
 /** Defaults of MOD_KEYS: the official behaviour of each switch (all off). */
-export const MOD_DEFAULTS = Object.freeze({ noBondBan: false, untimedSp: false, randomSpVote: false });
+export const MOD_DEFAULTS = Object.freeze({ noBondBan: false, untimedSp: false, randomSpVote: false, extraRounds: false, targetedPick: false });
+/**
+ * How many extra 普通回合 the 「额外 4 回合」 switch (`extraRounds`) inserts before the boss: the run goes 14 → 18 rounds
+ * in every mode. `GameData.extraRounds` reads it; the inserted rounds reuse the last ordinary round's own table.
+ */
+export const MOD_EXTRA_ROUNDS = 4;
 /**
  * The card families the 随机分配 vote may hand out when the `randomSpVote` switch offers it in a mode whose own
  * `spDraft` does not list any (二.4 lists its own; this is the switch's default). 悬赏 (`bounty`) is deliberately NOT
