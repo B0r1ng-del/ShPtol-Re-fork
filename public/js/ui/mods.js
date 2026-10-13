@@ -60,6 +60,7 @@ export function useMods() {
 export const MOD_ROWS = Object.freeze([
   { key: 'noBondBan', label: N_('关闭盟约禁用'), tip: N_('所有模式都不再禁用盟约：既不会有随机禁用，也不会保留模式固有的禁用盟约') },
   { key: 'untimedSp', label: N_('机变不限时'), tip: N_('所有模式的机变阶段都不再有时间限制，全部选择完毕后结束') },
+  { key: 'randomSpVote', label: N_('机变随机分配'), tip: N_('所有模式的机变阶段都可以投票「随机分配」：过半即由系统随机发放（悬赏决策除外）') },
 ]);
 
 /**

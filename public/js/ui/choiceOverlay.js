@@ -102,10 +102,13 @@ export function cardPickable(sp, card, { myId, solo, busyIdx = null }) {
 }
 
 /**
- * Whether the 随机分配 vote may be cast right now (fork 二.4): the server offers it for THIS draft (`randomOffer`, null
- * in a 悬赏决策 draft and in every official mode) and this player has not acted yet. Deliberately NOT gated on the turn:
- * the draft is untimed, so the vote is the escape hatch that ends it without waiting for the seat that holds the turn
- * (the owner's ruling of 2026-10-12 kept the sequential order AND the vote).
+ * Whether the 随机分配 vote may be cast right now: the server offers it for THIS draft (`randomOffer`, null in a
+ * 悬赏决策 draft and in every official mode with the switches off) and this player has not acted yet. Deliberately NOT
+ * gated on the turn: the draft may be untimed, so the vote is the escape hatch that ends it without waiting for the
+ * seat that holds the turn (the owner's ruling of 2026-10-12 kept the sequential order AND the vote).
+ *
+ * The offer comes from the server in every case — 终极模拟's own `spDraft.randomVote` (fork 二.4) and the 四.2 Mod 开关
+ * `randomSpVote` 机变随机分配 for any mode both land in `sp.randomOffer`, so nothing here needs to know which asked.
  * @param {any} sp normalizeSp(...) @param {{ myId: string, solo: boolean }} o
  */
 export function randomVoteAvailable(sp, { myId } = {}) {
