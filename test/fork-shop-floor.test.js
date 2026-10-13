@@ -210,10 +210,14 @@ describe('四.3 商店保底 — a real six-player 终极模拟 match', () => {
       // base banned. (Draining the shared pool's copies instead would break the pool's own accounting invariant:
       // copies must be `left + held`, and nothing holds a shop card.) The guarantee then has nothing to draw from, so
       // the ordinary draw must run instead of leaving slot 0 empty.
+      // The stub must ALSO carry the match's own bans: 终极模拟 draws bond bans like 同盟模拟 since 2026-10-13, so
+      // some 干员 are out of play and a stand-in pool that forgot them would hand back a banned card (which
+      // checkInvariants rightly rejects). `banned` is the pool's own list, so union it.
       const g = h.m.gd;
       const tier5 = g.visibleChess.filter((id) => g.tierOf(id) === 5);
       assert.ok(tier5.length > 0, 'the data has 5 阶 operators');
-      const drained = new SharedPool(g, { banned: tier5 });
+      assert.ok(h.m.pool.banned.length > 0, 'the six-player room really does ban 干员 now');
+      const drained = new SharedPool(g, { banned: [...tier5, ...h.m.pool.banned] });
       assert.equal(drained.entries.size > 0, true, 'the stub still has lower tiers');
       const realStock = ps.stock.bind(ps);
       ps.stock = () => drained;
