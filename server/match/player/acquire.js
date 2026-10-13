@@ -6,6 +6,7 @@
 // the player state).
 
 import { pieceDir, parseDir, mergeTile } from '../board.js';
+import { computeBonds } from '../bondsMeta.js';
 import { MAX_OFFER_SLOTS } from './common.js';
 import { onMerge } from '../botEmotes.js';
 
@@ -229,6 +230,14 @@ export class PlayerAcquire {
     if (!list) {
       list = [];
       const fresh = (id) => !list.includes(id);
+      // 「定向甄选」 (the `targetedPick` Mod 开关, source 'merge' only): the 三选一 draws from the operators of the player's
+      // HIGHEST-LAYER ACTIVE bond instead of the whole pool. The owner's wording (2026-10-13): 「三个相同干员合为进阶干员时，
+      // 奖励的高阶干员三选一阶段，三个干员的刷新机制改为：从当前已激活最高层数的盟约旗下的干员中随机」. Only the promotion
+      // reward ('merge') is affected: a strategy's / an item's explicit `ids` offer is built from its own list and never rolls.
+      const focus = source === 'merge' && this.gd.mods.targetedPick === true
+        ? this.gd.highestLayerActiveBond(computeBonds(this.gd, this))
+        : null;
+      const focusIds = focus ? this.gd.chessOfBond(focus) : null;
       for (let i = 0; i < ro.count; i++) {
         let id = null;
         // Two changes meet on this line and BOTH are kept (upstream v0.2.5 × fork 共享卡池):
@@ -238,7 +247,15 @@ export class PlayerAcquire {
         //     自选 pieces of that tier (copies left, the roll's own tier — not the shop's shopLevel gate).
         // The old fork line passed `diyRollEntries()` here, which is the SHOP's set (gated on shop.level); the reward
         // offer is exactly the case upstream §30.23 changed, so upstream's accessor wins.
-        for (let tt = t; tt >= 1 && !id; tt--) id = this.stock().roll(this.m.rngShop, { tier: tt, filter: fresh, extra: this.diyStockEntries() });
+        // With 定向甄选 on, the SAME cascade runs but may only draw from the focus bond's operators; an empty focus set
+        // (every member sold out / banned) falls through to the ordinary roll rather than handing back an empty slot.
+        for (let tt = t; tt >= 1 && !id; tt--) {
+          if (focusIds) {
+            const only = (x) => focusIds.includes(x) && fresh(x);
+            id = this.stock().roll(this.m.rngShop, { tier: tt, filter: only, extra: this.diyStockEntries() });
+          }
+          if (!id) id = this.stock().roll(this.m.rngShop, { tier: tt, filter: fresh, extra: this.diyStockEntries() });
+        }
         if (id) list.push(id);
       }
     }

@@ -14,7 +14,7 @@
 import { getConfig, getMode } from '../data.js';
 import { isShopItem } from '../sim/simdata.js';
 import { standInRecord } from '../../shared/standIn.js';
-import { normalizeMods, MOD_RANDOM_SP_FAMILIES } from '../../shared/constants.js';
+import { normalizeMods, MOD_RANDOM_SP_FAMILIES, MOD_EXTRA_ROUNDS } from '../../shared/constants.js';
 
 const own = (map, id) => (map && typeof map === 'object' && typeof id === 'string' && Object.hasOwn(map, id) && map[id] && typeof map[id] === 'object' ? map[id] : null);
 const numOr = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -205,6 +205,50 @@ export class GameData {
   chess(id) { return own(this._chess, id); }
   item(id) { return own(this._items, id); }
   bond(id) { return own(this._bonds, id); }
+
+  /**
+   * The 盟约 a chess belongs to (data `chess[id].bonds`, e.g. `['lateranoShip','swiftShip']`).
+   * @param {string} id
+   * @returns {string[]}
+   */
+  chessBondIds(id) {
+    const b = own(this._chess, id)?.bonds;
+    return Array.isArray(b) ? b.filter((x) => typeof x === 'string') : [];
+  }
+
+  /**
+   * The shop-eligible operators under a bond: every visible chess that lists `bondId`.
+   * @param {string} bondId
+   * @returns {string[]}
+   */
+  chessOfBond(bondId) {
+    if (typeof bondId !== 'string' || !bondId) return [];
+    return this.visibleChess.filter((id) => this.chessBondIds(id).includes(bondId));
+  }
+
+  /**
+   * 「定向甄选」 (the `targetedPick` Mod 开关): the bond whose 层数 is currently the highest among the player's ACTIVE
+   * 盟约, or null when none is active. The owner's wording (2026-10-13): 「从当前已激活最高层数的盟约旗下的干员中随机」 —
+   * the single highest one, not a weighted draw over several.
+   *
+   * Ties go to the lower `identifier` (the game's own bond order, gamedata.bondIds), so a tie is deterministic and the
+   * same on the server and in a replay. Bonds that are statically inactive this match (标准模拟's ten, or whatever the
+   * difficulty drew out) cannot be active in the first place, so they never win here.
+   * @param {Record<string, { active?: boolean, layers?: number }>} bonds the player's computed bond states
+   * @returns {string|null}
+   */
+  highestLayerActiveBond(bonds) {
+    if (!bonds || typeof bonds !== 'object') return null;
+    let best = null;
+    let bestLayers = -1;
+    for (const bondId of this.bondIds) {
+      const b = bonds[bondId];
+      if (!b || b.active !== true) continue;
+      const layers = numOr(b.layers, 0);
+      if (layers > bestLayers) { best = bondId; bestLayers = layers; }
+    }
+    return best;
+  }
   band(id) { return own(this.raw.bands, id); }
   garrison(id) { return own(this.raw.garrisons, id); }
   effect(id) { return own(this.raw.effects, id); }
@@ -351,16 +395,43 @@ export class GameData {
   get isSolo() { return this.mode.type === 'SINGLE' || /^mode_single_/.test(this.modeId || ''); }
   get difficulty() { return this.mode.difficulty || (this.modeId ? String(this.modeId).split('_').pop().toUpperCase() : 'NORMAL'); }
   get lastRound() {
-    if (Number.isInteger(this.mode.lastRound) && this.mode.lastRound > 0) return this.mode.lastRound;
-    return this.modeId === 'mode_single_funny' ? 9 : 14;
+    if (Number.isInteger(this.mode.lastRound) && this.mode.lastRound > 0) return this.mode.lastRound + this.extraRounds;
+    return (this.modeId === 'mode_single_funny' ? 9 : 14) + this.extraRounds;
   }
-  get bossRound() { return Number.isInteger(this.mode.bossRound) && this.mode.bossRound > 0 ? this.mode.bossRound : this.lastRound; }
-  get hiddenRound() { return Number.isInteger(this.mode.hiddenRound) && this.mode.hiddenRound > 0 ? this.mode.hiddenRound : null; }
+  get bossRound() {
+    const own = Number.isInteger(this.mode.bossRound) && this.mode.bossRound > 0 ? this.mode.bossRound : null;
+    return (own ?? (Number.isInteger(this.mode.lastRound) && this.mode.lastRound > 0 ? this.mode.lastRound : this.modeId === 'mode_single_funny' ? 9 : 14)) + this.extraRounds;
+  }
+  get hiddenRound() {
+    const own = Number.isInteger(this.mode.hiddenRound) && this.mode.hiddenRound > 0 ? this.mode.hiddenRound : null;
+    return own == null ? null : own + this.extraRounds;
+  }
+  /**
+   * How many extra 普通回合 the 「额外 4 回合」 Mod 开关 adds before the boss (0 when off, 4 when on).
+   * The owner's wording (2026-10-13): 「开启时：无论单人、同盟、终极模拟，回合数都由 14 回合变为 18 回合。新增的 4 回合皆为
+   * 普通回合，即不是 Boss 回合」 — so the boss moves LATER rather than the run continuing past it: every round number from
+   * the boss on is shifted by this many, and `roundCfg` serves the LAST ordinary round's table for the inserted ones.
+   */
+  get extraRounds() { return this.mods.extraRounds === true ? MOD_EXTRA_ROUNDS : 0; }
   get maxShopLevel() { return posIntOr(this.mode.maxShopLevel, DEFAULTS.maxShopLevel); }
 
+  /**
+   * The round table of round `r`. With 「额外 4 回合」 on, the rounds BEFORE the boss are unchanged and the boss / hidden
+   * rounds are shifted up by `extraRounds`; the rounds between the old last round and the shifted boss are 普通回合 that
+   * reuse the last ordinary round's own table (its battlefield template, prep time, timers) — deliberately not a new
+   * generated table, so the inserted rounds are the game's own last normal round, and nothing else has to know they exist.
+   */
   roundCfg(r) {
     const rounds = this.mode.rounds;
-    return rounds && typeof rounds === 'object' && rounds[String(r)] && typeof rounds[String(r)] === 'object' ? rounds[String(r)] : null;
+    if (!rounds || typeof rounds !== 'object') return null;
+    const n = numOr(r, 0);
+    const base = Number.isInteger(this.mode.lastRound) && this.mode.lastRound > 0 ? this.mode.lastRound : (this.modeId === 'mode_single_funny' ? 9 : 14);
+    const shift = this.extraRounds;
+    let key = n;
+    if (shift > 0 && n >= base && n < base + shift) key = base - 1; // the inserted 普通回合: the last ordinary round's table
+    else if (shift > 0 && n >= base + shift) key = n - shift;        // the boss / hidden rounds, moved up
+    const rec = rounds[String(key)];
+    return rec && typeof rec === 'object' ? rec : null;
   }
 
   spRounds() { return Array.isArray(this.mode.spRounds) ? this.mode.spRounds.filter((n) => Number.isInteger(n)) : []; }
