@@ -112,28 +112,24 @@ export function forkUltimateMode(modes) {
       leader: { hp: 1.2, def: 1.2, atk: 1.08 },
       hidden: { hp: 1.35, def: 1.35, atk: 1.16 },
     },
-    // 机变阶段改造 (requirement 二.4): the draft has NO time limit and any player may vote for a random allocation
-    // instead of picking. As soon as HALF of the alive players have voted (votes × 2 ≥ alive) the system hands the cards
-    // out at random — one per alive player, over their own pick — and the round moves on.
-    //   * UNTIMED — "移除原有的时间限制"; the draft ends when every alive player has picked or voted.
-    //   * SEQUENTIAL — the turn order is KEPT (parallel: false). 二.4 first made the whole draft parallel on the theory
-    //     that no clock + one player at a time could stall the round; the owner's report of 2026-10-12 shows what that
-    //     actually played like — 「无论在哪个机变阶段，它都没有按照顺序来，而是谁手快谁先抢到」, "whoever is fast grabs the
-    //     card" — while the official 机变 is a turn order (the overlay's 决策顺序 row, one 博士 at a time). So the order
-    //     comes back, and the vote is the escape hatch that keeps the untimed draft from ever stalling: any player may
-    //     vote at ANY time (voteRandomChoice no longer requires a parallel draft), and half the alive players voting ends
-    //     the phase at once. A single player who neither picks nor votes can still hold the round — the same as any
-    //     untimed turn-based draft, and the host can hand that seat to the AI (AI 托管), which picks for it.
-    //   * randomVote.families — the card families the random draw may hand out. 悬赏 (bounty) is deliberately NOT
-    //     listed: "悬赏类不要添加随机机制" — its card adds its enemies to the PICKER's own next battles, so handing it
-    //     to somebody else would break the attribution. In a 悬赏决策 draft the vote button is simply not offered.
-    // Below half the votes each player keeps the card they picked; a player who only voted and lost the vote takes
-    // nothing this round (the phase still ends).
-    spDraft: {
-      untimed: true,
-      parallel: false,
-      randomVote: { families: ['supply', 'shop', 'tactic'] },
-    },
+    // 机变阶段改造 (requirement 二.4) — NOW SWITCH-CONTROLLED, not a property of this mode.
+    //
+    // 二.4 originally put `spDraft: { untimed: true, parallel: false, randomVote: {...} }` here, i.e. 终极模拟 hard-coded
+    // 「no clock + a random-allocation vote」. That made the two Mod 开关 dead in this mode: `GameData.spDraftRules` ORed
+    // the mode's own value into the switch's answer, so turning 机变不限时间 OFF left `untimed: true` standing and turning
+    // 机变随机分配 OFF left the vote offered — the owner's report of 2026-10-13 (「无论开启还是关闭，在所有模式里机变阶段都是
+    // 不限时的，开关没有生效」 / 「该 mod 功能在六人模式里无论开启还是关闭都不生效」).
+    //
+    // The owner's ruling: the switches decide, and OFF means the OFFICIAL draft in every mode. So this mode declares no
+    // 机变 block at all, and both behaviours come from the Mod 开关 alone:
+    //   * 机变不限时间 (`untimedSp`)  on  → no mode's 机变 runs on a clock.  off → the official clock (30 s first turn,
+    //     16 s after; PLAYING.md §1) is back for 终极模拟 exactly as for 同盟模拟.
+    //   * 机变随机分配 (`randomSpVote`) on  → the 「随机分配」 vote is offered in every mode.  off → no mode offers it.
+    // `parallel` stays false (三.4 restored the official turn order; no switch changes it).
+    //
+    // The vote itself is unchanged — castable at any time, half the alive players resolve the draft into a random
+    // allocation, 悬赏 cards are never drawn, and a mode that ever wants its own list can still declare one
+    // (`spDraftRules` reads it as the default the switch overrides).
   };
 }
 

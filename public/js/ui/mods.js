@@ -59,7 +59,7 @@ export function useMods() {
  */
 export const MOD_ROWS = Object.freeze([
   { key: 'noBondBan', label: N_('关闭盟约禁用'), tip: N_('所有模式都不再禁用盟约：既不会有随机禁用，也不会保留模式固有的禁用盟约') },
-  { key: 'untimedSp', label: N_('机变不限时'), tip: N_('所有模式的机变阶段都不再有时间限制，全部选择完毕后结束') },
+  { key: 'untimedSp', label: N_('机变不限时间'), tip: N_('所有模式的机变阶段都不再有时间限制，全部选择完毕后结束') },
   { key: 'randomSpVote', label: N_('机变随机分配'), tip: N_('所有模式的机变阶段都可以投票「随机分配」：过半即由系统随机发放（悬赏决策除外）') },
   { key: 'extraRounds', label: N_('额外 4 回合'), tip: N_('所有模式的回合数由 14 回合变为 18 回合，新增的 4 回合都是普通回合，Boss 回合相应后移到第 18 回合') },
   { key: 'targetedPick', label: N_('定向甄选'), tip: N_('三个相同干员合为进阶干员时，奖励的高阶干员三选一改为从当前已激活最高层数的盟约旗下的干员中随机') },

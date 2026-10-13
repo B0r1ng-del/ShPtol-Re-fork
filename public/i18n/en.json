@@ -1246,7 +1246,7 @@
   "{n} 项已调整": "{n} changed",
   "关闭盟约禁用": "Disable Alliance bans",
   "所有模式都不再禁用盟约：既不会有随机禁用，也不会保留模式固有的禁用盟约": "No Alliance is banned in any mode: neither the per-match random bans nor the mode's own disabled Alliances.",
-  "机变不限时": "No Improv Phase timer",
+  "机变不限时间": "No Improv Phase timer",
   "所有模式的机变阶段都不再有时间限制，全部选择完毕后结束": "The Improv Phase has no time limit in any mode; it ends once everyone has chosen.",
   "长按或悬停查看说明": "Press and hold, or hover, to see what it does",
   "Mod 开关": "Mod switches",

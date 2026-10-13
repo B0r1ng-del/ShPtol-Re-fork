@@ -37,10 +37,9 @@ export function nameOf(pub, playerId) {
  * @param {any} p m.public player row
  * @param {any} pub
  * @param {string} myId
- * @param {{ observing?: boolean, ownDone?: boolean }} [o] ownDone: the local simulation of the own battle already ended
- *   (its result is on the way to the server)
+ * @param {{ observing?: boolean }} [o] (the old `ownDone` option is gone: the own battle no longer blocks watching)
  */
-export function observeTarget(p, pub, myId, { observing = false, ownDone = false } = {}) {
+export function observeTarget(p, pub, myId, { observing = false } = {}) {
   if (!isObj(p)) return { reason: t('无效的目标') };
   if (p.playerId === myId) return observing ? { back: true } : { reason: null };
   if (p.alive === false || p.status === 'left') return { reason: t('该队友已被淘汰，无法查看') };
@@ -54,7 +53,13 @@ export function observeTarget(p, pub, myId, { observing = false, ownDone = false
   if (!meAlive || !own) return { fieldId: target.fieldId };
   if (own.fieldId === target.fieldId) return { reason: t('队友与你在同一战场，使用 ‹ › 切换视角') };
   if (target.kind === 'boss' || target.kind === 'hidden') return { reason: t('无法查看另一组队友的战场') };
-  if (own.kind === 'normal' && own.live !== false && !ownDone) return { reason: t('作战中无法查看队友，作战结束后可前往查看') };
+  // WATCHING A TEAMMATE MID-BATTLE IS ALLOWED (the owner's requirement of 2026-10-13: 「全模式战斗中都可以观看其他玩家视角，
+  // 就像正常游戏中，自身结束战斗后可以观看其他玩家视角一样，同时不改变原有战斗逻辑」). A guard used to refuse it while the
+  // own normal battle was still live (「作战中无法查看队友，作战结束后可前往查看」), which is the behaviour #24's entry-point
+  // fix left in place — the server has always accepted the switch and the browser keeps the own battle authoritative and
+  // reporting while another field is displayed (`runner.js`: an `own` entry is never evicted and keeps advancing), so
+  // nothing about the battle logic changes by looking. The only field still hidden from a living player is the other
+  // pair's boss/hidden field, per the official rule above.
   return { fieldId: target.fieldId };
 }
 

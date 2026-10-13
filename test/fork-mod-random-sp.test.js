@@ -32,29 +32,36 @@ describe('四.2 Mod 开关 机变随机分配 (randomSpVote) — the 随机分�
     assert.deepEqual([...MOD_RANDOM_SP_FAMILIES], ['supply', 'shop', 'tactic']);
   });
 
-  test('off: every official mode keeps its official draft (no offer), 终极模拟 keeps its own', () => {
+  test('off: NO mode offers the vote — including 终极模拟 (the switch decides, owner report 2026-10-13)', () => {
     for (const id of OFFICIAL) {
       assert.deepEqual(gd(id).spDraftRules, { untimed: false, parallel: false, randomFamilies: null }, id);
       assert.equal(gd(id).spDraft, null, id);
     }
-    assert.deepEqual(gd(FORK).spDraftRules.randomFamilies, ['supply', 'shop', 'tactic'], '二.4 unchanged');
+    // 二.4 gave the fork mode its own randomVote, and this getter used to prefer it over the switch — which is exactly
+    // why the switch did nothing in 六人模式 (「该 mod 功能在六人模式里无论开启还是关闭都不生效」). The mode no longer
+    // declares one, so OFF really means off here too.
+    assert.equal(gd(FORK).spDraftRules.randomFamilies, null, 'OFF means no vote in every mode now');
+    assert.equal(gd(FORK).spDraft, null, 'the fork mode no longer carries a 机变 block of its own');
   });
 
-  test('on: every official mode offers the vote with the switch\'s families', () => {
-    for (const id of OFFICIAL) {
+  test('on: every mode offers the vote with the switch\'s families, 六人模式 included', () => {
+    for (const id of [...OFFICIAL, FORK]) {
       const rules = gd(id, { randomSpVote: true }).spDraftRules;
       assert.deepEqual(rules.randomFamilies, ['supply', 'shop', 'tactic'], id);
       // and it changes nothing else: the switch is not a timer and not a parallel switch
-      assert.equal(rules.untimed, false, `${id}: still timed`);
       assert.equal(rules.parallel, false, `${id}: still sequential`);
     }
+    for (const id of OFFICIAL) assert.equal(gd(id, { randomSpVote: true }).spDraftRules.untimed, false, `${id}: still timed`);
   });
 
-  test('on: 终极模拟 keeps its OWN families — the switch widens the offer, it never narrows a mode\'s own', () => {
+  test('on: the switch supplies the list, and a mode that declares its OWN keeps exactly that', () => {
     const fork = gd(FORK, { randomSpVote: true }).spDraftRules;
     assert.deepEqual(fork.randomFamilies, ['supply', 'shop', 'tactic']);
-    assert.deepEqual(fork, { untimed: true, parallel: false, randomFamilies: ['supply', 'shop', 'tactic'] });
-    // a mode whose own list is narrower keeps exactly that list, not the switch's default
+    // the fork mode carries no 机变 block of its own any more (the switches decide), so `untimed` follows the timer
+    // switch — off here — not 二.4's old hard-coded `true`
+    assert.deepEqual(fork, { untimed: false, parallel: false, randomFamilies: ['supply', 'shop', 'tactic'] });
+    // a mode that declares its own list keeps exactly that list, not the switch's default — the mode's block is the
+    // DEFAULT the switch overrides, which is how a future mode can still choose its own families
     const patched = {
       ...DATA,
       config: {

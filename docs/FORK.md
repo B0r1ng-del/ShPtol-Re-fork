@@ -102,25 +102,31 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
   `bloodPoint[difficulty]` — so the two classes are computed separately and neither can move the other's pool.
   Boss-owned runtime summons (`server/sim/content/bosses.js` `summon.hp_ratio`) never come from `enemyScale` and so
   stay outside all of it. `test/fork-ultimate-enemy-stats.test.js`.
-- **二.4 机变阶段改造** — the mode carries `spDraft: { untimed: true, parallel: false, randomVote: { families: ['supply',
-  'shop', 'tactic'] } }`. `GameData.spDraftRules` normalises it (all off without the block), `Match.enterSpDraft` turns
-  the draft untimed, and `Match.voteRandomChoice` (the `g.choiceRandom` intent, `Match.js` SP_DRAFT section) tallies
-  votes: `votes × 2 ≥ alive` resolves the draft by `resolveRandomChoice`, which shuffles the random-eligible cards and
-  the alive players and hands one card to each — over their own pick, which is the point of the vote; below half every
-  player keeps the card it picked, and a voter who picked nothing takes nothing. UNTIMED ("移除原有的时间限制") means the
-  phase ends when every alive player has picked or voted.
+- **二.4 机变阶段改造 — NOW SWITCH-CONTROLLED (the owner's report of 2026-10-13).** 二.4 first hard-coded
+  `spDraft: { untimed: true, parallel: false, randomVote: { families: ['supply', 'shop', 'tactic'] } }` on the mode, which
+  made both Mod 开关 dead in 六人模式: `GameData.spDraftRules` ORed the mode's own value into the switch's answer, so
+  turning 机变不限时间 OFF left `untimed: true` standing and turning 机变随机分配 OFF left the vote offered. The owner's
+  ruling — 「关闭时，恢复原版的时间限制」 and 「在六人模式中，该开关应能正确控制」 — is that the switches DECIDE: the mode
+  declares no block, and OFF is the official draft in every mode. `spDraftRules` still reads a mode's own block as the
+  DEFAULT a switch overrides, so a future mode can declare one; `parallel` stays false regardless (三.4). See 四.1 / 四.2.
+  `Match.voteRandomChoice` (the `g.choiceRandom` intent, `Match.js` SP_DRAFT section) tallies votes: `votes × 2 ≥ alive`
+  resolves the draft by `resolveRandomChoice`, which shuffles the random-eligible cards and the alive players and hands one
+  card to each — over their own pick, which is the point of the vote. Below half, **every player keeps a card, the voter
+  included**: a vote is a request rather than a decision, so `spDone` counts only cards, the voter keeps its turn and may
+  pick normally, and `finishSpDraft` backfills any living seat that still holds nothing. (It used to be the reverse —
+  「a player who only voted and lost the vote takes nothing this round」 — which is the reported 「导致最后一名玩家没有拿到任何
+  道具或敌人」.) UNTIMED ("移除原有的时间限制") means the phase ends when every alive player has picked.
   The turn order is KEPT (`parallel: false`, the owner's report of 2026-10-12: 「无论在哪个机变阶段，它都没有按照顺序来，而是谁
   手快谁先抢到」 — the official 机变 is a turn order, the overlay's 决策顺序 row, one 博士 at a time). 二.4 first made the
   whole draft parallel on the theory that no clock + one player at a time could stall the round; the order came back, and
-  the vote is what keeps an untimed sequential draft from ever stalling: `g.choiceRandom` is accepted at ANY time, not
-  only on the voter's turn (`voteRandomChoice` no longer requires `parallel`; `spDone` counts a vote as done, so the
-  turn advances past a voter; `m.public`'s status reads a voter as ready). A seat that neither picks nor votes can still
-  hold the round — as in any untimed turn-based draft — and the host can hand it to the AI (AI 托管), which picks for it.
+  `g.choiceRandom` is accepted at ANY time, not only on the voter's turn (`voteRandomChoice` no longer requires `parallel`),
+  so the vote remains the escape hatch of an untimed draft. A seat that neither picks nor votes can still hold the round —
+  as in any untimed turn-based draft — and the host can hand it to the AI (AI 托管), which picks for it.
   悬赏 cards are never drawn (`randomChoiceEligible` refuses `family === 'bounty'`) and in a 悬赏决策 draft the vote is not
   offered at all — "悬赏类不要添加随机机制" (a bounty adds its enemies to the PICKER's own next battles, so handing it to
   somebody else would break the attribution). The draft's `randomOffer` in `m.public` is non-null exactly when the vote
   is offered for that draft, so `public/js/ui/choiceOverlay.js` renders the 随机分配 button on the frame alone — keyed on
-  `randomOffer`, never on `parallel`. `server/match/audit.js` accepts a player ending after only a lost vote.
+  `randomOffer`, never on `parallel`. `server/match/audit.js` accepts a player ending with a card it drew or picked.
   `test/fork-ultimate-sp-vote.test.js`.
 - **二.4 also needed a 机变 schedule** — `choices.schedule` is keyed by modeId and the official data has no entry for a
   mode that never shipped, so without one the fork mode fell back to a plain 道具补给 draft every round (no 悬赏 at all,
@@ -298,9 +304,20 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
       from a property of 终极模拟 into a switch that works in **all** modes, which is exactly what the requester asked
       for. The client must not re-derive the config's list behind the server's back, so `modeOffBonds(mode, mods)`
       (`public/js/ui/gameLogic/bonds.js`) and `matchInfoModel` read `m.public.mods` and grey nothing with it on.
-    - **`untimedSp` 机变不限时** — `spDraftRules.untimed` turns on for every mode, the 终极模拟 `spDraft` block or not,
-      so `startSpTurn` arms no clock (`spFirst` / `spTurn` are not read) and the draft ends when every alive player has
-      picked. The switch never touches `parallel` or `randomFamilies` — those belong to the mode (二.4) and to 四.2.
+    - **`untimedSp` 机变不限时间** — `spDraftRules.untimed` follows the switch in EVERY mode: on, the draft arms no clock
+      (`spFirst` / `spTurn` are not read) and ends when every alive player has picked; off, the mode's own value decides,
+      and a mode that never asked for an untimed draft — 终极模拟 included — is on the official clock again (30 s first
+      turn, 16 s after). The mode's block is the DEFAULT the switch OVERRIDES, never an OR: the owner's report of
+      2026-10-13 was that ORing it into the answer left the switch dead in 六人模式 (「无论开启还是关闭，在所有模式里机变阶段
+      都是不限时的，开关没有生效」). It never touches `parallel` or `randomFamilies` — those belong to 三.4 and to 四.2.
+    - **`randomSpVote` 机变随机分配** — `spDraftRules.randomFamilies` likewise follows the switch: on, the vote is offered
+      in every mode, with the mode's own list when it declares one and `MOD_RANDOM_SP_FAMILIES` otherwise; off, only a
+      mode that declares its own list offers it, so every official mode — 终极模拟 included — offers nothing. Same root
+      cause and same fix as `untimedSp` above (「该 mod 功能在六人模式里无论开启还是关闭都不生效」).
+    - **A losing 随机分配 vote no longer costs a player its card.** A vote is a request to let the system allocate, not a
+      decision to take nothing: `spDone` counts only CARDS (a vote used to count as a finished turn, which skipped the
+      seat and let the phase end with it holding nothing — 「导致最后一名玩家没有拿到任何道具或敌人」), so a voter keeps its
+      turn and may pick normally; `finishSpDraft` also backfills any living seat that still holds nothing.
     - The third seam the switch reaches is the client's own countdown, which needs no code: the server sends
       `sp.untimed` (already the field 独立模拟's untimed draft uses) and `choiceOverlay.js` hides the timer from it.
   - **The match reports the switches back** on every frame (`m.public.mods`, `server/match/match/views.js`), like
@@ -476,6 +493,6 @@ branch is closed** — GitHub reports the child as MERGED either way, so the gap
 | 三.1–三.3 UI 回顾 | 隐藏局内盟约与干员详细两处滚动条；⚙ / 📖 / ⛶ 从角落移到顶栏左侧（交流留在角落），窄屏换到第二行并给盟约栏让出左侧；大厅顶栏左右两组按钮同高（触摸屏 36 px）；「界面改动要兼顾电脑与手机」写成 client.md §10 的设备规则 | `public/css/screens/game-panels.css`, `public/css/screens/game.css`, `public/css/devices.css`, `public/css/components.css`, `public/js/ui/hud.js`, `public/js/screens/game.js`, `public/js/ui/fieldHost.js`, `public/js/screens/lobby.js`, `docs/design/client.md`, `test/ui/playtest5-ui.test.js`, `test/ui/issue5-fold-camera.test.js`, `test/ui/playtest5-ui.e2e.test.js`, `test/ui/devices.e2e.test.js` |
 | 三.4–三.6 三个玩法 bug | 三.4 机变恢复轮次顺序（见 二.4）；三.5 升级调度中心立刻补上新栏位的干员（全模式，0.2.2 §27.52 的反转）；三.6 场上没有成员的盟约不再留在盟约栏（层数仍保留，结算记录例外） | `tools/fork-overrides.mjs` (`spDraft`), `data/config.json`, `server/match/match/spDraft.js`, `server/match/match/views.js`, `public/js/ui/choiceOverlay.js`, `server/match/player/economy.js`, `server/match/audit.js`, `server/match/bondsMeta.js` (`bondList`), `server/match/results.js`, `docs/META.md`, `docs/PLAYING.md`, `tools/golden.mjs`, `test/golden/matches.json`, `test/fork-ultimate-sp-vote.test.js`, `test/fork-data.test.js`, `test/match/feedback5-shop-levelslots.test.js`, `test/match/bonds.test.js`, `test/match/watch-bonds.test.js`, `test/match/bot-smarter.test.js`, `test/golden-diy.test.js`, `test/golden-standins.test.js` |
 | 五.1 额外 4 回合 + 定向甄选 | 两个新 Mod 开关，默认关闭。`extraRounds`「额外 4 回合」：全模式 14 → 18 回合，新增 4 回合都是普通回合，Boss 回合后移到第 18 回合（插入的回合复用该模式最后一个普通回合的表）。`targetedPick`「定向甄选」：三选一晋升奖励改为从当前已激活最高层数的盟约旗下的干员中抽（bond 优先、不足则补齐，绝不交空槽；只有 `source === 'merge'` 受影响）。golden 未移动 | `shared/constants.js` (`MOD_KEYS`/`MOD_DEFAULTS`/`MOD_EXTRA_ROUNDS`), `server/match/gamedata.js` (`extraRounds`/`lastRound`/`bossRound`/`hiddenRound`/`roundCfg`, `chessBondIds`/`chessOfBond`/`highestLayerActiveBond`), `server/match/player/acquire.js` (`pushRewardOffer`), `public/js/ui/mods.js`, `public/i18n/*.json`, `test/fork-mod-rounds-and-pick.test.js` |
-| 四.1 Mod 开关 | 模式界面顶栏加「Mod」按钮与子菜单（与干员调配平行，只在该页出现）：本机偏好，随创建的房间生效。`noBondBan` 关闭盟约禁用——全模式都不再有随机禁用与固有禁用盟约（把二.1 从终极模拟的属性推广成开关）；`untimedSp` 机变不限时——全模式机变不再计时。两个开关默认关闭，golden 未移动 | `shared/constants.js` (`MOD_KEYS`/`MOD_DEFAULTS`/`normalizeMods`), `shared/protocol.js` (`room.create.mods`), `server/match/gamedata.js` (`mods`, `bans()`, `modeInactiveBonds`, `spDraftRules`), `server/match/Match.js`, `server/match/match/views.js`, `server/lobby.js`, `public/js/ui/mods.js`, `public/js/screens/lobby.js`, `public/js/ui/gameLogic/bonds.js`, `public/js/ui/matchInfo.js`, `public/js/screens/game.js`, `public/js/screens/bandDraft.js`, `public/css/screens/lobby.css`, `public/i18n/*.json`, `test/fork-mod-switches.test.js`, `test/lobby-mods.test.js`, `test/lobby-ultimate.test.js` |
-| 四.2 机变随机分配 | Mod 子菜单第三个开关 `randomSpVote`（默认关）：全模式的机变都可以投票「随机分配」，过半即随机发放（悬赏决策除外，二.4 的规则）。投票机制本身就是二.4 的，这里只决定「谁被提供」——`spDraftRules.randomFamilies` 在模式自己没有 `spDraft` 时由开关填上，有则永不收窄（终极模拟保留自己的名单）。golden 未移动 | `shared/constants.js` (`randomSpVote`, `MOD_RANDOM_SP_FAMILIES`), `server/match/gamedata.js` (`spDraftRules`), `server/match/match/spDraft.js` (comments), `public/js/ui/mods.js` (`MOD_ROWS`), `public/js/ui/choiceOverlay.js` (comment), `public/i18n/*.json`, `test/fork-mod-random-sp.test.js` |
+| 四.1 Mod 开关 | 模式界面顶栏加「Mod」按钮与子菜单（与干员调配平行，只在该页出现）：本机偏好，随创建的房间生效。`noBondBan` 关闭盟约禁用——全模式都不再有随机禁用与固有禁用盟约（把二.1 从终极模拟的属性推广成开关）；`untimedSp` 机变不限时间——全模式机变不再计时，关掉则恢复各模式自己的时限（终极模拟不例外，见 2026-10-13 修复）。开关默认关闭，golden 未移动 | `shared/constants.js` (`MOD_KEYS`/`MOD_DEFAULTS`/`normalizeMods`), `shared/protocol.js` (`room.create.mods`), `server/match/gamedata.js` (`mods`, `bans()`, `modeInactiveBonds`, `spDraftRules`), `server/match/Match.js`, `server/match/match/views.js`, `server/lobby.js`, `public/js/ui/mods.js`, `public/js/screens/lobby.js`, `public/js/ui/gameLogic/bonds.js`, `public/js/ui/matchInfo.js`, `public/js/screens/game.js`, `public/js/screens/bandDraft.js`, `public/css/screens/lobby.css`, `public/i18n/*.json`, `test/fork-mod-switches.test.js`, `test/lobby-mods.test.js`, `test/lobby-ultimate.test.js` |
+| 四.2 机变随机分配 | Mod 子菜单第三个开关 `randomSpVote`（默认关）：全模式的机变都可以投票「随机分配」，过半即随机发放（悬赏决策除外，二.4 的规则）。投票机制本身就是二.4 的，这里只决定「谁被提供」——`spDraftRules.randomFamilies` 由开关决定：开着则模式自己的名单优先、没有就用开关的默认名单，关掉则只有自己声明了名单的模式才提供（终极模拟不再硬编码，见 2026-10-13 修复）。落选的投票者照样拿卡。golden 未移动 | `shared/constants.js` (`randomSpVote`, `MOD_RANDOM_SP_FAMILIES`), `server/match/gamedata.js` (`spDraftRules`), `server/match/match/spDraft.js` (`spDone`/`finishSpDraft`), `public/js/ui/mods.js` (`MOD_ROWS`), `public/js/ui/choiceOverlay.js` (comment), `public/i18n/*.json`, `test/fork-mod-random-sp.test.js`, `test/fork-ultimate-sp-vote.test.js` |
 | 四.3 商店保底 | 6 人模式（终极模拟）商店 5 级后第一个槽位必出 5 阶干员，6 级后必出 5 阶或 6 阶——**每次刷新都保底**（手动刷新、回合开始、升级开槽）。做成数据表 `modes[mode_ultimate_abyss].shopFloor`，官方模式没有这张表所以不受影响；保底阶无货时回落到下一阶再到普通抽取，绝不交出空槽位。golden 未移动（语料里没有终极模拟） | `tools/fork-overrides.mjs` (`shopFloor`), `data/config.json`, `server/match/gamedata.js` (`shopFloor()`), `server/match/player/economy.js` (`_rollChessSlot(floor)`/`rollShop`/`_openLevelSlots`), `server/match/audit.js` (转发 `floor`), `test/fork-shop-floor.test.js`, `test/fork-data.test.js` |

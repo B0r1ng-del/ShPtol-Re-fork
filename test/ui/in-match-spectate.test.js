@@ -66,16 +66,26 @@ test('game.js hands the panel an observe in BOTH combat modes, so 返回战场 e
   assert.match(PANEL, /\$\{t\('返回战场'\)\}/);
 });
 
-test('the battle logic itself is untouched: the fix is an entry point, not a rule change', () => {
+test('the battle logic itself is untouched: only the "own battle running" refusals were removed', () => {
   // the server keeps its one existing restriction, and gains no new one
   assert.match(SERVER_WATCH, /if \(\(f\.kind === 'boss' \|\| f\.kind === 'hidden'\) && own && own !== f\.fieldId\) return fail\(ERR\.BAD_TARGET, 'other group hidden'\)/);
   assert.ok(!/作战中无法查看队友/.test(SERVER_WATCH), 'the server never refuses a living player a teammate');
-  // the server-run client path (watchTarget) has no "your own battle is still running" guard either — it mirrors the
-  // server. That guard exists ONLY in the client-side-combat path (battle/observe.js), which this change does not touch.
+  // watchTarget (the server-run client path) has no "your own battle is still running" guard either — it mirrors the server
   assert.ok(!/own\.live !== false|作战中无法查看队友/.test(WATCH), 'watchTarget keeps mirroring the server');
+  // the client-side-combat path HAD that guard (`battle/observe.js`); the owner's requirement of 2026-10-13 removed it so
+  // 「全模式战斗中都可以观看其他玩家视角」 works in the browser, where client-run combat is the default
   const OBSERVE_JS = readFileSync(path.join(ROOT, 'public/js/battle/observe.js'), 'utf8');
-  assert.match(OBSERVE_JS, /作战中无法查看队友，作战结束后可前往查看/,
-    'the client-side-combat guard stays where it was — this PR does not re-litigate it');
+  assert.ok(!/return \{ reason: t\('作战中无法查看/.test(OBSERVE_JS),
+    'the client-side-combat guard is gone — a live own battle no longer refuses a teammate');
+  assert.ok(!/own\.live !== false/.test(OBSERVE_JS), 'and no other copy of it is left behind');
+  // what must NOT have been touched: the other pair's boss/hidden field is still hidden from a living player
+  assert.match(OBSERVE_JS, /target\.kind === 'boss' \|\| target\.kind === 'hidden'/, 'the official boss-pair rule stays');
+  // the server's client path keeps the same restriction (its "own battle running" refusal is gone, the boss one is not).
+  // The check looks for the actual `fail(...)` call, not the prose: the doc comment above `_watchClient` quotes the removed
+  // diagnostic on purpose, so a bare string search would match its own explanation.
+  const CLIENT_WATCH = SERVER_WATCH.slice(SERVER_WATCH.indexOf('_watchClient'));
+  assert.match(CLIENT_WATCH, /return fail\(ERR\.BAD_TARGET, 'other group hidden'\)/, 'the client path still hides the other pair\'s boss field');
+  assert.ok(!/fail\(ERR\.WRONG_PHASE, 'own battle running'\)/.test(CLIENT_WATCH), 'and no longer refuses a live own battle');
 });
 
 test('单人 (solo) has nobody to watch, so the entry is inert there by construction', () => {

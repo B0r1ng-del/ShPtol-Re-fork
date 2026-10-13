@@ -222,15 +222,26 @@ test('takeover: a connected client that never reports is taken over at time limi
   m.dispose();
 });
 
-test('observing: no watching while the own battle runs; after it ends a teammate\'s spec + clock; eliminated players watch anything', () => {
+test('observing: a live own battle no longer blocks watching; the teammate\'s spec + clock; eliminated players watch anything', () => {
   const h = makeMatch({ mode: 'coop', humans: 3, seed: 9107, fake: true, clientCombat: true, instant: false, pace: 'paced',
     script: (b) => ({ duration: b.players.includes('p_0') ? 2 : 30 }) }).start();
   const m = h.m;
   h.toPrep(1);
   for (const pid of ['p_0', 'p_1', 'p_2']) m.handle(pid, { t: 'g.ready', ready: true });
   h.run(() => m.phase === PHASE.COMBAT);
-  // p_1 still fights: it may not look elsewhere
-  assert.deepEqual(m.handle('p_1', { t: 'g.watch', fieldId: 'n:p_2' }), { error: 'WRONG_PHASE', detail: 'own battle running' });
+  // MID-BATTLE WATCHING (the owner's requirement of 2026-10-13): p_1 still fights and may look at a teammate. This used
+  // to be refused with `WRONG_PHASE, 'own battle running'`, which is why 「战斗中观看其他玩家」 did nothing in the browser.
+  const ownField = fields(h).find((f) => f.fieldId === 'n:p_1');
+  assert.equal(ownField.live, true, 'p_1 is still fighting');
+  assert.equal(ownField.authority, 'p_1', 'and it is still the authority of its own field');
+  assert.deepEqual(m.handle('p_1', { t: 'g.watch', fieldId: 'n:p_2' }), { ok: true }, 'it may watch a teammate mid-battle');
+  const mid = h.lastTo('p_1', 'b.start');
+  assert.equal(mid.fieldId, 'n:p_2');
+  assert.equal(mid.watch, true, 'the teammate field is a display-only replica');
+  assert.equal(mid.authoritative, false);
+  assert.equal(m.watchers.get('p_1'), 'n:p_2');
+  // …and NOTHING about the own battle changed: it is still the authority and still runs to its own end
+  assert.equal(ownField.authority, 'p_1', 'watching does not take the own authority away');
   h.run(() => fields(h).find((f) => f.fieldId === 'n:p_0').done);
   const target = fields(h).find((f) => f.fieldId === 'n:p_2');
   assert.equal(target.live, true);
@@ -247,7 +258,7 @@ test('observing: no watching while the own battle runs; after it ends a teammate
   assert.deepEqual(m.handle('p_0', { t: 'g.watch', fieldId: 'n:p_0' }), { ok: true });
   assert.equal(h.lastTo('p_0', 'b.start').done, true);
   assert.equal(m.handle('p_0', { t: 'g.watch', fieldId: 'b9' }).error, 'BAD_TARGET');
-  // an eliminated player may watch anything
+  // the other pair's boss field is still hidden from a fighting player (the official rule is untouched)
   h.ps('p_0').alive = false;
   assert.deepEqual(m.handle('p_0', { t: 'g.watch', fieldId: 'n:p_1' }), { ok: true });
   h.ps('p_0').alive = true;

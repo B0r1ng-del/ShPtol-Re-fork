@@ -55,14 +55,20 @@ export class MatchSpDraft {
   }
 
   /**
-   * Whether a player has finished its 机变 turn: it picked a card, or it voted for the random allocation (a voter that
-   * loses the vote takes nothing this round — the draft must not wait on it either way, which is also what keeps an
-   * untimed sequential draft moving; fork 二.4).
+   * Whether a player has finished its 机变 turn: it holds a CARD. A vote alone is not a finish.
+   *
+   * THIS IS THE FIX FOR THE OWNER'S BUG OF 2026-10-13 (「有玩家选择“随机分配”后，该玩家无法选择道具…系统判定投票随机分配的玩家
+   * 不够，便直接结束了机变阶段，导致最后一名玩家没有拿到任何道具或敌人」). A vote used to count as done
+   * (`|| s.randomVotes.has(playerId)`), so the seat was skipped: when the vote then failed to reach half, the draft ran
+   * out of players to ask, `finishSpDraft` fired, and the voter ended the round with NOTHING — it could not even pick.
+   * A vote is a REQUEST to let the system allocate, not a decision to take nothing, so only a card ends a turn. The
+   * voter's own turn still comes, and picking normally is exactly what the owner asked for
+   * (「选择「随机分配」的玩家应能正常选择道具或敌人或增益」).
    */
   spDone(playerId) {
     const s = this.sp;
     if (!s) return true;
-    return s.picks[playerId] != null || (!!s.randomVotes && s.randomVotes.has(playerId));
+    return s.picks[playerId] != null;
   }
 
   /**
@@ -92,12 +98,14 @@ export class MatchSpDraft {
       return;
     }
     const token = ++this._turnToken;
-    // advance past every player who has finished its turn — a pick, or (fork 二.4) a vote for the random allocation,
-    // which must not hold the turn of an untimed sequential draft
+    // Advance past every seat that already holds a card. A seat that VOTED is deliberately NOT skipped (the owner's bug
+    // report of 2026-10-13): a vote is a request to let the system allocate, not a decision to give up the card, so the
+    // seat keeps its turn and may pick normally — 「选择「随机分配」的玩家应能正常选择道具或敌人或增益」. Skipping it was
+    // what emptied the queue, ended the phase and left the voter with nothing when the vote failed to reach half.
     while (s.idx < s.order.length) {
       const ps = this.players.get(s.order[s.idx]);
-      if (ps && ps.alive && !this.spDone(ps.playerId)) break;
-      s.idx++;
+      if (!ps || !ps.alive || this.spDone(ps.playerId)) { s.idx++; continue; }
+      break;
     }
     const available = s.cards.filter(c => this.spCardAvailable(c)).map(c => c.idx);
     if (s.idx >= s.order.length || !available.length) { this.setDeadline(0); this.later(0, () => this.finishSpDraft()); return; }
@@ -149,13 +157,19 @@ export class MatchSpDraft {
   }
 
   /**
-   * 机变 随机分配 vote (fork 二.4): the player votes for the random allocation instead of picking a card. As soon as
-   * HALF of the alive players have voted (`votes × 2 ≥ alive`) the system hands the cards out at random — one per
-   * alive player, over their own pick — and the round moves on; below that every player keeps the card it picked.
-   * Refused unless the mode offers the vote, and never in a 悬赏决策 draft ("悬赏类不要添加随机机制").
+   * 机变 随机分配 vote (fork 二.4): the player asks the system to hand the cards out at random instead of picking one
+   * itself. As soon as HALF of the alive players have voted (`votes × 2 ≥ alive`) the system hands the cards out at
+   * random — one per alive player, over their own pick — and the round moves on; below half every player keeps the card
+   * it picked. Refused unless the mode offers the vote, and never in a 悬赏决策 draft ("悬赏类不要添加随机机制").
    *
-   * Available at ANY time, not only on the voter's turn: the fork's draft is untimed, so the vote is the escape hatch
-   * that ends it without waiting for a seat that never acts (the owner's ruling of 2026-10-12 kept the order AND this).
+   * Available at ANY time, not only on the voter's turn: the vote is the escape hatch that ends an untimed draft without
+   * waiting for a seat that never acts (the owner's ruling of 2026-10-12 kept the order AND this).
+   *
+   * VOTING DOES NOT COST A PLAYER ITS CARD (owner's bug report of 2026-10-13). A vote is a request, not a decision to
+   * take nothing: the seat keeps its turn (`spDone` no longer counts a vote) and may pick normally afterwards — that is
+   * the reported 「选择「随机分配」的玩家应能正常选择道具或敌人或增益」. `startSpTurn` does skip a seat that has voted when
+   * choosing whose turn is NEXT (a pending voter must not stall the queue), but that seat is still asked for a card
+   * before the draft can end, and `resolveRandomChoice` gives one to every seat that is still empty.
    * @returns {{ ok: true } | { error: string, detail?: string }}
    */
   voteRandomChoice(ps) {
@@ -167,6 +181,7 @@ export class MatchSpDraft {
     s.randomVotes.add(ps.playerId);
     this.markPublic();
     if (this.voteRandomReached()) { this.resolveRandomChoice(); return OK; }
+    // advance past this seat for TURN purposes (it already asked), but it keeps its claim on a card
     this.startSpTurn();
     return OK;
   }
@@ -234,11 +249,49 @@ export class MatchSpDraft {
     this.startSpTurn();
   }
 
+  /**
+   * End the 机变 draft and move to PREP.
+   *
+   * NOBODY LEAVES THE DRAFT EMPTY-HANDED (owner's bug report of 2026-10-13). The phase used to end as soon as the turn
+   * order ran out, which left a player who had voted for the random allocation with NOTHING whenever that vote failed to
+   * reach half — the reported 「导致最后一名玩家没有拿到任何道具或敌人」. The vote is now a request that keeps the seat's
+   * turn (`spDone` counts only cards), so the normal paths already hand every seat a card; this is the last net before
+   * PREP, for a seat that could not act for any other reason (it was eliminated, left, or every card was already taken).
+   * A seat that can still be given a card gets one; when the draft really has no card left for it, nothing is invented.
+   */
   finishSpDraft() {
     if (this.phase !== PHASE.SP_DRAFT) return;
     this.cancel(this._turnTimer);
     this._turnTimer = null;
+    this._settleEmptySeats();
     this.enterPrep();
+  }
+
+  /**
+   * Give a card to every living seat that reached the end of the 机变 with none, so a failed vote (or any other stalled
+   * seat) never costs a player its card. Mirrors `resolveRandomChoice`'s own bookkeeping (`picks` + `taken` + `applyCard`)
+   * rather than going through `_applyCard`, which would re-enter `startSpTurn` from inside the phase's teardown. Draws
+   * from the cards the draft may hand out at random when it can — a voted-for allocation — else from any free card, and
+   * does nothing once the draft has no card left to give.
+   */
+  _settleEmptySeats() {
+    const s = this.sp;
+    if (!s) return;
+    let touched = false;
+    for (const ps of this.alivePlayers()) {
+      if (!ps || !ps.alive || s.picks[ps.playerId] != null) continue;
+      const avail = s.cards.filter((c) => c && s.taken[c.idx] == null && this.spCardAvailable(c));
+      if (!avail.length) break;
+      const eligible = avail.filter((c) => this.randomChoiceEligible(c));
+      const pool = eligible.length ? eligible : avail;
+      const card = pool[Math.floor(this.rngDraft() * pool.length)];
+      s.picks[ps.playerId] = card.idx;
+      s.taken[card.idx] = ps.playerId;
+      try { applyCard(this, ps, card); } catch (e) { this.reportError(`applyCard ${card.id}`, e); }
+      this.markPrivate(ps);
+      touched = true;
+    }
+    if (touched) this.markPublic();
   }
 
   /**
