@@ -1225,7 +1225,6 @@
   "{names}只能部署在召唤者相邻四格，整备区已满，下回合返还": "{names} can only be deployed on the four tiles adjacent to the summoner; the Bench is full, so they come back next round",
   "装备库存不足，未获得该装备": "Equipment stock is insufficient; no equipment was received",
   "库存不足": "Out of stock",
-  "1–{n} 名博士 · 盟约与干员全部解锁": "1–{n} Doctors · every Alliance and operator unlocked",
   "固定为终极难度": "Fixed to the Ultimate difficulty",
   "终极模拟固定难度": "Ultimate Simulation has one fixed difficulty",
   "随机分配": "Random allocation",

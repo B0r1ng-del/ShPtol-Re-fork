@@ -60,14 +60,18 @@ export function forkUltimateMode(modes) {
     difficulty: 'ABYSS',
     inScope: true,
     desc: '敌方攻击强度到达极限的模拟训练',
-    // The mode's own bond table (requirement 二.1 "此模式下所有盟约不会被禁用"): 0 core + 0 add-on banned.
-    // `config.bans` is difficulty-keyed (ABYSS = 3 + 4), so the per-match draw that removes 干员 from the shop has
-    // to be switched off by the mode itself — GameData.bans() prefers this record over the difficulty's (see the
-    // comment there). `activeBondIds` already lists all 23 bonds and `inactiveBondIds` is empty, so with no draw
-    // every 盟约 stays in play.
-    bans: { core: 0, addon: 0 },
-    // …and it says so on the difficulty card, like the official 终极模拟 ("盟约与干员全部解锁").
-    effectDescList: ['·盟约与干员全部解锁', '·第 4 回合起敌人强度提升', '·作战环境无比困难', '·出现极度危险的敌人'],
+    // 盟约禁用 (the owner's report of 2026-10-13, reversing 二.1): 终极模拟 bans 盟约 exactly like 同盟模拟 does.
+    // 二.1 originally gave the mode its own `bans: { core: 0, addon: 0 }` table so the per-match draw never removed
+    // anything. The owner's ruling reverses that: "六人模式恢复像同盟模拟一样禁用一些盟约，全不禁止需要在 mod 菜单开启".
+    // So the mode carries NO table of its own and `GameData.bans()` falls back to the difficulty's —
+    // `config.bans.ABYSS` = 3 core + 4 add-on, byte-for-byte what `mode_multi_abyss` resolves. "No 盟约 is banned at
+    // all" is now the Mod 开关 `noBondBan`'s job (shared/constants.js MOD_KEYS): that switch already overrides
+    // `bans()` with `{ core: 0, addon: 0 }` and empties `modeInactiveBonds` in EVERY mode, which is exactly the
+    // 「全不禁止」 the owner wants behind a switch. `activeBondIds` still lists all 23 bonds and `inactiveBondIds` is
+    // still empty, so the per-match draw is the only thing that takes 盟约 out of play — as in AC-4.
+    // …and the difficulty card no longer claims the unlocked roster: it said 「盟约与干员全部解锁」, which the draw
+    // above makes false. What is left is what the mode really does.
+    effectDescList: ['·第 4 回合起敌人强度提升', '·作战环境无比困难', '·出现极度危险的敌人'],
     // 局内商店升级规则 (requirement 二.2): every operator level adds one 干员购买槽位 (3→4→5→6→7); the LAST one adds a
     // second 道具购买槽位 instead. The official AC-4 table is {3,4,4,5,5,5} with ONE item slot throughout, so the top
     // operator level is 7 slots — two more than AC-4's 5 — and level 6 carries two item slots.

@@ -17,7 +17,7 @@
 import { useState } from '../../vendor/hooks.module.js';
 import { loadPref, savePref, createStore, useStore } from '../store.js';
 import { MOD_KEYS, MOD_DEFAULTS, normalizeMods } from '../../../shared/constants.js';
-import { html, Icon, Button, Modal } from './components.js';
+import { html, Fragment, Icon, Button, Modal } from './components.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
 /** localStorage key under the app's `sp.pref.` prefix (store.js loadPref/savePref). */
@@ -91,16 +91,30 @@ function ModDialog({ open, onClose, mods, onToggle }) {
 /**
  * The 模式界面's Mod button (the 干员调配 button's shape, laid out beside it): opens the submenu above and carries a
  * count of the switches that are on. Local to the lobby page — the submenu is not offered anywhere else.
+ *
+ * The dialog is a SIBLING of the button, never a child (Fragment, the same shape as 房主配置's button/dialog pair in
+ * screens/room.js). Nesting it inside the `<button>` broke four things at once, all reproduced in a real browser:
+ *   * `.btn:active` is `transform: translateY(1px)` on the ancestor, and ANY transform makes that element the
+ *     containing block of a `position: fixed` descendant — so pressing anywhere in the dialog (a switch included)
+ *     re-anchored the whole dialog to the button's ~76×36 box in the top-right corner (the reported 卡在右上角);
+ *   * a tap needs pointerdown and pointerup on the SAME element: the press moved the dialog out from under the
+ *     pointer, so the click never fired and a switch could not be flipped (功能无法启用);
+ *   * a click inside the dialog bubbled to the button's own onClick, which ran `setOpen(true)` again (反复弹出);
+ *   * the 完成 button's click did the same, so 完成 could not close it (Esc still worked — it never went through
+ *     the button).
+ * A `<button>` also may not contain interactive content, which is what made the nested switches invalid markup.
  */
 export function ModButton({ class: cls }) {
   const mods = useMods();
   const [open, setOpen] = useState(false);
   const n = modsCount(mods);
-  return html`<button type="button" class=${`btn btn--secondary btn--md mods-entry${cls ? ` ${cls}` : ''}`} data-testid="mod-open"
-      onClick=${() => setOpen(true)} title=${t('Mod 开关 · 游戏性改动，只在本机保存')}>
-    <${Icon} name="sliders" class="btn__icon" />
-    <span class="btn__label">${t('Mod')}</span>
-    ${n ? html`<span class="lo-entry__n num" aria-label=${t('{n} 项已开启', { n })}>${n}</span>` : null}
+  return html`<${Fragment}>
+    <button type="button" class=${`btn btn--secondary btn--md mods-entry${cls ? ` ${cls}` : ''}`} data-testid="mod-open"
+        onClick=${() => setOpen(true)} title=${t('Mod 开关 · 游戏性改动，只在本机保存')}>
+      <${Icon} name="sliders" class="btn__icon" />
+      <span class="btn__label">${t('Mod')}</span>
+      ${n ? html`<span class="lo-entry__n num" aria-label=${t('{n} 项已开启', { n })}>${n}</span>` : null}
+    </button>
     ${open ? html`<${ModDialog} open=${true} onClose=${() => setOpen(false)} mods=${mods} onToggle=${setMod} />` : null}
-  </button>`;
+  <//>`;
 }

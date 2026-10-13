@@ -71,13 +71,17 @@ Where it is wired in:
 What the fork mode deliberately starts as: **an exact copy of AC-4 co-op**, so the room is playable the moment it
 exists. The fork's per-mode rules land on top of it one change at a time, each one extending
 `tools/fork-overrides.mjs` and its own test file:
-- **二.1 盟约不会被禁用** — the mode carries `bans: { core: 0, addon: 0 }` and `GameData.bans()` prefers a mode's own
-  table over the difficulty's one (`config.bans`, ABYSS = 3 core + 4 add-on). Without it the seeded per-match draw of
-  `server/match/pool.js` removes up to 7 盟约 and takes every 干员 whose whole bond list they cover out of the shop
-  for the run. The mode has ONE record (`mode_ultimate_abyss`, `ULTIMATE_DIFFICULTY`), so `modeIdFor('ultimate', d)`
-  always names it and `Match` / `StubMatch` clamp a 终极模拟 room's difficulty to ABYSS: an id naming a record that is
-  not in `config.modes` left `GameData` with an empty mode record, its own `bans` went unread and the draw came back
-  (a six-博士 room lost 7 盟约 and 25 干员 — player report, fixed). `test/fork-ultimate-bans.test.js`.
+- **二.1 盟约禁用（2026-10-13 反转）** — the six-博士 room bans 盟约 **exactly like 同盟模拟**. 二.1 first gave the mode
+  its own `bans: { core: 0, addon: 0 }` table so the seeded per-match draw of `server/match/pool.js` removed nothing
+  and no 干员 ever left the shop. The owner's ruling reverses that — 「六人模式恢复像同盟模拟一样禁用一些盟约，全不禁止
+  需要在 Mod 菜单开启」 — so the record carries **no** table of its own and `GameData.bans()` falls back to the
+  difficulty's (`config.bans`, ABYSS = 3 core + 4 add-on), byte-for-byte what `mode_multi_abyss` resolves. 「全不禁止」
+  is now the Mod 开关 `noBondBan`'s job (四.1): it overrides `bans()` with `{ core: 0, addon: 0 }` and empties
+  `modeInactiveBonds` in every mode. The mode's difficulty card lost its 「盟约与干员全部解锁」 line with it, because
+  the draw makes that claim false. The mode still has ONE record (`mode_ultimate_abyss`, `ULTIMATE_DIFFICULTY`), so
+  `modeIdFor('ultimate', d)` always names it and `Match` / `StubMatch` clamp a 终极模拟 room's difficulty to ABYSS: an
+  id naming a record that is not in `config.modes` left `GameData` with an empty mode record and the draw came back
+  wrong (player report, fixed). `test/fork-ultimate-bans.test.js`.
 - **二.2 局内商店升级** — the mode carries its own `shopSlots` table: every operator level adds one 干员购买槽位
   (3 → 4 → 5 → 6 → 7) and the last one adds a second 道具购买槽位 instead
   (`{1:{3,1}, 2:{4,1}, 3:{5,1}, 4:{6,1}, 5:{7,1}, 6:{7,2}}`; official AC-4 is `{3,4,4,5,5,5}` with one item slot
@@ -442,7 +446,8 @@ branch is closed** — GitHub reports the child as MERGED either way, so the gap
 | Change | What it does | Where |
 |---|---|---|
 | 终极模拟 room | the third room mode, six seats, fixed AC-4, `mode_ultimate_abyss` | as listed above |
-| 二.1 盟约不禁用 | the mode draws 0 bond bans (`bans: { core: 0, addon: 0 }`), `modeIdFor('ultimate', …)` always resolves `mode_ultimate_abyss` and a 终极模拟 room's difficulty is clamped to ABYSS; its card says 盟约与干员全部解锁 | `tools/fork-overrides.mjs`, `server/match/gamedata.js` (`bans()`), `shared/constants.js` (`modeIdFor`), `server/match/Match.js`, `server/match/StubMatch.js`, `test/fork-ultimate-bans.test.js` |
+| 二.1 盟约禁用（已反转） | **2026-10-13 反转**：六人模式**像同盟模拟一样禁盟约**（模式记录不再带 `bans`，回落到 ABYSS 的 3+4），「全不禁止」改由 Mod 开关 `noBondBan` 控制；难度卡的「盟约与干员全部解锁」随之删除。`modeIdFor('ultimate', …)` 仍始终解析 `mode_ultimate_abyss`，房间难度仍钳到 ABYSS | `tools/fork-overrides.mjs`, `data/config.json`, `server/match/gamedata.js` (`bans()`), `shared/constants.js` (`modeIdFor`), `server/match/Match.js`, `server/match/StubMatch.js`, `public/js/screens/lobby.js`, `test/fork-ultimate-bans.test.js`, `test/fork-data.test.js` |
+| 五.0 Mod 子菜单弹窗结构 | **bug 修复**：`ModButton` 原本把 `<ModDialog/>` 渲染在自己的 `<button>` 内部，一个嵌套同时造成四个症状——按下弹窗内任意处时祖先按钮的 `:active`（`transform`）成为 `position:fixed` 的包含块，遮罩从视口塌成按钮的 ~76×36 角落盒子（卡在右上角）；按下把弹窗移出指针，pointerup 落在别处，开关点不动（功能无法启用）；弹窗内的点击冒泡到按钮的 `onClick` 重新 `setOpen(true)`（反复弹出）；「完成」同理关不掉。现在弹窗是按钮的**兄弟节点**（Fragment，与房主配置同一形状） | `public/js/ui/mods.js`, `test/ui/mod-menu.test.js`, `test/ui/mod-menu.e2e.test.js` |
 | 二.2 商店升级槽位 | one 干员槽 per operator level (3→7) and a second 道具槽 at level 6 | `tools/fork-overrides.mjs` (`shopSlots`), `test/fork-ultimate-shop.test.js` |
 | 二.3 敌人属性调整 | R4 on: ordinary +10 % HP; leader +20 % HP/+20 % DEF/+8 % ATK; hidden core +35 % HP/+35 % DEF/+16 % ATK — HP per boss id | `tools/fork-overrides.mjs` (`enemyAdjust`), `server/match/gamedata.js` (`enemyExtras`/`bossHpExtra`), `server/match/waves.js`, `server/match/finalAssault.js`, `test/fork-ultimate-enemy-stats.test.js` |
 | 二.4 机变去时限 + 轮次顺序 + 投票 | untimed draft that KEEPS the turn order (`parallel: false` — the owner's 2026-10-12 report 「谁手快谁先抢到」) with a 随机分配 vote castable at any time (half the alive players resolves it randomly, one card each; 悬赏 never drawn and never voted on) + the AC-4 机变 schedule for the fork mode | `tools/fork-overrides.mjs` (`spDraft`, `applyForkChoices`), `data/config.json`, `server/match/Match.js` (SP_DRAFT), `server/match/gamedata.js` (`spDraftRules`), `server/match/match/spDraft.js` (`spDone`/`startSpTurn`/`voteRandomChoice`), `server/match/match/views.js`, `shared/protocol.js` (`g.choiceRandom`), `server/match/audit.js`, `public/js/ui/choiceOverlay.js`, `public/js/ui/gameLogic/draft.js`, `public/js/screens/game.js`, `test/fork-ultimate-sp-vote.test.js`, `test/fork-data.test.js` |

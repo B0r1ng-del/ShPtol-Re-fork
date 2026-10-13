@@ -95,7 +95,7 @@ export const MODE_CARDS = [
   {
     id: 'ultimate', name: N_('终极模拟'), en: 'ULTIMATE SIMULATION', icon: 'crown',
     desc: N_('与至多 {n} 名博士组成同盟，共享干员池，联防协作抵御敌潮。'), params: { n: ULTIMATE_SEATS },
-    points: [N_('1–{n} 名博士 · 盟约与干员全部解锁'), N_('固定为终极难度')], pointParams: { n: ULTIMATE_SEATS },
+    points: [N_('1–{n} 名博士 · 可由 AI 队友补位'), N_('固定为终极难度')], pointParams: { n: ULTIMATE_SEATS },
   },
 ];
 

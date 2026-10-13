@@ -86,14 +86,19 @@ describe('fork data layer (tools/fork-overrides.mjs ⇄ data/)', () => {
     }
   });
 
-  test('二.1: the fork mode carries its own bond-ban table and advertises the unlocked roster', () => {
+  test('二.1 (reversed 2026-10-13): the fork mode carries NO ban table — it bans like 同盟模拟', () => {
     const m = config.modes[FORK_MODE_ID];
-    assert.deepEqual(m.bans, { core: 0, addon: 0 }, 'no per-match bond draw in 终极模拟');
+    // The six-博士 room used to carry `bans: { core: 0, addon: 0 }` so nothing was ever drawn out of play. The owner's
+    // report of 2026-10-13 — 「六人模式恢复像同盟模拟一样禁用一些盟约，全不禁止需要在 mod 菜单开启」 — reverses that:
+    // the record carries no table, so GameData.bans() falls back to the difficulty's, exactly as mode_multi_abyss does.
+    assert.equal(m.bans, undefined, 'no ban table of its own: the ABYSS difficulty table applies');
     assert.equal(config.modes[FORK_BASE_MODE_ID].bans, undefined, 'the official AC-4 record stays difficulty-keyed');
     assert.deepEqual(config.bans.ABYSS, { core: 3, addon: 4 }, 'and the ABYSS difficulty table is untouched');
     assert.equal(m.inactiveBondIds.length, 0);
     assert.equal(m.activeBondIds.length, 23, 'every 盟约 stays active');
-    assert.ok(m.effectDescList.some((l) => l.includes('盟约与干员全部解锁')), 'the card says so');
+    // …so the card can no longer claim the unlocked roster (二.1's line), and the mode's own extras remain
+    assert.ok(!m.effectDescList.some((l) => l.includes('全部解锁')), 'the card does not claim the unlocked roster');
+    assert.deepEqual(m.effectDescList, ['·第 4 回合起敌人强度提升', '·作战环境无比困难', '·出现极度危险的敌人']);
     assert.deepEqual(
       config.modes[FORK_BASE_MODE_ID].effectDescList,
       ['·作战环境无比困难', '·出现极度危险的敌人'],
