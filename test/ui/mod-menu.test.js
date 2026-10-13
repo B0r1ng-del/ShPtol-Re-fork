@@ -59,14 +59,15 @@ test('the button keeps the forwardRef-free contract the top bar and the tests re
   assert.match(body, /data-testid="mod-open"/);
   assert.match(body, /onClick=\$\{\(\) => setOpen\(true\)\}/, 'the button only ever OPENS');
   assert.match(SRC, /return useStore\(\(s\) => s, Object\.is, modsStore\);/, 'the count re-renders from the store');
-  assert.match(SRC, /data-testid=\$\{`mod-\$\{r\.key\}`\}/, 'each switch row keeps its testid');
-  assert.match(SRC, /role="switch"/, 'the rows are switches');
+  assert.match(SRC, /testid=\$\{`mod-\$\{r\.key\}`\}/, 'each switch row keeps its testid');
+  assert.match(SRC, /<\$\{SwitchRow\} key=\$\{r\.key\}/, 'the rows are the shared switch rows (图二)');
 });
 
 test('the switch rows live in the dialog, and the dialog is a Modal (fixed overlay), not an inline panel', () => {
   const dialog = SRC.slice(SRC.indexOf('function ModDialog('));
   assert.match(dialog, /<\$\{Modal\}/, 'ModDialog renders the shared Modal');
-  assert.match(dialog, /<button type="button" role="switch"/, 'a real button per row, inside the dialog');
+  assert.match(dialog, /<\$\{SwitchRow\}/, 'one SwitchRow per MOD_ROWS entry, inside the dialog');
+  assert.match(dialog, /onChange=\$\{\(v\) => onToggle\(r\.key, v\)\}/, 'and it writes through to the store');
   // The overlay is fixed and centred: the CSS the containment bug used to break.
   assert.match(CSS, /\.mods-entry \{ position: relative;/, 'the entry button is its own positioning context');
 });

@@ -14,7 +14,7 @@
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SPECTATORS, HOST_CONFIG_DEFAULTS, roomSeatCap } from '../../../shared/constants.js';
 import {
-  html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyTag, DifficultyIcon, Tooltip, Modal, confirmDialog, doctorNo,
+  html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyTag, DifficultyIcon, Tooltip, Modal, confirmDialog, doctorNo, SwitchRow,
 } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { copyText } from '../ui/clipboard.js';
@@ -248,10 +248,11 @@ function DifficultyPicker({ room, isHost, busy, onPick }) {
 }
 
 /**
- * 房主配置 — the host's room options in a dialog (the 干员调配 button's pattern: a button in the ready bar opens it). One
- * row per option: the switch and, under it, the option's own explanation. The host toggles them; everybody else sees the
- * same state read-only, with a dim 「由创建者设置」 in the header saying who owns them. Nothing is rendered in a
- * single-seat room (null rows).
+ * 房主配置 — the host's room options in a dialog (the 干员调配 button's pattern: a button in the ready bar opens it).
+ * One <SwitchRow/> per option (图二, 2026-10-13): the name on the left, the pill switch on the right, and the option's
+ * own explanation behind the ⓘ after the name (hover on a desktop, long press on a phone). The host toggles them;
+ * everybody else sees the same state read-only (the switches render disabled), with a dim 「由创建者设置」 in the header
+ * saying who owns them. Nothing is rendered in a single-seat room (null rows).
  */
 function HostConfigDialog({ rows, open, busy, onClose, onToggle }) {
   if (!rows || !rows.length) return null;
@@ -262,15 +263,11 @@ function HostConfigDialog({ rows, open, busy, onClose, onToggle }) {
     <div class="hostcfg">
       ${editable ? null : html`<p class="hostcfg__note">${t('由创建者设置：只有房主可以修改这些选项。')}</p>`}
       <div class="hostcfg__rows">
-        ${rows.map((r) => html`<div class="hostcfg__row" key=${r.key}>
-          <button type="button" role="switch" aria-checked=${r.on ? 'true' : 'false'}
-              data-testid=${`hostcfg-${r.key}`}
-              class=${`dpick__opt hostcfg__opt${r.on ? ' is-active' : ''}`} disabled=${!r.editable || !!busy}
-              onClick=${() => r.editable && onToggle(r.key, !r.on)}>
-            <${Icon} name="check" class=${r.on ? 'is-on' : ''} />${t(r.label)}
-          </button>
-          <span class="hostcfg__desc">${t(r.tip)}</span>
-        </div>`)}
+        ${rows.map((r) => html`<${SwitchRow} key=${r.key}
+          label=${t(r.label)} tip=${t(r.tip)} on=${r.on}
+          disabled=${!r.editable || !!busy}
+          testid=${`hostcfg-${r.key}`} infoTestid=${`hostcfg-info-${r.key}`}
+          onChange=${(v) => r.editable && onToggle(r.key, v)} />`)}
       </div>
     </div>
   <//>`;

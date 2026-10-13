@@ -76,12 +76,19 @@ test('room.js sends room.setHostConfig { key, on } and opens the dialog from the
   assert.match(SRC, /const \[cfgOpen, setCfgOpen\] = useState\(false\)/);
   assert.match(SRC, /const cfgRows = hostConfigPanel\(room, me\.playerId\)/);
   assert.match(SRC, /<[$]\{Modal\} open=[$]\{open\}/, 'the dialog uses the shared Modal');
-  assert.match(SRC, /role="switch"/);
-  assert.match(SRC, /data-testid=[$]\{`hostcfg-[$]\{r\.key\}`\}/);
   assert.match(SRC, /data-testid="hostcfg-open"/);
-  // the explanation is visible under each switch (the mock's layout), not hidden in a tooltip
-  assert.match(SRC, /class="hostcfg__desc">[$]\{t\(r\.tip\)\}/);
-  assert.match(CSS, /\.hostcfg__desc \{/);
+  // 2026-10-13 (图二): the row is the shared <SwitchRow/> — the name on the left, the pill switch on the right, and the
+  // explanation BEHIND the ⓘ (hover on a desktop / long press on a phone, ui/components.js + the Tooltip), not printed
+  // under the switch. The owner's report: 「原样式通过点击功能标题来启用/禁用，开关状态不明显」.
+  assert.match(SRC, /<[$]\{SwitchRow\} key=[$]\{r\.key\}/, 'the row is the shared SwitchRow');
+  assert.match(SRC, /disabled=\${!r\.editable \|\| !!busy}/, 'a non-host (or a busy room) gets a disabled switch');
+  assert.match(SRC, /onChange=\${\(v\) => r\.editable && onToggle\(r\.key, v\)}/, 'only the host writes');
+  assert.ok(!/hostcfg__desc/.test(SRC), 'the explanation is no longer printed under the switch');
+  const COMPONENTS = readFileSync(path.join(ROOT, 'public/js/ui/components.js'), 'utf8');
+  assert.match(COMPONENTS, /export function SwitchRow\(\{ label, tip, on, onChange, disabled = false, testid, infoTestid \}\)/);
+  assert.match(COMPONENTS, /role="switch" aria-checked=\$\{on \? 'true' : 'false'\}/);
+  assert.match(COMPONENTS, /class="swrow__label">\$\{label\}/, 'the name is plain text on the left');
+  assert.match(COMPONENTS, /<\$\{Tooltip\} text=\$\{tip\}>/, 'the explanation is a tooltip behind the ⓘ');
   // the removed inline band left no dead rule behind
   assert.ok(!/\.hostcfg__head/.test(CSS), 'no stale inline-band rules');
   assert.ok(!/\.hostcfg__title/.test(CSS), 'no stale inline-band rules');
@@ -91,7 +98,8 @@ test('room.js sends room.setHostConfig { key, on } and opens the dialog from the
     assert.equal(typeof EN[zh], 'string', `en.json: ${zh}`);
     assert.ok(EN[zh].length > 0 && !/[一-鿿]/.test(EN[zh]), `English for ${zh}`);
   }
-  // the removed standalone switch left no dead style behind
+  // the removed standalone switch and the old rectangular option left no dead style behind
   assert.ok(!/\.ailast/.test(CSS), 'no stale .ailast rules');
-  assert.match(CSS, /\.hostcfg__opt/);
+  assert.ok(!/\.hostcfg__opt/.test(CSS), 'the rectangular option style is gone (the pill switch replaced it)');
+  assert.match(CSS, /\.hostcfg__rows \{/);
 });
