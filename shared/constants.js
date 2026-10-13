@@ -93,6 +93,25 @@ export const MOD_DEFAULTS = Object.freeze({ noBondBan: false, untimedSp: false, 
  */
 export const MOD_EXTRA_ROUNDS = 4;
 /**
+ * 作弊菜单 (the floating cheat ball, a local-only development aid): the per-player switches a player can turn on for
+ * ITSELF. They are NOT room options and NOT Mod 开关 — every one of them is per player, and they are gated to the PREP
+ * phase by the server (`Match.cheat`). `PREF_CHEATS` is the device-local "show the ball at all" preference; the ball
+ * only ever appears when that is on, so a normal player never sees it.
+ */
+export const CHEAT_KEYS = Object.freeze(['infiniteFunds', 'enemyOneHp']);
+/** Defaults of CHEAT_KEYS: every cheat off. */
+export const CHEAT_DEFAULTS = Object.freeze({ infiniteFunds: false, enemyOneHp: false });
+/** 免费刷新 +5: how many free shop refreshes one press of the cheat button grants. */
+export const CHEAT_FREE_REFRESH_STEP = 5;
+/** The HP every enemy gets while a player has 「怪物血量降为 1 血」 on (their own normal fields only). */
+export const CHEAT_ENEMY_HP = 1;
+/**
+ * 「无限金币」 keeps a player's funds at least this high, re-topped on every prep action, so the shop shows a large
+ * number and nothing is ever unaffordable. Turning the switch off restores the funds the player had when it went on
+ * (`PlayerState.cheatFundsSaved`), so the cheat leaves no trace on the economy.
+ */
+export const CHEAT_GOLD_FLOOR = 9999;
+/**
  * The card families the 随机分配 vote may hand out when the `randomSpVote` switch offers it in a mode whose own
  * `spDraft` does not list any (二.4 lists its own; this is the switch's default). 悬赏 (`bounty`) is deliberately NOT
  * here: 「悬赏类不要添加随机机制」 — its card adds its enemies to the picker's own next battles, so handing it to somebody

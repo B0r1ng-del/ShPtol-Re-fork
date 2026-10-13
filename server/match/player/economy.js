@@ -4,11 +4,63 @@
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
 // the player state).
 
-import { ERR, PHASE, layerGainRoom } from '../../../shared/constants.js';
+import { ERR, PHASE, layerGainRoom, CHEAT_KEYS, CHEAT_FREE_REFRESH_STEP, CHEAT_GOLD_FLOOR } from '../../../shared/constants.js';
 import { freeSlot } from '../board.js';
 import { OK, fail } from './common.js';
 
 export class PlayerEconomy {
+  /**
+   * 作弊菜单 — apply one player's own cheats. Called by `Match.cheat` (g.cheat), which is the only caller and which has
+   * already gated the message to PREP. Every effect is per player: `this` is the player who asked.
+   *
+   *   * `infiniteFunds` — while on, the player simply never runs out: `spend()` refuses nothing and `funds` is topped up
+   *     on demand (see `_cheatTopUp`). Turning it OFF restores exactly the funds the player had when it was turned on
+   *     (`cheatFundsSaved`), which is the owner's 「关闭后恢复为初始金币数量」 read as 「开启之前那一刻的金币数」.
+   *   * `freeRefresh` (one shot) — `+CHEAT_FREE_REFRESH_STEP` free shop refreshes, the same counter a strategy's
+   *     `grantFreeRefresh` bumps, so the shop bar shows it and `refresh()` consumes it like any other free refresh.
+   *   * `enemyOneHp` — recorded only. The battle spec reads it (`Match._normalOpts`) and stamps `mods.hpMul` on the
+   *     player's OWN normal field spawns; 联防 (`_uniteOpts`) never reads it, so the shared field is untouched.
+   * @param {{ set?: Record<string, boolean>|null, freeRefresh?: boolean }} msg the validated g.cheat payload
+   * @returns {any} OK
+   */
+  cheat(msg = {}) {
+    const set = msg.set && typeof msg.set === 'object' ? msg.set : null;
+    if (set) {
+      for (const [key, on] of Object.entries(set)) {
+        if (!CHEAT_KEYS.includes(key)) continue;
+        this._cheatSet(key, on === true);
+      }
+    }
+    if (msg.freeRefresh === true) this.shop.freeRefreshes += CHEAT_FREE_REFRESH_STEP;
+    this.dirty();
+    return OK;
+  }
+
+  /** Turn ONE cheat on or off, applying its own bookkeeping (see `cheat`). */
+  _cheatSet(key, on) {
+    if (this.cheats[key] === on) return;
+    if (key === 'infiniteFunds') {
+      if (on) {
+        // remember what to restore; a second "on" (or a re-on while already on) must not overwrite the first save
+        this.cheatFundsSaved = this.funds;
+      } else if (this.cheatFundsSaved != null) {
+        this.funds = this.cheatFundsSaved;
+        this.cheatFundsSaved = null;
+      }
+    }
+    this.cheats[key] = on;
+  }
+
+  /**
+   * 「无限金币」 in one line: while the switch is on the player's funds never fall below `CHEAT_GOLD_FLOOR`. Every existing
+   * payment path calls `spend()`, so topping up here covers buy / refresh / levelUp / reward / effect without touching
+   * any of them — and nothing is invented while the switch is off.
+   */
+  _cheatTopUp() {
+    if (this.cheats.infiniteFunds !== true) return;
+    if (this.funds < CHEAT_GOLD_FLOOR) this.funds = CHEAT_GOLD_FLOOR;
+  }
+
   addFunds(n, { reason = '' } = {}) {
     if (!Number.isFinite(n) || n === 0) return 0;
     const v = Math.trunc(n);
@@ -21,6 +73,7 @@ export class PlayerEconomy {
 
   spend(n) {
     const v = Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0;
+    this._cheatTopUp();
     if (v > this.funds) return false;
     this.funds -= v;
     this.stats.gold += v;

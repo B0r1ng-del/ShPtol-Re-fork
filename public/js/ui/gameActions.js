@@ -81,6 +81,11 @@ export const actions = {
   },
   freeze: () => act('g.freeze'),
   levelUp: () => act('g.levelUp'),
+  // 作弊菜单 (ui/cheats.js): this player's own cheats. One `g.cheat` carries either a switch or the 「免费刷新 +5」 press;
+  // the server gates both to PREP (`Match.cheat`) and the panel disables its controls to match, so a refusal here is a
+  // stale UI, not a normal path. No SFX: this is a development aid, not a game action.
+  cheatSet: (key, on) => act('g.cheat', { set: { [key]: on === true } }, { quiet: true }),
+  cheatFreeRefresh: () => act('g.cheat', { freeRefresh: true }, { quiet: true }),
   sell: (uid) => act('g.sell', { uid }),
   // `dir` (UP|RIGHT|DOWN|LEFT): the direction chosen with the deploy wheel (research 09 §6.1 — g.move / g.art carry it;
   // the server defaults to RIGHT when absent)
