@@ -356,7 +356,10 @@ The public mirror (ArknightsAssets2 `cn`, `ui/emoticon/theme/[uc]<themeId>/icon/
 ### 6.3 Spectating and combat flow (user item 5, UX part)
 
 1. Remove the always-visible `‹ 自己 ›` switcher from normal combat (`ui/combatHud.js`).
-2. Normal combat, own battle running: team avatars are **not** watchable (toast "当前无法查看").
+2. Normal combat, own battle running: team avatars are **not** watchable (toast "当前无法查看"). **[DEV]** the fork
+   removed this restriction on the owner's requirement of 2026-10-13 (「全模式战斗中都可以观看其他玩家视角」): a live own
+   battle no longer blocks 前往查看, in every mode. The own field keeps its authority and keeps reporting, so the battle
+   logic is unchanged — only the entry point is (see `docs/META.md` §1.4, `docs/design/network.md`).
 3. After your own battle ends:
    - pill "⌛ 作战结束，等待队友完成作战"
    - tapping an avatar expands a "前往查看" button; while observing, your row shows "返回战场", the target row an eye badge, and the bottom pill "👁 {name}#{number}"

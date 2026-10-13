@@ -130,17 +130,21 @@ export class MatchWatch {
 
   /**
    * g.watch under client-side combat: the watcher gets the field's spec (b.start, display only) and runs a local
-   * replica fast-forwarded to the field's clock. No watching while the own normal battle runs; the other pair's boss
-   * field is never shown to a fighting player; eliminated players may watch anything.
+   * replica fast-forwarded to the field's clock. The other pair's boss field is never shown to a fighting player;
+   * eliminated players may watch anything.
+   *
+   * WATCHING A TEAMMATE WHILE THE OWN BATTLE RUNS IS ALLOWED (owner's requirement of 2026-10-13). This used to refuse
+   * a `normal` field with `WRONG_PHASE, 'own battle running'` whenever the watcher's own field was still live, which is
+   * why 「战斗中观看其他玩家」 did nothing even after #24 fixed the client's entry point. Looking cannot change the battle
+   * logic: the own field keeps `authority === ps.playerId`, the browser keeps its own entry authoritative and reporting
+   * (`b.result` / `b.progress` are matched by `battleId` + `f.authority` in reports.js, never by the field being
+   * displayed), and a watcher's replica is display-only. Only the other pair's boss/hidden field stays hidden.
    */
   _watchClient(ps, fieldId, playerId = null) {
     const f = this.fields.find((x) => x.fieldId === fieldId) || null;
     if (!f) return fail(ERR.BAD_TARGET, 'no such field');
     const own = this.fields.find((x) => x.players.includes(ps.playerId)) || null;
-    if (ps.alive) {
-      if ((f.kind === 'boss' || f.kind === 'hidden') && own && own !== f) return fail(ERR.BAD_TARGET, 'other group hidden');
-      if (f.kind === 'normal' && own && own !== f && own.live) return fail(ERR.WRONG_PHASE, 'own battle running');
-    }
+    if (ps.alive && (f.kind === 'boss' || f.kind === 'hidden') && own && own !== f) return fail(ERR.BAD_TARGET, 'other group hidden');
     this.watchers.set(ps.playerId, f.fieldId);
     this._watchPrefSet(ps, f, playerId);
     this.sendTo(ps.playerId, this._startMsg(f, ps.playerId, { watch: !f.players.includes(ps.playerId) }));

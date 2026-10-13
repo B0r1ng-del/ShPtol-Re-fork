@@ -617,21 +617,31 @@ export class GameData {
    * `randomFamilies` is the allow-list of card families the random allocation may hand out; a 悬赏 card is never
    * eligible even when listed (`Match.randomChoiceEligible`).
    *
-   * Mod 开关 `untimedSp` 机变不限时 turns `untimed` on for ANY mode, the 终极模拟 `spDraft` block or not — the switch's
-   * whole point is that no mode's 机变 runs on a clock. It never touches `parallel` or `randomFamilies`: those are the
-   * mode's own (fork 二.4) and the 随机分配 switch's business, not the timer's.
+   * THE MOD 开关 DECIDE, THEY DO NOT MERELY WIDEN (owner's bug report of 2026-10-13: 「无论开启还是关闭，在所有模式里机变阶段
+   * 都是不限时的，开关没有生效」 and 「该 mod 功能在六人模式里无论开启还是关闭都不生效」). `spDraft` was 二.4's hard-coded
+   * property of 终极模拟, and this getter used to OR it into the switch's answer
+   * (`this.mods.untimedSp || d.untimed === true`, and `fams` preferred over the switch's list), so a switch could
+   * only ever turn a rule ON — turning it OFF left the mode's own value in place and the control looked dead.
+   * The mode's block is now the DEFAULT the switch overrides:
    *
-   * Mod 开关 `randomSpVote` 机变随机分配 offers the 「随机分配」 vote in ANY mode. A mode that already lists its own
-   * families (终极模拟, 二.4) keeps them — the switch widens the offer, it never narrows a mode's own. A mode without an
-   * `spDraft` block gets `MOD_RANDOM_SP_FAMILIES` (道具补给 / 机密商店 / 战术决策; never 悬赏, see the constant).
+   *   * `untimedSp` 机变不限时间 — on: no mode's 机变 runs on a clock. Off: the mode's own `untimed` decides, so
+   *     终极模拟 keeps the untimed draft 二.4 gave it while every mode that never asked for one is timed again.
+   *   * `randomSpVote` 机变随机分配 — on: the vote is offered everywhere, with the mode's own list when it has one
+   *     and `MOD_RANDOM_SP_FAMILIES` otherwise. Off: only a mode that lists its own `randomVote.families` offers it,
+   *     so 终极模拟 keeps 二.4's vote and every other mode offers nothing.
+   *
+   * `parallel` stays the mode's alone: no switch changes the turn order (三.4 restored it deliberately).
    */
   get spDraftRules() {
     const d = this.spDraft;
     const vote = d && d.randomVote && typeof d.randomVote === 'object' && !Array.isArray(d.randomVote) ? d.randomVote : null;
     const fams = vote && Array.isArray(vote.families) ? vote.families.filter((f) => typeof f === 'string') : [];
-    const randomFamilies = fams.length ? fams : (this.mods.randomSpVote ? [...MOD_RANDOM_SP_FAMILIES] : null);
-    if (!d) return { untimed: this.mods.untimedSp, parallel: false, randomFamilies };
-    return { untimed: this.mods.untimedSp || d.untimed === true, parallel: d.parallel === true, randomFamilies };
+    const modeFamilies = fams.length ? fams : null;
+    // on: the mode's own list, else the switch's default; off: only the mode's own list
+    const randomFamilies = this.mods.randomSpVote ? (modeFamilies ?? [...MOD_RANDOM_SP_FAMILIES]) : modeFamilies;
+    // on: untimed everywhere; off: whatever the mode asked for (no `spDraft` block ⇒ timed)
+    const untimed = this.mods.untimedSp ? true : d != null && d.untimed === true;
+    return { untimed, parallel: d != null && d.parallel === true, randomFamilies };
   }
 
   timer(key) {

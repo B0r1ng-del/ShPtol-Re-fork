@@ -18,8 +18,8 @@ import assert from 'node:assert/strict';
 import { GameData } from '../server/match/gamedata.js';
 import { drawDisabledBonds } from '../server/match/pool.js';
 import { createRng } from '../server/sim/rng.js';
-import { MOD_KEYS, MOD_DEFAULTS, normalizeMods } from '../shared/constants.js';
-import { DATA, makeMatch } from './match/harness.js';
+import { ERR, PHASE, MOD_KEYS, MOD_DEFAULTS, normalizeMods } from '../shared/constants.js';
+import { DATA, makeMatch, checkInvariants } from './match/harness.js';
 
 const gd = (modeId, mods) => new GameData(DATA, modeId, mods);
 /** 标准模拟 (FUNNY) is the mode with the ten static bans; 险境模拟 (NORMAL) has none but draws 3 + 4. */
@@ -138,22 +138,21 @@ describe('Mod 开关 关闭盟约禁用 (noBondBan) — no 盟约 is disabled in
   });
 });
 
-describe('Mod 开关 机变不限时 (untimedSp) — the 机变 draft of any mode loses its clock', () => {
-  test('spDraftRules.untimed is on for every mode with the switch, and off without it', () => {
+describe('Mod 开关 机变不限时间 (untimedSp) — the 机变 draft of any mode loses its clock', () => {
+  test('spDraftRules.untimed follows the switch in EVERY mode, both on and off', () => {
     for (const modeId of [FUNNY, NORMAL, ABYSS, 'mode_multi_hard', 'mode_single_normal', 'mode_ultimate_abyss']) {
-      const plain = gd(modeId);
-      // 终极模拟's own record already asks for untimed (fork 二.4); the official modes do not
-      const officialUntimed = plain.spDraft ? plain.spDraft.untimed === true : false;
-      assert.equal(plain.spDraftRules.untimed, officialUntimed, `${modeId}: unchanged without the switch`);
+      // OFF = the official clock, in every mode (the owner's report of 2026-10-13: the switch used to be dead in
+      // 六人模式 because the mode's own hard-coded `untimed: true` was ORed into the answer)
+      assert.equal(gd(modeId).spDraftRules.untimed, false, `${modeId}: timed without the switch`);
       assert.equal(gd(modeId, { untimedSp: true }).spDraftRules.untimed, true, `${modeId}: untimed with the switch`);
     }
-    // the switch never touches the mode's own parallel / randomFamilies (those are 二.4's business, not the timer's):
-    // whatever the fork record carries, the switch must leave it exactly as it was
+    // the switch never touches `parallel` (三.4 restored the official turn order) nor `randomFamilies` (the 随机分配
+    // switch's business) — whatever the mode carries, the timer switch leaves it exactly as it was
     const plainFork = gd('mode_ultimate_abyss').spDraftRules;
     const switchFork = gd('mode_ultimate_abyss', { untimedSp: true }).spDraftRules;
     assert.equal(switchFork.parallel, plainFork.parallel, 'parallel unchanged');
     assert.deepEqual(switchFork.randomFamilies, plainFork.randomFamilies, 'randomFamilies unchanged');
-    assert.deepEqual(switchFork.randomFamilies, ['supply', 'shop', 'tactic']);
+    assert.equal(plainFork.randomFamilies, null, 'the fork mode carries no 机变 block of its own any more');
   });
 
   test('a real match runs an untimed 机变 draft: no deadline is armed', () => {
@@ -173,6 +172,48 @@ describe('Mod 开关 机变不限时 (untimedSp) — the 机变 draft of any mod
     } finally {
       off.m.dispose();
     }
+  });
+
+  test('六人模式 (终极模拟): the switch decides in a REAL match, both ways (owner report 2026-10-13)', () => {
+    // 「该功能无论开启还是关闭，在所有模式里机变阶段都是不限时的，开关没有生效」 — the mode used to hard-code
+    // `spDraft.untimed: true`, which `spDraftRules` ORed into the switch's answer, so OFF could not restore the clock.
+    for (const [on, expected] of [[false, false], [true, true]]) {
+      const h = makeMatch({
+        mode: 'ultimate', difficulty: 'ABYSS', humans: 2, bots: 4, seed: 9, fake: true,
+        mods: on ? { untimedSp: true } : {},
+      }).start();
+      try {
+        h.drive(() => h.m.phase === PHASE.SP_DRAFT || h.m.round > 3);
+        assert.equal(h.m.phase, PHASE.SP_DRAFT, 'reached a real 六人模式 机变');
+        assert.equal(h.m.sp.untimed, expected, `untimedSp ${on ? 'ON' : 'OFF'} → sp.untimed ${expected}`);
+        assert.equal(h.m.spRules.untimed, expected);
+        if (expected) assert.equal(h.m.deadline, 0, 'no clock is armed');
+        else assert.ok(h.m.deadline > 0, 'the official clock is armed again (关闭时恢复原版的时间限制)');
+        checkInvariants(h.m);
+      } finally { h.m.dispose(); }
+    }
+  });
+
+  test('六人模式 (终极模拟): 机变随机分配 follows the switch in a REAL match, both ways', () => {
+    // 「该 mod 功能在六人模式里无论开启还是关闭都不生效」 — same OR bug, same fix
+    const off = makeMatch({ mode: 'ultimate', difficulty: 'ABYSS', humans: 2, bots: 4, seed: 9, fake: true }).start();
+    try {
+      off.drive(() => off.m.phase === PHASE.SP_DRAFT || off.m.round > 3);
+      const s = off.m.sp;
+      assert.equal(s.randomOffer, null, 'OFF: the vote is not offered in 六人模式');
+      assert.equal(off.m.randomVoteOffered(), false);
+      // and the protocol refuses it there, so a stale tab cannot force it on
+      assert.equal(off.m.handle(off.m.alivePlayers()[0].playerId, { t: 'g.choiceRandom' }).error, ERR.WRONG_PHASE);
+    } finally { off.m.dispose(); }
+    const on = makeMatch({ mode: 'ultimate', difficulty: 'ABYSS', humans: 2, bots: 4, seed: 9, fake: true, mods: { randomSpVote: true } }).start();
+    try {
+      on.drive(() => on.m.phase === PHASE.SP_DRAFT || on.m.round > 3);
+      const s = on.m.sp;
+      assert.deepEqual(s.randomOffer, ['supply', 'shop', 'tactic'], 'ON: the vote is offered');
+      // a 悬赏 draft still refuses it (悬赏类不要添加随机机制)
+      if (s.family === 'bounty') assert.equal(on.m.randomVoteOffered(), false);
+      checkInvariants(on.m);
+    } finally { on.m.dispose(); }
   });
 
   test('both switches are independent: turning one on leaves the other alone', () => {

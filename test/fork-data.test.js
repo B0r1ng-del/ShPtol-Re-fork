@@ -20,6 +20,7 @@ import {
   applyForkOverrides, forkUltimateMode, applyForkChoices, applyForkChess, applyForkBackups,
   FORK_MODE_ID, FORK_BASE_MODE_ID, FORK_DIY_SLOT_IDS, forkDiySlotId, forkDiyGoldenId,
 } from '../tools/fork-overrides.mjs';
+import { MOD_RANDOM_SP_FAMILIES } from '../shared/constants.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const readJson = (name) => JSON.parse(readFileSync(join(ROOT, 'data', `${name}.json`), 'utf8'));
@@ -138,15 +139,18 @@ describe('fork data layer (tools/fork-overrides.mjs ⇄ data/)', () => {
     assert.ok(m.effectDescList.some((l) => l.includes('第 4 回合起敌人强度提升')), 'the card says so');
   });
 
-  test('二.4: the fork mode carries the 机变 rules, and only the fork mode', () => {
+  test('二.4: 机变 is NOT a property of the fork mode any more — the Mod 开关 decide (owner report 2026-10-13)', () => {
     const m = config.modes[FORK_MODE_ID];
-    // parallel: false — the turn order is kept (the owner's report of 2026-10-12); the vote is offered at any time
-    assert.deepEqual(m.spDraft, { untimed: true, parallel: false, randomVote: { families: ['supply', 'shop', 'tactic'] } });
+    // 二.4 used to hard-code `spDraft: { untimed: true, parallel: false, randomVote: {...} }` on this mode, which made
+    // the two Mod 开关 dead here: `GameData.spDraftRules` ORed the mode's own value into the switch's answer, so turning
+    // 机变不限时间 OFF left `untimed: true` standing and turning 机变随机分配 OFF left the vote offered. The owner's ruling
+    // is that the switches decide and OFF means the OFFICIAL draft in every mode, so the mode declares no block at all.
+    assert.equal(m.spDraft, undefined, 'the fork mode must not carry its own 机变 block');
     for (const [id, mode] of Object.entries(config.modes)) {
-      if (id === FORK_MODE_ID) continue;
       assert.equal(mode.spDraft, undefined, `${id} must not carry a fork 机变 block`);
     }
-    assert.ok(!m.spDraft.randomVote.families.includes('bounty'), '悬赏类不要添加随机机制');
+    // the 悬赏 rule is now structural in the switch's own list (shared/constants.js MOD_RANDOM_SP_FAMILIES)
+    assert.ok(!MOD_RANDOM_SP_FAMILIES.includes('bounty'), '悬赏类不要添加随机机制');
   });
 
   test('二.4: data/choices.json already carries the fork schedule (the same drift guard as config.json)', () => {

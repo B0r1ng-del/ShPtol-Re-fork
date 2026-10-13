@@ -698,21 +698,24 @@ async function forcedDisconnect(c, srv) {
 }
 
 /**
- * research 09 §3.1: while the own normal battle runs a teammate cannot be observed; once it is over the waiting pill
- * (with the teammates' progress) shows, a teammate row → 前往查看 runs a local replica of a still running teammate
- * battle, and 返回战场 goes back to the own field.
+ * 「全模式战斗中都可以观看其他玩家视角」 (the owner's requirement of 2026-10-13): while the own normal battle still runs, a
+ * teammate row offers 前往查看 and watching it runs a local replica; 返回战场 goes back to the own field. (This used to
+ * assert the opposite — 「作战中无法查看队友，作战结束后可前往查看」 — which is why the feature looked dead in the browser.)
  */
 async function observeAfterFinish(c) {
   const s0 = await runnerState(c);
   if (!s0 || !s0.own) return false;
   if (!s0.done) {
-    // not yet: tapping a teammate never offers 前往查看 while the own battle runs (checked once)
-    if (!observeAfterFinish.refusedChecked) {
-      observeAfterFinish.refusedChecked = true;
+    // mid-battle: a teammate's row must offer the 前往查看 confirm step (checked once)
+    if (!observeAfterFinish.midBattleChecked) {
+      observeAfterFinish.midBattleChecked = true;
       await c.click('.team__row:not(.is-self) .team__btn', null, { nth: 0, optional: true, timeout: 2000 });
       await sleep(300);
-      assert.equal(await c.exists('.team__ob'), false, 'no 前往查看 while the own battle runs');
-      c.note('own battle running: a teammate row offers no 前往查看');
+      assert.equal(await c.exists('.team__ob'), true, 'a teammate row offers 前往查看 while the own battle runs');
+      c.note('own battle running: a teammate row offers 前往查看');
+      // and the own battle keeps running: its capsule/state must not have been given up to the replica
+      const s1 = await runnerState(c);
+      assert.equal(!!s1?.own, true, 'the own battle is still the tracked one');
     }
     return false;
   }

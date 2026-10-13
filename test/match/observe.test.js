@@ -9,7 +9,7 @@ import { observeTarget, teammateProgress, cameraLayers, layerCamera, isClientCom
 const P = (id, seat, extra = {}) => ({ playerId: id, seat, name: id.toUpperCase(), alive: true, ...extra });
 const pubOf = (phase, fields, players) => ({ phase, combatMode: 'client', fields, players });
 
-test('observeTarget: prep, own battle running / over, boss pairs, eliminated players', () => {
+test('observeTarget: prep, the own battle running is NO obstacle, boss pairs, eliminated players', () => {
   const players = [P('a', 0), P('b', 1), P('c', 2, { alive: false })];
   assert.equal(isClientCombat(pubOf('PREP', [], players)), true);
   assert.deepEqual(observeTarget(players[1], pubOf('PREP', [], players), 'a'), { fieldId: 'n:b' });
@@ -18,9 +18,10 @@ test('observeTarget: prep, own battle running / over, boss pairs, eliminated pla
     { fieldId: 'n:a', kind: 'normal', players: ['a'], live: liveA },
     { fieldId: 'n:b', kind: 'normal', players: ['b'], live: true, progress: { killed: 3, total: 8, done: false } },
   ], players);
-  assert.match(observeTarget(players[1], combat(true), 'a').reason, /作战中无法查看/);
-  assert.deepEqual(observeTarget(players[1], combat(true), 'a', { ownDone: true }), { fieldId: 'n:b' }, 'the local battle already ended');
-  assert.deepEqual(observeTarget(players[1], combat(false), 'a'), { fieldId: 'n:b' });
+  // 「全模式战斗中都可以观看其他玩家视角」: a live own normal battle no longer blocks the switch (the owner's requirement of
+  // 2026-10-13; the guard that used to answer 「作战中无法查看队友，作战结束后可前往查看」 is gone)
+  assert.deepEqual(observeTarget(players[1], combat(true), 'a'), { fieldId: 'n:b' }, 'own battle still running: watchable');
+  assert.deepEqual(observeTarget(players[1], combat(false), 'a'), { fieldId: 'n:b' }, 'own battle over: watchable');
   assert.deepEqual(observeTarget(players[0], combat(false), 'a', { observing: true }), { back: true });
   // the teammate's capsule reads `resolved` (the field's own enemies knocked out or leaked); a report without one falls
   // back to `killed` (public/js/battle/observe.js teammateProgress)
