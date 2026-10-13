@@ -17,7 +17,7 @@
 import { useState } from '../../vendor/hooks.module.js';
 import { loadPref, savePref, createStore, useStore } from '../store.js';
 import { MOD_KEYS, MOD_DEFAULTS, normalizeMods } from '../../../shared/constants.js';
-import { html, Fragment, Icon, Button, Modal } from './components.js';
+import { html, Fragment, Icon, Button, Modal, SwitchRow } from './components.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
 /** localStorage key under the app's `sp.pref.` prefix (store.js loadPref/savePref). */
@@ -66,6 +66,11 @@ export const MOD_ROWS = Object.freeze([
 /**
  * The Mod submenu of the 模式界面: one switch row per MOD_ROWS entry, opened by <ModButton/>. It is a local
  * preference — the switches apply to the room this device creates, and a joiner plays the host's rules.
+ *
+ * Each row is the shared <SwitchRow/> (图一's shape, 2026-10-13): the name on the left, a pill switch on the right, and
+ * the one-line explanation behind the ⓘ after the name — on hover on a desktop, on a long press on a phone. The rows
+ * used to be `dpick__opt` buttons whose check icon went 25 % → 100 % opacity, which the owner reported as
+ * 「功能开关状态不明显」.
  */
 function ModDialog({ open, onClose, mods, onToggle }) {
   return html`<${Modal} open=${open} onClose=${onClose} tone="mint" width="min(7.6rem, 96vw)"
@@ -74,15 +79,10 @@ function ModDialog({ open, onClose, mods, onToggle }) {
     <div class="mods">
       <p class="mods__note">${t('这些开关只在本机保存，进入房间时随你创建的房间一起生效；加入他人的房间时以房主的设置为准。')}</p>
       <div class="mods__rows">
-        ${MOD_ROWS.map((r) => html`<div class="mods__row" key=${r.key}>
-          <button type="button" role="switch" aria-checked=${mods[r.key] === true ? 'true' : 'false'}
-              data-testid=${`mod-${r.key}`}
-              class=${`dpick__opt mods__opt${mods[r.key] === true ? ' is-active' : ''}`}
-              onClick=${() => onToggle(r.key, mods[r.key] !== true)}>
-            <${Icon} name="check" class=${mods[r.key] === true ? 'is-on' : ''} />${t(r.label)}
-          </button>
-          <span class="mods__desc">${t(r.tip)}</span>
-        </div>`)}
+        ${MOD_ROWS.map((r) => html`<${SwitchRow} key=${r.key}
+          label=${t(r.label)} tip=${t(r.tip)} on=${mods[r.key] === true}
+          testid=${`mod-${r.key}`} infoTestid=${`mod-info-${r.key}`}
+          onChange=${(v) => onToggle(r.key, v)} />`)}
       </div>
     </div>
   <//>`;
