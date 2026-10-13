@@ -522,6 +522,40 @@
 @keyframes tip-up { from { transform: translateY(4px); } }
 @keyframes tip-down { from { transform: translateY(-4px); } }
 
+/* ---- switch row ------------------------------------------------------------------------------------- */
+/* The owner's 图二 (2026-10-13): 「将开关和标题分开显示，让开关状态更显眼、易懂」 — the name on the left, the pill switch
+   hard right, an ⓘ between them whose explanation shows on hover / long-press. One shape for the 模式界面's Mod submenu
+   and 房主配置 (ui/components.js SwitchRow).
+
+   The three parts are a fixed grid — `1fr auto auto` — so every row of a menu puts its ⓘ and its switch at the SAME x,
+   whatever the label's length is. (A plain flex row let the ⓘ ride along after each label, so a shorter name pushed
+   its switch left of the others' — measured in a browser before this was fixed.) */
+.swrow { min-width: 0; }
+.swrow__head { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: .08rem; min-width: 0; }
+.swrow__label { min-width: 0; font-size: calc(.16 * var(--t)); line-height: 1.3; color: var(--text-hi); overflow-wrap: anywhere; }
+/* the ⓘ: a tap target of its own, never a hover-only affordance (touch has no hover) — and on a phone it is the ONLY
+   way to read the explanation, so its hit area is held at ≥ 24 CSS px with max() rather than tracking `--t`, which
+   shrinks on a phone. */
+.swrow__info { flex: none; display: inline-flex; align-items: center; justify-content: center; width: max(.34rem, 24px); height: max(.34rem, 24px); padding: 0; border: 0; background: none; color: var(--line-3); cursor: help; transition: color var(--t-fast); }
+.swrow__info:hover, .swrow__info:focus-visible { color: var(--mint-400); }
+.swrow__info .icon { width: .16rem; height: .16rem; }
+/* the pill switch. Sized with max() so it is never below a 44×24 CSS-px pointer target on a phone while staying the
+   design's own size on a desktop; the knob's travel is derived from the two custom properties, so changing either size
+   keeps the knob inside the track. The ON state is a mint track plus a travelled knob — the 「显眼」 the owner asked for. */
+.sw { --sw-w: max(.52rem, 44px); --sw-h: max(.28rem, 24px); --sw-p: max(2px, calc(.02 * var(--t)));
+  flex: none; position: relative; width: var(--sw-w); height: var(--sw-h); padding: 0; border: 1px solid var(--line-2);
+  border-radius: calc(var(--sw-h) / 2); background: var(--bg-3); cursor: pointer;
+  transition: background var(--t-fast), border-color var(--t-fast); }
+.sw__knob { position: absolute; top: var(--sw-p); left: var(--sw-p); width: calc(var(--sw-h) - 2 * var(--sw-p)); height: calc(var(--sw-h) - 2 * var(--sw-p));
+  border-radius: 50%; background: var(--text-lo); transition: transform var(--t-fast) var(--ease-out), background var(--t-fast); }
+.sw.is-on { background: var(--mint-800); border-color: var(--mint-700); }
+.sw.is-on .sw__knob { transform: translateX(calc(var(--sw-w) - var(--sw-h))); background: var(--mint-400); }
+.sw:disabled { cursor: default; opacity: .45; }
+.sw:focus-visible { outline: 2px solid var(--mint-400); outline-offset: 2px; }
+/* The press feedback lives on the KNOB, never a `transform` on `.sw` itself: a transform would make the switch button
+   the containing block of a `position: fixed` descendant — the class of bug 五.0 fixed in the Mod dialog. */
+.sw:not(:disabled):active .sw__knob { filter: brightness(.9); }
+
 /* ---- progress bar ----------------------------------------------------------------------------------- */
 .pbar { --pc: var(--mint-500); --ph: .1rem; display: flex; flex-direction: column; gap: .05rem; min-width: .8rem; }
 .pbar__meta { display: flex; justify-content: space-between; align-items: baseline; gap: .1rem; font-size: calc(.14 * var(--t)); color: var(--text-lo); }

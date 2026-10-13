@@ -662,6 +662,48 @@ export function TooltipLayer() {
   </div>`;
 }
 
+// ---- SwitchRow ---------------------------------------------------------------------------------
+
+/**
+ * One switch row of a settings-style menu: the feature's NAME on the left, a pill switch on the RIGHT, and an ⓘ after
+ * the name whose one-line explanation shows on hover (desktop) or long-press (touch) — never on a plain tap.
+ *
+ * The owner's 图二 (2026-10-13): 「将开关和标题分开显示，让开关状态更显眼、易懂」, applied to BOTH menus that look like
+ * this — the 模式界面's Mod submenu (ui/mods.js) and 房主配置 (screens/room.js). They used to share a third shape
+ * (`dpick__opt`: a rectangular button whose check icon went 25 % → 100 % opacity, with the explanation printed under
+ * it) which is exactly the 「开关状态不明显」 the owner reported. One component, two call sites, so they cannot drift.
+ *
+ * The whole row is NOT the button: the name is plain text, so a tap or a text selection on the label flips nothing,
+ * and the switch keeps a real hit area (44×24 CSS px minimum, held with max() so a phone's smaller `--t` cannot shrink
+ * it — on touch the ⓘ is the only way to read the tip, so it holds ≥ 24 px too).
+ *
+ * @param {{
+ *   label: string, tip: string, on: boolean, onChange?: (v: boolean) => void, disabled?: boolean,
+ *   testid?: string, infoTestid?: string,
+ * }} props
+ *   `onChange` absent (or `disabled`) → the row is read-only: the switch is disabled and the ⓘ still explains, which is
+ *   what a non-host sees in 房主配置 (the server refuses the write there anyway).
+ */
+export function SwitchRow({ label, tip, on, onChange, disabled = false, testid, infoTestid }) {
+  const editable = typeof onChange === 'function' && !disabled;
+  return html`<div class="swrow">
+    <div class="swrow__head">
+      <span class="swrow__label">${label}</span>
+      <${Tooltip} text=${tip}>
+        <button type="button" class="swrow__info" data-testid=${infoTestid}
+            aria-label=${t('长按或悬停查看说明')} onClick=${(e) => e.preventDefault()}>
+          <${Icon} name="info" />
+        </button>
+      <//>
+      <button type="button" class=${`sw${on ? ' is-on' : ''}`} role="switch" aria-checked=${on ? 'true' : 'false'}
+          data-testid=${testid} disabled=${!editable}
+          aria-label=${label} onClick=${() => editable && onChange(!on)}>
+        <span class="sw__knob" aria-hidden="true"></span>
+      </button>
+    </div>
+  </div>`;
+}
+
 // ---- ProgressBar, Tabs, Spinner ----------------------------------------------------------------
 
 /**

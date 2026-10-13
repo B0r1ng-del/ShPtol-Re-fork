@@ -301,19 +301,15 @@
 .dpick__opt.is-active .icon { opacity: 1; filter: drop-shadow(0 0 5px var(--d-color)); }
 .dpick--ro { border: 0; background: none; gap: .18rem; align-items: center; font-size: calc(.14 * var(--t)); }
 /* 房主配置 (room.setHostConfig): the room options inside a dialog opened from the ready bar (the 干员调配 button's pattern).
-   One row per option — the switch with its explanation under it. The host edits them; everybody else reads the same values
-   (the dialog says 「由创建者设置」). Neither the button nor the dialog renders in a single-seat room. */
+   One <SwitchRow/> per option — the name on the left, the pill switch on the right, the explanation behind the ⓘ after
+   the name (components.css `.swrow` / `.sw`; the shared shape, 图二 2026-10-13). The host edits them; everybody else
+   reads the same values (the dialog says 「由创建者设置」, and the switches render disabled). Neither the button nor the
+   dialog renders in a single-seat room. */
 .room-bar__opts { display: flex; flex-direction: column; align-items: flex-start; gap: .08rem; min-width: 0; }
 .hostcfg-entry { flex: none; }
 .hostcfg { display: flex; flex-direction: column; gap: .12rem; }
 .hostcfg__note { margin: 0; font-size: calc(.14 * var(--t)); line-height: 1.5; color: var(--line-3); }
-.hostcfg__rows { display: flex; flex-direction: column; gap: .12rem; }
-.hostcfg__row { display: flex; flex-direction: column; gap: .04rem; min-width: 0; }
-.hostcfg__opt { --d-color: var(--mint-400); align-self: flex-start; justify-content: flex-start; height: .36rem; padding: 0 .14rem; border: 1px solid var(--line-2); background: rgba(0, 0, 0, .3); font-size: calc(.15 * var(--t)); letter-spacing: .04em; }
-.hostcfg__opt .icon { opacity: .25; flex: none; }
-.hostcfg__opt .icon.is-on { opacity: 1; }
-.hostcfg__opt:disabled { cursor: default; }
-.hostcfg__desc { font-size: calc(.13 * var(--t)); line-height: 1.35; color: var(--line-3); }
+.hostcfg__rows { display: flex; flex-direction: column; gap: .18rem; }
 
 .ready-count[hidden] { display: none; }
 .ready-count { display: flex; align-items: baseline; gap: .06rem; font-size: calc(.16 * var(--t)); }
