@@ -349,6 +349,33 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
     (`bondList`), `server/match/results.js`, `docs/META.md` §3/§5. Golden: unchanged (the digests read `ps.bonds`
     directly, not `bondList`).
 
+## Merging upstream
+
+The fork tracks [sganggs/Stronghold-Protocol](https://github.com/sganggs/Stronghold-Protocol) and periodically merges a
+release into `master` on a `merge/stronghold-<version>` branch. **Upstream wins every conflict in a file the fork does
+not own**; a file the fork *does* own keeps the fork's rule, and the two are adapted where both changed the same line.
+
+`v0.2.5` (2026-10-12, 77 commits, 221 files) was merged this way. Seven files conflicted:
+
+| File | Resolution |
+|---|---|
+| `data/choices.json` | generated — upstream's file taken wholesale, then `node tools/fork-data.mjs` re-applied the fork layer (`applyForkChoices`) |
+| `test/golden/matches.json` | generated — upstream's file taken, then `node tools/golden.mjs --update` (upstream 0.2.5 moves 43+ scenarios of its own; the fork's §三.5 shifts the shop RNG stream on top) |
+| `public/i18n/ko.json` | upstream's text wins for every key it changed (PR #490 added sentence-final periods); the fork's own keys are adapted in (38 kept) |
+| `server/match/player/acquire.js` | **both changes kept**: the fork's `this.stock()` (per-player pool while 共享卡池 is off) **and** upstream §30.23's `diyStockEntries()` (a reward offer of the newly reached tier includes 自选 of that tier). The fork's old `diyRollEntries()` here was the *shop's* set, which is exactly what §30.23 replaced |
+| `docs/PLAYING.md` | the fork's 10 自选 slots (二.8) kept; upstream's new promotion-reward sentence adapted in |
+| `test/match/diy-shop.test.js` | header comment merged (fork's per-slot stock + upstream's reward-tier rule) |
+| `test/match/watch-bonds.test.js` | import list merged (the fork's `give` + upstream's ordering) |
+
+Two upstream tests then failed for reasons the merge itself created, both fixed in this commit:
+
+- `test/match/funnel-redeploy.test.js` located Rockrock at a hard-coded `slots[3]`. The fork's §三.5 fills every slot a
+  level-up opens, which draws from the shop rng and so moves the card (it lands at slot 2 now). The test now finds the
+  card **by id** — same card, same route, same assertions.
+- `test/scene-assets.test.js` computed `ROOT` from `new URL(import.meta.url).pathname`, which is `/H:/port-work/test/…`
+  on Windows, so `path.resolve` produced `H:\H:\port-work\.gitignore` and the read threw `ENOENT`. It now uses
+  `fileURLToPath` like the other 64 suites. **This was upstream's own Windows bug, not a merge artifact.**
+
 ## Fork change log
 
 | Change | What it does | Where |
