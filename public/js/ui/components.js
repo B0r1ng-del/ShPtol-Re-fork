@@ -84,6 +84,11 @@ export const ICONS = {
   eye: { d: 'M12 5c5 0 9 4.5 10 7-1 2.5-5 7-10 7S3 14.5 2 12c1-2.5 5-7 10-7zm0 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm0 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4z', eo: true },
   // Mod 开关 (the 模式界面's switch submenu): three sliders — a settings glyph that is not the gear
   sliders: { d: 'M4 5h16v2H4zm0 6h16v2H4zm0 6h16v2H4zM7 3h2v6H7zm8 6h2v6h-2zm-5 6h2v6h-2z', eo: true },
+  // 作弊菜单 (the floating cheat ball): a gamepad in the same flat monochrome 24×24 style as every other icon here,
+  // replacing the colour emoji the ball used to show — an emoji is a different rendering pipeline (system font, colour,
+  // its own metrics) and read as a foreign object next to the game's own SVG glyphs. Cross needs to be even-odd so the
+  // body's own holes survive.
+  gamepad: { d: 'M7.6 5h8.8a5.2 5.2 0 0 1 5.15 4.47l1.02 6.1A2.9 2.9 0 0 1 19.7 18.9l-1.86-2.06a2.4 2.4 0 0 0-1.78-.79H7.94a2.4 2.4 0 0 0-1.78.79L4.3 18.9A2.9 2.9 0 0 1 1.43 15.57l1.02-6.1A5.2 5.2 0 0 1 7.6 5zm1.15 4.1H7.05v1.6h-1.6v1.7h1.6v1.6h1.7v-1.6h1.6v-1.7h-1.6zm5.55.4a1.35 1.35 0 1 0 0 2.7 1.35 1.35 0 0 0 0-2.7zm3 2.4a1.35 1.35 0 1 0 0 2.7 1.35 1.35 0 0 0 0-2.7z', eo: true },
 };
 
 /**

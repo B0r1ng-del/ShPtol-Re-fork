@@ -701,23 +701,44 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
    The ball is draggable: with no stored position it sits in the bottom-right corner (these defaults), and once the
    player drops it somewhere the component writes `left`/`top` percentages inline, which win. The panel opens to
    whichever side has room (`.cheatball__panel--left/right`). Sizes hold real touch targets with `max()` because `--t`
-   shrinks on a phone, and this file is loaded last, so the phone overrides in devices.css still win. */
+   shrinks on a phone, and this file is loaded last, so the phone overrides in devices.css still win.
+
+   Three fixes of 2026-10-14 (the owner's report of the panel's looks; each one measured in a browser first):
+
+   1. THE BALL READS AS PART OF THE GAME (图一). It used to show a 🎮 colour emoji: a different rendering pipeline
+      (system font, full colour, its own metrics) sitting next to the game's own flat monochrome 24×24 SVG glyphs
+      (`ICONS`), so it looked like a foreign object. It now draws `ICONS.gamepad` — the same family as the 观战 eye and
+      the Mod 开关 sliders — and the button takes the panels' own skin: the dark mint-bordered plate the rest of the HUD
+      uses, a small-radius squircle instead of a plain circle, and the mint accent on hover (measured: 40×40 square kept,
+      the touch target is unchanged).
+   2. THE SWITCH MATCHES ITS LABEL. The shared `.sw` is pinned at ≥44×24 by `test/ui/switch-row.test.js` and shared with
+      the Mod / 房主配置 menus, so it must NOT move — but the cheat rows are a 1fr/auto grid whose label shrinks with `--t`
+      while the switch does not, so on a phone the switch ended up 44×24 beside 6.4 px text (6.9× the label). The cheat
+      panel now overrides the two `.sw` custom properties down to a text-proportional size, and the knob travel follows
+      from them as it already did. The switch is still a real pointer target (32×16 desktop / 28×16 phone) and the whole
+      row keeps its own height, so nothing became hard to hit.
+   3. NO LABEL WRAPS (图三). `无限金币` / `怪物血量降为 1 血` / `免费刷新 +5` are one line each by construction: the panel
+      is wide enough for the longest of them at every text step (`--t` can reach 88 px, so the label's own `max-content`
+      sets the floor and the panel never gets narrower than its content), and `white-space: nowrap` makes a wrap
+      impossible rather than merely unlikely. The panel therefore sizes to its content instead of a fixed 150 px. */
 .cheatball { position: fixed; right: max(.16rem, 14px); bottom: max(.16rem, 14px); z-index: 60; }
 .cheatball__btn {
   display: flex; align-items: center; justify-content: center;
   width: max(.44rem, 40px); height: max(.44rem, 40px); padding: 0;
-  font-size: max(calc(.2 * var(--t)), 18px); line-height: 1;
   color: var(--text-hi); cursor: grab; touch-action: none;
-  background: rgba(12, 20, 18, .82); border: 1px solid var(--mint-800); border-radius: 50%;
-  box-shadow: 0 0 .12rem rgba(0, 0, 0, .45);
-  opacity: .55; transition: opacity var(--t-fast), border-color var(--t-fast);
+  background: rgba(10, 16, 14, .92); border: 1px solid var(--mint-800); border-radius: .1rem;
+  box-shadow: 0 .04rem .16rem rgba(0, 0, 0, .5);
+  opacity: .72; transition: opacity var(--t-fast), border-color var(--t-fast), color var(--t-fast);
 }
+/* the glyph itself: mint like the panel's title, at a size that reads at 40 px without touching the box */
+.cheatball__glyph { width: max(.24rem, 22px); height: max(.24rem, 22px); color: var(--mint-400); }
 .cheatball__btn:hover, .cheatball__btn:focus-visible { opacity: 1; border-color: var(--mint-400); }
 .cheatball__btn:active { cursor: grabbing; }
 .cheatball__panel {
   position: absolute;
   display: flex; flex-direction: column; gap: .1rem;
-  width: max(1.5rem, 150px); max-width: 60vw;
+  /* content-sized: the longest label decides, so no text can ever need a second line (fix 3 above) */
+  width: max-content; min-width: max(1.5rem, 150px); max-width: min(78vw, 6rem);
   padding: .12rem .14rem;
   background: rgba(10, 16, 14, .95); border: 1px solid var(--mint-800); border-radius: .08rem;
   box-shadow: 0 .06rem .2rem rgba(0, 0, 0, .5);
@@ -732,6 +753,31 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
   font-size: calc(.16 * var(--t)); font-weight: 900; letter-spacing: .04em; color: var(--mint-400);
   padding-bottom: .04rem; border-bottom: 1px solid var(--line, rgba(255, 255, 255, .08));
 }
-.cheatball__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .1rem; }
-.cheatball__label { min-width: 0; font-size: calc(.16 * var(--t)); line-height: 1.3; color: var(--text-hi); }
+/* The row's height: the tallest thing in it (the +5 button) with a little air, and it is also the switch's invisible
+   pointer target (see `.sw::after`). `--t` sets it so the three rows stay in proportion at every 文字大小 step, with a
+   floor so the pointer target survives a phone's clamped `--t` (where the label is only 6.4 px). */
+.cheatball__row { --cheat-row-h: max(calc(.3 * var(--t)), 20px);
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .1rem; min-height: var(--cheat-row-h); }
+/* fix 2: scoped smaller switch — the shared `.sw` is untouched for the Mod / 房主配置 menus (and their test).
+   The track scales with `--t`, the same root its label uses (`calc(.16 * var(--t))`), so the two stay proportional at
+   every 文字大小 setting and on both devices: 2.7× on the desktop (was 3.7×) and 4.7× on a phone's 6.4 px label (was
+   6.9×), with a floor that matches the game's own phone control height (`.btn--sm` measures ~14 px there).
+   A proportional track would shrink the touch target with the text, so the POINTER target is held by the `::after`
+   overlay: the switch's own column × the row's height. It is deliberately NOT a fixed 40×28 box — measured in a browser,
+   a 28 px box on this panel's 9–17 px rows reached into the row BELOW and the 「免费刷新 +5」 button stole the hit. The
+   row carries a min-height so the overlay has that height to take without touching its neighbours. */
+.cheatball__row .sw { --sw-w: max(calc(.43 * var(--t)), 19px); --sw-h: max(calc(.22 * var(--t)), 10px); --sw-p: max(2px, calc(.015 * var(--t))); }
+.cheatball__row .sw::after { content: ''; position: absolute; left: 0; right: 0; top: 50%;
+  height: max(100%, var(--cheat-row-h)); transform: translateY(-50%); }
+.cheatball__label { min-width: 0; font-size: calc(.16 * var(--t)); line-height: 1.3; color: var(--text-hi); white-space: nowrap; }
+/* The +5 button: `.btn--sm` is the real shared size class — the row's was `btn--small`, a name no stylesheet defines, so
+   it fell back to the full-height `.btn` and measured 58.6×37.5 next to a 12 px label. Its height tracks its own font
+   (1.8 × the label size, so it stays proportionate at every 文字大小 step) rather than the row's floor, which exists for
+   the switch's pointer target; the min-width keeps room for the two glyphs. */
+.cheatball__row .cheatball__act { height: max(calc(.29 * var(--t)), 12px); min-width: max(calc(.62 * var(--t)), 34px); padding: 0 .1rem; font-size: calc(.15 * var(--t)); }
+/* Both right-hand controls keep the row's full height as their POINTER target (the switch's overlay is above; the +5
+   button gets the same), so the visual can be proportional to the text without the tap target shrinking with it.
+   `::before`, not `::after`: the base `.btn::after` is the hover bracket corners, and it must keep them. */
+.cheatball__row .cheatball__act::before { content: ''; position: absolute; left: 0; right: 0; top: 50%;
+  height: max(100%, var(--cheat-row-h)); transform: translateY(-50%); }
 .cheatball__hint { font-size: calc(.13 * var(--t)); color: var(--text-lo); }
