@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { standInRecord, composeUnitRecord, unitForm, statusKey, IDENTITY_FIELDS } from '../shared/standIn.js';
 import { diyRecordOf, lockedSelection } from '../shared/diy.js';
 import { composeStats, composeTalents, resolveLoadout, loadoutRecord, normalizeChess } from '../server/sim/simdata.js';
+import { FORK_DIY_SLOT_IDS } from '../tools/fork-overrides.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = process.env.DATA_DIR || join(ROOT, 'data');
@@ -57,8 +58,13 @@ test('chess: 139 base chess — 74 PRESET / 55 NORMAL / 10 DIY — and every rec
 
 test('chess: the backup fields are the official shop row, verbatim', { skip: !HAS_CACHE && 'no .cache/gamedata' }, () => {
   const act = raw('activity_table').activity.AUTOCHESS_SEASON.act2autochess;
+  // The fork's own 自选 slots (二.8) have no official shop row: applyForkChess builds them from their tier's anchor slot,
+  // so there is no row to compare against. They are skipped by id, never by "the lookup happened to miss" — a chess
+  // that is not one of them and still has no row fails below.
+  const forkSlots = new Set(FORK_DIY_SLOT_IDS.flatMap((id) => [id, `${id.slice(0, -1)}b`]));
   for (const c of all) {
     const s = act.charShopChessDatas[c.baseId];
+    if (!s) { assert.ok(forkSlots.has(c.baseId), `${c.chessId}: no official shop row and not a fork 自选 slot`); continue; }
     assert.deepEqual(c.backup, { charId: s.backupCharId, tmplId: s.backupTmplId, skillIndex: s.backupCharSkillIndex, uniEquipId: s.backupCharUniEquipId, potRank: s.backupCharPotRank }, c.chessId);
     assert.equal(c.chessType, s.chessType, c.chessId);
   }

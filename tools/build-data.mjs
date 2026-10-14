@@ -43,7 +43,7 @@ import { FULL_RANK, atRank, stripPotential } from '../shared/potential.js';
 // The fork's own mode/field layer over the built config and choices (终极模拟 …), and its extra 自选编队 slots over the
 // built chess/backups (二.8): kept out of the official-data derivation so a regeneration from the game's tables cannot
 // drop it, and so every fork-only value sits in one file.
-import { applyForkOverrides, applyForkChoices, applyForkChess, applyForkBackups } from './fork-overrides.mjs';
+import { FORK_APPLIERS, FORK_PASS_APPLIERS } from './fork-overrides.mjs';
 
 // ===== CLI & IO ==================================================================================
 
@@ -1849,8 +1849,8 @@ function buildEffects(ctx) {
 const BOND_COUNT_KEYS = ['power_bond_char_cnt', 'ex_bond_char_cnt', 'power_char_cnt', 'ex_char_cnt'];
 
 /**
- * Build data/bonds.json: the 23 bonds with thresholds, counting mode, effect blackboards and the
- * research implementer spec.
+ * Build data/bonds.json: the 23 official bonds with thresholds, counting mode, effect blackboards and the
+ * research implementer spec. The fork's ported 莱茵生命 (`rhineShip`) is added afterwards by applyForkBonds.
  */
 function buildBonds(ctx, chess, effects) {
   const { act, ac } = ctx;
@@ -3885,7 +3885,9 @@ function validateAll(f) {
     bad.slice(0, 5).forEach((p) => err(`non-finite number at ${p}`));
   }
   const visible = Object.values(chess).filter((c) => !c.isGolden && c.visible);
-  if (Object.keys(bonds).length !== 23) err(`expected 23 bonds, got ${Object.keys(bonds).length}`);
+  // validateAll runs on the files AFTER the fork layer above, so the counts are the committed ones: the official 23
+  // bonds plus the ported 莱茵生命 (`rhineShip`, fork-overrides.mjs applyForkBonds — 六.3).
+  if (Object.keys(bonds).length !== 24) err(`expected 24 bonds (23 official + the ported 莱茵生命), got ${Object.keys(bonds).length}`);
   if (Object.keys(bands).length !== 40) err(`expected 40 bands, got ${Object.keys(bands).length}`);
   if (visible.length !== 112) err(`expected 112 visible non-DIY chess, got ${visible.length}`);
   for (const c of Object.values(chess)) {
@@ -4083,8 +4085,8 @@ async function main() {
     // applier runs before buildBackups so the new slots' forms / prototype picks are validated like the official ones;
     // applyForkBackups then replaces the `shopLevel: null` buildBackups gives them (the official shop-level table lists
     // only the four official slots) with their tier's own.
-    const chess = applyForkChess(built.chess);
-    passes.push({ ctx: pctx, chess, tokenOwners: built.tokenOwners, backups: applyForkBackups(buildBackups(pctx, chess)) });
+    const chess = FORK_PASS_APPLIERS.chess(built.chess);
+    passes.push({ ctx: pctx, chess, tokenOwners: built.tokenOwners, backups: FORK_PASS_APPLIERS.backups(buildBackups(pctx, chess)) });
   }
   const { chess, backups } = passes[FULL_RANK];
   const effects = buildEffects(ctx);
@@ -4103,12 +4105,28 @@ async function main() {
   // the bonds each strategy is built around (DESIGN §21.26): the bot skips, and the strategy draft marks 本局禁用, a band
   // whose bond the mode switches off
   for (const b of Object.values(bands)) b.bondIds = bandBondIds(b, { bonds, pools: choices.pools });
-  const config = applyForkOverrides(buildConfig(ctx, waves, stages, bands, chess, items));
-  const files = { config, chess, bonds, garrisons, items, bands, effects, choices: applyForkChoices(choices), enemies, factions, waves, stages, bosses, tokens, backups };
+  const config = buildConfig(ctx, waves, stages, bands, chess, items);
+  const files = { config, chess, bonds, garrisons, items, bands, effects, choices, enemies, factions, waves, stages, bosses, tokens, backups };
+  // The fork's own layer over the generated files (tools/fork-overrides.mjs), so a full regeneration keeps every fork
+  // feature. It reads the same `FORK_APPLIERS` list `node tools/fork-data.mjs` applies to the committed files — 六.3
+  // added its bond/effect appliers to that CLI but not here, and a regeneration silently dropped the ported 盟约
+  // without failing anything, because the committed files had been patched in place. One list, both directions.
+  // `chess`/`backups` apply in two stages around attachPotential (FORK_PASS_APPLIERS / the loop below);
+  // `assets` is not built here at all (tools/fetch-assets.mjs owns it).
+  for (const [name, apply] of Object.entries(FORK_APPLIERS)) {
+    if (FORK_PASS_APPLIERS[name] || !files[name]) continue;
+    files[name] = apply(files[name]);
+  }
 
-  // the unit forms rebuild every PRESET chess at every rank (before the annotation: each pass as built)
-  const errors = [...validateAll(files), ...passes.flatMap((p) => checkUnitFormParity(p.ctx, p.chess).map((e) => `${e} (potential rank ${p.ctx.potRank})`))];
+  // The unit forms rebuild every PRESET chess at every rank (before the annotation: each pass as built), so the parity
+  // check reads the pre-annotation records — composeUnitRecord composes at ONE potential and returns no potDown.
+  const errors = passes.flatMap((p) => checkUnitFormParity(p.ctx, p.chess).map((e) => `${e} (potential rank ${p.ctx.potRank})`));
   errors.push(...attachPotential(passes));
+  // The rest of the fork layer for chess/backups, AFTER attachPotential annotated the full-rank records in place: these
+  // appliers spread their record, so running them first would drop every `potDown`, and running them last is also what
+  // puts `packBonds` after `potDown` — the order the in-place `tools/fork-data.mjs` patch leaves in the committed file.
+  for (const name of Object.keys(FORK_PASS_APPLIERS)) files[name] = FORK_APPLIERS[name](files[name]);
+  errors.push(...validateAll(files));
   let total = 0;
   const sizes = {};
   const texts = {};
@@ -4130,18 +4148,21 @@ async function main() {
       await rename(tmp, dest);
     }
   }
+  // The report describes the files this run WROTE, so every count reads `files` and never the pre-fork locals: the fork
+  // layer above replaces `files.bonds` / `files.effects` / `files.chess` / `files.backups` with new objects, and the
+  // locals still point at the pre-fork ones. Reading a local here reported 23 bonds on a run that wrote 24.
   const report = {
     counts: {
-      chess: Object.keys(chess).length,
-      visibleChess: Object.values(chess).filter((c) => !c.isGolden && c.visible).length,
-      bonds: Object.keys(bonds).length, garrisons: Object.keys(garrisons).length, items: Object.keys(items).length,
-      bands: Object.keys(bands).length, effects: Object.keys(effects).length, enemies: Object.keys(enemies).length,
-      waves: Object.keys(waves).length, stages: Object.keys(stages).length, bosses: Object.keys(bosses).length,
-      tokens: Object.keys(tokens).length, factionEntries: Object.keys(factions.entries).length,
-      backupUnits: Object.keys(backups.units).length,
-      backupForms: Object.values(backups.units).reduce((n, u) => n + Object.keys(u.forms).length, 0),
-      backupTokens: Object.keys(backups.tokens).length,
-      diyOwnedPicks: backups.diy.ownedPool.length,
+      chess: Object.keys(files.chess).length,
+      visibleChess: Object.values(files.chess).filter((c) => !c.isGolden && c.visible).length,
+      bonds: Object.keys(files.bonds).length, garrisons: Object.keys(files.garrisons).length, items: Object.keys(files.items).length,
+      bands: Object.keys(files.bands).length, effects: Object.keys(files.effects).length, enemies: Object.keys(files.enemies).length,
+      waves: Object.keys(files.waves).length, stages: Object.keys(files.stages).length, bosses: Object.keys(files.bosses).length,
+      tokens: Object.keys(files.tokens).length, factionEntries: Object.keys(files.factions.entries).length,
+      backupUnits: Object.keys(files.backups.units).length,
+      backupForms: Object.values(files.backups.units).reduce((n, u) => n + Object.keys(u.forms).length, 0),
+      backupTokens: Object.keys(files.backups.tokens).length,
+      diyOwnedPicks: files.backups.diy.ownedPool.length,
     },
     sizes, totalBytes: total, out: OPTS.out, written: write, warnings, errors,
   };

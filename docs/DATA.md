@@ -141,10 +141,11 @@ Top level: `{ season, seasonName, modes, economy, lpCapPerRound, bossOvertimeAft
 
 ---
 
-## 2. `chess.json` — `{ [chessId]: Chess }` (266 = 133 normal + 133 golden)
+## 2. `chess.json` — `{ [chessId]: Chess }` (278 = 139 normal + 139 golden — the official 266 plus the fork's 12 自选编队 records, docs/FORK.md 二.8)
 
 112 are `visible` (non-hidden, non-DIY) normal chess: per tier 16/17/19/22/19/19. 17 are `isHidden` (retired
-上半 entries or effect-only such as `chess_char_1_15_a` 盟约·辅助干员 from band Pith); 4 are DIY (甄选) slots.
+上半 entries or effect-only such as `chess_char_1_15_a` 盟约·辅助干员 from band Pith); 10 are DIY (甄选) slots — the
+official 4 plus the fork's 6 (docs/FORK.md 二.8).
 
 | Field | Example | Meaning |
 |---|---|---|
@@ -273,7 +274,7 @@ full-rank build from the others; the build fails unless `atRank` rebuilds every 
 
 ---
 
-## 3. `bonds.json` — `{ [bondId]: Bond }` (23 bonds, 8 core)
+## 3. `bonds.json` — `{ [bondId]: Bond }` (24 bonds, 8 core — the official 23 plus the ported 莱茵生命 `rhineShip`, docs/FORK.md 六.3)
 
 | Field | Example (`deputShip`) | Meaning |
 |---|---|---|
@@ -601,9 +602,9 @@ Glyph legend (`rows`):
 
 ## 16. Counts (current build)
 
-`chess 266 (112 visible; 283 selectable skills over the visible chess, 185 module choices over 129 goldens; 74 PRESET / 55 NORMAL / 4 DIY base chess)`, `bonds 23`, `garrisons 249 (43 effect keys)`, `items 115`, `bands 40`, `effects 361`,
+`chess 278 (112 visible; 283 selectable skills over the visible chess, 185 module choices over 129 goldens; 74 PRESET / 55 NORMAL / 10 DIY base chess — the official 266 plus the fork's 12 自选编队 records, docs/FORK.md 二.8)`, `bonds 24 (the ported 莱茵生命 「rhineShip」 included, docs/FORK.md 六.3)`, `garrisons 249 (43 effect keys)`, `items 115`, `bands 40`, `effects 362`,
 `enemies 249`, `factions 67 entries`, `waves 38`, `stages 11 (8 active)`, `bosses 10`, `tokens 22`, `choice events 109`,
-`bounty cards 129`, `tactic cards 43`, `backups: 89 units (17 stand-ins, 72 owned-6★ picks; 259 forms), 38 自选 summons, 4 DIY slots, 15 / 9 prototype picks (tier 5 / 6), 72 owned-6★ picks (7 collab operators excluded)`, potential (§2.3): `256 chess records, 219 forms / variants with potDown; 442 + 401 + 19 chained talent entries (chess, backups, tokens)`.
+`bounty cards 129`, `tactic cards 43`, `backups: 89 units (17 stand-ins, 72 owned-6★ picks; 259 forms), 38 自选 summons, 10 DIY slots (the official 4 plus the fork's 6, docs/FORK.md 二.8), 15 / 9 prototype picks (tier 5 / 6), 72 owned-6★ picks (7 collab operators excluded)`, potential (§2.3): `256 chess records, 222 forms / variants with potDown; 442 + 407 + 19 chained talent entries (chess, backups, tokens)`.
 
 ## 17. Integrity guarantees (checked by the builder and `test/data.test.js`)
 

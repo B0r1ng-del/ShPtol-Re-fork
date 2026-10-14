@@ -20,7 +20,7 @@ import {
   applyForkOverrides, forkUltimateMode, applyForkChoices, applyForkChess, applyForkBackups,
   FORK_MODE_ID, FORK_BASE_MODE_ID, FORK_DIY_SLOT_IDS, forkDiySlotId, forkDiyGoldenId,
   applyForkBonds, applyForkEffects, applyForkPackMembers, applyForkPackAphris, applyForkAssets,
-  FORK_RHINE_BOND_ID, FORK_RHINE_CHESS, FORK_RHINE_ICON, FORK_APHRIS_CHAR_ID,
+  FORK_RHINE_BOND_ID, FORK_RHINE_CHESS, FORK_RHINE_ICON, FORK_APHRIS_CHAR_ID, FORK_APPLIERS,
 } from '../tools/fork-overrides.mjs';
 import { MOD_RANDOM_SP_FAMILIES } from '../shared/constants.js';
 
@@ -409,5 +409,40 @@ describe('fork 莱茵生命 盟约 (六.3: rhineShip + 谬因·并入莱茵)', (
     assert.deepEqual(assets.bonds[FORK_RHINE_BOND_ID], '/art/rhine/bond.svg');
     assert.ok(existsSync(join(ROOT, 'public', FORK_RHINE_ICON)), `${FORK_RHINE_ICON} is not committed`);
     assert.ok(!assets.bonds[FORK_RHINE_BOND_ID].startsWith('/assets/'), 'never an official art path — public/assets is gitignored');
+  });
+});
+
+describe('the fork layer reaches BOTH directions (tools/build-data.mjs ⇄ tools/fork-data.mjs)', () => {
+  // 六.3's regression: its appliers reached the CLI but not the builder, so `npm run build-data` silently dropped the
+  // ported 盟约. Nothing failed — the committed files had been patched in place, and the one test that could see it
+  // (test/data.test.js, byte-for-byte offline rebuild) skips without `.cache/gamedata`, so CI never ran it. These
+  // assertions are structural and need no cache: they fail the moment a fork feature is wired to one direction only.
+  test('every applier the builder runs is one the CLI runs too, from the same list', () => {
+    const src = (p) => readFileSync(join(ROOT, p), 'utf8');
+    // Comments in these files legitimately NAME the appliers while explaining why the file does not call them, so the
+    // code-only body is what the structural checks below read (the same reason test/pack-switches.test.js strips them).
+    const code = (p) => src(p).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    const builderCode = code('tools/build-data.mjs');
+    const cli = src('tools/fork-data.mjs');
+    // both read the shared list
+    for (const [name, body] of [['build-data', builderCode], ['fork-data', cli]]) {
+      assert.match(body, /FORK_APPLIERS/, `${name}: must read the shared FORK_APPLIERS list`);
+    }
+    // the CLI's file list is exactly the shared list — a name it forgot would never be patched
+    const cliNames = [...cli.matchAll(/\{ name: '([a-z]+)'/g)].map((m) => m[1]);
+    assert.deepEqual([...cliNames].sort(), Object.keys(FORK_APPLIERS).sort(), 'the CLI patches every fork-applied file');
+    // the builder applies the shared list rather than naming appliers itself
+    assert.match(builderCode, /Object\.entries\(FORK_APPLIERS\)/, 'the builder iterates the shared list');
+    for (const fn of ['applyForkBonds', 'applyForkEffects', 'applyForkPackMembers', 'applyForkPackAphris']) {
+      assert.ok(!new RegExp(`\\b${fn}\\b`).test(builderCode), `build-data must not call ${fn} by hand — it comes from FORK_APPLIERS`);
+    }
+  });
+
+  test('a data file the CLI patches is one the builder either writes or never owns', () => {
+    const builder = readFileSync(join(ROOT, 'tools/build-data.mjs'), 'utf8');
+    // build-data writes these; `assets` it does not (tools/fetch-assets.mjs owns it, docs/ASSETS.md), which is why the
+    // builder skips a name missing from its `files` map instead of throwing.
+    assert.match(builder, /if \(FORK_PASS_APPLIERS\[name\] \|\| !files\[name\]\) continue;/);
+    assert.ok(!/files\.assets\b|`\$\{name\}\.json`.*assets/.test(builder), 'build-data never writes data/assets.json');
   });
 });

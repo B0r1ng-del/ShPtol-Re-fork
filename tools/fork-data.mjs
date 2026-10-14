@@ -18,79 +18,38 @@
 import { readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
-  applyForkOverrides, applyForkChoices, applyForkChess, applyForkBackups, FORK_MODE_ID,
-  applyForkBonds, applyForkEffects, applyForkPackMembers, applyForkPackAphris, applyForkAssets,
-} from './fork-overrides.mjs';
+import { FORK_APPLIERS, FORK_MODE_ID } from './fork-overrides.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const check = process.argv.includes('--check');
 
 /**
- * The fork's per-file appliers: the data file, the function that returns the patched object (or null when the file does
- * not have the shape it needs — then the file is left alone with an error), and a short description for the log.
+ * The fork's per-file appliers: the data file, a short description for the log, and the shape the file must have (a file
+ * without it is left alone with an error, never patched blind). The functions themselves come from
+ * `FORK_APPLIERS` — the same list `tools/build-data.mjs` applies to a fresh build, so a new fork feature cannot reach
+ * one direction and miss the other (六.3 shipped exactly that bug).
  */
 const LAYER = [
-  {
-    name: 'config',
-    what: 'modes',
-    apply: (json) => {
-      if (!json || typeof json !== 'object' || !json.modes || typeof json.modes !== 'object') return null;
-      return applyForkOverrides(json);
-    },
-  },
-  {
-    name: 'choices',
-    what: 'schedule',
-    apply: (json) => {
-      if (!json || typeof json !== 'object' || !json.schedule || typeof json.schedule !== 'object') return null;
-      return applyForkChoices(json);
-    },
-  },
-  {
-    // 二.8: the extra 自选编队 slot pairs (`…_diyN_a` / `…_diyN_b`). The file is keyed by chess id and the build writes
-    // the keys in natural sort order, so `what` is only the log's word for the block the applier owns.
-    // 六.3 then appends the ported 莱茵生命 盟约 to its members' `bonds` (a second, independent block on the same file).
-    name: 'chess',
-    what: '自选 slots + 莱茵生命 members',
-    apply: (json) => {
-      if (!json || typeof json !== 'object' || !json.chess_char_5_diy1_a || !json.chess_char_6_diy1_a) return null;
-      return applyForkPackMembers(applyForkChess(json));
-    },
-  },
-  {
-    // 二.8: `diy.slots` — the slot metadata (tier, goldenId, shopLevel, requirement) the shop and the UI enumerate.
-    // 六.3: 谬因 joins 莱茵生命 through a 自选 operator's own bond list (backups.diy.operators), same file.
-    name: 'backups',
-    what: 'diy.slots + 谬因/莱茵生命',
-    apply: (json) => {
-      if (!json || typeof json !== 'object' || !json.diy || typeof json.diy !== 'object' || !json.diy.slots) return null;
-      return applyForkPackAphris(applyForkBackups(json));
-    },
-  },
-  {
-    // 六.3: the ported 莱茵生命 盟约 record itself (data/bonds.json is an id → record map like chess).
-    name: 'bonds',
-    what: '莱茵生命 盟约',
-    apply: (json) => (json && typeof json === 'object' && !Array.isArray(json) ? applyForkBonds(json) : null),
-  },
-  {
-    // 六.3: the 盟约's effect record (effectType BOND) — data.test.js requires every bond's effectId to resolve.
-    name: 'effects',
-    what: '莱茵生命 盟约效果',
-    apply: (json) => (json && typeof json === 'object' && !Array.isArray(json) ? applyForkEffects(json) : null),
-  },
-  {
-    // 六.3: the ported 盟约's icon. `data/assets.json` is a build product of tools/fetch-assets.mjs (not of
-    // build-data.mjs), and test/ui/assetUrls.test.js requires EVERY bond in data/bonds.json to resolve one.
-    name: 'assets',
-    what: '莱茵生命盟约图标',
-    apply: (json) => (json && typeof json === 'object' && !Array.isArray(json) ? applyForkAssets(json) : null),
-  },
+  { name: 'config', what: 'modes', needs: (j) => j.modes && typeof j.modes === 'object' },
+  { name: 'choices', what: 'schedule', needs: (j) => j.schedule && typeof j.schedule === 'object' },
+  // 二.8: the extra 自选编队 slot pairs (`…_diyN_a` / `…_diyN_b`). The file is keyed by chess id and the build writes
+  // the keys in natural sort order, so `what` is only the log's word for the block the applier owns.
+  // 六.3 then appends the ported 莱茵生命 盟约 to its members' `bonds` (a second, independent block on the same file).
+  { name: 'chess', what: '自选 slots + 莱茵生命 members', needs: (j) => j.chess_char_5_diy1_a && j.chess_char_6_diy1_a },
+  // 二.8: `diy.slots` — the slot metadata (tier, goldenId, shopLevel, requirement) the shop and the UI enumerate.
+  // 六.3: 谬因 joins 莱茵生命 through a 自选 operator's own bond list (backups.diy.operators), same file.
+  { name: 'backups', what: 'diy.slots + 谬因/莱茵生命', needs: (j) => j.diy && typeof j.diy === 'object' && j.diy.slots },
+  // 六.3: the ported 莱茵生命 盟约 record itself (data/bonds.json is an id → record map like chess).
+  { name: 'bonds', what: '莱茵生命 盟约', needs: (j) => j && typeof j === 'object' },
+  // 六.3: the 盟约's effect record (effectType BOND) — data.test.js requires every bond's effectId to resolve.
+  { name: 'effects', what: '莱茵生命 盟约效果', needs: (j) => j && typeof j === 'object' },
+  // 六.3: the ported 盟约's icon. `data/assets.json` is a build product of tools/fetch-assets.mjs (not of
+  // build-data.mjs), and test/ui/assetUrls.test.js requires EVERY bond in data/bonds.json to resolve one.
+  { name: 'assets', what: '莱茵生命盟约图标', needs: (j) => j && typeof j === 'object' },
 ];
 
 let failed = false;
-for (const { name, what, apply } of LAYER) {
+for (const { name, what, needs } of LAYER) {
   const file = join(ROOT, 'data', `${name}.json`);
   if (!existsSync(file)) {
     console.error(`fork-data: ${file} is missing — build the data first (node tools/build-data.mjs)`);
@@ -98,7 +57,13 @@ for (const { name, what, apply } of LAYER) {
     continue;
   }
   const before = readFileSync(file, 'utf8');
-  const out = apply(JSON.parse(before));
+  const json = JSON.parse(before);
+  if (!json || typeof json !== 'object' || Array.isArray(json) || !needs(json)) {
+    console.error(`fork-data: data/${name}.json has no ${what} — refusing to patch`);
+    failed = true;
+    continue;
+  }
+  const out = FORK_APPLIERS[name](json);
   if (!out) {
     console.error(`fork-data: data/${name}.json has no ${what} — refusing to patch`);
     failed = true;

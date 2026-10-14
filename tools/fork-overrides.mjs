@@ -475,3 +475,47 @@ export function applyForkAssets(assets) {
   if (!bonds || bonds[FORK_RHINE_BOND_ID] === FORK_RHINE_ICON) return assets;
   return { ...assets, bonds: { ...bonds, [FORK_RHINE_BOND_ID]: FORK_RHINE_ICON } };
 }
+
+/**
+ * The fork layer of the generated data files, by file name — the ONE list both directions read:
+ * `tools/build-data.mjs` applies it to a freshly built file set before writing, and `tools/fork-data.mjs` applies the
+ * same functions to the committed files. A fork feature that lives in generated data gets its applier named here and
+ * nowhere else.
+ *
+ * That is not tidiness: 六.3 added its appliers to the CLI's own list but not to the builder's, and a full
+ * `npm run build-data` silently dropped the ported 盟约 — the builder *and* a regeneration both looked fine, because the
+ * committed files had been patched in place. Only `test/data.test.js`'s offline rebuild check could see it, and that
+ * check skips without `.cache/gamedata`, so CI never caught it either.
+ *
+ * `assets` is in the list although `tools/fetch-assets.mjs` owns that file (docs/ASSETS.md) and build-data.mjs never
+ * writes it: one list means the CLI needs no list of its own. build-data looks each name up in the files it built, so
+ * it simply never reaches `assets`.
+ */
+export const FORK_APPLIERS = {
+  config: applyForkOverrides,
+  choices: applyForkChoices,
+  chess: applyForkPackMembers,
+  backups: applyForkPackAphris,
+  bonds: applyForkBonds,
+  effects: applyForkEffects,
+  assets: applyForkAssets,
+};
+
+/**
+ * The subset of `FORK_APPLIERS` `tools/build-data.mjs` runs on EVERY potential pass (潜能 1–6) instead of once on the
+ * finished files, and — because each of them also has a later half — the file each one finishes at the end.
+ *
+ * Two reasons these two files are special:
+ *   * `attachPotential` rebuilds every chess record and unit form from `passes.map((p) => p.chess[id])` and reports
+ *     "missing at a rank" for an id only one pass has, so a record the fork adds (`applyForkChess` / `applyForkBackups`,
+ *     二.8's 自选 slots) must exist at all six ranks;
+ *   * it also annotates the FULL-rank record **in place**, and `files.chess` / `files.backups` are that very object, so
+ *     their remaining additions (`applyForkPackMembers` / `applyForkPackAphris`, 六.3's `bonds` / `packBonds`) must land
+ *     AFTER it — a spread appends at the end, and `data/chess.json` is the file `tools/fork-data.mjs` patched in place,
+ *     where `packBonds` therefore sits after `potDown`. Building it the other way round is the same JSON in the same
+ *     order only by luck; it is not, and the byte-for-byte check says so.
+ */
+export const FORK_PASS_APPLIERS = {
+  chess: applyForkChess,
+  backups: applyForkBackups,
+};
