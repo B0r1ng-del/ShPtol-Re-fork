@@ -324,12 +324,21 @@ test('DIY: the owned-6★ pool and the faction → bond rule (mainPower + every 
   assert.deepEqual(Object.keys(operators).sort(), [...new Set([...ownedPool, ...prototypes['5'], ...prototypes['6']])].sort());
   const core = Object.values(bonds).filter((b) => b.isCore && b.powerIdList.length);
   assert.equal(core.length, 8);
-  for (const [id, o] of Object.entries(operators)) {
+  // The faction → bond rule, plus what the FORK LAYER contributes on top. `data/backups.json` is a build product that
+  // holds the ALL-PACKS-ON content (shared/packData.js strips a pack in a room without its switch), so a pick may carry
+  // extra bonds declared as a `packBonds` contribution (`{ packAphris: ['rhineShip'] }` = 谬因 joins 莱茵生命 while that
+  // switch is on). Those are exactly the extras; anything else still has to come from the operator's own powers.
+  const packExtra = (o) => Object.values(o.packBonds && typeof o.packBonds === 'object' ? o.packBonds : {}).flat();
+  const fromPowers = (o) => {
     const hit = core.filter((b) => b.powerIdList.some((p) => o.powers.includes(p))).map((b) => b.bondId);
-    assert.deepEqual(o.bonds, hit.length ? hit : [config.economy.fallbackBondId], `${id}: bonds from powers`);
+    return hit.length ? hit : [config.economy.fallbackBondId];
+  };
+  for (const [id, o] of Object.entries(operators)) {
+    assert.deepEqual(o.bonds, [...fromPowers(o), ...packExtra(o)], `${id}: bonds from powers (+ the fork layer's packs)`);
   }
+  assert.ok(packExtra(operators.char_4229_aphris).length > 0, '谬因 carries the ported 盟约 (六.3)');
   const tally = {};
-  for (const id of ownedPool) { const k = operators[id].bonds.join('+'); tally[k] = (tally[k] || 0) + 1; }
+  for (const id of ownedPool) { const k = fromPowers(operators[id]).join('+'); tally[k] = (tally[k] || 0) + 1; }
   assert.deepEqual(tally, { emptyShip: 38, yanShip: 14, victoriaShip: 8, sargonShip: 4, siracusaShip: 4, lateranoShip: 1, kazimierzShip: 1, egirShip: 1, 'yanShip+victoriaShip': 1 });
   // the collab operators are out of the data and the pool (the owner's decision of 2026-10-05: copyright)
   assert.deepEqual(backups.diy.excluded.map((id) => [id, backups.units[id], operators[id]]),

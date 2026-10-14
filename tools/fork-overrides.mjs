@@ -320,3 +320,158 @@ export function applyForkBackups(backups) {
   }
   return { ...backups, diy: { ...diy, slots: out } };
 }
+
+// =====================================================================================================================
+// 六.3 莱茵生命 (Rhine Lab) — the ported 盟约 and its members
+
+/**
+ * The ported 莱茵生命 盟约 (`rhineShip`), one of the 内容包 switches (六.2). It is CARRIED BY TWO switches: 莱茵生命
+ * (`packRhine`, the whole Rhine expansion) and 谬因·并入莱茵 (`packAphris`, the one-operator change) — either of them
+ * has to bring the 盟约 with it, since a member with no 盟约 to join is meaningless. `packId` is an ARRAY for exactly
+ * that reason (`shared/constants.js packEnabled`).
+ *
+ * Values are the source expansion's own (`YUYUYUYUYUYUYUTOUA/Stronghold-Protocol-Rhine` `data/bonds.json`
+ * `rhineShip`), which itself reads the official 莱茵生命 insignia and the maintainer's balance table
+ * (`shared/rhineResearch.js` there): 3 / 6 / 9 distinct members, base ATK 300, +4 per 科研 layer, and the 6-member
+ * ATK sharing of 15 % / 25 % (elite).
+ */
+export const FORK_RHINE_BOND_ID = 'rhineShip';
+/** The ported 盟约's icon: the author's own monochrome SVG redraw of the 莱茵生命 insignia (`public/art/rhine/bond.svg`). */
+export const FORK_RHINE_ICON = '/art/rhine/bond.svg';
+const FORK_RHINE_PACKS = Object.freeze(['packRhine', 'packAphris']);
+/** `rhineShip`'s blackboard and its 效果 text (the source expansion's own words). */
+const FORK_RHINE = Object.freeze({
+  name: '莱茵生命',
+  identifier: 24,
+  thresholds: [3, 6, 9],
+  effectId: 'bondeffect_rhine',
+  bb: { base_atk: 300, atk_per_stack: 4, sharing_count: 6, sharing_atk: 0.15, sharing_golden_atk: 0.25 },
+  desc: '在场3名不同【莱茵生命】干员时启动一台科研装置；在场6名时同时启动两台，9名时三台全部启动。达到6名时，除伊芙利特和治疗干员外的莱茵输出干员获得己方已部署装置中最高基础攻击力的15%，精锐25%，作为额外攻击力；多个装置不重复共享。3名时获得生态维持仪与能量谐振仪，9名时解锁只有一级的全场激光钻机。装置基础攻击力300，每层科研增加4点。生态维持仪与能量谐振仪参战成功获得2研究点，失败获得1点；第1次突破需要5点，第2次突破需要5点。每次突破后研究点清零，溢出不保留；科研层数不受影响，激光钻机不积累研究点或突破。',
+});
+
+/**
+ * The official 莱茵生命 operators that already exist in this fork's chess pool (`character_table` groupId `rhine`).
+ * They are ordinary operators — the port only ADDS `rhineShip` to their bond list, so the membership disappears again
+ * with the switch (`packBonds`). 谬因 (`char_4229_aphris`) is not here: she is a 自选 operator and joins through
+ * `data/backups.json` `diy.operators` instead (`applyForkPackAphris`).
+ *
+ * Both forms of each operator are patched, but `bonds[].members` lists the BASE (`_a`) ids only — the same convention
+ * every official bond follows (`data.test.js` asserts a member is a non-golden chess).
+ */
+const FORK_RHINE_BASES = Object.freeze([
+  'chess_char_2_02_a', 'chess_char_4_21_a', 'chess_char_5_16_a', 'chess_char_5_11_a', 'chess_char_6_11_a', 'chess_char_6_16_a',
+]);
+export const FORK_RHINE_CHESS = Object.freeze(FORK_RHINE_BASES.flatMap((id) => [id, `${id.slice(0, -1)}b`]));
+/** The 自选 operator the 谬因·并入莱茵 switch makes a 莱茵生命 member. */
+export const FORK_APHRIS_CHAR_ID = 'char_4229_aphris';
+
+/**
+ * `data/bonds.json` + `data/effects.json` with the ported 莱茵生命 盟约 added. Both records are OWNED here (rebuilt from
+ * FORK_RHINE on every run), so a hand-edit is reverted and caught by test/fork-data.test.js.
+ * @param {Record<string, any>} bonds data/bonds.json
+ */
+export function applyForkBonds(bonds) {
+  if (!isPlainObject(bonds)) return bonds;
+  const { bb, name, identifier, thresholds, effectId, desc } = FORK_RHINE;
+  return {
+    ...bonds,
+    [FORK_RHINE_BOND_ID]: {
+      bondId: FORK_RHINE_BOND_ID, name, identifier, isCore: false, bondType: 'SEASON', bondOrder: identifier,
+      powerIdList: [], iconId: FORK_RHINE_BOND_ID, activeCount: thresholds[0], thresholds: [...thresholds],
+      maxCount: null, thresholdTemplate: 'count_threshold_upward', countMode: 'BOARD', countsHand: false,
+      countsGoldenOnly: false, activeType: 'BATTLE', isActiveInDeck: false, noStack: false, weight: 10,
+      maxInactiveBondCount: -1, layerMilestones: [],
+      desc, descRaw: desc, effectId, effectName: name, effectDesc: desc, effectDescRaw: desc, effectDescParams: [],
+      bb: { ...bb },
+      // Every other 盟约's numbers are read through `env_gbuff_new` (`sim/content/bonds/addon/battle.js bondBb`), so this
+      // one carries its blackboard the same way instead of inventing a second lookup. `bbStr.key` keeps the source
+      // expansion's own rune key name.
+      bbStr: { key: 'rhine_research' },
+      buffs: [{ key: 'env_gbuff_new', bb: { ...bb }, bbStr: { key: 'rhine_research' } }],
+      baseParams: [], perStackParams: [],
+      members: [...FORK_RHINE_BASES], visibleMembers: [...FORK_RHINE_BASES], packId: [...FORK_RHINE_PACKS],
+    },
+  };
+}
+
+/**
+ * `data/effects.json` with the 莱茵生命 盟约's effect record. `effectType` BOND, `buffs` empty (the 盟约's numbers are
+ * read from the bond record's own `bb` by the sim's generic path, like the other add-on bonds whose effect is all in
+ * `env_gbuff_new`), and the same `packId` as the bond so the pair appears and disappears together.
+ * @param {Record<string, any>} effects data/effects.json
+ */
+export function applyForkEffects(effects) {
+  if (!isPlainObject(effects)) return effects;
+  const { name, desc, effectId, bb } = FORK_RHINE;
+  return {
+    ...effects,
+    [effectId]: {
+      effectId, effectType: 'BOND', name, desc, descRaw: desc, counterType: 'NONE', continuedRound: -1,
+      decoIconId: null, enemyPrice: 0, buffs: [], params: { ...bb }, packId: [...FORK_RHINE_PACKS],
+    },
+  };
+}
+
+/**
+ * `data/chess.json` with every 莱茵生命 member listing the ported 盟约. The operators themselves are untouched — this
+ * only appends `rhineShip` to their `bonds` and records WHERE it came from (`packBonds`, so `shared/packData.js` takes
+ * it back out while neither 莱茵生命 switch is on). Idempotent: a second pass rewrites the same two fields.
+ * @param {Record<string, any>} chess data/chess.json
+ */
+export function applyForkPackMembers(chess) {
+  if (!isPlainObject(chess)) return chess;
+  const out = {};
+  let changed = false;
+  for (const [id, rec] of Object.entries(chess)) {
+    if (!FORK_RHINE_CHESS.includes(id) || !isPlainObject(rec)) { out[id] = rec; continue; }
+    const bonds = Array.isArray(rec.bonds) ? rec.bonds : [];
+    if (bonds.includes(FORK_RHINE_BOND_ID)) { out[id] = rec; continue; }
+    changed = true;
+    out[id] = { ...rec, bonds: [...bonds, FORK_RHINE_BOND_ID], packBonds: { ...(isPlainObject(rec.packBonds) ? rec.packBonds : {}), packRhine: [FORK_RHINE_BOND_ID] } };
+  }
+  return changed ? out : chess;
+}
+
+/**
+ * `data/backups.json` with 谬因 a 莱茵生命 member — 六.3's 「谬因·并入莱茵」, which is a 自选 operator's bond list
+ * (`diy.operators[charId].bonds`, shared/diy.js reads it). Handled apart from the chess records because she has no
+ * chess record at all: she is fielded through a 自选 slot. Idempotent like the others.
+ * @param {Record<string, any>} backups data/backups.json
+ */
+export function applyForkPackAphris(backups) {
+  if (!isPlainObject(backups)) return backups;
+  const diy = isPlainObject(backups.diy) ? backups.diy : null;
+  const operators = isPlainObject(diy?.operators) ? diy.operators : null;
+  const rec = operators && isPlainObject(operators[FORK_APHRIS_CHAR_ID]) ? operators[FORK_APHRIS_CHAR_ID] : null;
+  if (!rec) return backups;
+  const bonds = Array.isArray(rec.bonds) ? rec.bonds : [];
+  if (bonds.includes(FORK_RHINE_BOND_ID)) return backups;
+  return {
+    ...backups,
+    diy: {
+      ...diy,
+      operators: {
+        ...operators,
+        [FORK_APHRIS_CHAR_ID]: {
+          ...rec,
+          bonds: [...bonds, FORK_RHINE_BOND_ID],
+          packBonds: { ...(isPlainObject(rec.packBonds) ? rec.packBonds : {}), packAphris: [FORK_RHINE_BOND_ID] },
+        },
+      },
+    },
+  };
+}
+
+/**
+ * `data/assets.json` with the ported 盟约's icon. The file is a tracked build product of `tools/fetch-assets.mjs` (not of
+ * `tools/build-data.mjs`), and `test/ui/assetUrls.test.js` requires EVERY bond in `data/bonds.json` to have one, so the
+ * ported bond needs its entry here. The file itself is the author's own monochrome SVG redraw of the 莱茵生命 insignia
+ * (`public/art/rhine/bond.svg`, GPL-3.0-or-later per that folder's README) — no official art is committed.
+ * @param {Record<string, any>} assets data/assets.json
+ */
+export function applyForkAssets(assets) {
+  if (!isPlainObject(assets)) return assets;
+  const bonds = isPlainObject(assets.bonds) ? assets.bonds : null;
+  if (!bonds || bonds[FORK_RHINE_BOND_ID] === FORK_RHINE_ICON) return assets;
+  return { ...assets, bonds: { ...bonds, [FORK_RHINE_BOND_ID]: FORK_RHINE_ICON } };
+}

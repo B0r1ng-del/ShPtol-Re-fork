@@ -176,7 +176,10 @@ test('a real 标准 match (solo and co-op): the mode\'s 10 inactive bonds are "o
     assert.ok([...m.sets.drawn].every((b) => !OFF_FUNNY.includes(b) && !DATA.bonds[b].isCore));
     assert.deepEqual([...m.banned].sort(), [...pub.bannedChess].sort(), 'every banned operator is known');
     assert.deepEqual(m.banned.map((id) => DATA.chess[id].tier), [...m.banned.map((id) => DATA.chess[id].tier)].sort((a, b) => a - b));
-    for (const id of m.banned) assert.ok(DATA.chess[id].bonds.every((b) => m.stateOf(b)), `${id}: every bond greyed`);
+    // the MATCH's own bonds (`chessBondIds` = effectiveBonds), not the raw file's: the committed data carries the
+    // all-packs-on set, so a 盟约 a 内容包 contributes would be expected to be greyed here while the model — built from
+    // this room's data — never has it in `bonds` at all.
+    for (const id of m.banned) assert.ok(h.m.gd.chessBondIds(id).every((b) => m.stateOf(b)), `${id}: every bond greyed`);
     assert.equal(m.addon.filter((b) => m.stateOf(b.bondId)).length + m.core.filter((b) => m.stateOf(b.bondId)).length, 11);
     assert.match(textOf(MatchLegend({ model: m })), /或本模式禁用/);
     h.m.dispose();

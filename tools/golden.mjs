@@ -21,6 +21,7 @@
 //            placeable summons on the board; every equipment item, band, battle-side 机变 card and stage map card in
 //            turn; bonds from the board (bondsMeta.computeBonds) with 0–120 layers
 //   bonds    46 battles: every bond at its activation threshold (1 layer) and at its top tier (999 layers), 8 operators
+//            (the 盟约 the room has by default: a 盟约 a ported 内容包 contributes is not in the corpus — test/pack-rhine)
 //   fields   22 battles: every Final Assault / Hidden Core leader on its pair and its solo template (a shared boss pool,
 //            ended at 200 game s) and 联防 fields (1 and 2 helpers on a battle stage, both halves, carried HP / SP, a
 //            knocked-out operator, two leakers' enemies with a summoned-only kind and a bounty)
@@ -498,7 +499,13 @@ const BOND_MODES = Object.freeze(['mode_multi_normal', 'mode_multi_hard', 'mode_
 
 export function bondScenarios() {
   const scenarios = [];
-  const bondIds = Object.keys(data.bonds).sort(byId);
+  // The corpus is the game a room gets by DEFAULT — every 内容包开关 off — so a 盟约 a ported pack contributes (`packId`,
+  // shared/packData.js) is not part of it. `gdFor` is pack-filtered, and a scenario for a bond the match does not
+  // contain would reduce through `bondsOf(gd, …)` over a `gd.bondIds` that lacks it — a scenario that tests nothing.
+  // The ported content is covered by test/pack-rhine.test.js instead. Filtering the LIST (rather than skipping inside
+  // the loop) keeps `n` — the mode / stage rotation below — where it was, so no stored digest moves.
+  const packOff = gdFor('mode_multi_normal');
+  const bondIds = Object.keys(data.bonds).sort(byId).filter((id) => packOff.bond(id));
   const items = cursor(EQUIPS.filter((id) => /_b$/.test(id)));
   const fillLow = cursor(VISIBLE.filter((c) => !c.isGolden && c.tier >= 3 && c.tier <= 4).map((c) => c.chessId));
   const fillHigh = cursor(VISIBLE.filter((c) => c.isGolden && c.tier >= 4 && c.tier <= 5).map((c) => c.chessId));
