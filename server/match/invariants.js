@@ -23,7 +23,7 @@
 //            with one to three different cards
 //   match    phase known; teamLp / boss pool within range; combat fields match the alive players
 
-import { PHASE, BOND_LAYER_CAP } from '../../shared/constants.js';
+import { PHASE } from '../../shared/constants.js';
 import { FIELD, canPlace, placeClass, positionClass, parseKey } from './board.js';
 import { computeBonds } from './bondsMeta.js';
 
@@ -71,7 +71,8 @@ export function collectViolations(m, { limit = 25 } = {}) {
     if (!Number.isInteger(ps.shop.freeRefreshes) || ps.shop.freeRefreshes < 0) fail(`${id}: freeRefreshes ${ps.shop.freeRefreshes}`);
     // the official per-bond layer cap (shared/constants.js): no writer may pass it
     for (const [b, v] of Object.entries(ps.layers || {})) {
-      if (!(Number.isFinite(v) && v >= 0 && (!(BOND_LAYER_CAP > 0) || v <= BOND_LAYER_CAP))) fail(`${id}: ${b} layers ${v}`);
+      // the match's own ceiling: the official BOND_LAYER_CAP, or none while 「解除叠层上限」 is on (gd.layerCap)
+      if (!(Number.isFinite(v) && v >= 0 && (!(gd.layerCap > 0) || v <= gd.layerCap))) fail(`${id}: ${b} layers ${v}`);
     }
 
     if (!ps.alive) {

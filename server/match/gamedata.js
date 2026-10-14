@@ -14,7 +14,7 @@
 import { getConfig, getMode } from '../data.js';
 import { isShopItem } from '../sim/simdata.js';
 import { standInRecord } from '../../shared/standIn.js';
-import { normalizeMods, MOD_RANDOM_SP_FAMILIES, MOD_EXTRA_ROUNDS } from '../../shared/constants.js';
+import { normalizeMods, MOD_RANDOM_SP_FAMILIES, MOD_EXTRA_ROUNDS, layerCapFor } from '../../shared/constants.js';
 
 const own = (map, id) => (map && typeof map === 'object' && typeof id === 'string' && Object.hasOwn(map, id) && map[id] && typeof map[id] === 'object' ? map[id] : null);
 const numOr = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -413,6 +413,13 @@ export class GameData {
    * the boss on is shifted by this many, and `roundCfg` serves the LAST ordinary round's table for the inserted ones.
    */
   get extraRounds() { return this.mods.extraRounds === true ? MOD_EXTRA_ROUNDS : 0; }
+  /**
+   * The effective per-bond layer ceiling (shared/constants.js `layerCapFor`): the official 999, or Infinity while the
+   * 「解除叠层上限」 Mod 开关 is on. Every layer writer reads it, so the switch lifts the ceiling and nothing else.
+   */
+  get layerCap() { return layerCapFor(this.mods); }
+  /** Is the 「解除叠层上限」 Mod 开关 on? Passed to a battle as the wire-safe `flags.uncapLayers` boolean. */
+  get uncapLayers() { return this.mods.uncapLayers === true; }
   get maxShopLevel() { return posIntOr(this.mode.maxShopLevel, DEFAULTS.maxShopLevel); }
 
   /**

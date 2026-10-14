@@ -84,9 +84,9 @@ export const HOST_CONFIG_DEFAULTS = Object.freeze({ sharedPool: true, sharedBoun
  *                                  attribution) — the same rule 终极模拟's own `spDraft.randomVote` follows (二.4).
  *                             off — no vote button anywhere the mode itself does not ask for it (the official draft).
  */
-export const MOD_KEYS = Object.freeze(['noBondBan', 'untimedSp', 'randomSpVote', 'extraRounds', 'targetedPick']);
+export const MOD_KEYS = Object.freeze(['noBondBan', 'untimedSp', 'randomSpVote', 'extraRounds', 'targetedPick', 'uncapLayers']);
 /** Defaults of MOD_KEYS: the official behaviour of each switch (all off). */
-export const MOD_DEFAULTS = Object.freeze({ noBondBan: false, untimedSp: false, randomSpVote: false, extraRounds: false, targetedPick: false });
+export const MOD_DEFAULTS = Object.freeze({ noBondBan: false, untimedSp: false, randomSpVote: false, extraRounds: false, targetedPick: false, uncapLayers: false });
 /**
  * How many extra 普通回合 the 「额外 4 回合」 switch (`extraRounds`) inserts before the boss: the run goes 14 → 18 rounds
  * in every mode. `GameData.extraRounds` reads it; the inserted rounds reuse the last ordinary round's own table.
@@ -218,15 +218,33 @@ export const SKILL_SUMMON_START_DEPLOY = true;
 export const BOND_LAYER_CAP = 999;
 
 /**
+ * The cap in force for a match: the official `BOND_LAYER_CAP`, or no cap at all while the 「解除叠层上限」 Mod switch
+ * (`uncapLayers`) is on. ONE function so every writer of a bond's layers agrees — the switch lifts the ceiling and
+ * nothing else, every other layer rule (who may gain, `requireActive`, the per-battle allowance, the client-result
+ * bound) is untouched.
+ * @param {{uncapLayers?: boolean}|null|undefined} mods the match's Mod 开关 (GameData.mods)
+ * @returns {number} the layer ceiling, or Infinity for no ceiling
+ */
+export function layerCapFor(mods) {
+  if (mods && mods.uncapLayers === true) return Infinity;
+  return BOND_LAYER_CAP > 0 ? BOND_LAYER_CAP : Infinity;
+}
+
+/**
  * The layers a gain of `n` actually adds to a bond holding `before` under BOND_LAYER_CAP: min(n, cap − before), never
  * negative (a count already at or over the cap gains 0 and is never lowered); 0 for a non-positive / non-finite `n`
  * except +Infinity (= "the room left").
+ * `cap` defaults to the official ceiling, so every pre-existing caller keeps the official behaviour byte for byte; a
+ * caller passing `layerCapFor(gd.mods)` (Infinity while 解除叠层上限 is on) lifts it.
+ * @param {number} before
+ * @param {number} n
+ * @param {number} [cap]
  */
-export function layerGainRoom(before, n) {
+export function layerGainRoom(before, n, cap = BOND_LAYER_CAP > 0 ? BOND_LAYER_CAP : Infinity) {
   if (!(n > 0)) return 0;
-  const cap = BOND_LAYER_CAP > 0 ? BOND_LAYER_CAP : Infinity;
+  const c = cap > 0 ? cap : Infinity;
   const b = Number.isFinite(before) && before > 0 ? before : 0;
-  return Math.max(0, Math.min(n, cap - b));
+  return Math.max(0, Math.min(n, c - b));
 }
 
 /**

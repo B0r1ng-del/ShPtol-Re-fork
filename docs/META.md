@@ -657,7 +657,10 @@ Any `choice:` handler whose EffectRef reuses its own key must guard like this (o
   layers stop at `BOND_LAYER_CAP` = 999 (shared/constants.js; 0 / Infinity = off). Every writer clamps with
   `layerGainRoom` — `PlayerState.addLayers` (all prep-side gains: 特质, items, bands, 机变 cards, bonds; `ctx.addLayers`),
   the SETTLE of the in-battle gains and the battle's own live copy (`Battle.addLayers`, SIM.md §6); a gain at the cap
-  adds 0 and dispatches no onLayers. The client-result check bounds a reported gain by the room left from the bond's
+  adds 0 and dispatches no onLayers. The ceiling in force is `GameData.layerCap` (`layerCapFor`: the official 999, or
+  Infinity with the 「解除叠层上限」 Mod 开关 `uncapLayers` on, FORK.md §六.1) and every writer reads it; the in-battle
+  writer learns it from its wire-safe boolean `flags.uncapLayers`, since the browser builds the same Battle from a JSON
+  spec. The client-result check bounds a reported gain by the room left from the bond's
   starting layers and by 60 + 4·round plus what the player's IN_BATTLE layer 特质 can add to that bond (their per-battle
   caps; an uncapped trait leaves only the room — `fields.js layerAllowanceOf`, DESIGN §21.26) (`validateClientResult`,
   'layer bound'); `invariants.js` flags a bond above the cap. The

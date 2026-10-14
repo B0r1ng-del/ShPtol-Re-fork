@@ -1268,5 +1268,7 @@
   "怪物血量降为 1 血": "Enemies at 1 HP",
   "仅在备战阶段可用": "Available in the prep phase only",
   "显示作弊菜单": "Show cheat menu",
-  "在备战阶段显示一个可拖动的悬浮球，用来开启仅对自己生效的作弊开关。默认关闭。": "Show a draggable floating ball during the prep phase, which opens cheat switches that affect you alone. Off by default."
+  "在备战阶段显示一个可拖动的悬浮球，用来开启仅对自己生效的作弊开关。默认关闭。": "Show a draggable floating ball during the prep phase, which opens cheat switches that affect you alone. Off by default.",
+  "解除叠层上限": "Remove layer cap",
+  "盟约叠层上限由 999 层解除，可以叠到 999 层以上；只解除上限，其他盟约规则不变": "Lifts the 999-layer cap on bonds so a bond may stack past 999; only the ceiling is lifted, every other bond rule is unchanged"
 }
