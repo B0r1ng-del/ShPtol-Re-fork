@@ -62,7 +62,7 @@ export class MatchCombat {
       spawns: this._cheatSpawns(ps, list, wave.overrides),
       routes: wave.routes,
       sharedBoss: null,
-      flags: { layerGainsEnabled: true, ...this.gd.dp },
+      flags: { layerGainsEnabled: true, uncapLayers: this.gd.uncapLayers, ...this.gd.dp },
       fieldId: `n:${ps.playerId}`,
       enemyOverrides: wave.overrides,
       waveId: wave.templateId,
