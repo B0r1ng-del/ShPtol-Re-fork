@@ -68,6 +68,7 @@ import { normalizeProxyPrefix } from './assets/sources.mjs';
 import { loadIndexes } from './assets/cache.mjs';
 import { indexAudio, VOICE_DIRS } from './assets/audio.mjs';
 import { buildPlan } from './assets/plan.mjs';
+import { FORK_EXTRA6_CHARS } from './fork-extra6.mjs';
 import {
   processModels, findLocalEnemyModels, findLocalTokenModels, localSpineMeta, loadLocalSpines, LOCAL_ENEMY_SPINES_FILE,
   LOCAL_TOKEN_SPINES_FILE, LOCAL_ENEMY_SPINE_DIR, LOCAL_TOKEN_SPINE_DIR,
@@ -191,6 +192,20 @@ export function dataExtras(backups, chess) {
       for (const m of f.modules || []) if (m.typeIcon) moduleTypes.add(m.typeIcon);
     }
     extraOperators[id] = { name: u.name, subProfessionId: u.subProfessionId, nationId: u.nationId, skills: [...skills.values()].sort((a, b) => a.index - b.index) };
+  }
+  // …and the 内容包 operators that have no 补位 unit at all: a ported chess record (tools/fork-extra6.mjs) is a PRESET
+  // card fielding its own operator, so nothing in `backups.units` names it and it would ship with no avatar / portrait /
+  // Spine. `chess.json` is what the shop and the board field, so read the art of that operator from the record it built.
+  // Only the packs' operators are looked up (their own list is the one place that knows them), so every official chess
+  // still comes from research 07 exactly as before.
+  for (const id of FORK_EXTRA6_CHARS.map((c) => c.charId)) {
+    if (extraOperators[id]) continue;
+    const rec = Object.values(chess || {}).find((c) => c?.charId === id && !c.isGolden) || Object.values(chess || {}).find((c) => c?.charId === id);
+    if (!rec) continue;
+    const skills = new Map();
+    for (const sk of rec.skills || []) if (Number.isInteger(sk?.index) && !skills.has(sk.index)) skills.set(sk.index, { index: sk.index, skillId: sk.skillId, iconId: sk.iconId || sk.skillId });
+    extraOperators[id] = { name: rec.name, subProfessionId: rec.subProfessionId, nationId: rec.nationId, skills: [...skills.values()].sort((a, b) => a.index - b.index) };
+    for (const m of rec.modules || []) if (m.typeIcon) moduleTypes.add(m.typeIcon);
   }
   for (const c of Object.values(chess || {})) for (const m of c?.modules || []) if (m.typeIcon) moduleTypes.add(m.typeIcon);
   return { extraOperators, tokenIds: Object.keys(backups?.tokens || {}).sort(), moduleTypes: [...moduleTypes].sort() };

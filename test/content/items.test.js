@@ -736,9 +736,15 @@ function setup({ mode = 'solo', humans = 1, seed = 41 } = {}) {
   return { h, m, ps, equip };
 }
 const handIds = (ps, kind) => [...ps.hand, ...ps.temp].filter((p) => p && (!kind || p.kind === kind)).map((p) => p.id);
-/** Visible normal chess whose 特质 are all IN_BATTLE (no prep-side side effects), sorted. */
+/**
+ * Visible normal chess whose 特质 are all IN_BATTLE (no prep-side side effects), sorted.
+ *
+ * `!c.packId`: the committed `data/chess.json` is the ALL-PACKS-ON truth and a default room has every 内容包 switch off
+ * (`shared/packData.js recordAvailable`), so a record a pack owns is not in the match these tests build — 结城理 /
+ * 丰川祥子 (内容包 packExtra6, 六.C) included. `give()` asserts on the MATCH's data, which is the honest source here.
+ */
 const plain = (pred = () => true) => Object.values(DATA.chess)
-  .filter((c) => c.visible && !c.isGolden && (c.garrisonIds || []).every((g) => DATA.garrisons[g].eventType === 'IN_BATTLE') && pred(c))
+  .filter((c) => c.visible && !c.isGolden && !c.packId && (c.garrisonIds || []).every((g) => DATA.garrisons[g].eventType === 'IN_BATTLE') && pred(c))
   .map((c) => c.chessId).sort();
 /** Record the chess granted by item effects (acquireChess with an `item:` source). */
 /** The warn toasts sent to the match's players from now on: [{ msgid, who, name }] (server msg() objects). */

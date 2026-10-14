@@ -80,6 +80,7 @@ import { diyRecordOf, DIY_TIERS } from '../shared/diy.js';
 import { unitForm } from '../shared/standIn.js';
 import { POTENTIAL_DEFAULT, CULTIVATE_DEFAULT } from '../shared/potential.js';
 import { OPERATOR_KITS, KITTED_CHARS } from '../server/sim/content/kits/index.js';
+import { filterRecords } from '../shared/packData.js';
 import { GEO } from '../shared/constants.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -248,7 +249,11 @@ const ENEMY_COLS = Object.freeze(['spawned', 'killed', 'leaked', 'dmg', 'taken']
 // ---------------------------------------------------------------------------------------------------------------
 // corpus helpers (pure functions of data/*.json)
 
-const CHESS = Object.values(data.chess).sort((a, b) => byId(a.chessId, b.chessId));
+// The corpus is the game a room gets by DEFAULT — every 内容包开关 off (shared/packData.js): the ported packs' records
+// carry a `packId` and are stripped here, exactly as `GameData` strips them for a room. Without this the two ported
+// operators (tools/fork-extra6.mjs) would join every roster / standin / diy scenario and move the stored digests; the
+// packed content is covered by test/pack-extra6.test.js instead. All-off returns the same object, so nothing else moves.
+const CHESS = Object.values(filterRecords(undefined, data.chess)).sort((a, b) => byId(a.chessId, b.chessId));
 const VISIBLE = CHESS.filter((c) => c.visible);
 // the battle stages (data/stages.json also keeps the escaped levels' two maps, kind 'unite', which no field uses)
 const STAGES = Object.keys(data.stages).filter((id) => data.stages[id].kind !== 'unite').sort(byId);

@@ -87,7 +87,8 @@ test('every chess, 自选 form and stand-in form: the raw keyframes plus every p
     n++;
     if (Object.keys(steps(c.charId)).length) withSteps++;
   }
-  assert.equal(n, 258);
+  // 258 official + the two ported packExtra6 operators, each a base/elite pair (内容包 六.C, tools/fork-extra6.mjs)
+  assert.equal(n, 262);
   assert.ok(withSteps >= 220, `chess with potential steps: ${withSteps}`);
   let forms = 0;
   for (const [charId, u] of Object.entries(backups.units)) {

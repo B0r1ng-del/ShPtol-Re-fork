@@ -41,6 +41,9 @@ const LAYER = [
   { name: 'backups', what: 'diy.slots + 谬因/莱茵生命', needs: (j) => j.diy && typeof j.diy === 'object' && j.diy.slots },
   // 六.3: the ported 莱茵生命 盟约 record itself (data/bonds.json is an id → record map like chess).
   { name: 'bonds', what: '莱茵生命 盟约', needs: (j) => j && typeof j === 'object' },
+  // 六.C: the garrisons `buildGarrisons` synthesized for the ported operators — stamped with the pack's `packId` off
+  // their OWN `owners` list, so a pack switch takes them with the chess that references them.
+  { name: 'garrisons', what: '新干员包特质', needs: (j) => j && typeof j === 'object' },
   // 六.3: the 盟约's effect record (effectType BOND) — data.test.js requires every bond's effectId to resolve.
   { name: 'effects', what: '莱茵生命 盟约效果', needs: (j) => j && typeof j === 'object' },
   // 六.3: the ported 盟约's icon. `data/assets.json` is a build product of tools/fetch-assets.mjs (not of

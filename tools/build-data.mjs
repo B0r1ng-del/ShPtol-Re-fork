@@ -44,6 +44,7 @@ import { FULL_RANK, atRank, stripPotential } from '../shared/potential.js';
 // built chess/backups (二.8): kept out of the official-data derivation so a regeneration from the game's tables cannot
 // drop it, and so every fork-only value sits in one file.
 import { FORK_APPLIERS, FORK_PASS_APPLIERS } from './fork-overrides.mjs';
+import { applyForkExtra6Act } from './fork-extra6.mjs';
 
 // ===== CLI & IO ==================================================================================
 
@@ -355,7 +356,10 @@ async function loadContext() {
     loadGamedata('excel/enemy_handbook_table.json'),
     loadGamedata('levels/enemydata/enemy_database.json'),
   ]);
-  const act = activity?.activity?.AUTOCHESS_SEASON?.[SEASON];
+  // 内容包 packExtra6 (六.C): the two ported operators have a character_table row but no 卫戍协议 shop row, so their
+  // `charShopChessDatas` / `charChessDataDict` entries are synthesized here and injected into `act` — every builder below
+  // reads the season tables, so injecting the rows is the whole port (tools/fork-extra6.mjs says why).
+  const act = applyForkExtra6Act(activity?.activity?.AUTOCHESS_SEASON?.[SEASON], { charTable, uniequip });
   const ac = activity?.autoChessData;
   if (!act || !ac) throw new Error('activity_table has no act2autochess / autoChessData section');
 
@@ -1371,7 +1375,13 @@ function buildBackups(ctx, chess) {
   }).sort(naturalCmp);
   const collabNumber = (ch) => DIY_EXCLUDED_NUMBER_PREFIXES.some((p) => new RegExp(`^${p}\\d`).test(ch.displayNumber || ''));
   const excluded = legal6.filter((id) => teamsOf(charTable[id]).some((t) => excludedTeams.has(t)) || collabNumber(charTable[id]));
-  for (const t of DIY_EXCLUDED_TEAMS) if (!excluded.some((id) => teamsOf(charTable[id]).includes(t))) warn(`DIY_EXCLUDED_TEAMS: no owned-6★ pick of team ${t}`);
+  // A team is only unrepresented when NEITHER an excluded pick NOR a roster operator carries it: 内容包 packExtra6 (六.C)
+  // ports 丰川祥子 / 结城理 as chess, so mujica / sees stop being candidates and need no 自选 exclusion row. The warning
+  // exists to catch a stale or misspelled team name, and a roster member of that team proves the name is fine.
+  const rosterTeams = new Set([...roster].filter((id) => charTable[id]).flatMap((id) => teamsOf(charTable[id])));
+  for (const t of DIY_EXCLUDED_TEAMS) {
+    if (!rosterTeams.has(t) && !excluded.some((id) => teamsOf(charTable[id]).includes(t))) warn(`DIY_EXCLUDED_TEAMS: no owned-6★ pick of team ${t}`);
+  }
   const ownedPool = legal6.filter((id) => !excluded.includes(id));
   for (const id of ownedPool) for (const st of diyStatuses.values()) addNeed(id, st);
 
@@ -3889,7 +3899,7 @@ function validateAll(f) {
   // bonds plus the ported 莱茵生命 (`rhineShip`, fork-overrides.mjs applyForkBonds — 六.3).
   if (Object.keys(bonds).length !== 24) err(`expected 24 bonds (23 official + the ported 莱茵生命), got ${Object.keys(bonds).length}`);
   if (Object.keys(bands).length !== 40) err(`expected 40 bands, got ${Object.keys(bands).length}`);
-  if (visible.length !== 112) err(`expected 112 visible non-DIY chess, got ${visible.length}`);
+  if (visible.length !== 114) err(`expected 114 visible non-DIY chess (112 official + the two ported packExtra6 operators), got ${visible.length}`);
   for (const c of Object.values(chess)) {
     if (!chess[c.baseId]) err(`chess ${c.chessId}: baseId missing`);
     if (c.goldenId && !chess[c.goldenId]) err(`chess ${c.chessId}: goldenId missing`);

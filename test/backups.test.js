@@ -16,6 +16,7 @@ import { standInRecord, composeUnitRecord, unitForm, statusKey, IDENTITY_FIELDS 
 import { diyRecordOf, lockedSelection } from '../shared/diy.js';
 import { composeStats, composeTalents, resolveLoadout, loadoutRecord, normalizeChess } from '../server/sim/simdata.js';
 import { FORK_DIY_SLOT_IDS } from '../tools/fork-overrides.mjs';
+import { applyForkExtra6Act } from '../tools/fork-extra6.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = process.env.DATA_DIR || join(ROOT, 'data');
@@ -35,10 +36,11 @@ const isFiniteNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const ELITES = ['char_608_acpion', 'char_609_acguad', 'char_610_acfend', 'char_611_acnipe', 'char_612_accast', 'char_613_acmedc', 'char_614_acsupo', 'char_615_acspec', 'char_617_sharp2'];
 const RESERVES = ['char_600_cpione', 'char_601_cguard', 'char_602_cdfend', 'char_603_csnipe', 'char_604_ccast', 'char_605_cmedic', 'char_606_csuppo', 'char_607_cspec'];
 
-test('chess: 139 base chess — 74 PRESET / 55 NORMAL / 10 DIY — and every record keeps the five official backup fields', () => {
-  assert.equal(base.length, 139);
+test('chess: 141 base chess — 76 PRESET / 55 NORMAL / 10 DIY — and every record keeps the five official backup fields', () => {
+  assert.equal(base.length, 141);
   // 4 official DIY slots + the fork's 6 extra ones (二.8, 5 per tier): tools/fork-overrides.mjs applyForkChess
-  assert.deepEqual([ofType('PRESET').length, ofType('NORMAL').length, ofType('DIY').length], [74, 55, 10]);
+  // tier 5 / 6 gained one PRESET each: the ported packExtra6 operators (六.C, tools/fork-extra6.mjs)
+  assert.deepEqual([ofType('PRESET').length, ofType('NORMAL').length, ofType('DIY').length], [76, 55, 10]);
   for (const c of all) {
     assert.deepEqual(Object.keys(c.backup), ['charId', 'tmplId', 'skillIndex', 'uniEquipId', 'potRank'], `${c.chessId}: backup fields`);
     assert.deepEqual(c.backup, chess[c.baseId].backup, `${c.chessId}: the elite shares its base row's backup`);
@@ -57,7 +59,10 @@ test('chess: 139 base chess — 74 PRESET / 55 NORMAL / 10 DIY — and every rec
 });
 
 test('chess: the backup fields are the official shop row, verbatim', { skip: !HAS_CACHE && 'no .cache/gamedata' }, () => {
-  const act = raw('activity_table').activity.AUTOCHESS_SEASON.act2autochess;
+  // 内容包 packExtra6 (六.C) synthesizes the shop row of its two operators (tools/fork-extra6.mjs) — that IS their row,
+  // so the comparison runs against the same act the builder read.
+  const act = applyForkExtra6Act(raw('activity_table').activity.AUTOCHESS_SEASON.act2autochess,
+    { charTable: raw('character_table'), uniequip: raw('uniequip_table') });
   // The fork's own 自选 slots (二.8) have no official shop row: applyForkChess builds them from their tier's anchor slot,
   // so there is no row to compare against. They are skipped by id, never by "the lookup happened to miss" — a chess
   // that is not one of them and still has no row fails below.
@@ -346,22 +351,29 @@ test('DIY: the owned-6★ pool and the faction → bond rule (mainPower + every 
   const tally = {};
   for (const id of ownedPool) { const k = fromPowers(operators[id]).join('+'); tally[k] = (tally[k] || 0) + 1; }
   assert.deepEqual(tally, { emptyShip: 38, yanShip: 14, victoriaShip: 8, sargonShip: 4, siracusaShip: 4, lateranoShip: 1, kazimierzShip: 1, egirShip: 1, 'yanShip+victoriaShip': 1 });
-  // the collab operators are out of the data and the pool (the owner's decision of 2026-10-05: copyright)
+  // the collab operators are out of the data and the pool (the owner's decision of 2026-10-05: copyright).
+  // 丰川祥子 / 结城理 left this list with 内容包 packExtra6 (六.C, tools/fork-extra6.mjs): the pack turns them into
+  // chess of their own, so they are no longer "a 6★ outside the chess pool" and the derivation above no longer sees
+  // them — the loader skips them with the rest of the roster they now belong to.
   assert.deepEqual(backups.diy.excluded.map((id) => [id, backups.units[id], operators[id]]),
-    ['char_456_ash', 'char_1029_yato2', 'char_1048_orchd2', 'char_4123_ela', 'char_4141_marcil', 'char_4182_oblvns', 'char_4217_makoto'].map((id) => [id, undefined, undefined]),
-    '灰烬, 麒麟R夜刀, 焰狐龙梓兰 (MH05: a 联动寻访, by its display number), 艾拉, 玛露西尔, 丰川祥子, 结城理');
+    ['char_456_ash', 'char_1029_yato2', 'char_1048_orchd2', 'char_4123_ela', 'char_4141_marcil'].map((id) => [id, undefined, undefined]),
+    '灰烬, 麒麟R夜刀, 焰狐龙梓兰 (MH05: a 联动寻访, by its display number), 艾拉, 玛露西尔');
   assert.deepEqual(operators.char_017_huang.bonds, ['yanShip', 'victoriaShip'], '煌: 炎 + 维多利亚 from her subPower (mainPower rhodes / elite)');
   for (const id of [...prototypes['5'], ...prototypes['6']]) assert.deepEqual(operators[id].bonds, ['emptyShip'], `${id}: no faction`);
 });
 
 test('DIY: powers and the owned pool re-derived from character_table', { skip: !HAS_CACHE && 'no .cache/gamedata' }, () => {
   const CT = raw('character_table');
-  const act = raw('activity_table').activity.AUTOCHESS_SEASON.act2autochess;
+  // The roster the derivation excludes is the one the BUILDER saw: 内容包 packExtra6 (六.C, tools/fork-extra6.mjs) turns
+  // 丰川祥子 / 结城理 into chess of the season, so they are no longer "a 6★ outside the chess pool" and drop out of the
+  // 自选 candidates — a raw-act read would still list them and expect them among the excluded.
+  const act = applyForkExtra6Act(raw('activity_table').activity.AUTOCHESS_SEASON.act2autochess,
+    { charTable: CT, uniequip: raw('uniequip_table') });
   const roster = new Set(Object.values(act.charShopChessDatas).map((r) => r.charId).filter(Boolean));
   const collab = (c) => [c.mainPower, ...(c.subPower || [])].some((p) => ['rainbow', 'action4', 'mujica', 'sees', 'laios'].includes(p?.teamId))
     || /^(?:MH|RS|AM|PS|DD)\d/.test(c.displayNumber || '');
   const legal = Object.entries(CT).filter(([id, c]) => id.startsWith('char_') && c.rarity === 'TIER_6' && !['TOKEN', 'TRAP'].includes(c.profession) && !c.isNotObtainable && !roster.has(id));
-  assert.equal(legal.length, 79, 'the excel\'s 79 obtainable 6★ outside the chess pool');
+  assert.equal(legal.length, 77, 'the excel\'s 79 obtainable 6★ outside the official chess pool, less the two the pack ports');
   assert.deepEqual([...backups.diy.ownedPool].sort(), legal.filter(([, c]) => !collab(c)).map(([id]) => id).sort());
   assert.deepEqual([...backups.diy.excluded].sort(), legal.filter(([, c]) => collab(c)).map(([id]) => id).sort());
   for (const [id, o] of Object.entries(backups.diy.operators)) {
@@ -370,7 +382,7 @@ test('DIY: powers and the owned pool re-derived from character_table', { skip: !
     assert.deepEqual(o.powers, want, `${id}: powers`);
   }
   // eight owned picks get their core bond from a subPower only (鸿雪, 真言, 假日威龙陈, 弑君者, 予愿安洁莉娜, 涤火杰西卡, 薇薇安娜, 煌;
-  // the ninth of the excel, 结城理, is a collab)
+  // the ninth of the excel, 结城理, is a collab — and a packExtra6 chess since 六.C, so out of the pool either way)
   const coreOf = (powers) => Object.values(bonds).filter((b) => b.isCore && b.powerIdList.some((p) => powers.includes(p))).map((b) => b.bondId);
   const subOnly = backups.diy.ownedPool.filter((id) => {
     const m = CT[id].mainPower;

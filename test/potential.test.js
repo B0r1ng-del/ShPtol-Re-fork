@@ -94,7 +94,8 @@ test('every chess and 自选 form at every potential: the raw keyframes plus the
     if (c.isDiy || !c.charId) continue;
     for (let rank = 0; rank <= FULL_RANK; rank++) { const r = atRank(c, rank); check(c.chessId, c.charId, c.status, r.statsBase ?? r.stats, rank); n++; }
   }
-  assert.equal(n, 258 * 6);
+  // 258 official records + the two ported packExtra6 operators' base/elite pairs (内容包 六.C), × six potential ranks
+  assert.equal(n, 262 * 6);
   let forms = 0;
   for (const [charId, u] of Object.entries(backups.units)) {
     for (const f of Object.values(u.forms)) {

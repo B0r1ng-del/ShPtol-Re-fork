@@ -75,12 +75,13 @@ test('numbers: every stats/bb/enemyScale object holds only finite numbers (no nu
   assert.deepEqual(bad.slice(0, 10), [], `${bad.length} bad numeric fields`);
 });
 
-test('chess: 278 records, 112 visible non-DIY (16/17/19/22/19/19 per tier)', () => {
-  assert.equal(Object.keys(chess).length, 278);
-  assert.equal(visible.length, 112);
+test('chess: 282 records, 114 visible non-DIY (16/17/19/22/20/20 per tier)', () => {
+  assert.equal(Object.keys(chess).length, 282);
+  assert.equal(visible.length, 114);
   const perTier = {};
   for (const c of visible) perTier[c.tier] = (perTier[c.tier] || 0) + 1;
-  assert.deepEqual(perTier, { 1: 16, 2: 17, 3: 19, 4: 22, 5: 19, 6: 19 });
+  // tier 5 / 6 gained one each: the ported packExtra6 operators (tools/fork-extra6.mjs, 六.C)
+  assert.deepEqual(perTier, { 1: 16, 2: 17, 3: 19, 4: 22, 5: 20, 6: 20 });
   // 4 official DIY slots + the fork's 6 extra ones (二.8, 5 per tier; tools/fork-overrides.mjs applyForkChess)
   assert.equal(normalChess.filter((c) => c.isDiy).length, 10);
   assert.equal(normalChess.filter((c) => c.isHidden).length, 17);
@@ -517,8 +518,9 @@ test('chess: skills[] = every skill unlocked at the status, at the chess skill l
     assert.ok(wider(s.trigger.customRangeGrid, c.rangeGrid), `${c.chessId} ${s.skillId}: its running range strictly contains ${c.rangeId}`);
     if (s.rangeGrid) assert.deepEqual(s.trigger.customRangeGrid, s.rangeGrid, `${c.chessId} ${s.skillId}: the skill's own grid`);
   }
-  assert.equal(active.length, 78, '39 skills, normal + elite');
-  assert.equal(new Set(active.map(([c, s]) => `${c.baseId} ${s.skillId}`)).size, 39);
+  // + the ported packExtra6 丰川祥子 S3 (六.C, tools/fork-extra6.mjs): one more skill, normal + elite
+  assert.equal(active.length, 80, '40 skills, normal + elite');
+  assert.equal(new Set(active.map(([c, s]) => `${c.baseId} ${s.skillId}`)).size, 40);
   // from the SEARCH row (解放者 / 阵法术师 / 安洁莉娜) and 深巡 S2's deviation: the owner's decisions of 2026-10-05
   const fromSearch = active.filter(([, s]) => s.trigger.rawRule === 'SEARCH').map(([c, s]) => `${c.baseId} ${s.skillId}`);
   assert.deepEqual([...new Set(fromSearch)].sort(), ['chess_char_3_08_a skchr_mint_1', 'chess_char_4_05_a skchr_beewax_1', 'chess_char_4_24_a skchr_billro_3', 'chess_char_5_19_a skchr_mlynar_2', 'chess_char_5_20_a skchr_aglina_3']);

@@ -68,7 +68,9 @@ describe('the manifest (data/assets.json)', () => {
     const backs = Object.entries(M.chars).filter(([, c]) => c.spine?.back);
     const withFall = backs.filter(([, c]) => dieClipDur(c.spine.back) > 0).map(([id]) => id).sort();
     assert.ok(backs.length >= 130, `${backs.length} Back skeletons`);
-    assert.deepEqual(withFall, ['char_322_lmlee', 'char_388_mint', 'char_4064_mlynar', 'char_440_pinecn', 'char_602_cdfend'], '老鲤 (a 自选 pick, 0.2.0) too');
+    // 丰川祥子 (char_4182_oblvns) is the ported packExtra6 operator (六.C, tools/fork-extra6.mjs): her Back skeleton is
+    // one of the few with a Die clip of its own, unlike 结城理's (char_4217_makoto — her Back has none).
+    assert.deepEqual(withFall, ['char_322_lmlee', 'char_388_mint', 'char_4064_mlynar', 'char_4182_oblvns', 'char_440_pinecn', 'char_602_cdfend'], '老鲤 (a 自选 pick, 0.2.0) too');
     for (const [id, c] of Object.entries(M.chars)) assert.ok(dieClipDur(c.spine.front) > 0, `${id} Front has a Die clip`);
     assert.equal(dieClipDur(back(CAPER)), 0);
     assert.equal(dieClipDur(front(CAPER)), front(CAPER).animations.Die);

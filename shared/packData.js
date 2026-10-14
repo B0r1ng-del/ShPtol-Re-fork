@@ -24,6 +24,14 @@ import { packEnabled } from './constants.js';
 export const PACK_ID_FIELD = 'packId';
 /** The field a record uses for content a pack contributes to it: `{ <packKey>: [bondId, …] }`. */
 export const PACK_BONDS_FIELD = 'packBonds';
+/**
+ * The field a BOND uses for the chess a pack added to its member lists: `{ <packKey>: [chessId, …] }`.
+ *
+ * `packBonds` in reverse: a record names what a pack contributed TO it, here the record names what a pack added to its
+ * own lists. Dropping a chess record does not drop what points at it, so without this a bond that outlives its ported
+ * member would keep listing it and the 盟约 member list would draw a row for a piece this room does not contain.
+ */
+export const PACK_MEMBERS_FIELD = 'packMembers';
 
 const isPlain = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 
@@ -70,6 +78,48 @@ export function effectiveBonds(mods, rec) {
   return own.filter((id) => !drop.has(id));
 }
 
+/** The fields a bond record names its chess members in (tools/build-data.mjs buildBonds `members` / `visibleMembers`). */
+const MEMBER_FIELDS = Object.freeze(['members', 'visibleMembers']);
+
+/**
+ * `map` with every member list cleared of the chess a DISABLED pack added to it, or `map` itself when nothing is
+ * removed (so an all-off room shares the original object, not one copied record).
+ *
+ * `packBonds` (= what a pack contributed TO a record) is the other direction of the same idea; this is what a pack added
+ * INSIDE a record of its own. A bond's `members` / `visibleMembers` name chess ids, and a dropped chess record does not
+ * drop what points at it: a pack's operator leaves `chess.json`, but a bond that outlives it — an official 盟约 the
+ * ported operator joins — would keep listing it, and the 盟约 member list would draw a row for a piece this room does
+ * not contain. The switch makes a pack's content invisible; it must not leave a phantom in a list.
+ *
+ * The record names its own additions, so this needs no cross-file knowledge and no reference validation (that is
+ * `test/data.test.js`'s job, against the committed all-packs-on data).
+ * @param {Record<string, boolean>|null|undefined} mods
+ * @param {Record<string, any>|null|undefined} map
+ */
+export function withPackMembers(mods, map) {
+  if (!isPlain(map)) return map;
+  let out = null;
+  for (const [id, rec] of Object.entries(map)) {
+    if (!isPlain(rec) || !isPlain(rec[PACK_MEMBERS_FIELD])) continue;
+    let next = null;
+    for (const field of MEMBER_FIELDS) {
+      const list = rec[field];
+      if (!Array.isArray(list) || !list.length) continue;
+      const drop = new Set();
+      for (const [key, ids] of Object.entries(rec[PACK_MEMBERS_FIELD])) {
+        if (packEnabled(mods, key) || !Array.isArray(ids)) continue;
+        for (const x of ids) if (typeof x === 'string') drop.add(x);
+      }
+      const trimmed = drop.size ? list.filter((m) => !drop.has(m)) : list;
+      if (trimmed.length === list.length) continue;
+      if (!next) next = { ...rec };
+      next[field] = trimmed;
+    }
+    if (next) { if (!out) out = { ...map }; out[id] = next; }
+  }
+  return out ?? map;
+}
+
 /**
  * One data FILE of `data/*.json` without the content the switches leave off. `backups.json` is the only file whose
  * records are nested (its `units` are 补位 bodies and its `diy.operators` are 自选 picks, and a pack may make one of
@@ -84,9 +134,10 @@ export function effectiveBonds(mods, rec) {
 export function filterFile(mods, name, json) {
   if (!isPlain(json)) return json;
   if (name !== 'backups') {
-    // chess / items / … : drop the packs' own records, then take back what a disabled pack contributed to the survivors.
-    const kept = filterRecords(mods, json);
-    return withPackBonds(mods, kept);
+    // chess / items / bonds / … : drop the packs' own records, take back what a disabled pack contributed to the
+    // survivors (packBonds), and clear a disabled pack's own additions out of a survivor's lists (packMembers).
+    const kept = withPackBonds(mods, filterRecords(mods, json));
+    return withPackMembers(mods, kept);
   }
   const units = withPackBonds(mods, filterRecords(mods, json.units));
   const diy = json.diy;

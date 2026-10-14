@@ -356,6 +356,11 @@ test('覆盖锁定: 全数据 266 个棋子 × 全部模组选择里，被引擎
   assert.deepEqual(installed.sort(), [
     'chess_char_5_01_b|uniequip_003_excu2|12|ok',   // 圣约送葬人 REA-Y（数值在隐藏天赋上）
     'chess_char_5_06_b|uniequip_003_etlchi|12|ok',  // 隐德来希 REA-Y（数值在 trait.bb 上）
+    // 丰川祥子 LOR-Y 无言的约定「攻击范围内存在2名及以上敌人时攻击速度+12」— 内容包 packExtra6 (六.C). The clause is the
+    // 「攻击范围内存在N名及以上敌人」 shape crowdInRange already reads, so the ENGINE owns it and the kit must not install
+    // a second copy (two owners of one stat would double it).
+    'chess_char_6_oblvns_b|default|12|ok',
+    'chess_char_6_oblvns_b|uniequip_002_oblvns|12|ok',
   ]);
   assert.deepEqual(Object.keys(reasons).sort(), ['kit', 'mode'], 'no silent gap — every refusal carries a known reason');
   assert.equal(reasons.unknown ?? 0, 0, 'nothing falls through as unknown');
@@ -388,7 +393,10 @@ test('覆盖锁定（补位 / 自选）: 每个补位干员和每个自选组合
   for (const id of ds.chessIds()) {
     let d;
     try { d = ds.getChess(id, { standIn: true }); } catch { d = null; }
-    if (d) see('standIn', `${id}|${d.charId}`, d);
+    // only a REAL 补位: `getStandIn` is null for a PRESET / DIY record (shared/standIn.js standInRecord), and getChess
+    // then hands back the card's OWN def — that is the operator itself, not a stand-in, and the first test already
+    // covers it (结城理 / 丰川祥子 are both PRESET: 内容包 packExtra6, 六.C).
+    if (d && d.standInFor) see('standIn', `${id}|${d.charId}`, d);
   }
   const backups = ds.rawBackups();
   for (const slotId of diySlotIds(ds)) {
