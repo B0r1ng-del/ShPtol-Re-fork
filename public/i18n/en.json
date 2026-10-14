@@ -1270,5 +1270,17 @@
   "显示作弊菜单": "Show cheat menu",
   "在备战阶段显示一个可拖动的悬浮球，用来开启仅对自己生效的作弊开关。默认关闭。": "Show a draggable floating ball during the prep phase, which opens cheat switches that affect you alone. Off by default.",
   "解除叠层上限": "Remove layer cap",
-  "盟约叠层上限由 999 层解除，可以叠到 999 层以上；只解除上限，其他盟约规则不变": "Lifts the 999-layer cap on bonds so a bond may stack past 999; only the ceiling is lifted, every other bond rule is unchanged"
+  "盟约叠层上限由 999 层解除，可以叠到 999 层以上；只解除上限，其他盟约规则不变": "Lifts the 999-layer cap on bonds so a bond may stack past 999; only the ceiling is lifted, every other bond rule is unchanged",
+  "莱茵生命": "Rhine Lab",
+  "开启后游戏内可使用移植内容：莱茵生命盟约与科研装置、联合科研干员。关闭（默认）时完全不加载，回到原版内容。": "Turns on ported content in game: the Rhine Lab bond with its research devices, and its operators. Off (default) loads none of it — the original content.",
+  "谬因·并入莱茵": "Aphrissa joins Rhine Lab",
+  "收藏品玩法": "Collectible relics",
+  "开启后游戏内可使用移植内容：收藏品玩法（每回合三选一、护盾与图鉴）。关闭（默认）时不加载任何收藏品。": "Turns on ported content in game: the collectible relics (a three-way pick each round, shields and a journal). Off (default) loads no relics at all.",
+  "新干员包": "New operator pack",
+  "开启后游戏内可使用移植内容：予愿安洁莉娜、丰川祥子等新增干员。关闭（默认）时这些干员不出现在商店与名单里。": "Turns on ported content in game: added operators such as Wishful Angelina and Sakiko Togawa. Off (default) keeps them out of the shop and every list.",
+  "额外干员包": "Extra operator pack",
+  "开启后游戏内可使用移植内容：五名自定义干员。关闭（默认）时这些干员不出现在商店与名单里。": "Turns on ported content in game: five custom operators. Off (default) keeps them out of the shop and every list.",
+  "额外内容": "Extra content",
+  "原作者：{author}": "Author: {author}",
+  "开启后莱茵生命盟约解锁，干员谬因加入其中，并可获得其层数加成。关闭（默认）时谬因保持原版盟约。": "Turns on the Rhine Lab bond and makes Aphrissa a member of it, so she gains its layer bonuses. Off (default) leaves her on her original bond."
 }

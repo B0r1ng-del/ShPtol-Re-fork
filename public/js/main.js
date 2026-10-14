@@ -32,7 +32,7 @@
 // Polyfills first (older Safari / Firefox ESR): every module evaluated after this one sees them.
 import './ui/compat.js';
 import { render } from '../vendor/preact.module.js';
-import { useErrorBoundary } from '../vendor/hooks.module.js';
+import { useErrorBoundary, useEffect } from '../vendor/hooks.module.js';
 import { html, UiHosts, Button, MicroLabel, closeAllDialogs } from './ui/components.js';
 import { ConnectionBanner } from './ui/connBanner.js';
 import { ToastHost, toast, toastError, describeError } from './ui/toasts.js';
@@ -298,6 +298,11 @@ function ScreenCrashed({ error, reset }) {
 function App() {
   const route = useStore(selectRoute);
   useLang(); // a language switch re-renders the whole tree in place
+  // 内容包开关 (shared/packData.js): the packs the room this client shows runs, so the data store lists only their
+  // content. In a match the host's switches are in m.public.mods; in a room, room.state.mods; with neither (the lobby)
+  // only the original content is listed, and a pack's operators appear the moment the client enters a room that has it.
+  const packs = useStore((s) => (s.match?.public?.mods || s.room?.mods || null));
+  useEffect(() => { data.setPacks(packs); }, [packs]);
   const [error, resetError] = useErrorBoundary((err) => console.error('[ui] screen crashed', err));
   const Screen = SCREENS[route] || LobbyScreen;
   return html`<div class="app-root">

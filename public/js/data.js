@@ -30,6 +30,8 @@
 import { useEffect, useReducer } from '../vendor/hooks.module.js';
 import { applyFileOverlay } from '../../shared/i18nData.js';
 import { canonicalLang } from '../../shared/i18nPacks.js';
+import { filterFile } from '../../shared/packData.js';
+import { PACK_KEYS } from '../../shared/constants.js';
 
 /** Known data files (name → URL basename). Unknown names are allowed too (`/data/<name>.json`). */
 export const DATA_FILES = Object.freeze({
@@ -147,6 +149,15 @@ export function createDataStore(opts = {}) {
   const overlays = new Map();
   /** name → { lang, value, index } localized copy of a ready file (dropped on every switch / reload of the file) */
   const localized = new Map();
+  /**
+   * 内容包开关 of the room this client shows (shared/packData.js): the ported packs whose records may be used. `sig` is
+   * what the cached, filtered copies below were built from; `null` (the lobby, and every match whose host turned
+   * nothing on) means the original content, so the files are used exactly as downloaded.
+   */
+  let packs = null;
+  let packsSig = '';
+  /** @type {Map<string, { base: any, value: any, index?: Map<string, any> }>} pack-filtered copies of a ready file */
+  const packed = new Map();
 
   const notify = (name) => {
     for (const fn of [...listeners]) {
@@ -266,16 +277,42 @@ export function createDataStore(opts = {}) {
     return l;
   }
 
+  /**
+   * A ready file with the content of every pack this client does NOT run removed (shared/packData.js), cached per pack
+   * set and per value. `null` packs ⇒ the value itself, untouched.
+   */
+  function packFiltered(name, value) {
+    if (!packs) return value;
+    const key = `${name}\u0000${packsSig}`;
+    let l = packed.get(key);
+    if (!l || l.base !== value) {
+      l = { base: value, value: filterFile(packs, name, value) };
+      packed.set(key, l);
+    }
+    return l.value;
+  }
+
+  /**
+   * The id → record index of a ready file. With packs of its own on, the file is localized FIRST (its texts) and the
+   * pack filter applied to that, so a pack's records are translated like every other one; with none on this is exactly
+   * the index the store built before the packs existed.
+   */
   function index(name) {
     const e = entries.get(name);
     if (!e || e.status !== 'ready') return null;
     const l = localizedEntry(name);
-    if (l) {
-      if (!l.index) l.index = buildIndex(name, l.value);
+    const value = packFiltered(name, l ? l.value : e.value);
+    if (value === l?.value) {
+      if (!l.index) l.index = buildIndex(name, value);
       return l.index;
     }
-    if (!e.index) e.index = buildIndex(name, e.value);
-    return e.index;
+    if (value === e.value) {
+      if (!e.index) e.index = buildIndex(name, value);
+      return e.index;
+    }
+    let f = packed.get(`${name}\u0000\u0000idx`);
+    if (!f || f.base !== value) { f = { base: value, index: buildIndex(name, value) }; packed.set(`${name}\u0000\u0000idx`, f); }
+    return f.index;
   }
 
   /**
@@ -381,6 +418,23 @@ export function createDataStore(opts = {}) {
       localized.clear();
       for (const name of [...entries.keys()]) notify(name);
       return locale;
+    },
+    /**
+     * 内容包开关 of the room this client shows (`m.public.mods` in a match, `room.state.mods` in a room) — the ported
+     * packs whose content may be listed. Callers pass the whole mods record; only PACK_KEYS matter here. Notifies every
+     * loaded file when the set changes, so the 干员调配 roster and every other list re-render without the packs the
+     * host left off. A nullish / all-off set goes back to the original content.
+     * @param {Record<string, boolean>|null|undefined} mods
+     */
+    setPacks(mods) {
+      const on = PACK_KEYS.filter((k) => mods?.[k] === true);
+      const sig = on.join(',');
+      if (sig === packsSig) return;
+      packsSig = sig;
+      packs = on.length ? { ...mods } : null;
+      if (packs) for (const k of on) packs[k] = true;
+      packed.clear();
+      for (const name of [...entries.keys()]) notify(name);
     },
     /**
      * A Chinese game-data name (operator, item, bond, token …) in the current locale: the first overlay of the chain
