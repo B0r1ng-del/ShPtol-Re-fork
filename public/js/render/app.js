@@ -1,3 +1,4 @@
+import { installPixiNumberMask } from '../ui/numberMask.js';
 // render/app.js — battlefield view (DESIGN §9). PixiJS 7 (global PIXI) + pixi-spine (PIXI.spine), loaded on demand
 // from /vendor when the page did not include them as classic <script> tags.
 //
@@ -172,6 +173,8 @@ export async function createFieldView(host, options = {}) {
   signal?.throwIfAborted();
   const P = await withTimeout(ensurePixi(), null, signal);
   signal?.throwIfAborted();
+  // 六.E 木棍 (packRelic, relic_159): the battlefield's own damage numbers / countdowns mask too, at rasterization
+  installPixiNumberMask(P);
   const assets = resolveAssets(opts.assets);
   const data = makeData(opts.data);
   const settings = { damageNumbers: true, officialDamageNumbers: false, ammoCount: false, quality: 'high', ...(opts.settings || {}) };

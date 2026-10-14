@@ -4,6 +4,7 @@
 // the player state).
 
 import { PHASE } from '../../../shared/constants.js';
+import { relicsView, relicOfferView, activeRelicShield, activeReverseLp } from '../relics.js';
 import { boardOrder, pieceDir } from '../board.js';
 import { bondList, offBondCounts } from '../bondsMeta.js';
 import { bountyText, bountyCard } from '../choices.js';
@@ -97,6 +98,17 @@ export class PlayerViews {
       // + the mode-off bonds it has members of (`off: true`, the strip's grey 本局禁用 discs — bondsMeta.offBondCounts)
       bonds: bondList(this.gd, this.bondsView(), { full: true, off: offBondCounts(this.gd, this) }),
       effects: this.effectsView(),
+      // 六.E: the collectibles this player holds, the round's reward flash, the open offer, the queued revival operators,
+      // the leak streak and the shield. Every entry reads a field that stays empty with the switch off, so an off match
+      // sends the same arrays / nulls as one built before the port.
+      relics: relicsView(this),
+      relicReward: this.relicReward ? { ...this.relicReward } : null,
+      relicOffer: relicOfferView(this),
+      relicChessQueue: [...this.relicChessQueue],
+      relicLeakStreak: this.relicLeakStreak,
+      lpShield: activeRelicShield(this),
+      reverseLp: activeReverseLp(this),
+      nextLpShield: this.relicNextShieldRound > this.m.round ? 2 : 0,
       nextEnemies: this.m.nextEnemiesFor(this),
       // DESIGN §16: the effective operator loadout ({ [baseChessId]: { skill, module } }; chess not listed use defaults)
       loadout: this.loadout,

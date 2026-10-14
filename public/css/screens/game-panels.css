@@ -781,3 +781,96 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .cheatball__row .cheatball__act::before { content: ''; position: absolute; left: 0; right: 0; top: 50%;
   height: max(100%, var(--cheat-row-h)); transform: translateY(-50%); }
 .cheatball__hint { font-size: calc(.13 * var(--t)); color: var(--text-lo); }
+
+/* ---- personal relics: a matching icon column beside effects, clear of the cost counter ---- */
+.gm__effects { display: flex; align-items: flex-start; gap: .14rem; }
+.gm__effect-base { flex: none; width: .74rem; }
+.relic-icons { display: flex; flex-direction: column; align-items: flex-end; gap: .08rem; }
+.relic-icons__heading { display: flex; gap: .04rem; align-items: center; padding: 0; background: none; border: 0; white-space: nowrap; color: var(--text-dim); cursor: pointer; }
+.relic-icons__heading:hover { color: var(--mint-400); }
+/* 每列从上往下放五件收藏品，满列后向左扩展；图标与提示文字保持正常阅读方向。 */
+.relic-icons__grid { display: grid; grid-template-rows: repeat(5, .5rem); grid-auto-flow: column; grid-auto-columns: .5rem; direction: rtl; gap: .08rem; overflow: visible; }
+.relic-icons__grid > .tt-anchor { display: block; direction: ltr; }
+.relic-shield { display: flex; align-items: center; gap: .04rem; color: var(--ice); font-size: max(calc(.12 * var(--t)), 8px); line-height: 1.2; }
+.relic-shield .icon { width: .14rem; height: .14rem; }
+.effect--relic { flex: none; padding: 0; cursor: pointer; }
+.effect--relic:hover { background: var(--mint-900); border-color: var(--mint-400); }
+.effect--relic:focus-visible, .relic-icons__heading:focus-visible { outline: 1px solid var(--mint-400); outline-offset: 1px; }
+.effect--relic.is-new { border-color: var(--gold-2); box-shadow: 0 0 .08rem var(--gold-a20); }
+.relic-icon__tier { position: absolute; right: 0; bottom: 0; font-size: calc(.1 * var(--t)); line-height: 1.2; padding: .01rem .03rem; background: rgba(8, 11, 10, .9); color: var(--relic-tone); pointer-events: none; }
+.relic-icon__new { position: absolute; right: 0; top: 0; width: .07rem; height: .07rem; border-radius: 50%; background: var(--gold-2); pointer-events: none; }
+.relic-panel .modal__body { min-height: 0; overscroll-behavior: contain; touch-action: pan-y; }
+.relic-panel__title { display: flex; align-items: center; gap: .09rem; }
+.relic-panel__title .icon { width: .24rem; height: .24rem; color: var(--mint-400); }
+.relic-panel__title .num { color: var(--mint-400); }
+.relic-panel__rule { color: var(--text-hi); font-size: max(calc(.16 * var(--t)), 10px); line-height: 1.65; }
+.relic-panel__balance { color: var(--text-md); font-size: max(calc(.14 * var(--t)), 9px); line-height: 1.6; margin-top: .05rem; }
+.relic-panel__note { color: var(--text-lo); font-size: max(calc(.12 * var(--t)), 8px); line-height: 1.5; margin-top: .06rem; }
+.relic-panel__caps { margin: .09rem 0 .12rem; color: var(--text-lo); font-size: max(calc(.13 * var(--t)), 9px); line-height: 1.6; }
+.relic-panel__caps summary { cursor: pointer; color: var(--text-md); }
+.relic-panel__caps p { margin: .06rem 0 0; }
+.relic-odds { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .06rem; margin-top: .12rem; }
+.relic-odds__tier { display: flex; flex-direction: column; gap: .03rem; align-items: center; padding: .06rem .02rem; border: 1px solid var(--line-2); background: rgba(0, 0, 0, .22); }
+.relic-odds__tier b { color: var(--relic-tone); font-size: max(calc(.13 * var(--t)), 9px); white-space: nowrap; }
+.relic-odds__tier span { font-size: max(calc(.12 * var(--t)), 8px); color: var(--text-lo); white-space: nowrap; }
+.relic-odds__tier.is-locked { opacity: .55; }
+.relic-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .09rem; list-style: none; margin: .12rem 0 0; padding: 0; }
+.relic-tier-1 { --relic-tone: #c0cac5; }
+.relic-tier-2 { --relic-tone: #7de0a4; }
+.relic-tier-3 { --relic-tone: #80c8f4; }
+.relic-tier-4 { --relic-tone: #d3a6fb; }
+.relic-tier-5 { --relic-tone: #ffd56b; }
+.relic-card { min-width: 0; padding: .1rem .12rem; background: rgba(0, 0, 0, .23); border: 1px solid var(--line); border-left: 3px solid var(--relic-tone); }
+.relic-card.is-new { border-top-color: var(--relic-tone); border-bottom-color: var(--relic-tone); }
+.relic-card__head { display: flex; align-items: flex-start; justify-content: space-between; gap: .09rem; }
+.relic-card__name { min-width: 0; color: var(--text-hi); font-size: max(calc(.16 * var(--t)), 10px); line-height: 1.45; overflow-wrap: anywhere; }
+.relic-card__tier { flex: none; color: var(--relic-tone); font-size: max(calc(.12 * var(--t)), 8px); line-height: 1.7; white-space: nowrap; }
+.relic-card__desc { color: var(--text-md); font-size: max(calc(.14 * var(--t)), 9px); line-height: 1.65; margin: .06rem 0; overflow-wrap: anywhere; }
+.relic-card__round { color: var(--text-lo); font-size: max(calc(.12 * var(--t)), 8px); }
+.relic-card__used { color: var(--text-lo); font-size: max(calc(.14 * var(--t)), 10px); }
+.relic-card__revive { display: flex; flex-wrap: wrap; align-items: center; gap: .08rem; margin: .06rem 0; }
+.relic-card__revive > .relic-panel__note { flex-basis: 100%; }
+/* 图鉴与局内收藏列表复用左图右文布局。 */
+.relic-card--illustrated {
+  display: grid; grid-template-columns: max(.64rem, 48px) minmax(0, 1fr);
+  grid-template-rows: auto auto auto; column-gap: .14rem; align-content: center;
+}
+.relic-card__art {
+  position: relative;
+  grid-column: 1; grid-row: 1 / 4; align-self: center;
+  display: grid; place-items: center; width: max(.64rem, 48px); height: max(.64rem, 48px); box-sizing: border-box;
+  background: rgba(0, 0, 0, .2); border: 1px solid var(--line);
+}
+.relic-card__art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.relic-card__art .icon { width: .3rem; height: .3rem; color: var(--relic-tone); }
+.relic-card--illustrated > :not(.relic-card__art) { grid-column: 2; }
+.relic-panel .relic-card { padding: .14rem .16rem; }
+.relic-panel .relic-card__name { font-size: max(calc(.18 * var(--t)), 12px); }
+.relic-panel .relic-card__desc { font-size: max(calc(.16 * var(--t)), 11px); }
+.relic-panel .relic-card__round { font-size: max(calc(.13 * var(--t)), 9px); }
+.relic-empty { padding: .14rem 0; color: var(--text-lo); font-size: max(calc(.15 * var(--t)), 10px); line-height: 1.65; }
+@media (max-width: 767px) { .relic-list { grid-template-columns: minmax(0, 1fr); } }
+
+.relic-choice__rule { color: var(--text-md); font-size: max(calc(.17 * var(--t)), 10px); line-height: 1.65; margin: 0 0 .18rem; }
+.relic-choice__cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .16rem; }
+.relic-choice__card { display: flex; flex-direction: column; align-items: center; gap: .1rem; padding: .18rem .14rem .12rem; min-width: 0; background: rgba(0, 0, 0, .3); border: 1px solid var(--line-2); border-top: 3px solid var(--relic-tone); color: var(--text-hi); cursor: pointer; text-align: center; }
+.relic-choice__card:hover, .relic-choice__card:focus-visible { border-color: var(--relic-tone); background: rgba(78, 216, 175, .07); outline: 1px solid var(--relic-tone); outline-offset: 1px; }
+.relic-choice__card:disabled { cursor: default; opacity: .65; }
+.relic-choice__art { width: 1.2rem; height: 1.2rem; display: grid; grid-template: 100% / 100%; place-items: center; background: rgba(8, 11, 10, .85); border: 1px solid var(--line-2); }
+.relic-choice__art img { width: 86%; height: 86%; object-fit: contain; }
+.relic-choice__art .icon { width: .4rem; height: .4rem; color: var(--mint-400); }
+.relic-choice__tier { color: var(--relic-tone); font-size: max(calc(.13 * var(--t)), 9px); }
+.relic-choice__card b { font-size: max(calc(.19 * var(--t)), 11px); line-height: 1.45; overflow-wrap: anywhere; }
+.relic-choice__card p { flex: 1; width: 100%; margin: 0; color: var(--text-md); font-size: max(calc(.16 * var(--t)), 10px); line-height: 1.65; overflow-wrap: anywhere; }
+.relic-choice__pick { width: 100%; padding: .06rem 0; color: var(--mint-400); border-top: 1px solid var(--line); font-size: max(calc(.14 * var(--t)), 10px); }
+.relic-choice__note { margin: .14rem 0 0; color: var(--text-lo); font-size: max(calc(.14 * var(--t)), 9px); line-height: 1.5; }
+.relic-choice__error { color: var(--red-premium); font-size: max(calc(.15 * var(--t)), 10px); }
+.gm__relic-wait { position: absolute; left: 50%; bottom: .55rem; transform: translateX(-50%); display: flex; align-items: center; gap: .08rem; padding: .12rem .2rem; border: 1px solid var(--mint-700); background: var(--bg-glass); color: var(--mint-400); font-size: max(.17rem, 10px); white-space: nowrap; }
+.gm__relic-wait .icon { width: .2rem; height: .2rem; }
+
+/* 横屏手机中保留图片和领取按钮，长效果说明在卡片内滚动。 */
+@media (max-height: 500px) {
+  .relic-choice__card { max-height: max(1.8rem, calc(100dvh - 2.4rem)); }
+  .relic-choice__art { flex-shrink: 0; }
+  .relic-choice__card p { min-height: 0; overflow-y: auto; }
+}

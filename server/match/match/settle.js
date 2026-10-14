@@ -7,6 +7,7 @@ import { PHASE, layerGainRoom } from '../../../shared/constants.js';
 import { uniteSurvivors } from '../unite.js';
 import { buildResult } from '../results.js';
 import { FLOW_TICKER_PRIORITY, DELAYS } from './common.js';
+import { consumeRelicLpLoss, reviveSelf, settleRelics } from '../relics.js';
 import { msg } from '../../../shared/i18n.js';
 import { onSettle, resetRoundCounters } from '../botEmotes.js';
 
@@ -34,13 +35,21 @@ export class MatchSettle {
       losses: {},
     } : null;
     const alive = this.alivePlayers();
+    // 六.E: the collectible-adjusted charge is no longer derivable from the leak count (a shield absorbs part of it, a
+    // 时间机器 reverses it), so SETTLE publishes the number itself (`m.public.roundLosses`, read by the result dialog).
+    // Only with the switch on — an off match keeps its payload exactly as before.
+    if (this.relicsOn) this.roundLossesView = { round: this.round, losses: {} };
     for (const ps of alive) {
       const r = this.lastResults.get(ps.playerId) || { leaked: [], perfect: true, coins: 0, layerGains: {}, killed: 0, damageDealt: 0 };
       const counted = (r.leaked || []).filter((l) => l && l.counted !== false).length;
-      const loss = uniteRan && plan.leakers.includes(ps) ? Math.min(cap, survivors.get(ps.playerId) || 0) : Math.min(cap, counted);
+      const rawLoss = uniteRan && plan.leakers.includes(ps) ? Math.min(cap, survivors.get(ps.playerId) || 0) : Math.min(cap, counted);
+      // 六.E: 时间机器 reverses this round's loss and 护盾 absorbs part of it (both only with the switch on; the helpers
+      // read no relic while `ps.relics` is empty, but the gate keeps every collectible path behind the one flag)
+      const loss = this.relicsOn ? consumeRelicLpLoss(ps, rawLoss) : rawLoss;
+      if (this.roundLossesView) this.roundLossesView.losses[ps.playerId] = loss;
       if (this.uniteResultView) this.uniteResultView.losses[ps.playerId] = loss;
       ps.lp -= loss;
-      ps.stats.lpLost += loss;
+      ps.stats.lpLost += Math.max(0, loss);
       ps.stats.leaks += counted;
       ps.stats.kills += Number(r.killed) || 0;
       ps.stats.dmgDealt += Number(r.damageDealt) || 0;
@@ -72,6 +81,13 @@ export class MatchSettle {
       }
       this._charDamageTickers(ps, r);
       this.dispatch(ps, 'onBattleResult', { result: r, lpLoss: loss, perfect: counted === 0 && r.perfect !== false, unite: uniteResult || null });
+      // 六.E: this round's shield expires; 「时光之末」 revives a player the loss just eliminated; a surviving player with
+      // a perfect (or 逆风) round draws a collectible offer. All three are behind the one switch.
+      if (this.relicsOn) {
+        ps.relicShield = 0;
+        reviveSelf(ps);
+        if (ps.lp > 0) settleRelics(ps, r, { completed: r.relicCompleted === true });
+      }
       ps.recompute();
     }
     for (const ps of alive) {
@@ -86,7 +102,10 @@ export class MatchSettle {
     this.watchers.clear();
     this.markPublic();
     onSettle(this); // one emote per alive AI per round (enabled by default; SP_BOT_EMOTES=0 silences it)
-    this.setDeadline(DELAYS.SETTLE / 1000, () => this.afterSettle(), { silent: this.soloUntimed });
+    // 六.E: a pending collectible choice (multiplayer: up to 30 s) holds the phase open before the next round; off, the
+    // phase's own SETTLE deadline runs exactly as before.
+    if (this.relicsOn) this._waitRelicChoices(() => this.afterSettle());
+    else this.setDeadline(DELAYS.SETTLE / 1000, () => this.afterSettle(), { silent: this.soloUntimed });
   }
 
   /**

@@ -11,6 +11,11 @@ export function uiUrl(m, key) {
   return str(obj(obj(m)?.ui)?.[key]);
 }
 
+/** 六.E 本局收藏品 (packRelic): the original collectible art the asset pipeline downloads (`manifest.relics`). */
+export function relicIconUrl(m, id) {
+  return str(obj(obj(m)?.relics)?.[str(id)]);
+}
+
 /**
  * Operator avatar for a chess record (golden → E2 art when present).
  * @param {any} m manifest

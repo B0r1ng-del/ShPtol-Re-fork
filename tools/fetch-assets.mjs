@@ -62,6 +62,7 @@ import { existsSync, realpathSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Downloader } from './assets/downloader.mjs';
+import { prepareCustomRelicIcons } from './assets/relics.mjs';
 import { restartForEnvProxy } from './assets/env-proxy.mjs';
 import { MirrorPolicy, selectDownloadSource, validateSource } from './assets/network.mjs';
 import { normalizeProxyPrefix } from './assets/sources.mjs';
@@ -337,6 +338,7 @@ function countStats(m, bytes, files) {
     bonds: Object.keys(m.bonds || {}).length,
     items: Object.keys(m.items || {}).length,
     bands: Object.keys(m.bands || {}).length,
+    relics: Object.keys(m.relics || {}).length,
     skills: Object.keys(m.skills || {}).length,
     modules: Object.keys(m.modules || {}).length,
     ui: Object.keys(m.ui || {}).length,
@@ -441,6 +443,9 @@ async function main() {
     return 0;
   }
 
+  // 六.E 本局收藏品 (packRelic): the original collectible PNGs have no remote URL — they are read from
+  // tools/assets/custom-relics/ into public/assets/relics/ before the plan resolves them (like the fonts' local copies).
+  await prepareCustomRelicIcons(ASSETS);
   const dl = new Downloader({
     root: ASSETS, ledgerPath: join(CACHE, 'assets-ledger.json'),
     concurrency: opts.concurrency, force: opts.force, keepExisting: opts.addOnly, log, ...network,

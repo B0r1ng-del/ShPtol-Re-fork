@@ -90,7 +90,7 @@ export const RUNTIME_RESEARCH = ['docs/research/03-operators.json', 'docs/resear
 export const PLAYER_SCRIPTS = ['scripts/install-service-windows.ps1', 'scripts/launch.mjs', 'scripts/open-browser.mjs',
   'scripts/run-server.cmd', 'scripts/start-windows.bat', 'scripts/start-windows.ps1', 'scripts/start.sh'];
 /** The tools a player runs (npm run setup / doctor / assets, the postinstall) and the ones setup starts. */
-export const PLAYER_TOOLS = ['tools/crop-board-atlas.mjs', 'tools/doctor.mjs', 'tools/fetch-assets.mjs', 'tools/setup.mjs', 'tools/vendor.mjs'];
+export const PLAYER_TOOLS = ['tools/crop-board-atlas.mjs', 'tools/doctor.mjs', 'tools/fetch-assets.mjs', 'tools/fetch-relic-icons.mjs', 'tools/setup.mjs', 'tools/vendor.mjs'];
 /** The fork data layer's modules — imported by `tools/fetch-assets.mjs`, which IS shipped (the ported operators' art plan
  *  reads their record list from tools/fork-extra6.mjs), so the release needs them beside it or the import fails.) */
 export const PLAYER_TOOL_AUX = ['tools/fork-extra6.mjs'];

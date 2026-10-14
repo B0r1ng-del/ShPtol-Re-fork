@@ -134,6 +134,7 @@ import { PlayerPrep } from './player/prep.js';
 import { PlayerRound } from './player/round.js';
 import { PlayerViews } from './player/views.js';
 import { PlayerDiy, DiyStock } from './player/diy.js';
+import { PlayerRelics } from './player/relics.js';
 
 export class PlayerState {
   /**
@@ -232,6 +233,22 @@ export class PlayerState {
     this.counters = {};
     /** per-round counters (reset at round start) */
     this.round = { refreshes: 0, buys: 0, sells: 0, spent: 0, gainedChess: 0, arts: 0 };
+    // 本局收藏品 (六.E, packRelic): the collectibles this player holds (`{ id, round, used? }`), the rounds already
+    // settled (one offer each), the leak streak, the open offer, this round's shield, and the revival bookkeeping.
+    // Every field stays in place with the switch off — the match simply never fills or reads them (RELICS is only
+    // reached from the code paths the switch gates), so an off match is byte-identical to one built before the port.
+    this.relics = [];
+    this.relicSettledRounds = new Set();
+    this.relicLastRound = 0;
+    this.relicLeakStreak = 0;
+    this.relicOffer = null;
+    this.relicShield = 0;
+    this.relicShieldRound = 0;
+    this.relicNextShieldRound = 0;
+    this.relicReward = null;
+    this.relicReverseLpRound = 0;
+    this.eliminatedRoster = null;
+    this.relicChessQueue = [];
     this.deployCapBonus = 0;
     this.deployCapMin = 0;
     this.deviceOverrides = {};
@@ -256,7 +273,7 @@ export class PlayerState {
 }
 
 // the method modules, in this order (a name defined twice is an error, never a silent override)
-for (const part of [PlayerBasics, PlayerPieces, PlayerAcquire, PlayerEconomy, PlayerPlacement, PlayerItems, PlayerPrep, PlayerRound, PlayerViews, PlayerDiy]) {
+for (const part of [PlayerBasics, PlayerPieces, PlayerAcquire, PlayerEconomy, PlayerPlacement, PlayerItems, PlayerPrep, PlayerRound, PlayerViews, PlayerDiy, PlayerRelics]) {
   for (const key of Reflect.ownKeys(part.prototype)) {
     if (key === 'constructor') continue;
     if (Object.prototype.hasOwnProperty.call(PlayerState.prototype, key)) throw new Error(`PlayerState.${String(key)} is defined twice`);

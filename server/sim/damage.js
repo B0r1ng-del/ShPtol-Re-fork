@@ -645,6 +645,9 @@ export function heal(battle, source, target, amount, opts = {}) {
   let amt = regen ? amount : amount * (source && source.s ? source.s.healingDealtMul : 1) * target.s.healingTakenMul;
   if (!(amt > 0) || !Number.isFinite(amt)) return 0;
   if (battle._hooks.heal) {
+    // The hook may opt this action into overhealing (`opts.overheal`, 六.E 护愈之手 relic_172) without mutating the
+    // options object the caller reuses for its other targets. Inert when no handler writes to opts.
+    opts = { ...opts };
     const ctx = { source, target, amount: amt, opts };
     battle.emit('heal', ctx);
     if (!regen) amt = Number.isFinite(ctx.amount) ? Math.max(0, ctx.amount) : 0;

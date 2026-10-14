@@ -21,6 +21,8 @@
   box-shadow: 0 .2rem .6rem rgba(0, 0, 0, .7), 0 0 0 1px rgba(78, 216, 175, .06) inset;
   outline: none;
   animation: guide-pop 220ms var(--ease-out);
+  /* 六.E: the 收藏品图鉴 tab needs the box to keep its own scroll instead of growing with the list */
+  max-width: 96vw; max-height: 96vh; box-sizing: border-box;
 }
 @keyframes guide-pop { from { opacity: 0; transform: translateY(.12rem) scale(.985); } }
 
@@ -28,7 +30,7 @@
 .guide__head { display: flex; align-items: center; gap: .3rem; min-height: .62rem; }
 .guide__titles { display: flex; flex-direction: column; gap: .02rem; min-width: 2.4rem; }
 .guide__title { margin: 0; font-size: calc(.3 * var(--t)); font-weight: 900; letter-spacing: .12em; color: var(--text-hi); line-height: 1.1; }
-.guide__chapters { display: flex; gap: .06rem; margin: 0 auto; }
+.guide__chapters { display: flex; gap: .06rem; margin: 0 auto; min-width: 0; }
 .guide__chapter {
   position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .01rem;
   min-width: 1.5rem; height: .56rem; padding: 0 .22rem;
@@ -100,9 +102,37 @@
 /* standard trigger */
 .guide-btn .btn__icon { color: var(--mint-500); }
 
+/* 六.E 收藏品图鉴 (packRelic): its own scroll area, listing every collected effect. */
+.guide__journal {
+  width: min(calc(96vw - .5rem), 14rem); height: min(65vh, 7.5rem);
+  min-height: 0; box-sizing: border-box; overflow: auto; overscroll-behavior: contain;
+  padding: .24rem; border: 1px solid var(--line);
+  background: radial-gradient(ellipse at top right, var(--mint-a10), transparent 65%), #080e0c;
+}
+.guide__journal-head { display: flex; align-items: center; justify-content: space-between; gap: .2rem; }
+.guide__journal-head h3 { margin: .05rem 0 0; color: var(--text-hi); font-size: calc(.26 * var(--t)); letter-spacing: .08em; }
+.guide__journal-note { color: var(--text-lo); font-size: max(calc(.14 * var(--t)), 10px); line-height: 1.7; margin: .12rem 0 .2rem; }
+.guide__journal .relic-list { gap: .12rem; }
+.guide__journal .relic-card { padding: .14rem .16rem; }
+.guide__journal .relic-card__name { font-size: max(calc(.18 * var(--t)), 12px); }
+.guide__journal .relic-card__desc { font-size: max(calc(.16 * var(--t)), 11px); }
+
+@media (max-width: 900px) {
+  .guide__head { flex-wrap: wrap; gap: .08rem; }
+  .guide__titles { flex: 1; min-width: 0; }
+  .guide__close { order: 1; }
+  .guide__chapters { order: 2; width: 100%; }
+  .guide__chapter { flex: 1; min-width: 0; padding: 0 .1rem; }
+  .guide__chname { font-size: max(calc(.15 * var(--t)), 10px); letter-spacing: .02em; white-space: nowrap; }
+  .guide__chmicro { font-size: max(calc(.08 * var(--t)), 7px); letter-spacing: .08em; }
+  .guide__journal { width: calc(96vw - .5rem); height: 58vh; padding: .14rem; }
+}
+
 @media (max-height: 560px) {
   .guide__box { padding: .08rem .12rem; gap: .06rem; }
-  .guide__head { min-height: .5rem; }
+  .guide__head { min-height: .5rem; flex-wrap: nowrap; }
   .guide__titles { display: none; }
   .guide__page { width: min(calc(96vw - .3rem), calc((100vh - 1.5rem) * 16 / 9)); }
+  .guide__chapters { order: 0; }
+  .guide__journal { height: calc(90vh - .8rem); width: calc(96vw - .3rem); }
 }

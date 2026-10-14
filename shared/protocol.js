@@ -467,6 +467,10 @@ export const C2S = {
   'g.choice': { idx: (v) => isInt(v, 0, 5), choiceId: isId, $optional: ['choiceId'] },
   'g.ready': { ready: isBool },
   'g.emote': { id: (v) => EMOTES.includes(v) },
+  // 六.E 本局收藏品 (packRelic): the SETTLE-phase collectible pick (offerId = the server's own offer identity, so a
+  // stale or forged one is refused) and 「时光之末」's revival of an eliminated teammate in PREP
+  'g.relic': { offerId: isId, idx: (v) => isInt(v, 0, 2) },
+  'g.relicRevive': { relicId: isId, playerId: isId },
   // 一键十连 (fork): one send broadcasts the same emote EMOTE_BURST_COUNT times, on the single-send cooldown
   'g.emoteBurst': { id: (v) => EMOTES.includes(v) },
   // playerId: the player tapped in the team panel (a 联防 / boss pair field shows two) — what an eliminated viewer or a

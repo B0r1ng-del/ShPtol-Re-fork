@@ -172,7 +172,7 @@
 //   common.js        what the modules share (FLOW_TICKER_PRIORITY, DELAYS, BAND_TURN_SECONDS — re-exported here, OK,
 //                    fail, BOSS_CLOCK_MS)
 
-import { PHASE, ROOM_MODES, ULTIMATE_DIFFICULTY, modeIdFor } from '../../shared/constants.js';
+import { PHASE, ROOM_MODES, ULTIMATE_DIFFICULTY, modeIdFor, packEnabled } from '../../shared/constants.js';
 import { Battle } from '../sim/Battle.js';
 import { DataSource } from '../sim/simdata.js';
 import { createRng, deriveSeed } from '../sim/rng.js';
@@ -200,6 +200,7 @@ import { MatchReports } from './match/reports.js';
 import { MatchUnite } from './match/unitePhase.js';
 import { MatchBoss } from './match/bossRounds.js';
 import { MatchSettle } from './match/settle.js';
+import { MatchRelics } from './match/relics.js';
 
 export { FLOW_TICKER_PRIORITY, DELAYS, BAND_TURN_SECONDS } from './match/common.js';
 
@@ -276,6 +277,14 @@ export class Match {
      * @type {Record<string, boolean>}
      */
     this.mods = this.gd.mods;
+    /**
+     * 本局收藏品 (六.E, `packRelic`): the match-scoped collectibles of the ported DLC. The switch is read once here, like
+     * the mods it comes from, and every collectible code path sits behind it — with it off the match never fills a relic
+     * field, never opens an offer and never reaches `shared/relics.js`, so a switch-off match runs exactly as before.
+     */
+    this.relicsOn = packEnabled(this.mods, 'packRelic');
+    /** 六.E: the continuation a pending collectible choice holds the phase open for (MatchRelics._waitRelicChoices) */
+    this._relicContinue = null;
     this.ownsScheduler = !opts.scheduler;
     this.sched = opts.scheduler || new RealScheduler({ now: opts.now || Date.now, onError: (e) => this.reportError('timer', e) });
     this.registry = opts.registry || getDefaultRegistry();
@@ -437,7 +446,7 @@ export class Match {
 }
 
 // the method modules, in this order (a name defined twice is an error, never a silent override)
-for (const part of [MatchPlatform, MatchInfra, MatchMessaging, MatchViews, MatchWatch, MatchIntents, MatchPause, MatchPhases, MatchSetupVote, MatchSpDraft, MatchPrep, MatchCombat, MatchClientCombat, MatchReports, MatchUnite, MatchBoss, MatchSettle]) {
+for (const part of [MatchPlatform, MatchInfra, MatchMessaging, MatchViews, MatchWatch, MatchIntents, MatchPause, MatchPhases, MatchSetupVote, MatchSpDraft, MatchPrep, MatchCombat, MatchClientCombat, MatchReports, MatchUnite, MatchBoss, MatchSettle, MatchRelics]) {
   for (const key of Reflect.ownKeys(part.prototype)) {
     if (key === 'constructor') continue;
     if (Object.prototype.hasOwnProperty.call(Match.prototype, key)) throw new Error(`Match.${String(key)} is defined twice`);

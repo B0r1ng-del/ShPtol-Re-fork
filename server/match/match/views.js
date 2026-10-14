@@ -5,6 +5,7 @@
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 import { PHASE, GEO } from '../../../shared/constants.js';
+import { activeRelicShield, activeReverseLp, previewRelicLpLoss, relicsView } from '../relics.js';
 import { boardOrder, pieceDir } from '../board.js';
 import { bondList, offBondCounts } from '../bondsMeta.js';
 import { cardView } from '../choices.js';
@@ -55,6 +56,8 @@ export class MatchViews {
         return f && f.live ? 'combat' : 'done';
       }
       case PHASE.UNITE: return this.unitePlan && this.unitePlan.helpers.includes(ps) ? 'helping' : 'done';
+      // 六.E: a player still picking a collectible is 'deciding' (the client shows the choice instead of "done")
+      case PHASE.SETTLE: return this.relicsOn && ps.relicOffer ? 'deciding' : 'done';
       case PHASE.ROUND_START: return 'acting';
       default: return 'done';
     }
@@ -69,6 +72,8 @@ export class MatchViews {
     const v = {
       t: 'm.public',
       phase: this.phase,
+      // 六.E: a collectible choice is holding the phase open (the other players see "等待队友选择收藏品"); off, false
+      relicChoosing: this.relicsOn && this.phase === PHASE.SETTLE && !!this._relicContinue,
       round: this.round,
       lastRound: this.gd.lastRound,
       deadline: this.deadline,
@@ -111,7 +116,14 @@ export class MatchViews {
         isBot: ps.isBot,
         connected: ps.isBot || (ps.connected && !ps.left),
         alive: ps.alive,
+        // 六.E: a collectible revival (「时光之末」) can bring an eliminated teammate back, so the strip offers it while
+        // the roster snapshot exists; off, canRevive is never true (no snapshot is taken) and the payload is unchanged
+        canRevive: this.relicsOn && !ps.alive && !ps.left && !!ps.eliminatedRoster,
         lp: Math.max(0, ps.lp),
+        lpShield: activeRelicShield(ps),
+        reverseLp: activeReverseLp(ps),
+        nextLpShield: ps.relicNextShieldRound > this.round ? 2 : 0,
+        relics: relicsView(ps),
         bandId: ps.bandId,
         shopLevel: ps.shop.level,
         boardCount: ps.deployCount,
@@ -168,6 +180,10 @@ export class MatchViews {
     if (this.phase === PHASE.SETTLE && this.uniteResultView) {
       const ur = this.uniteResultView;
       v.uniteResult = { through: ur.through, helpers: ur.helpers.slice(), leakers: ur.leakers.slice(), losses: { ...ur.losses } };
+    }
+    // 六.E: a collectible shield / 时间机器 changes the charge even without a 联防, so SETTLE publishes it directly
+    if (this.phase === PHASE.SETTLE && this.roundLossesView?.round === this.round) {
+      v.roundLosses = { ...this.roundLossesView.losses };
     }
     return v;
   }
@@ -229,7 +245,7 @@ export class MatchViews {
     // 联防: a leaker's enemies still standing on the 联防 field (uncapped), the loss capped like settle()
     const left = this._uniteLeft(ps);
     if (left != null) {
-      const loss = Math.min(this.gd.lpCapPerRound, left);
+      const loss = previewRelicLpLoss(ps, Math.min(this.gd.lpCapPerRound, left));
       return loss > 0 ? { uniteLeft: left, pendingLp: loss } : { uniteLeft: left };
     }
     let n = 0;
@@ -239,7 +255,7 @@ export class MatchViews {
       if (f && f.cc) n = f.done && f.result ? counted(f.result.perPlayer && f.result.perPlayer[ps.playerId]) : Number(f.progress && f.progress.leaks) || 0;
       else if (f && f.battle) { try { n = battleProgress(f.battle).leaks; } catch { n = 0; } }
     }
-    const loss = Math.min(this.gd.lpCapPerRound, Math.max(0, Math.trunc(Number(n) || 0)));
+    const loss = previewRelicLpLoss(ps, Math.min(this.gd.lpCapPerRound, Math.max(0, Math.trunc(Number(n) || 0))));
     return loss > 0 ? { pendingLp: loss } : {};
   }
 
@@ -252,6 +268,10 @@ export class MatchViews {
       return previewOf([...g.wave.spawns, ...bountySpawns(this.gd, this.round, g.wave, ps.bounties, ps.playerId, { solo: this.isSolo, side: g.side })]);
     }
     if (!this.wave) return [];
+    // 六.E 解压玩具 (relic_156): the prep preview must show the same redistributed wave the battle will field;
+    // `_normalRelicSpawns` returns each player's own untouched spawns when the switch is off, so this stays equal to
+    // `[...wave.spawns, ...bounty]` (the same list, rebuilt) for every official match.
+    if (this.relicsOn) return previewOf(this._normalRelicSpawns().get(ps.playerId) || []);
     const bounty = bountySpawns(this.gd, this.round, this.wave, ps.bounties, ps.playerId, { solo: this.isSolo });
     return previewOf([...this.wave.spawns, ...bounty]);
   }

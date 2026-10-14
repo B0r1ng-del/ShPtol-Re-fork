@@ -100,7 +100,18 @@ export function makeMatch(o = {}) {
     assert.ok(ok && m.phase === phase && (round == null || m.round === round), `expected ${phase}${round != null ? ' R' + round : ''}, got ${m.phase} R${m.round}${h.ended ? ' (ended)' : ''}`);
     return h;
   };
-  h.runToEnd = (opts = {}) => { h.run(() => h.ended != null, opts); assert.ok(h.ended, `match did not end (phase ${m.phase} R${m.round})`); return h.ended; };
+  // 六.E: a collectible choice is a new settlement step; the default driver still walks the battle the same way and
+  // just answers any pending offer (relicOffer is always null with packRelic off, so this is a no-op then)
+  h.runToEnd = (opts = {}) => {
+    h.run(() => {
+      for (const ps of m.players.values()) if (m.phase === 'SETTLE' && ps.relicOffer && !ps.left) {
+        m.handle(ps.playerId, { t: 'g.relic', offerId: ps.relicOffer.id, idx: 0 });
+      }
+      return h.ended != null;
+    }, opts);
+    assert.ok(h.ended, `match did not end (phase ${m.phase} R${m.round})`);
+    return h.ended;
+  };
   /** last message of a type sent to a player (unicast) */
   h.lastTo = (id, type) => { for (let i = h.sent.length - 1; i >= 0; i--) if (h.sent[i][0] === id && h.sent[i][1].t === type) return h.sent[i][1]; return null; };
   h.lastBc = (type) => { for (let i = h.bc.length - 1; i >= 0; i--) if (h.bc[i].t === type) return h.bc[i]; return null; };
@@ -124,6 +135,7 @@ export function makeMatch(o = {}) {
       if (h.ended) return !!pred();
       for (const ps of m.players.values()) {
         if (ps.isBot || ps.left) continue;
+        if (m.phase === 'SETTLE' && ps.relicOffer) m.handle(ps.playerId, { t: 'g.relic', offerId: ps.relicOffer.id, idx: 0 });
         if (m.phase === 'INFO_CHECK' && !ps.infoReady) m.handle(ps.playerId, { t: 'g.infoReady' });
         if (m.phase === 'BAND_DRAFT' && m.draftTurn() === ps.playerId) m.handle(ps.playerId, { t: 'g.band', bandId: band });
         if (m.phase === 'SP_DRAFT' && m.spTurn() === ps.playerId) {

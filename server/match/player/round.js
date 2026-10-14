@@ -6,11 +6,14 @@
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
 // the player state).
 
+import { relicIncome } from '../../../shared/relics.js';
+import { startRelicRound, relicsView } from '../relics.js';
 import { boardOrder, pieceDir } from '../board.js';
 import { computeBonds, bondSnapshot, activatedLayers, bondsWithGains } from '../bondsMeta.js';
 
 export class PlayerRound {
   startRound(r) {
+    startRelicRound(this, r);
     this.round = { refreshes: 0, buys: 0, sells: 0, spent: 0, gainedChess: 0, arts: 0 };
     this.pendingLayerGains = null; // settled (or lapsed) at the last SETTLE
     if (r > 1) this.shop.upgradePrice = Math.max(0, this.shop.upgradePrice - 1);
@@ -19,7 +22,7 @@ export class PlayerRound {
     this.pendingFunds = 0;
     this.m.dispatch(this, 'onIncome', ev);
     const nonNeg = (v) => (Number.isFinite(v) && v > 0 ? Math.trunc(v) : 0);
-    this.addFunds(nonNeg(ev.income) + nonNeg(ev.pending), { reason: 'income' });
+    this.addFunds(nonNeg(ev.income) + nonNeg(ev.pending) + relicIncome(this.relics), { reason: 'income' });
     // temp is NOT wiped here: the last prep's deadline resolved what the player could act on (endPrep); what overflowed
     // after it (battle-result grants, SETTLE merges, returned equipment) is shown and usable in this prep (tempDue).
     // Likewise reward offers of the last prep already expired at its end; what is still queued was earned after it —
@@ -51,6 +54,17 @@ export class PlayerRound {
   // `effects` are kept: a 信标 gift still pending is delivered to the teammate at the next round start (builtin_gift is
   // flagged afterElimination — GitHub #86); nothing else of an eliminated player is dispatched.
   eliminate(round) {
+    // 六.E: a collectible revival restores the roster the player died with (「时光之末」), so the board / hand / temp and
+    // the copies they actually held are snapshotted first. With the switch off nothing reads the snapshot (`left` still
+    // means the roster is gone for good).
+    if (this.m.relicsOn && !this.left) {
+      this.eliminatedRoster = {
+        board: new Map(this.board), hand: this.hand.slice(), temp: this.temp.slice(),
+        copies: new Map(this.allChess().map((p) => [p.uid, p.poolCopies])),
+        queue: this.relicChessQueue.slice(),
+      };
+      this.relicChessQueue = [];
+    } else this.eliminatedRoster = null;
     this.alive = false;
     this.ready = false;
     this.eliminatedRound = round;
@@ -73,6 +87,9 @@ export class PlayerRound {
   }
 
   recompute() {
+    // 六.E: queued 「时光之末」 revival supplies enter the hand here once it has room (an empty queue with
+    // `packRelic` off, so this is a no-op then — the DLC's own placement, PlayerState.prototype.recompute)
+    this.drainRelicChess();
     this.deployMap(); // a change of the deploy field (a boss round's prep) marks the legality stale
     if (this._legalityStale) this._evictIllegal();
     this._liftOutOfRange();
@@ -143,6 +160,9 @@ export class PlayerRound {
         id: e.id, key: e.key ?? null, source: e.iconKind ?? null, params: e.params ?? null, counter: e.counter ?? null, data: e.data ?? null,
       })),
       deviceOverrides: { ...this.deviceOverrides },
+      // 六.E: the collectibles this battle runs under (server/sim/content/relics.js install reads ps.input.relics). The
+      // field is only present with the switch on, so an off match builds the same spec object as before the port.
+      ...(this.m.relicsOn ? { relics: relicsView(this).map((r) => r.id) } : null),
     };
   }
 }

@@ -33,6 +33,10 @@ function randomIntent(rng, m, ps) {
     case 'g.equip': return { t, itemUid: uid(), targetUid: uid() };
     case 'g.art': return { t, itemUid: uid(), row: rng.int(19), col: rng.int(21) };
     case 'g.reward': case 'g.choice': return { t, idx: rng.int(6) };
+    // 六.E (packRelic): a forged / stale offer id and every bad-target combination must be refused by the handler, not
+    // by the validator — the two intents travel whatever the switches are
+    case 'g.relic': return { t, offerId: ps?.relicOffer && rng() < 0.8 ? ps.relicOffer.id : 'missing_offer', idx: rng.int(3) };
+    case 'g.relicRevive': return { t, relicId: rng() < 0.8 ? 'relic_233' : 'missing_relic', playerId: rng() < 0.8 ? rng.pick([...m.players.keys()]) : 'missing_player' };
     case 'g.ready': return { t, ready: rng() < 0.4 };
     case 'g.emote': return { t, id: rng.pick(EMOTES) };
     // 一键十连 (fork): the same shape as g.emote — one id, the server broadcasts it EMOTE_BURST_COUNT times

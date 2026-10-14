@@ -199,14 +199,17 @@ export function uniteRemaining(local, server) {
  * @param {{ phase: string, round: any, lp: any, statsLeaks?: any, leaks?: any, cap?: number, alive?: boolean, uniteLeft?: number|null }} s
  * @returns {{ base: { round: any, lp: number, statsLeaks: number|null } | null, pending: number, shown: number|null, unite: boolean, left: number|null }}
  */
-export function liveLp(base, { phase, round, lp, statsLeaks = null, leaks = 0, cap = 10, alive = true, uniteLeft = null }) {
+export function liveLp(base, { phase, round, lp, statsLeaks = null, leaks = 0, cap = 10, alive = true, uniteLeft = null, shield = 0, reverseLp = false }) {
   if (!Number.isFinite(lp)) return { base: null, pending: 0, shown: null, unite: false, left: null };
   if (!LEAK_PHASES.has(phase) || alive === false) return { base: null, pending: 0, shown: lp, unite: false, left: null };
   const sl = Number.isFinite(statsLeaks) ? statsLeaks : null;
   const b = base && base.round === round ? base : { round, lp, statsLeaks: sl };
   const landed = lp !== b.lp || (sl != null && b.statsLeaks != null && sl !== b.statsLeaks);
   const left = phase === PHASE.UNITE && Number.isFinite(uniteLeft) && uniteLeft >= 0 && !landed ? Math.trunc(uniteLeft) : null;
-  const pending = landed ? 0 : Math.min(lp, pendingLoss(left != null ? left : leaks, cap));
+  // 六.E: 时间机器 (relic_158) turns the charge into a gain and 护盾 (relic_156's comeback shield) absorbs part of it —
+  // both read 0/false without the switch, so `pending` is the plain min(lp, loss) the HUD always showed.
+  const raw = pendingLoss(left != null ? left : leaks, cap);
+  const pending = landed ? 0 : reverseLp ? -raw : Math.min(lp, Math.max(0, raw - Math.max(0, Number(shield) || 0)));
   return { base: b, pending, shown: lp - pending, unite: phase === PHASE.UNITE && (pending > 0 || left != null), left };
 }
 
@@ -215,6 +218,8 @@ export function liveLp(base, { phase, round, lp, statsLeaks = null, leaks = 0, c
  * @param {number} lp settled LP @param {number} pending @param {{ unite?: boolean, cap?: number }} [opts]
  */
 export function pendingTip(lp, pending, { unite = false, cap = 10, left = null } = {}) {
+  // 六.E 时间机器 (relic_158): a pending loss below zero is a gain, and reads as one
+  if (pending < 0) return t('时间机器：本场战斗结算时目标生命值增加 {0} 点', { 0: -pending });
   if (!(pending > 0)) return null;
   if (unite && Number.isFinite(left)) {
     const each = left > cap ? t('剩余不足 {cap} 个后，队友每击倒一个少扣 1 点', { cap }) : t('队友每击倒一个就少扣 1 点');

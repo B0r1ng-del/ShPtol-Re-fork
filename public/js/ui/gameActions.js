@@ -10,6 +10,7 @@ import { audio } from '../audio.js';
 const SUCCESS_SFX = {
   'g.buy': 'buy', 'g.sell': 'sell', 'g.refresh': 'refresh', 'g.freeze': 'freeze', 'g.levelUp': 'levelup',
   'g.move': 'drop', 'g.equip': 'equip', 'g.art': 'artPlace', 'g.reward': 'pick', 'g.choice': 'pick',
+  'g.relic': 'pick',
   'g.choiceRandom': 'confirm',
   'g.band': 'confirm', 'g.bandSkip': 'back', 'g.infoReady': 'ready', 'g.emote': 'emote', 'g.emoteBurst': 'emote', 'g.destroy': 'back',
 };
@@ -98,6 +99,9 @@ export const actions = {
   choice: (idx, choiceId) => act('g.choice', choiceId === undefined ? { idx } : { idx, choiceId }),
   // 机变 随机分配 vote (fork 二.4): vote for the random allocation instead of picking a card
   choiceRandom: () => act('g.choiceRandom', {}),
+  // 六.E 本局收藏品 (packRelic): the SETTLE-phase pick and 「时光之末」's revival of an eliminated teammate
+  relic: (offerId, idx) => act('g.relic', { offerId, idx }),
+  relicRevive: (relicId, playerId) => act('g.relicRevive', { relicId, playerId }, { sfx: 'confirm' }),
   ready: (ready) => act('g.ready', { ready }, { sfx: ready ? 'ready' : 'back' }),
   emote: (id) => act('g.emote', { id }, { quiet: true }),
   // 一键十连 (fork): one tap sends the same emote ten times

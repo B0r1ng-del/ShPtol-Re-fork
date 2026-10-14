@@ -47,6 +47,7 @@ import { mergeTile, pieceDir, canPlace, placeClass } from './board.js';
 import { bossPoolHp, hiddenEligible } from './finalAssault.js';
 import { helperOrder } from './unite.js';
 import { BAND_TURN_SECONDS } from './Match.js';
+import { relicIncome, RELIC_CHOICE_SECONDS, getRelic } from '../../shared/relics.js';
 
 /**
  * @param {import('./Match.js').Match} m
@@ -167,7 +168,8 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
         else {
           if (inc.initial.income !== want || inc.initial.pending !== p0) fail(`${id}: onIncome started with ${inc.initial.income}+${inc.initial.pending}, expected ${want}+${p0}`);
           const nn = (v) => (Number.isFinite(v) && v > 0 ? Math.trunc(v) : 0);
-          const credited = nn(inc.ev.income) + nn(inc.ev.pending);
+          // 六.E: 至宝指环 (relic_025) pays on top of the round's income; off, relicIncome([]) is 0
+          const credited = nn(inc.ev.income) + nn(inc.ev.pending) + relicIncome(ps.relics);
           if (ps.funds - f0 !== credited) fail(`${id}: funds ${f0} → ${ps.funds}, credited ${credited}`);
         }
         const upWant = r > 1 ? Math.max(0, up0 - 1) : up0;
@@ -437,21 +439,36 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
       if (expectUnite && expectUnite.round === m.round && expectUnite.expect !== !!plan) fail(`联防 ${plan ? 'ran' : 'skipped'} but ${expectUnite.expect ? '≥ 1 leaker and ≥ 1 perfect player' : 'not both a leaker and a perfect player'}`);
       expectUnite = null;
     });
-    const before = new Map(m.alivePlayers().map((ps) => [ps, ps.lp]));
+    // 六.E: the snapshot also carries this round's collectible shield / 时间机器 reversal / 「时光之末」. With the switch
+    // off all three read empty (no shield set, no reversal round, no revival relic), so `max` below is the plain value.
+    const before = new Map(m.alivePlayers().map((ps) => [ps, {
+      lp: ps.lp,
+      shield: ps.relicShieldRound === m.round ? ps.relicShield : 0,
+      reverse: ps.relicReverseLpRound === m.round,
+      revival: ps.relics.find((r) => !r.used && getRelic(r.id)?.reviveOnce),
+    }]));
     const res = orig(plan, uniteResult);
     check('settle', () => {
       const cap = gd.lpCapPerRound;
       const uniteRan = !!(plan && uniteResult && !uniteResult.synthetic);
-      for (const [ps, lp0] of before) {
+      for (const [ps, { lp: lp0, shield, reverse, revival }] of before) {
         const r = m.lastResults.get(ps.playerId) || { leaked: [] };
         const counted = (r.leaked || []).filter((l) => l && l.counted !== false).length;
         // after 联防 a leaker pays for every surviving enemy of its source — enemies spawned by its leaked enemies
         // (splitters, summoners) included — so only the cap bounds it; everybody else never exceeds own leaks
-        const max = uniteRan && plan.leakers.includes(ps) ? cap : Math.min(cap, counted);
+        const raw = uniteRan && plan.leakers.includes(ps) ? cap : Math.min(cap, counted);
+        const max = reverse ? -raw : Math.max(0, raw - shield);
+        // a revived teammate is not a settle outcome: its LP comes from the relic, not from the leaks
+        if (revival?.used && revival.usedRound === m.round && revival.targetId === ps.playerId) {
+          if (!ps.alive || ps.lp !== getRelic(revival.id).reviveOnce.lp || lp0 > max) fail(`${ps.playerId}: invalid relic revival`);
+          continue;
+        }
         if (ps.alive) {
           const loss = lp0 - ps.lp;
-          if (loss < 0) fail(`${ps.playerId}: LP rose in settle ${lp0} → ${ps.lp}`);
-          if (loss > max) fail(`${ps.playerId}: lost ${loss} LP with ${counted} counted leaks (cap ${cap})`);
+          // 六.E: 时间机器 reverses the round's charge, so the expected loss is negative — with the switch off `reverse`
+          // is always false and these reduce to the original two checks (LP never rises, never above the cap).
+          if (!reverse && loss < 0) fail(`${ps.playerId}: LP rose in settle ${lp0} → ${ps.lp}`);
+          if ((!reverse && loss > max) || (reverse && (loss > 0 || loss < max))) fail(`${ps.playerId}: lost ${loss} LP with ${counted} counted leaks (cap ${cap})`);
           if (!uniteRan && loss !== max) fail(`${ps.playerId}: lost ${loss} LP, expected min(${cap}, ${counted})`);
           if (ps.lp <= 0) fail(`${ps.playerId}: alive with LP ${ps.lp}`);
         } else {
@@ -461,7 +478,8 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
           if (ps.lp !== 0) fail(`${ps.playerId}: eliminated with LP ${ps.lp}`);
         }
       }
-      expectDeadline(3, 'SETTLE', { silentSolo: true });
+      // 六.E: a multiplayer collectible choice holds SETTLE open for RELIC_CHOICE_SECONDS; off, the plain 3 s
+      expectDeadline(m._relicContinue ? RELIC_CHOICE_SECONDS : 3, 'SETTLE', { silentSolo: true });
     });
     runInvariants();
     return res;
