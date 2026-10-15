@@ -40,6 +40,8 @@ import { bandBondIds } from '../shared/bandBonds.js';
 import { statusKey, composeUnitRecord, standInRecord, unitForm } from '../shared/standIn.js';
 import { extendedGrid } from '../shared/loadoutRecord.js';
 import { FULL_RANK, atRank, stripPotential } from '../shared/potential.js';
+/** 六.F: `tools/rhine-data.mjs` builds its records at the same potential rank the official passes use. */
+const OPERATOR_POTENTIAL = FULL_RANK;
 // The fork's own mode/field layer over the built config and choices (终极模拟 …), and its extra 自选编队 slots over the
 // built chess/backups (二.8): kept out of the official-data derivation so a regeneration from the game's tables cannot
 // drop it, and so every fork-only value sits in one file.
@@ -49,6 +51,8 @@ import { applyForkExtra6Act } from './fork-extra6.mjs';
 // ===== CLI & IO ==================================================================================
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+// 六.F: `tools/rhine-data.mjs` imports this module for its operator builders, so the CLI must not run on import.
+const IS_MAIN = !!process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 const RESEARCH_DIR = join(ROOT, 'docs', 'research');
 const GAMEDATA_URL = 'https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/';
 const SEASON = 'act2autochess';
@@ -85,7 +89,7 @@ function parseArgs(argv) {
 
 let OPTS;
 try {
-  OPTS = parseArgs(process.argv.slice(2));
+  OPTS = parseArgs(IS_MAIN ? process.argv.slice(2) : []);
 } catch (e) {
   console.error(`build-data: ${e.message}`);
   process.exit(2);
@@ -4137,6 +4141,21 @@ async function main() {
   // puts `packBonds` after `potDown` — the order the in-place `tools/fork-data.mjs` patch leaves in the committed file.
   for (const name of Object.keys(FORK_PASS_APPLIERS)) files[name] = FORK_APPLIERS[name](files[name]);
   errors.push(...validateAll(files));
+  // 六.F: the ported 莱茵生命 expansion (tools/rhine-data.mjs) — its 6 operators, 3 科研装置, 2 装备, the 盟约's members
+  // and the traits they carry. LAST of the fork layer, and specifically AFTER `applyForkPackMembers`: that applier is
+  // what gives the six official 莱茵 bases their `rhineShip` bond, and the overlay recomputes every 盟约's member list
+  // from the chess that name it (the source expansion's own recompute), so running it earlier would count 4 members
+  // instead of the 9 the 盟约's thresholds need. It carries its own `packRestore`/`packId` for the strip-on-read
+  // (shared/packData.js) and re-annotates its own records' `potDown` through the same attachPotential.
+  //
+  // `validateAll` runs BEFORE it, as in the source: that pass is calibrated to the fork's own counts (114 visible
+  // non-DIY chess, 24 bonds) and guards the ACCIDENTAL duplicate it was written for, while `validateRhineData` owns
+  // this expansion's own invariants. The one overlap it deliberately allows is 多萝西's 共振装置, which is both a
+  // ported operator's summon (tokens.json) and the fork's own `op-doroth` 自选 pick's (backups.json `tokens`) —
+  // `simdata.rawToken` merges the two records, and the pack's copy leaves with the switch.
+  const { applyRhineData, validateRhineData } = await import('./rhine-data.mjs');
+  await applyRhineData(files);
+  errors.push(...validateRhineData(files));
   let total = 0;
   const sizes = {};
   const texts = {};
@@ -4193,7 +4212,16 @@ async function main() {
   }
 }
 
-main().catch((e) => {
+/**
+ * The operator builders `tools/rhine-data.mjs` (六.F) reuses to compile the ported 莱茵生命 operators at every potential
+ * rank. Exported so the ported extension builds its records from the SAME tables and conventions as the official roster
+ * instead of re-deriving stats/talents/modules.
+ */
+export { buildSkill, statsFrom, interpolateAttrs, baseTalentList, traitRecord, rangeGrid, immunitiesOf,
+  unlocked, bestCandidate, moduleAttr, moduleTalentChanges, splitModuleParts, tokenVariant, OPERATOR_POTENTIAL,
+  withPotential, attachPotential };
+
+if (IS_MAIN) main().catch((e) => {
   console.error('build-data failed:', e && e.stack ? e.stack : e);
   process.exitCode = 1;
 });

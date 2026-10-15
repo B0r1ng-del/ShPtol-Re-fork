@@ -53,14 +53,16 @@ const pair = (n) => [`chess_char_1_${n}_a`, `chess_char_1_${n}_b`];
 
 test('tier 1: every selectable skill of every visible chess has a hand-authored spec (normal + elite)', () => {
   const rep = kitCoverage({ tier: 1 });
-  assert.equal(rep.summary.chess, 16);
+  // 16 official + 梅尔 (内容包 packRhine, 六.F — tools/rhine-data.mjs, a PRESET card)
+  assert.equal(rep.summary.chess, 17);
   assert.equal(rep.summary.covered, rep.summary.skills, rep.chess.flatMap((r) => r.skills.filter((s) => !s.covered).map((s) => `${r.name} S${s.index + 1}`)).join(', '));
   assert.equal(rep.summary.chessFullyCovered, rep.summary.chess);
 });
 
 test('tier 1: every chess × every legal skill × module (default / none) fights 30 s with its authored spec, no content errors', () => {
-  const bases = ds.chessIds().filter((id) => /^chess_char_1_\d+_a$/.test(id) && raw(id).visible);
-  assert.equal(bases.length, 16);
+  // tier, not the official `chess_char_1_NN_a` shape: the ported 梅尔 is a PRESET card with its own id
+  const bases = ds.chessIds().filter((id) => id.endsWith('_a') && raw(id).tier === 1 && raw(id).visible);
+  assert.equal(bases.length, 17);
   for (const base of bases) {
     const gold = base.replace(/_a$/, '_b');
     const opt = loadoutOptions(raw(base), raw(gold));

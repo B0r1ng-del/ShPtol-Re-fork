@@ -15,6 +15,7 @@ import { getData } from '../../server/data.js';
 import { GameData } from '../../server/match/gamedata.js';
 import { diyGameData } from '../../server/match/player/diy.js';
 import { diyRecord, diySlot } from '../../shared/diy.js';
+import { isRhineDevice } from '../../shared/rhineResearch.js';
 
 const load = (f) => JSON.parse(readFileSync(new URL(`../../data/${f}.json`, import.meta.url), 'utf8'));
 const CHESS = load('chess');
@@ -104,6 +105,8 @@ test('#24 a summon no owner shows is never a hand card: 予愿安洁莉娜 S3\'s
   const shows = (v) => (v.sources ?? []).includes('display') || Object.values(v.bySkill ?? {}).some((a) => (a.sources ?? []).includes('display'));
   for (const t of [...Object.values(load('tokens')), ...Object.values(BACKUPS.tokens)]) {
     if (t.kind !== 'summon') continue;
+    // 六.F: a 科研装置 has its own independent reserve (player/research.js), never an operator's summon hand card.
+    if (isRhineDevice(t.tokenId)) { assert.equal(t.placeable, false); continue; }
     if (t.placeable) assert.ok(Object.values(t.variants).some(shows), `${t.tokenId} ${t.name}: placeable and displayed`);
     else if (!Object.values(t.variants).some(shows)) assert.ok(t.displayType === 'HIDDEN' || t.tokenId === MARKER, `${t.tokenId} ${t.name}: undisplayed ⇒ HIDDEN (or the marker)`);
   }

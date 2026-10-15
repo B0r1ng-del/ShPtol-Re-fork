@@ -10,6 +10,7 @@ import { tileKey, parseKey, inField, canPlace, placeClass, freeSlot, pieceDir, p
 import { attackRangeGrid, loadoutRecord, resolveRecordLoadout } from '../../../shared/loadoutRecord.js';
 import { summonPlacementGrid } from '../../../shared/summonPlacement.js';
 import { OK, fail } from './common.js';
+import { RHINE_BOND, RHINE_DEVICES, rhineCapacity, rhineDevice, rhineDeviceUnlocked } from '../../../shared/rhineResearch.js';
 
 export class PlayerPlacement {
   /**
@@ -23,6 +24,17 @@ export class PlayerPlacement {
     if (!loc || loc.area === 'equipped') return fail(ERR.BAD_TARGET);
     if (!to || typeof to !== 'object') return fail(ERR.BAD_TARGET);
     const piece = loc.piece;
+    // 六.F: a 科研装置 lives in its own fixed reserve, never the ordinary hand — g.move `{ area: 'research' }` sends it
+    // back there. Only a research piece matches, so an unmodded room's move is unchanged.
+    if (to.area === 'research' || (piece.research && to.area === 'hand')) {
+      const slotCount = to.area === 'hand' ? this.hand.length : RHINE_DEVICES.length;
+      if (!piece.research || (to.idx != null && (!Number.isInteger(to.idx) || to.idx < 0 || to.idx >= slotCount))) return fail(ERR.BAD_TARGET);
+      this._detach(loc);
+      this._returnResearch(piece);
+      this.recompute();
+      return OK;
+    }
+    if (piece.research && to.area !== 'board') return fail(ERR.BAD_TARGET, 'research devices use their own reserve');
     if (to.area === 'board') {
       if (piece.kind === 'item') return fail(ERR.BAD_TARGET, 'items are equipped, not placed');
       const d = parseDir(dir !== undefined ? dir : to.dir);
@@ -52,6 +64,11 @@ export class PlayerPlacement {
    * with its own owner).
    */
   _legal(piece, r, c, owner = null) {
+    // 六.F: a 科研装置 may only stand on the board while it is the unlocked kind its own slot holds (a laser before the
+    // 9th member, or a retired card, is refused). Both flags are only ever set by the ported content.
+    const device = piece.kind === 'token' && rhineDevice(piece.id);
+    if ((piece.research || device) && (!piece.research || !device || device.key !== piece.researchKey
+      || !this.alive || !rhineDeviceUnlocked(device, this.bonds[RHINE_BOND]))) return false;
     if (!canPlace(this.deployMap(), this._placementOf(piece), r, c)) return false;
     const k = tileKey(r, c);
     const range = this.summonRange(piece, owner);
@@ -205,6 +222,7 @@ export class PlayerPlacement {
    * of them would have nowhere to go.
    */
   _reorient(piece, dir) {
+    if (piece.research && (!this.alive || !rhineDeviceUnlocked(piece.id, this.bonds[RHINE_BOND]))) return fail(ERR.BAD_TARGET, msg('科研装置尚未解锁'));
     if (pieceDir(piece) === dir) return OK;
     if (piece.kind === 'chess') {
       const loc = this.find(piece.uid);
@@ -228,6 +246,8 @@ export class PlayerPlacement {
    * like any other card (research 01 A1) instead of overflowing into temp.
    */
   _returnToken(tok, preferLoc = null, { allowTemp = true } = {}) {
+    // 六.F: a 科研装置 returns to its own reserve slot, never the hand / temp stacks.
+    if (tok.research) return this._returnResearch(tok);
     const stack = [...this.hand, ...this.temp].find((p) => p && p.kind === 'token' && p.ownerUid === tok.ownerUid && p.id === tok.id);
     if (stack) { stack.count = (stack.count || 1) + (tok.count || 1); return true; }
     tok.count = tok.count || 1;
@@ -237,6 +257,13 @@ export class PlayerPlacement {
 
   _moveTokenToBoard(loc, r, c, dir = 'RIGHT') {
     const piece = loc.piece;
+    // 六.F: the 盟约 gates the board, not the reserve — a device needs the 莱茵生命 capacity and a free on-board slot.
+    if (piece.research) {
+      if (!this.alive || !rhineDeviceUnlocked(piece.id, this.bonds[RHINE_BOND])) return fail(ERR.BAD_TARGET, msg('科研装置尚未解锁'));
+      const cap = this.alive ? rhineCapacity(this.bonds[RHINE_BOND]) : 0;
+      if (!cap) return fail(ERR.BAD_TARGET, msg('莱茵生命盟约尚未激活'));
+      if (loc.area !== 'board' && [...this.board.values()].filter((p) => p.research).length >= cap) return fail(ERR.BOARD_FULL, msg('已达到科研装置上场上限'));
+    }
     if (!inField(r, c)) return fail(ERR.BAD_TILE);
     const key = tileKey(r, c);
     const occ = this.board.get(key) || null;
@@ -262,9 +289,9 @@ export class PlayerPlacement {
       return OK;
     }
     if (occ) return fail(ERR.BAD_TILE, 'occupied');
-    // owner must be on the board for its summons to be deployable
+    // owner must be on the board for its summons to be deployable — a 科研装置 has no owner unit
     const owner = [...this.board.values()].find((p) => p.uid === piece.ownerUid);
-    if (!owner) return fail(ERR.BAD_TARGET, 'owner not deployed');
+    if (!piece.research && !owner) return fail(ERR.BAD_TARGET, 'owner not deployed');
     if ((piece.count || 1) > 1) {
       piece.count -= 1;
       const one = this.newPiece('token', piece.id, { count: 1, ownerUid: piece.ownerUid, dir });

@@ -3,10 +3,14 @@
 // numbers; one normal and one elite id per key are also asserted with literal numbers. The last test checks coverage.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { makeMatch, give, giveItem, DATA } from '../match/harness.js';
+import { makeMatch, give, giveItem, DATA as ALL_DATA } from '../match/harness.js';
+import { filterRawData } from '../../shared/packData.js';
 import { createRegistry } from '../../server/match/effectsMeta.js';
 import { triggerGainEffects } from '../../server/sim/content/garrisons.js';
 
+// The room these tests build has every 内容包 switch off, so walk the SAME view it gets (`shared/packData.js`):
+// a record a pack owns is not in the match, and neither are the 特质 only its chess carry.
+const DATA = filterRawData(undefined, ALL_DATA);
 const QUIET = { warn() {}, error() {}, info() {} };
 const REG = createRegistry({ log: QUIET });
 const GR = (gid) => DATA.garrisons[gid];

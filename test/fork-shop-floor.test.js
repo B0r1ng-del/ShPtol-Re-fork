@@ -22,7 +22,9 @@ import { DATA, makeMatch, checkInvariants } from './match/harness.js';
 
 const FORK = 'mode_ultimate_abyss';
 const gd = (modeId) => new GameData(DATA, modeId);
-const tierOf = (id) => DATA.chess[id]?.tier ?? DATA.chess[DATA.chess[id]?.baseId]?.tier ?? 0;
+// The room's own record, not the committed ALL-PACKS-ON `DATA`: an all-off room restores the tiers the packs moved
+// (塞雷娅 V → III, shared/packData.js `packRestore`), and the floor's tiers are the ROOM's.
+const tierOf = (id, m) => (m ? m.gd.chess(id)?.tier : DATA.chess[id]?.tier) ?? DATA.chess[DATA.chess[id]?.baseId]?.tier ?? 0;
 
 describe('四.3 商店保底 — the rule itself', () => {
   test('the fork mode carries the floor table; every official mode has none', () => {
@@ -69,7 +71,7 @@ describe('四.3 商店保底 — a real six-player 终极模拟 match', () => {
         ps.rollShop();
         const s0 = ps.shop.slots[0];
         assert.ok(s0 && s0.kind === 'chess', `roll ${i}: slot 0 is a 干员 card`);
-        assert.equal(tierOf(s0.id), 5, `roll ${i}: slot 0 is 5 阶 (got ${s0.id})`);
+        assert.equal(tierOf(s0.id, h.m), 5, `roll ${i}: slot 0 is 5 阶 (got ${s0.id})`);
       }
       checkInvariants(h.m);
     } finally {
@@ -85,7 +87,7 @@ describe('四.3 商店保底 — a real six-player 终极模拟 match', () => {
         ps.rollShop();
         const s0 = ps.shop.slots[0];
         assert.ok(s0 && s0.kind === 'chess', `roll ${i}: slot 0 is a 干员 card`);
-        const t = tierOf(s0.id);
+        const t = tierOf(s0.id, h.m);
         assert.ok(t === 5 || t === 6, `roll ${i}: slot 0 is 5 or 6 阶 (got tier ${t}: ${s0.id})`);
         seen.add(t);
       }
@@ -105,7 +107,7 @@ describe('四.3 商店保底 — a real six-player 终极模拟 match', () => {
       const assertSlot0 = (what, tiers = [5]) => {
         const s0 = ps.shop.slots[0];
         assert.ok(s0 && s0.kind === 'chess', `${what}: slot 0 is a 干员 card`);
-        assert.ok(tiers.includes(tierOf(s0.id)), `${what}: slot 0 is ${tiers.join('/')} 阶 (got ${tierOf(s0.id)}: ${s0.id})`);
+        assert.ok(tiers.includes(tierOf(s0.id, h.m)), `${what}: slot 0 is ${tiers.join('/')} 阶 (got ${tierOf(s0.id, h.m)}: ${s0.id})`);
       };
       // 1. the manual refresh (g.refresh path → rollShop)
       assert.deepEqual(h.m.handle('p_0', { t: 'g.refresh' }), { ok: true });

@@ -916,8 +916,14 @@ test('干员战斗语音 (DESIGN §21.30): the manifest data, the official prior
   assert.match(doc('docs/ASSETS.md'), /\| 干员战斗语音 \|/);
   assert.match(doc('docs/ASSETS.md'), /voiceChars/);
   // 0.2.2: the Japanese dub beside the Chinese one (audio.voiceJp, settings 语音语言, the full zip's switch)
-  assert.equal(Object.keys(manifest.audio?.voiceJp ?? {}).length, charIds.length, 'every voiced operator has its JP tree');
-  assert.equal(manifest.stats.voiceJpChars, charIds.length);
+  // Every voiced operator has its JP tree. The ported 六.C/六.F operators (tools/fork-extra6.mjs,
+  // tools/rhine-data.mjs) are JP-only in the upstream voice dump — their Chinese lines are not published — so the
+  // JP tree covers the Chinese one and may hold those extra ids.
+  const jpIds = Object.keys(manifest.audio?.voiceJp ?? {});
+  for (const id of charIds) assert.ok(manifest.audio.voiceJp[id], `${id} has its JP tree`);
+  const ported = new Set(['char_4182_oblvns', 'char_4217_makoto', 'char_242_otter', 'char_4224_turdus', 'char_135_halo', 'char_416_zumama']);
+  for (const id of jpIds) if (!charIds.includes(id)) assert.ok(ported.has(id), `${id} is not a ported operator`);
+  assert.equal(manifest.stats.voiceJpChars, jpIds.length);
   assert.match(doc('docs/ASSETS.md'), /voiceJp: \{ \[charId\]: \{ …the slots of `voice` \} \}/);
   assert.match(doc('docs/DEPLOY.md'), /`FULL_ZIP_JP_VOICE` 改成 `false` 时/);
   assert.match(PLAYING, /「语音语言」选 \*\*中文 \/ 日本語\*\*（默认中文，和界面语言无关/);

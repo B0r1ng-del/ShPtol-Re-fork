@@ -29,11 +29,20 @@ export function renderInfo(u) {
     defId: u.defId ?? null, name: u.name ?? '', tier: u.tier ?? 1, golden: !!u.golden, spine: u.spine ?? u.defId ?? null,
     avatar: u.avatar ?? u.defId ?? null, x: Number(u.x) || 0, y: Number(u.y) || 0, facing: u.facing === -1 ? -1 : 1,
     maxHp: Number(u.maxHp) || 1, boss: !!u.boss, motion: u.motion,
+    // 六.F: a 科研装置's charge meter reuses the ordinary SP slots (sim snapshot.js)
+    sp: Number.isFinite(u.sp) && u.sp >= 0 ? u.sp : 0,
+    spMax: Number.isFinite(u.spMax) && u.spMax >= 0 ? u.spMax : 0,
     // deploy direction of allies (UnitInfo.dir, DESIGN §3): the model (Back for UP, mirrored for LEFT) and the
     // ground wedge follow it; absent = unknown (legacy frames) → derived from `facing`, no wedge
     dir: typeof u.dir === 'string' ? u.dir : undefined,
     // the unit's current model form (UnitInfo.form: an enemy's mode, a 傀儡师's 替身): the view starts in it (UnitView reads info.form)
     form: typeof u.form === 'string' ? u.form : undefined,
+    // Reconnecting / observing must show the device's current breakthrough before its next effect is emitted.
+    researchStage: Number.isInteger(u.researchStage) && u.researchStage >= 0 && u.researchStage <= 2 ? u.researchStage : undefined,
+    researchActive: typeof u.researchActive === 'boolean' ? u.researchActive : undefined,
+    researchLaserTarget: u.researchLaserTarget === null || typeof u.researchLaserTarget === 'number' || typeof u.researchLaserTarget === 'string' ? u.researchLaserTarget : undefined,
+    researchLaserProgress: Number.isFinite(u.researchLaserProgress) ? Math.max(0, Math.min(20, u.researchLaserProgress)) : undefined,
+    researchLaserActive: typeof u.researchLaserActive === 'boolean' ? u.researchLaserActive : undefined,
     // DESIGN §16 loadout of an ally (UnitInfo.skillIndex / moduleId): the Spine actor plays that skill's clip, and a
     // tap hands them to the detail card (a teammate's unit shows its owner's skill / module)
     skillIndex: Number.isInteger(u.skillIndex) ? u.skillIndex : undefined,

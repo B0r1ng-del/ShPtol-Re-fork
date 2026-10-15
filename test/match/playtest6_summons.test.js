@@ -18,6 +18,8 @@ const SHAMARE = 'chess_char_3_15_a';
 const DRONE = 'token_10000_silent_healrb';
 const DEVICE = 'token_10041_cathy_catsld';
 const DOLL = 'token_10006_vodfox_doll';
+const DOROTHY = 'chess_rhine_dorothy_a'; // 六.F 莱茵生命（tools/rhine-data.mjs）
+const RESONATOR = 'token_10025_doroth_recttp';
 const chess = (id) => (Object.hasOwn(DATA.chess, id) ? DATA.chess[id] : null);
 
 function prep({ loadout = null, stageId = 'act2autochess_m04', seed = 11 } = {}) {
@@ -37,9 +39,9 @@ const tokensOf = (ps, id) => [...ps.hand, ...ps.temp, ...ps.board.values()].filt
 const stackOf = (ps, id) => ps.hand.find((p) => p && p.kind === 'token' && p.id === id) ?? null;
 const move = (m, uid, to, dir) => m.handle('p_0', { t: 'g.move', uid, to, ...(dir ? { dir } : {}) });
 
-test('tokens.json: the manually deployable summons are hand pieces — 医疗探机, 诅咒娃娃, 爬行号·防护单元 with the talent ones', () => {
+test('tokens.json: the manually deployable summons are hand pieces — 医疗探机, 诅咒娃娃, 爬行号·防护单元, 共振器 with the talent ones', () => {
   const placeable = Object.values(DATA.tokens).filter((t) => t.placeable).map((t) => t.tokenId).sort();
-  assert.deepEqual(placeable, [DRONE, DOLL, 'token_10017_skadi2_dedant', 'token_10028_vigil_wolf', 'token_10030_mlyss_wtrman', DEVICE].sort());
+  assert.deepEqual(placeable, [DRONE, 'token_10004_otter_motter', DOLL, 'token_10017_skadi2_dedant', RESONATOR, 'token_10028_vigil_wolf', 'token_10030_mlyss_wtrman', DEVICE].sort());
   // HIDDEN shop-state tokens stay battle-only (PRTS: 新约能天使 with 使命必达！ provides no 投递坐标 card)
   for (const t of Object.values(DATA.tokens)) if (t.displayType === 'HIDDEN') assert.equal(t.placeable, false, t.name);
   assert.equal(DATA.tokens.token_10056_angel2_target.placeable, false);

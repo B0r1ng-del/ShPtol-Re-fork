@@ -88,6 +88,8 @@ import { withBounties, isFlyKey } from './waves.js';
 import { mitigate } from '../sim/damage.js';
 import { HOVER_KEYS } from '../sim/content/enemies.js';
 import { attackRangeGrid, loadoutRecord, resolveRecordLoadout } from '../../shared/loadoutRecord.js';
+import { RHINE_BOND, RHINE_BALANCE as RB, rhineAttack, rhineCapacity, rhineDevice, rhineDeviceStage, rhineDeviceUnlocked } from '../../shared/rhineResearch.js';
+import { researchRange } from '../../shared/rhineRange.js';
 
 /**
  * Drive a step generator (planLayoutSteps, createRehearsalSteps, arrangeSteps, botPrepBeginSteps …) to its end in one
@@ -221,7 +223,7 @@ export function bountyKillChance(m, ps, card) {
   const tileTime = Math.max(0.4, Math.min(6, 1 / (speed * 0.5)));
   const units = [];
   for (const [k, p] of ps.board) {
-    const rec = p.kind === 'token' ? gd.token(p.id) : rangeRec(ps, gd.chess(p.id));
+    const rec = p.kind === 'token' ? rhineBotRecord(m, ps, p) : rangeRec(ps, gd.chess(p.id));
     if (!rec) continue;
     const [r, c] = parseKey(k);
     const u = unitOf(rec, k, r, c, pieceDir(p), model);
@@ -234,8 +236,13 @@ export function bountyKillChance(m, ps, card) {
     let t = tileTime;
     if (!fly && !held && units.some((u) => u.block > 0 && u.key === k)) { t += LAYOUT_PARAMS.hold; held = true; }
     let dps = 0;
-    for (const u of units) if (u.cover.has(k) && (fly ? u.air : u.ground)) dps += u.vs;
+    for (const u of units) if (!u.laser && u.cover.has(k) && (fly ? u.air : u.ground)) dps += u.vs;
     exp += t * dps;
+  }
+  // 六.F: a drill is one locked target. Credit it conservatively only when this bounty is at least as tough as the wave.
+  if (hp >= Math.max(...model.routes.map((r) => r.panelMaxHp || r.hp))) {
+    const duration = route.tiles.length * tileTime + (held ? LAYOUT_PARAMS.hold : 0);
+    for (const u of units) if (u.laser) exp += rhineLaserExposure(u.vs, duration, hp, u.rec._rhineLayers);
   }
   return 1 - Math.exp(-exp / (BOUNTY_KILL * hp));
 }
@@ -540,6 +547,11 @@ function lineupScore(m, ps, set, ctx) {
     const w = bond && bond.isCore ? 14 : 9;
     v += b.tier * w + Math.min(12, (b.layers || 0) * 0.1) + (id === ctx.focus ? 6 : 0);
   }
+  // 六.F: device output depends on this deployed census. Give the 9-member gate enough value to keep its last member.
+  v += rhineCapacity(bonds[RHINE_BOND]) * 8;
+  if (rhineDeviceUnlocked('laser', bonds[RHINE_BOND])) v += 40;
+  {
+  }
   let blockers = 0;
   let air = 0;
   let healers = 0;
@@ -841,6 +853,47 @@ function dpsVs(rec, def, res) {
   const interval = Math.max(0.2, (st.bat || 1) * 100 / Math.max(ASPD_MIN, st.aspd || 100));
   const d = (mitigate(st.atk || 0, rec.dmgType === 'arts' ? 'arts' : 'phys', { def, res }) / interval) * crowdOf(rec);
   return rec.attackKind === 'none' ? d * 0.4 : d;
+}
+
+
+/** Conservative prep model; exact skill timing, healing/shields and drill locks remain the battle sim's job. */
+export function rhineBotRecord(m, ps, piece) {
+  const source = (ps.gd || m.gd).token(piece.id);
+  const def = rhineDevice(piece.id);
+  if (!piece.research || !def || !source) return source;
+  const stage = rhineDeviceStage(def, ps.research?.stages[def.key]);
+  const attack = rhineAttack(ps.layers?.[RHINE_BOND]);
+  const range = researchRange({ id: piece.id, stage });
+  const rec = { ...source, stats: { ...source.stats, atk: attack, blockCnt: 0, aspd: 100 }, rangeGrid: range.grid,
+    canHitFly: true, attackKind: 'ranged', dmgType: 'arts', _rhineDevice: def.key };
+  if (def.key === 'medical') {
+    rec.attackKind = 'heal'; rec.dmgType = 'heal';
+    rec.stats.atk = attack * RB.medicalHealScale[stage]; rec.stats.bat = RB.medicalInterval;
+    rec._rhineHeal = RB.medicalTargetCount[stage] * RB.medicalHealScale[stage] * (stage >= 1 ? 1 + RB.medicalShieldHealRatio : 1);
+    rec._rhineSlow = RB.ecologySlow; rec._rhineBind = stage >= 2 ? RB.ecologyBindDuration / RB.ecologyInterval : 0;
+  } else if (def.key === 'energy') {
+    const members = [...ps.board.values()].filter((p) => p.kind === 'chess').length;
+    // Assume one skill every ten seconds; first-stage contributors are only partly inside the local aura.
+    const chargeRate = Math.max(0.1, members / 10 * (stage ? 1 : 0.5));
+    rec.stats.atk = attack * RB.energyPulseScale[stage];
+    rec.stats.bat = Math.max(RB.energyPulseInterval, RB.energyCharges / chargeRate);
+  } else {
+    rec.stats.atk = attack * RB.laserBaseScale; rec.stats.bat = 1; rec._rhineLaser = true;
+    rec._rhineLayers = Math.max(0, Number(ps.layers?.[RHINE_BOND]) || 0);
+    rec.rangeGrid = [];
+  }
+  rec._botDpsId = `${piece.id}|${stage}|${rec.stats.atk}|${rec.stats.bat}`;
+  return rec;
+}
+
+/** Integrated drill damage for one uninterrupted target, including current research and the target's post-ramp HP damage. */
+export function rhineLaserExposure(initialDps, seconds, maxHp = 0, layers = 0) {
+  const duration = Math.max(0, Number(seconds) || 0);
+  const ramp = Math.min(duration, RB.laserRampSeconds);
+  const after = Math.max(0, duration - RB.laserRampSeconds);
+  const rampFactor = 0.5 * RB.laserRampPerSecond * ramp * ramp;
+  return initialDps * (duration + rampFactor + after * RB.laserRampPerSecond * RB.laserRampSeconds)
+    + after * Math.max(0, maxHp) * (RB.laserTrueHpRatio + Math.max(0, Number(layers) || 0) * RB.laserTrueHpRatioPerLayer);
 }
 
 /**
@@ -1705,7 +1758,11 @@ const SUMMON_TRIES = 4;
  * legality: a refused tile is excluded and the next best one tried (SUMMON_TRIES).
  */
 function* placeTokensSteps(m, ps) {
-  for (const p of [...ps.hand, ...ps.temp]) {
+  // 六.F: dedicated research cards never enter the ordinary hand. Prefer the devices already developed.
+  const research = (ps.research?.hand || []).filter((p) => p && rhineDeviceUnlocked(p.id, ps.bonds?.[RHINE_BOND])).sort((a, b) =>
+    (ps.research.stages[b.researchKey] || 0) - (ps.research.stages[a.researchKey] || 0)
+    || (ps.research.points[b.researchKey] || 0) - (ps.research.points[a.researchKey] || 0));
+  for (const p of [...ps.hand, ...ps.temp, ...research]) {
     if (!p || p.kind !== 'token') continue;
     for (let n = p.count || 1; n > 0; n--) {
       yield;

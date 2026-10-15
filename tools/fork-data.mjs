@@ -72,7 +72,10 @@ for (const { name, what, needs } of LAYER) {
     failed = true;
     continue;
   }
-  const text = JSON.stringify(out);
+  // `data/assets.json` is written by tools/fetch-assets.mjs, which ends the file with a newline; every file
+  // build-data.mjs writes does not. Keep whichever the file already had so a patch is a content diff and not a
+  // one-byte whitespace churn on the file this CLI does not own.
+  const text = JSON.stringify(out) + (before.endsWith('\n') ? '\n' : '');
   if (text === before) {
     console.log(`fork-data: data/${name}.json is up to date (${FORK_MODE_ID})`);
   } else if (check) {

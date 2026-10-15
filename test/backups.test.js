@@ -36,11 +36,13 @@ const isFiniteNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const ELITES = ['char_608_acpion', 'char_609_acguad', 'char_610_acfend', 'char_611_acnipe', 'char_612_accast', 'char_613_acmedc', 'char_614_acsupo', 'char_615_acspec', 'char_617_sharp2'];
 const RESERVES = ['char_600_cpione', 'char_601_cguard', 'char_602_cdfend', 'char_603_csnipe', 'char_604_ccast', 'char_605_cmedic', 'char_606_csuppo', 'char_607_cspec'];
 
-test('chess: 141 base chess — 76 PRESET / 55 NORMAL / 10 DIY — and every record keeps the five official backup fields', () => {
-  assert.equal(base.length, 141);
+test('chess: 147 base chess — 82 PRESET / 55 NORMAL / 10 DIY — and every record keeps the five official backup fields', () => {
+  assert.equal(base.length, 147);
   // 4 official DIY slots + the fork's 6 extra ones (二.8, 5 per tier): tools/fork-overrides.mjs applyForkChess
   // tier 5 / 6 gained one PRESET each: the ported packExtra6 operators (六.C, tools/fork-extra6.mjs)
-  assert.deepEqual([ofType('PRESET').length, ofType('NORMAL').length, ofType('DIY').length], [76, 55, 10]);
+  // tier 5 / 6 gained one PRESET each: the ported packExtra6 operators (六.C, tools/fork-extra6.mjs); tier 1 / 2 / 4 / 5
+  // one each and tier 3 two: the ported packRhine operators, with 塞雷娅 / 白面鸮 re-tiered into III (六.F)
+  assert.deepEqual([ofType('PRESET').length, ofType('NORMAL').length, ofType('DIY').length], [82, 55, 10]);
   for (const c of all) {
     assert.deepEqual(Object.keys(c.backup), ['charId', 'tmplId', 'skillIndex', 'uniEquipId', 'potRank'], `${c.chessId}: backup fields`);
     assert.deepEqual(c.backup, chess[c.baseId].backup, `${c.chessId}: the elite shares its base row's backup`);
@@ -53,8 +55,10 @@ test('chess: 141 base chess — 76 PRESET / 55 NORMAL / 10 DIY — and every rec
     assert.ok(c.tier >= 3, `${c.chessId}: no NORMAL chess below tier 3`);
   }
   for (const c of ofType('DIY')) assert.deepEqual(c.backup, { charId: null, tmplId: null, skillIndex: 0, uniEquipId: null, potRank: 0 });
-  // the only stored potential above 0: 宴 and 野鬃, both PRESET (their own backup)
-  assert.deepEqual(base.filter((c) => c.backup.potRank !== 0).map((c) => c.chessId), ['chess_char_1_18_a', 'chess_char_1_19_a']);
+  // the stored potential above 0: 宴 and 野鬃 (the official PRESET rows that name one), plus every ported packRhine
+  // operator — tools/rhine-data.mjs builds its records at OPERATOR_POTENTIAL (full), like the rest of the roster
+  assert.deepEqual(base.filter((c) => c.backup.potRank !== 0).map((c) => c.chessId),
+    ['chess_char_1_18_a', 'chess_char_1_19_a', ...base.filter((c) => c.chessId.startsWith('chess_rhine_')).map((c) => c.chessId)]);
   assert.deepEqual(ofType('NORMAL').filter((c) => c.isHidden).map((c) => c.chessId), ['chess_char_5_18_a', 'chess_char_6_10_a']);
 });
 
@@ -69,7 +73,13 @@ test('chess: the backup fields are the official shop row, verbatim', { skip: !HA
   const forkSlots = new Set(FORK_DIY_SLOT_IDS.flatMap((id) => [id, `${id.slice(0, -1)}b`]));
   for (const c of all) {
     const s = act.charShopChessDatas[c.baseId];
-    if (!s) { assert.ok(forkSlots.has(c.baseId), `${c.chessId}: no official shop row and not a fork 自选 slot`); continue; }
+    // The ported packRhine operators are synthesized whole by tools/rhine-data.mjs (their 商店行 does not exist in
+    // the official season either); they are recognized by id, never by "the lookup happened to miss".
+    if (!s) {
+      assert.ok(forkSlots.has(c.baseId) || c.chessId.startsWith('chess_rhine_'),
+        `${c.chessId}: no official shop row and not a fork 自选 slot`);
+      continue;
+    }
     assert.deepEqual(c.backup, { charId: s.backupCharId, tmplId: s.backupTmplId, skillIndex: s.backupCharSkillIndex, uniEquipId: s.backupCharUniEquipId, potRank: s.backupCharPotRank }, c.chessId);
     assert.equal(c.chessType, s.chessType, c.chessId);
   }
@@ -311,6 +321,8 @@ test('DIY: prototype picks carry the skill / module of their 补位 rows at the 
   for (const tier of ['5', '6']) {
     assert.deepEqual(Object.keys(locked[tier]), prototypes[tier], `tier ${tier}: one locked selection per prototype`);
     for (const [id, l] of Object.entries(locked[tier])) {
+      // 塞雷娅 was tier 5 and is tier 3 with the ported pack on (六.F, tools/rhine-data.mjs), so the tier-5 row a
+      // 补位 list was built from has moved; the locked selection still names her (the builder's own list).
       const rows = ofType('NORMAL').filter((c) => c.tier === Number(tier) && c.backup.charId === id).map((c) => c.chessId).sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
       assert.deepEqual(l.from, rows, `${id}@${tier}: from its 补位 rows`);
       if (rows.length) assert.deepEqual([l.skillIndex, l.uniEquipId], [chess[rows[0]].backup.skillIndex, chess[rows[0]].backup.uniEquipId], `${id}@${tier}`);
@@ -329,7 +341,11 @@ test('DIY: the owned-6★ pool and the faction → bond rule (mainPower + every 
   const roster = new Set(base.map((c) => c.charId).filter(Boolean));
   assert.equal(ownedPool.length, 72);
   for (const id of ownedPool) {
-    assert.ok(!roster.has(id), `${id}: a roster operator is never a pick`);
+    // The ported packRhine operators (伊芙利特 / 森蚺 / 多萝西) are BOTH: tools/rhine-data.mjs gives each a chess
+    // record while the 自选 pool keeps the 6★ (the two are separate selectors — a pick fields the operator's own
+    // kit by charId, the chess is what the shop draws).
+    const ported = ['char_134_ifrit', 'char_416_zumama', 'char_4048_doroth'].includes(id);
+    if (!ported) assert.ok(!roster.has(id), `${id}: a roster operator is never a pick`);
     assert.deepEqual([operators[id].rarity, operators[id].obtainable], [6, true], id);
   }
   assert.deepEqual(Object.keys(operators).sort(), [...new Set([...ownedPool, ...prototypes['5'], ...prototypes['6']])].sort());

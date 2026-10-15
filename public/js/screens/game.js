@@ -75,6 +75,7 @@ import { useGameData, GIcon } from '../ui/gameComponents.js';
 import { useFieldView } from '../ui/fieldHost.js';
 import { TopBar, liveLp, ownLeaks, uniteRemaining, tempInfo, tempReadyReason } from '../ui/hud.js';
 import { BondStrip, BondPopup } from '../ui/bondStrip.js';
+import { RhineDock } from '../ui/rhineDock.js';
 import { TeamPanel } from '../ui/teamPanel.js';
 import { ShopBar } from '../ui/shopBar.js';
 import { DetailPanel, resolveDetail } from '../ui/detailPanel.js';
@@ -108,6 +109,7 @@ import {
   mergeTarget, modeOffBonds, readyFundsPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, roundStartReplay,
 } from '../ui/gameLogic.js';
 import { toast } from '../ui/toasts.js';
+import { researchRange } from '../../../shared/rhineRange.js';
 import { BriefingScreen } from './briefing.js';
 import { BandDraftScreen } from './bandDraft.js';
 import { ResultScreen } from './result.js';
@@ -986,7 +988,15 @@ function MatchScreen() {
         window.addEventListener('pointerup', onUp, { passive: true, capture: true });
         moveOff = () => window.removeEventListener('pointerup', onUp, { capture: true });
       }),
-      view.on('tileHover', (t) => { ptr.tile = t && typeof t === 'object' ? t : null; }),
+      view.on('tileHover', (t) => {
+        ptr.tile = t && typeof t === 'object' ? t : null;
+        // 六.F: a 科研装置 shows its own research range while it is dragged
+        const L = live.current, entry = L.placeCtx?.pieces.get(ptr.uid), range = researchRange(entry?.piece);
+        if (!range) return;
+        const style = { ...SEL_RANGE, group: 'researchPreview' };
+        if (t?.area === 'board' && canPlace(L.placeCtx, ptr.uid, t).ok) showRange(view, range.grid, t.row, t.col, 'RIGHT', style, range.radius);
+        else view.highlightTiles([], style);
+      }),
       view.on('pieceDrop', async (e) => {
         endDrag();
         const L = live.current;
@@ -1494,6 +1504,15 @@ function MatchScreen() {
         </div>
       </div>
 
+      ${!watchingOther && !pen && !sp ? html`<${RhineDock} research=${priv?.research} editable=${editable && showPrep}
+        view=${view} placeCtx=${placeCtx}
+        onDeploy=${async (uid, tile) => {
+          const check = canPlace(live.current.placeCtx, uid, tile);
+          if (!check.ok) { toast(check.reason, 'warn'); return; }
+          await actions.move(uid, tile, 'RIGHT');
+        }} onRecall=${(uid) => actions.move(uid, { area: 'research' })}
+        onDetail=${(uid) => setDetail({ kind: 'piece', uid })} />` : null}
+
       <${TeamPanel} pub=${pub} myId=${myId} watching=${watchingNow} bubbles=${bubbles} onWatch=${watchPlayer} cap=${gd.config?.lpCapPerRound ?? 10} uniteLocal=${uniteLocal}
         self=${Number.isFinite(priv?.lp) ? { lp: priv.lp, pending: liveLpNow.pending, unite: liveLpNow.unite, left: liveLpNow.left } : null}
         observe=${cc
@@ -1583,7 +1602,7 @@ function MatchScreen() {
       tone=${resultBox.tone} duration=${resultBox.duration} onDone=${() => setResultBox(null)} />` : null}
 
     ${facing && view ? html`<${FacingWheel} key=${`${facing.uid}:${facing.row},${facing.col}`} view=${view} row=${facing.row} col=${facing.col}
-      grid=${facing.grid} name=${facing.name} onPreview=${previewFacing} onCommit=${commitFacing} onCancel=${cancelFacing} />` : null}
+      grid=${facing.grid} radius=${researchRange(facing.piece)?.radius} name=${facing.name} onPreview=${previewFacing} onCommit=${commitFacing} onCancel=${cancelFacing} />` : null}
 
     ${paused ? html`<${PausedOverlay} canResume=${solo} busy=${pauseBusy} onResume=${() => togglePause(false)} onExit=${() => setExitOpen(true)} />` : null}
 

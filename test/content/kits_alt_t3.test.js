@@ -9,9 +9,9 @@ import { skillSpecSource } from '../../server/sim/content/index.js';
 import { effectiveProfile } from '../../server/sim/ai.js';
 import { kitCoverage } from '../../tools/kit-coverage.mjs';
 import { wolfShadows, wolfTacticalPoint } from '../../server/sim/content/tokens.js';
-import { TIER_KITS } from '../../server/sim/content/kits/index.js';
+import { KITS, TIER_KITS } from '../../server/sim/content/kits/index.js';
 
-const KITS = TIER_KITS[2];
+const TIER3_KITS = TIER_KITS[2];
 
 const ds = getDefaultSource();
 /** Skill index of `skillId` on chess `id`. */
@@ -37,24 +37,31 @@ const atkHits = (h, u, skill = null) => h.hooksOf('damaged').filter((c) => c.sou
 
 test('coverage: every selectable skill of every visible tier-3 chess is hand-authored (normal + 精锐)', () => {
   const rep = kitCoverage({ tier: 3 });
-  assert.equal(rep.summary.chess, 19);
+  // 19 official + 塞雷娅 / 白面鸮 re-tiered into III by the ported pack (六.F: both were 4/5)
+  assert.equal(rep.summary.chess, 21);
   assert.equal(rep.summary.covered, rep.summary.skills, rep.chess.filter((r) => r.skills.some((s) => !s.covered)).map((r) => r.name).join(' '));
   for (const r of rep.chess) for (const s of r.skills) if (!s.isDefault) assert.deepEqual([s.normal, s.elite], ['skills', 'skills'], `${r.name} S${s.index + 1}`);
 });
 
-test('skills map: each alternate spec is built from its OWN record whichever skill is selected', () => {
+test('skills map: every selected alternate is authored; eagerly built specs use their OWN record', () => {
   const rows = kitCoverage({ tier: 3 }).chess;
   for (const r of rows) for (const id of BOTH(r.chessId)) {
     const d0 = ds.getChess(id);
     const kit = KITS[r.chessId](d0.skill.bb, d0.raw, d0);
     const alts = r.skills.filter((s) => !s.isDefault).map((s) => s.skillId);
-    assert.deepEqual(Object.keys(kit.skills ?? {}).sort(), alts.slice().sort(), `${id} skills keys`);
+    // 塞雷娅 / 白面鸮 are tier-3 chess whose kits live in their original tier's group (the ported pack re-tiers them
+    // but does not move the kit file), so a factory may build just the selected alternative. Both are valid contracts.
+    const eager = Object.keys(kit.skills ?? {});
+    assert.ok(eager.every((sid) => r.skills.some((s) => s.skillId === sid)), `${id} only legal skill keys (expansion kits may also key their default)`);
+    const buildsAllRecords = KITS[r.chessId] === TIER3_KITS[r.chessId];
+    if (buildsAllRecords) assert.deepEqual(eager.slice().sort(), alts.slice().sort(), `${id} all eager keys`);
     for (const sid of alts) {
       const dS = LD(id, sid);
       assert.equal(skillSpecSource(dS, KITS), 'skills', `${id} ${sid}`);
       const own = KITS[r.chessId](dS.skill.bb, dS.raw, dS).skills[sid];
+      assert.ok(own && typeof own === 'object', `${id} ${sid} selected authored spec`);
       // same numbers from the default-selected kit and from the kit built for that skill
-      assert.equal(JSON.stringify(kit.skills[sid], (k, v) => (typeof v === 'function' ? 'fn' : v)), JSON.stringify(own, (k, v) => (typeof v === 'function' ? 'fn' : v)), `${id} ${sid}`);
+      if (buildsAllRecords) assert.equal(JSON.stringify(kit.skills[sid], (k, v) => (typeof v === 'function' ? 'fn' : v)), JSON.stringify(own, (k, v) => (typeof v === 'function' ? 'fn' : v)), `${id} ${sid}`);
     }
   }
   const a = LD('chess_char_3_01_a', 'skchr_angel_1'), b = LD('chess_char_3_01_b', 'skchr_angel_1');
@@ -80,7 +87,13 @@ test('every alternate skill × module of the visible tier-3 chess fights and cas
       const u = h.unit(id);
       const tag = `${id} S${s.index + 1} ${moduleId ?? ''}`;
       assert.equal(u.skill.id, s.skillId, tag);
-      for (let t = 0; t < 20; t++) { h.run(1); if (t % 5 === 1 && u.alive && u.skill.kind !== 'passive') u.skill.gainSp(u.skill.spCost, 'test'); }
+      for (let t = 0; t < 20; t++) {
+        // Saria's S1 is deliberately held until an ally in its area falls below half HP. (She is a tier-3 chess here:
+        // the ported pack re-tiers her from V, tools/rhine-data.mjs.)
+        if (u.def.charId === 'char_202_demkni') for (const mate of h.b.allyUnits) if (mate !== u && mate.alive) mate.hp = Math.min(mate.hp, mate.s.maxHp * 0.3);
+        h.run(1);
+        if (t % 5 === 1 && u.alive && u.skill.kind !== 'passive') u.skill.gainSp(u.skill.spCost, 'test');
+      }
       if (u.skill.kind === 'passive') assert.ok(u.skill.active, `${tag} passive on`);
       else assert.ok(u.skill.activations >= 1, `${tag} cast`);
       assert.ok(u.stats.dmg > 0 || u.stats.heal > 0, `${tag} did something`);
