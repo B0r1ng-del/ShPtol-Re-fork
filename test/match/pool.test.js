@@ -13,7 +13,8 @@ test('co-op pool doubles the measured single-player capacities; only visible, un
   const pool = new SharedPool(gd, { banned: [] });
   const caps = { 1: 12, 2: 14, 3: 18, 4: 16, 5: 8, 6: 5 };
   assert.equal(pool.entries.size, gd.visibleChess.length);
-  assert.equal(pool.entries.size, 112);
+  // 114 = 112 official + 结城理 / 丰川祥子, embedded since 2026-10-15 (owner) instead of a 内容包开关
+  assert.equal(pool.entries.size, 114);
   for (const [id, e] of pool.entries) {
     const expect = 2 * (DATA.config.economy.poolCopiesOverrides[id] ?? caps[e.tier]);
     assert.equal(e.cap, expect, id);
@@ -22,7 +23,7 @@ test('co-op pool doubles the measured single-player capacities; only visible, un
   }
   const banned = [gd.visibleChess[0], gd.visibleChess[5]];
   const p2 = new SharedPool(gd, { banned });
-  assert.equal(p2.entries.size, 110);
+  assert.equal(p2.entries.size, 112);
   assert.ok(!p2.has(banned[0]) && p2.left(banned[0]) === 0 && p2.take(banned[0]) === 0);
 });
 
@@ -59,12 +60,13 @@ test('odds sanity: level L rolls only tiers ≤ L; level 1 only tier 1; shares �
     const shares = pool.tierShares(level);
     for (const [t, n] of Object.entries(seen)) assert.ok(Math.abs(n / 4000 - shares[t]) < 0.035, `L${level} T${t} ${n / 4000} vs ${shares[t]}`);
   }
-  // research table (full pools, no bans): L6 ≈ 14.0 / 17.4 / 25.0 / 25.7 / 11.1 / 6.9 %
+  // research table (full pools, no bans): L6 ≈ 14.0 / 17.4 / 25.0 / 25.7 / 11.1 / 6.9 %. The two embedded
+  // operators (结城理 T5 / 丰川祥子 T6, 2026-10-15) shift the shares slightly off the official figures: re-measured.
   const s6 = pool.tierShares(6);
-  const want = { 1: 0.14, 2: 0.174, 3: 0.25, 4: 0.257, 5: 0.111, 6: 0.069 };
+  const want = { 1: 0.134, 2: 0.1635, 3: 0.2518, 4: 0.2592, 5: 0.1178, 6: 0.0736 };
   for (const t of Object.keys(want)) assert.ok(Math.abs(s6[t] - want[t]) < 0.01, `T${t} ${s6[t]}`);
   const s2 = pool.tierShares(2);
-  assert.ok(Math.abs(s2[1] - 0.447) < 0.01 && Math.abs(s2[2] - 0.553) < 0.01);
+  assert.ok(Math.abs(s2[1] - 0.4505) < 0.01 && Math.abs(s2[2] - 0.5495) < 0.01);
 });
 
 test('rolls are copy-weighted: an exhausted chess never rolls; tier/filter options work', () => {
@@ -186,7 +188,7 @@ test('the match pool excludes banned chess; m.public lists disabled bonds and ba
   assert.equal(pub.drawnDisabledBonds.length, 7);
   assert.ok(pub.bannedChess.length > 0);
   for (const id of pub.bannedChess) assert.ok(!h.m.pool.has(id), `${id} should not be in the pool`);
-  assert.equal(h.m.pool.entries.size + pub.bannedChess.length, 112);
+  assert.equal(h.m.pool.entries.size + pub.bannedChess.length, 114);
   checkInvariants(h.m);
   h.m.dispose();
 });

@@ -101,12 +101,12 @@ export const ITEM_SELL_PRICE = 1;
  */
 export const MOD_KEYS = Object.freeze([
   'noBondBan', 'untimedSp', 'randomSpVote', 'extraRounds', 'targetedPick', 'uncapLayers',
-  'packRhine', 'packAphris', 'packRelic', 'packExtra6', 'packCustom',
+  'packRhine', 'packAphris', 'packRelic',
 ]);
 /** Defaults of MOD_KEYS: the official behaviour of each switch (all off). */
 export const MOD_DEFAULTS = Object.freeze({
   noBondBan: false, untimedSp: false, randomSpVote: false, extraRounds: false, targetedPick: false, uncapLayers: false,
-  packRhine: false, packAphris: false, packRelic: false, packExtra6: false, packCustom: false,
+  packRhine: false, packAphris: false, packRelic: false,
 });
 
 /**
@@ -123,14 +123,17 @@ export const MOD_DEFAULTS = Object.freeze({
  * client's data store, so both agree on what a match contains.
  *
  * `PACK_AUTHORS` is the ported content's credit, shown in each switch's own ⓘ (the second column's tip).
+ *
+ * 2026-10-15 (owner): 「新干员包」(结城理 / 丰川祥子) and 「额外干员包」 are no longer switches — they are embedded in the
+ * game and always on, so their records carry NO `packId` at all (`tools/fork-overrides.mjs` no longer stamps one) and
+ * every room contains them like the official content. That is also why they are absent from PACK_KEYS: a pack with no
+ * switch has nothing to strip, and `packEnabled(mods, undefined)` is true for exactly that reason.
  */
-export const PACK_KEYS = Object.freeze(['packRhine', 'packAphris', 'packRelic', 'packExtra6', 'packCustom']);
+export const PACK_KEYS = Object.freeze(['packRhine', 'packAphris', 'packRelic']);
 export const PACK_AUTHORS = Object.freeze({
   packRhine: 'YUYUYUYUYUYUYUTOUA',
   packAphris: 'SrC204',
   packRelic: 'UNDFFIO',
-  packExtra6: 'remember-4',
-  packCustom: 'Lunac1a',
 });
 /**
  * Whether a data record of pack `packId` may be used under these switches. No `packId` = the original content (`null`

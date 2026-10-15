@@ -16,7 +16,7 @@
 //   * `bans: { core: 0, addon: 0 }` on the 终极模拟 mode — no per-match bond ban there (requirement 二.1)
 //   * the 自选编队 slots of `data/chess.json` / `data/backups.json` — 5 per tier instead of the official 2 (二.8)
 
-import { FORK_EXTRA6_BOND_MEMBERS, FORK_EXTRA6_CHESS, FORK_EXTRA6_PACK } from './fork-extra6.mjs';
+import { FORK_EXTRA6_BOND_MEMBERS } from './fork-extra6.mjs';
 
 /** modeId of the fork's third room mode (终极模拟, AC-4, up to six 博士). */
 export const FORK_MODE_ID = 'mode_ultimate_abyss';
@@ -415,20 +415,21 @@ export function applyForkBonds(bonds) {
       ...(prev && isPlainObject(prev.packRestore) ? { packRestore: prev.packRestore } : {}),
     },
   };
-  // 六.C: register the ported operators as members of the official 盟约 they join, and record the names as the pack's
-  // own contribution so they come back out with the switch. The official lists are only ever appended to — the ids are
-  // sorted and de-duplicated the way buildBonds writes them, so a regeneration and this diff agree.
+  // 六.C: register the ported operators as members of the official 盟约 they join. 2026-10-15 (owner): the pack is
+  // embedded, not switched, so the names are plain membership — no `packMembers` bookkeeping to take back out. The
+  // official lists are only ever appended to — the ids are sorted the way buildBonds writes them, so a regeneration
+  // and this diff agree.
   for (const [bondId, ids] of Object.entries(FORK_EXTRA6_BOND_MEMBERS)) {
     const rec = out[bondId];
     if (!isPlainObject(rec)) continue;
     const members = Array.isArray(rec.members) ? rec.members : [];
     const add = ids.filter((id) => !members.includes(id));
-    const next = { ...rec, packMembers: { ...(isPlainObject(rec.packMembers) ? rec.packMembers : {}), [FORK_EXTRA6_PACK]: [...ids] } };
-    if (add.length) {
-      next.members = [...members, ...add].sort();
-      next.visibleMembers = (Array.isArray(rec.visibleMembers) ? rec.visibleMembers : []).concat(add).sort();
-    }
-    out[bondId] = next;
+    if (!add.length) continue;
+    out[bondId] = {
+      ...rec,
+      members: [...members, ...add].sort(),
+      visibleMembers: (Array.isArray(rec.visibleMembers) ? rec.visibleMembers : []).concat(add).sort(),
+    };
   }
   return out;
 }
@@ -452,17 +453,14 @@ export function applyForkEffects(effects) {
 }
 
 /**
- * `data/chess.json` with the pack contributions of 六.3 and 六.C. Two independent blocks, both keyed off the record:
+ * `data/chess.json` with the pack contributions of 六.3. Keyed off the record:
  *
  *   * 六.3 — every 莱茵生命 member lists the ported 盟约. The operators themselves are untouched; this only appends
  *     `rhineShip` to their `bonds` and records WHERE it came from (`packBonds`, so `shared/packData.js` takes it back
  *     out while neither 莱茵生命 switch is on).
- *   * 六.C — the two ported operators are the pack's own records, so they carry `packId: 'packExtra6'` and the whole
- *     card pair disappears with the switch (`shared/packData.js recordAvailable`). The builder synthesized their rows
- *     (tools/fork-extra6.mjs), so this is the one place that names them as a pack's.
  *
- * Their `garrisonIds` point at records `buildGarrisons` synthesizes too — `applyForkGarrisons` stamps those, because a
- * garrison the pack owns must leave with it (`test/pack-extra6.test.js`).
+ * 2026-10-15 (owner): 六.C's 结城理 / 丰川祥子 are no longer a pack — the two operators are embedded in the game, so
+ * their records (and the garrisons their `garrisonIds` name) carry no `packId` and no room can strip them.
  *
  * Idempotent: a second pass writes the same fields.
  * @param {Record<string, any>} chess data/chess.json
@@ -481,37 +479,11 @@ export function applyForkPackMembers(chess) {
         patch.packBonds = { ...(isPlainObject(rec.packBonds) ? rec.packBonds : {}), packRhine: [FORK_RHINE_BOND_ID] };
       }
     }
-    if (FORK_EXTRA6_CHESS.includes(id) && rec.packId !== FORK_EXTRA6_PACK) patch.packId = FORK_EXTRA6_PACK;
     if (!Object.keys(patch).length) { out[id] = rec; continue; }
     changed = true;
     out[id] = { ...rec, ...patch };
   }
   return changed ? out : chess;
-}
-
-/**
- * `data/garrisons.json` with the 六.C garrison records owned by the pack. `buildGarrisons` synthesizes them from the act
- * row `tools/fork-extra6.mjs` writes (makoto's 卫戍协议特质), but it knows nothing about packs: without this the record
- * would outlive its switch — `chess.json` loses the operator while `garrisons.json` keeps a record whose `owners` name
- * it, which every `garrison` lookup would still resolve.
- *
- * The ids are derived from the operators the pack owns, so a third operator added to `FORK_EXTRA6_CHARS` is covered
- * without touching this function. Idempotent.
- * @param {Record<string, any>} garrisons data/garrisons.json
- */
-export function applyForkGarrisons(garrisons) {
-  if (!isPlainObject(garrisons)) return garrisons;
-  const owned = new Set(FORK_EXTRA6_CHESS);
-  const out = {};
-  let changed = false;
-  for (const [id, rec] of Object.entries(garrisons)) {
-    if (!isPlainObject(rec)) { out[id] = rec; continue; }
-    const mine = Array.isArray(rec.owners) && rec.owners.some((owner) => owned.has(owner));
-    if (!mine || rec.packId === FORK_EXTRA6_PACK) { out[id] = rec; continue; }
-    changed = true;
-    out[id] = { ...rec, packId: FORK_EXTRA6_PACK };
-  }
-  return changed ? out : garrisons;
 }
 
 /**
@@ -579,7 +551,6 @@ export const FORK_APPLIERS = {
   chess: applyForkPackMembers,
   backups: applyForkPackAphris,
   bonds: applyForkBonds,
-  garrisons: applyForkGarrisons,
   effects: applyForkEffects,
   assets: applyForkAssets,
 };
