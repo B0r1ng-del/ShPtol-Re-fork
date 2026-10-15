@@ -1536,7 +1536,8 @@ function MatchScreen() {
       </div>` : null}
 
       <${CheatBall} cheats=${priv?.cheats} canUse=${phase === PHASE.PREP && !priv?.ready && !spectator}
-        onSet=${(k, v) => actions.cheatSet(k, v)} onFreeRefresh=${() => actions.cheatFreeRefresh()} />
+        onSet=${(k, v) => actions.cheatSet(k, v)}
+        onAction=${(a) => (a === 'bondLayers' ? actions.cheatBondLayers() : actions.cheatFreeRefresh())} />
 
       ${showShop ? html`<${ShopBar} priv=${priv} editable=${editable} collapsed=${collapsed} refreshBusy=${refreshBusy} onCollapse=${setCollapsed}
         barRef=${barRef} offBonds=${offBonds}

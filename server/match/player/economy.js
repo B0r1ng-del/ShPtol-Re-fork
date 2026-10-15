@@ -4,7 +4,7 @@
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
 // the player state).
 
-import { ERR, PHASE, layerGainRoom, CHEAT_KEYS, CHEAT_FREE_REFRESH_STEP, CHEAT_GOLD_FLOOR, ITEM_SELL_PRICE } from '../../../shared/constants.js';
+import { ERR, PHASE, layerGainRoom, CHEAT_KEYS, CHEAT_FREE_REFRESH_STEP, CHEAT_BOND_LAYER_STEP, CHEAT_GOLD_FLOOR, ITEM_SELL_PRICE } from '../../../shared/constants.js';
 import { freeSlot } from '../board.js';
 import { OK, fail } from './common.js';
 
@@ -18,9 +18,11 @@ export class PlayerEconomy {
    *     (`cheatFundsSaved`), which is the owner's 「关闭后恢复为初始金币数量」 read as 「开启之前那一刻的金币数」.
    *   * `freeRefresh` (one shot) — `+CHEAT_FREE_REFRESH_STEP` free shop refreshes, the same counter a strategy's
    *     `grantFreeRefresh` bumps, so the shop bar shows it and `refresh()` consumes it like any other free refresh.
+   *   * `bondLayers` (one shot) — `+CHEAT_BOND_LAYER_STEP` layers on every ACTIVE, stackable bond (`_cheatBondLayers`).
+   *     Routed through `addLayers`, so the 999 ceiling, the onLayers handlers and the `m.layer` cue all still apply.
    *   * `enemyOneHp` — recorded only. The battle spec reads it (`Match._normalOpts`) and stamps `mods.hpMul` on the
    *     player's OWN normal field spawns; 联防 (`_uniteOpts`) never reads it, so the shared field is untouched.
-   * @param {{ set?: Record<string, boolean>|null, freeRefresh?: boolean }} msg the validated g.cheat payload
+   * @param {{ set?: Record<string, boolean>|null, freeRefresh?: boolean, bondLayers?: boolean }} msg the validated g.cheat payload
    * @returns {any} OK
    */
   cheat(msg = {}) {
@@ -32,8 +34,28 @@ export class PlayerEconomy {
       }
     }
     if (msg.freeRefresh === true) this.shop.freeRefreshes += CHEAT_FREE_REFRESH_STEP;
+    if (msg.bondLayers === true) this._cheatBondLayers();
     this.dirty();
     return OK;
+  }
+
+  /**
+   * 「盟约 +100」: +CHEAT_BOND_LAYER_STEP layers on every bond the player has ACTIVE and that can stack.
+   *
+   * 「可叠层」 is exactly `!noStack` — the four non-stackable bonds (调和, 绝技, 独行, 协防干员, data/bonds.json) have no
+   * layers at all, so adding to them would be a number nothing reads. The bond set comes from `this.bonds` (what is
+   * actually active for this player), never from the full bond list, so an unactivated 盟约 stays at 0.
+   *
+   * The gain goes through `addLayers` (not a direct `layers[]` write) so the 解除叠层上限 switch, the 999 ceiling, every
+   * `onLayers` handler and the `m.layer` animation all behave exactly as for a normal gain. `recompute` must settle
+   * before the next bond is read: raising 莱茵生命's layer count can change which devices are unlocked, and adding to a
+   * bond a milestone pays per N layers (远见, 奇迹, 维多利亚 …) fires its own grant.
+   */
+  _cheatBondLayers() {
+    for (const id of Object.keys(this.bonds)) {
+      if (this.bonds[id]?.active !== true || this.gd.bond(id)?.noStack === true) continue;
+      this.addLayers(id, CHEAT_BOND_LAYER_STEP, { reason: 'cheat' });
+    }
   }
 
   /** Turn ONE cheat on or off, applying its own bookkeeping (see `cheat`). */

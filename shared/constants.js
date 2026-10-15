@@ -161,6 +161,8 @@ export const CHEAT_KEYS = Object.freeze(['infiniteFunds', 'enemyOneHp']);
 export const CHEAT_DEFAULTS = Object.freeze({ infiniteFunds: false, enemyOneHp: false });
 /** 免费刷新 +5: how many free shop refreshes one press of the cheat button grants. */
 export const CHEAT_FREE_REFRESH_STEP = 5;
+/** 盟约 +100: how many layers one press of the cheat button adds to every stackable active bond. */
+export const CHEAT_BOND_LAYER_STEP = 100;
 /** The HP every enemy gets while a player has 「怪物血量降为 1 血」 on (their own normal fields only). */
 export const CHEAT_ENEMY_HP = 1;
 /**

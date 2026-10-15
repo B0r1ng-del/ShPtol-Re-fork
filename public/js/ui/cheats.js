@@ -22,7 +22,7 @@
 
 import { useState, useRef, useEffect } from '../../vendor/hooks.module.js';
 import { loadPref, savePref, createStore, useStore } from '../store.js';
-import { CHEAT_KEYS, CHEAT_DEFAULTS } from '../../../shared/constants.js';
+import { CHEAT_KEYS, CHEAT_DEFAULTS, CHEAT_FREE_REFRESH_STEP, CHEAT_BOND_LAYER_STEP } from '../../../shared/constants.js';
 import { html, Icon } from './components.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
@@ -70,10 +70,11 @@ export function setCheatBallPos(x, y) {
   savePref(CHEAT_BALL_POS, { x: Math.min(1, Math.max(0, x)), y: Math.min(1, Math.max(0, y)) });
 }
 
-/** The three cheats, in display order: `key` (`set` switch) or `action` (a one-shot), plus its label. */
+/** The cheats, in display order: `key` (`set` switch) or `action` (a one-shot), what its button adds, plus its label. */
 export const CHEAT_ROWS = Object.freeze([
   { kind: 'switch', key: 'infiniteFunds', label: N_('无限金币') },
-  { kind: 'action', action: 'freeRefresh', label: N_('免费刷新 +5') },
+  { kind: 'action', action: 'freeRefresh', step: CHEAT_FREE_REFRESH_STEP, label: N_('免费刷新 +5') },
+  { kind: 'action', action: 'bondLayers', step: CHEAT_BOND_LAYER_STEP, label: N_('盟约+100') },
   { kind: 'switch', key: 'enemyOneHp', label: N_('怪物血量降为 1 血') },
 ]);
 
@@ -81,11 +82,12 @@ export const CHEAT_ROWS = Object.freeze([
  * The cheat ball and its panel.
  *
  * `cheats` is the server's view of THIS player's switches (m.private → `cheats`), `canUse` is whether the server would
- * accept a change right now (PREP and not ready), and `onSet` / `onFreeRefresh` send the intent. Everything is
- * controlled: the panel renders whatever the server says, so a refused change simply does not stick.
- * @param {{ cheats?: any, canUse?: boolean, onSet?: (key: string, on: boolean) => void, onFreeRefresh?: () => void }} props
+ * accept a change right now (PREP and not ready), and `onSet` / `onAction` send the intent. Everything is controlled: the
+ * panel renders whatever the server says, so a refused change simply does not stick. `onAction` names the pressed
+ * one-shot (`CHEAT_ROWS[].action`) so the two buttons share one handler.
+ * @param {{ cheats?: any, canUse?: boolean, onSet?: (key: string, on: boolean) => void, onAction?: (action: string) => void }} props
  */
-export function CheatBall({ cheats = null, canUse = false, onSet, onFreeRefresh }) {
+export function CheatBall({ cheats = null, canUse = false, onSet, onAction }) {
   const enabled = useCheatBall();
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(() => cheatBallPos());
@@ -183,7 +185,7 @@ export function CheatBall({ cheats = null, canUse = false, onSet, onFreeRefresh 
           <span class="cheatball__label">${t(r.label)}</span>
           <button type="button" class="btn btn--sm cheatball__act" disabled=${!canUse}
             data-testid=${`cheat-${r.action}`}
-            onClick=${() => canUse && onFreeRefresh && onFreeRefresh()}>+5</button>
+            onClick=${() => canUse && onAction && onAction(r.action)}>${r.step}</button>
         </div>`))}
     ${canUse ? null : html`<div class="cheatball__hint" data-testid="cheat-hint">${t('仅在备战阶段可用')}</div>`}
   </div>` : null}
