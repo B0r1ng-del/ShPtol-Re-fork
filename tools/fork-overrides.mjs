@@ -391,7 +391,11 @@ export function applyForkBonds(bonds) {
   const out = {
     ...bonds,
     [FORK_RHINE_BOND_ID]: {
-      bondId: FORK_RHINE_BOND_ID, name, identifier, isCore: false, bondType: 'SEASON', bondOrder: identifier,
+      // `isCore: true`: 莱茵生命 is an eighth 阵营 盟约 beside the official seven (its `bondType` is SEASON like 炎 /
+      // 萨尔贡 / … and its `identifier` 24 continues their sequence), and every one of those is core — the six/five
+      // operator list opens one 科研装置 per tier like a faction count does. It was false while the port only seeded
+      // the record; the ported operators then showed it under 附加盟约 in the 准备开局 briefing (owner report 2026-10-15).
+      bondId: FORK_RHINE_BOND_ID, name, identifier, isCore: true, bondType: 'SEASON', bondOrder: identifier,
       powerIdList: [], iconId: FORK_RHINE_BOND_ID, activeCount: thresholds[0], thresholds: [...thresholds],
       maxCount: null, thresholdTemplate: 'count_threshold_upward', countMode: 'BOARD', countsHand: false,
       countsGoldenOnly: false, activeType: 'BATTLE', isActiveInDeck: false, noStack: false, weight: 10,

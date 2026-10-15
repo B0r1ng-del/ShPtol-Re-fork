@@ -137,7 +137,10 @@ test('bonds: 24 bonds with valid members, thresholds and effects', () => {
   // 23 official + the ported 莱茵生命 (`rhineShip`, fork-overrides.mjs applyForkBonds, 六.3). The committed data holds
   // the ALL-PACKS-ON content; a room's 内容包开关 decides what its match actually contains (shared/packData.js).
   assert.equal(Object.keys(bonds).length, 24);
-  assert.equal(Object.values(bonds).filter((b) => b.isCore).length, 8);
+  // 9 core: the official 8 阵营 盟约 (炎 萨尔贡 维多利亚 谢拉格 拉特兰 阿戈尔 叙拉古 卡西米尔) plus the ported 莱茵生命,
+  // an eighth 阵营 of the same kind (`bondType` SEASON, `identifier` 24 continuing their sequence) — the briefing's
+  // 核心盟约 list, not 附加盟约 (owner report 2026-10-15)
+  assert.equal(Object.values(bonds).filter((b) => b.isCore).length, 9);
   const modes = new Set(['BOARD', 'BOARD_AND_DECK', 'BOARD_ALL_CHESS']);
   for (const b of Object.values(bonds)) {
     assert.ok(modes.has(b.countMode), `${b.bondId}: countMode ${b.countMode}`);
