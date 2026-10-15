@@ -1552,5 +1552,10 @@
   "高亮的整格区域均生效，不随朝向改变。移动单位按所在格判断；巨型单位按占据格判断。": "All highlighted cells are affected regardless of facing. Moving units use their current cell; giant units use the cells they occupy.",
   "锁定与增伤": "Target lock and damage ramp",
   "锁定面板最大生命值最高的敌人，目标死亡或永久离场后重新选敌并清空增伤。满20秒后，每秒额外造成目标最大生命值（0.05%＋每层科研0.0005个百分点）的真实伤害；领袖直接按完整共享最大生命值计算。": "Locks onto the enemy with the highest maximum HP. When it dies or permanently leaves, selects a new target and resets the damage increase. After 20 seconds, it also deals True damage equal to (0.05% + 0.0005 percentage points per research layer) of the target's maximum HP each second. Against a leader, each drill uses the full shared maximum HP.",
-  "科研装置充能": "Research device charge"
+  "科研装置充能": "Research device charge",
+  "装备可售卖": "Equipment can be sold",
+  "开启后装备可以出售，售价 1 块钱；关闭时装备只能销毁": "On: equipment can be sold for 1 Fund. Off: equipment can only be destroyed.",
+  "出售装备": "Sell Equipment",
+  "确定要出售「{name}」吗？出售后获得 {price} 资金。": "Sell \"{name}\"? You get {price} Funds.",
+  "已配发的装备无法出售": "Equipped Equipment cannot be sold"
 }

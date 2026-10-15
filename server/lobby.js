@@ -99,7 +99,7 @@
 //     a player seat (the seat is kept and given back on resume).
 
 import { randomBytes, randomInt } from 'node:crypto';
-import { ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, HOST_CONFIG_KEYS, HOST_CONFIG_DEFAULTS, MOD_DEFAULTS, normalizeMods, roomSeatCap, ULTIMATE_DIFFICULTY, modeIdFor } from '../shared/constants.js';
+import { ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, HOST_CONFIG_KEYS, HOST_CONFIG_DEFAULTS, HOST_CONFIG_SOLO_KEYS, MOD_DEFAULTS, normalizeMods, roomSeatCap, ULTIMATE_DIFFICULTY, modeIdFor } from '../shared/constants.js';
 import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks } from '../shared/protocol.js';
 import { encode, isDroppable, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
@@ -579,7 +579,9 @@ export class Lobby {
     if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
     if (room.match) return fail(ERR.ROOM_STARTED);
     if (!HOST_CONFIG_KEYS.includes(key)) return fail(ERR.BAD_MSG, 'unknown room option'); // i18n-ignore (developer diagnostic)
-    if (room.mode === 'solo') {
+    // a single-seat room may only set the options that share nothing between players (HOST_CONFIG_SOLO_KEYS, 装备可售卖);
+    // the 共享 ones and 多同盟模式 are meaningless with nobody to share with, and 共享 options say so
+    if (room.mode === 'solo' && !HOST_CONFIG_SOLO_KEYS.includes(key)) {
       return allowSolo ? fail(ERR.BAD_TARGET, 'solo rooms have no AI teammates') : fail(ERR.BAD_TARGET, 'solo rooms have nothing to share'); // i18n-ignore (developer diagnostics)
     }
     this.dropReplay(room, session.playerId);
@@ -792,6 +794,8 @@ export class Lobby {
         sharedPool: room.hostConfig.sharedPool === true,
         sharedBounty: room.hostConfig.sharedBounty === true,
         multiAlliance: room.hostConfig.multiAlliance === true,
+        // 装备可售卖 (HOST_CONFIG_KEYS itemSell): the one room option a single-seat room may set too
+        itemSell: room.hostConfig.itemSell === true,
         // Mod 开关 (room.create.mods, MOD_KEYS): the room's gameplay switches, fixed for the match. All off unless the
         // creator switched one on, so a room created without them (and every test / tool) is the official mode.
         mods: { ...room.mods },

@@ -1,5 +1,5 @@
 // The room screen's 「AI 队友最后选择」 row (GitHub #338; server: room.setAiPicksLast / room.setHostConfig, room.state):
-// co-op rooms only, the host toggles it, everybody else sees its state read-only. It is one of the four 房主配置 rows
+// co-op rooms only, the host toggles it, everybody else sees its state read-only. It is one of the 房主配置 rows
 // (test/ui/host-config.test.js covers the panel as a whole); the texts go through t() with English in public/i18n/en.json.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

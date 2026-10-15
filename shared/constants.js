@@ -53,10 +53,25 @@ export const NAME_MAX_LEN = 12;
  *   multiAlliance 多同盟模式 on  — more than one 博士 may take the SAME 策略 (the 队友已选 lock of the strategy draft is
  *                                  lifted; Match.bandTaken)
  *                            off — the official rule: 每个策略只能由一位博士选择
+ *   itemSell      装备可售卖 on  — a loose item (hand / temp) may be sold for ITEM_SELL_PRICE funds: the same gate 销毁
+ *                                  has (an equipped one stays locked either way), paying instead of destroying
+ *                            off — the official rule and the default: an item can only be 销毁 (PlayerItems.destroy)
  */
-export const HOST_CONFIG_KEYS = Object.freeze(['sharedPool', 'sharedBounty', 'aiPicksLast', 'multiAlliance']);
+export const HOST_CONFIG_KEYS = Object.freeze(['sharedPool', 'sharedBounty', 'aiPicksLast', 'multiAlliance', 'itemSell']);
 /** Defaults of HOST_CONFIG_KEYS: the official behaviour of each option. */
-export const HOST_CONFIG_DEFAULTS = Object.freeze({ sharedPool: true, sharedBounty: true, aiPicksLast: false, multiAlliance: false });
+export const HOST_CONFIG_DEFAULTS = Object.freeze({ sharedPool: true, sharedBounty: true, aiPicksLast: false, multiAlliance: false, itemSell: false });
+/**
+ * The HOST_CONFIG_KEYS a single-seat room (独立模拟) may still set: the ones that share something between players are
+ * meaningless with nobody to share with (the lobby refuses them, the panel hides them), a rule about one's own items is
+ * not. The panel shows exactly these rows in a solo room and nothing else.
+ */
+export const HOST_CONFIG_SOLO_KEYS = Object.freeze(['itemSell']);
+
+/**
+ * 房主配置 装备可售卖 (`itemSell`): what one sold item pays. The one definition — the server pays it
+ * (PlayerEconomy.sell), the audit checks it and the client prints it (ui/underframe.js, ui/detailPanel.js).
+ */
+export const ITEM_SELL_PRICE = 1;
 
 /**
  * Mod 开关 — the lobby's per-device gameplay switches (a fork feature, `room.create.mods`). They live in the 模式界面

@@ -41,11 +41,12 @@
 //                 silent (deadline 0)
 // Checks never throw into the match: an exception inside a check is itself recorded as a violation.
 
-import { PHASE } from '../../shared/constants.js';
+import { PHASE, ITEM_SELL_PRICE } from '../../shared/constants.js';
 import { collectViolations } from './invariants.js';
 import { mergeTile, pieceDir, canPlace, placeClass } from './board.js';
 import { bossPoolHp, hiddenEligible } from './finalAssault.js';
 import { helperOrder } from './unite.js';
+import { itemKey } from './gamedata.js';
 import { BAND_TURN_SECONDS } from './Match.js';
 import { relicIncome, RELIC_CHOICE_SECONDS, getRelic } from '../../shared/relics.js';
 
@@ -208,12 +209,19 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
     });
     wrap(ps, 'sell', function (orig, uid) {
       const loc = ps.find(uid);
-      const gain = loc && loc.piece.kind === 'chess' ? gd.sellPrice(loc.piece.id) : null;
+      // 装备可售卖 (HOST_CONFIG_KEYS itemSell): an item pays the flat ITEM_SELL_PRICE and leaves through 销毁's own path
+      const gain = !loc ? null
+        : loc.piece.kind === 'chess' ? gd.sellPrice(loc.piece.id)
+        : loc.piece.kind === 'item' ? ITEM_SELL_PRICE
+        : null;
       const f0 = ps.funds;
       const fx = hasSpendEffects(m, ps);
+      // an item leaves through 销毁's own path, so its own onDestroy handler may pay extra funds (神秘顾客 grants coins);
+      // that handler belongs to the sold piece alone, which hasSpendEffects does not walk (it scans equipped items)
+      const itemFx = !!(loc && loc.piece.kind === 'item' && hasItemDestroyEffect(m, loc.piece));
       const res = orig(uid);
       if (res && res.ok) check('sell', () => {
-        if (ps.funds - f0 !== gain && !fx && !hasSpendEffects(m, ps)) fail(`${ps.playerId}: sell paid ${ps.funds - f0}, expected ${gain}`);
+        if (ps.funds - f0 !== gain && !fx && !itemFx && !hasSpendEffects(m, ps)) fail(`${ps.playerId}: sell paid ${ps.funds - f0}, expected ${gain}`);
         if (ps.find(uid)) fail(`${ps.playerId}: sold piece ${uid} still owned`);
       });
       return res;
@@ -541,6 +549,16 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
 }
 
 /** Content that may pay out or refund around a purchase (then exact price checks are skipped). */
+/**
+ * Does this item piece carry its own onDestroy handler — the hook dispatchItem runs when 销毁 (and so a 装备可售卖 sale)
+ * takes it off the bench? Such a handler may pay funds on top of the price (item:chess_item_6_01_m 神秘顾客 adds coins).
+ * @param {any} m @param {any} piece
+ */
+function hasItemDestroyEffect(m, piece) {
+  const h = m.registry.get(`item:${itemKey(piece.id)}`);
+  return !!(h && typeof h.onDestroy === 'function');
+}
+
 function hasSpendEffects(m, ps) {
   const reg = m.registry;
   const keys = ['onBuy', 'onSpend', 'onSold', 'onRefresh', 'onLevelUp', 'onGain', 'onLayers'];

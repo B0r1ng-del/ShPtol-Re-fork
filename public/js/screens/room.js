@@ -78,28 +78,32 @@ export function roomFacts(room, myId) {
  * panel shows them. `on` is the option's own default (HOST_CONFIG_DEFAULTS) when the server sends nothing.
  * `key` is the room.setHostConfig key, `label` the switch's text and `tip` its one-line explanation — both msgids
  * (N_: the table is built once, before a language can change; the panel calls t() where they are shown).
+ * `solo` marks the rows a single-seat room may still set (HOST_CONFIG_SOLO_KEYS): they share nothing between players, so
+ * 独立模拟 gets exactly those and nothing else.
  */
 export const HOST_CONFIG_ROWS = Object.freeze([
-  { key: 'sharedPool', label: N_('共享卡池'), tip: N_('全同盟共用一个干员池'), on: true },
-  { key: 'sharedBounty', label: N_('共享悬赏'), tip: N_('全队共用一套悬赏决策牌，先选先得'), on: true },
-  { key: 'aiPicksLast', label: N_('AI 队友最后选择'), tip: N_('策略与机变轮选时，所有博士先于 AI 队友选择'), on: false },
-  { key: 'multiAlliance', label: N_('多同盟模式'), tip: N_('官方规则：每个策略只能由一位博士选择'), on: false },
+  { key: 'sharedPool', label: N_('共享卡池'), tip: N_('全同盟共用一个干员池'), on: true, solo: false },
+  { key: 'sharedBounty', label: N_('共享悬赏'), tip: N_('全队共用一套悬赏决策牌，先选先得'), on: true, solo: false },
+  { key: 'aiPicksLast', label: N_('AI 队友最后选择'), tip: N_('策略与机变轮选时，所有博士先于 AI 队友选择'), on: false, solo: false },
+  { key: 'multiAlliance', label: N_('多同盟模式'), tip: N_('官方规则：每个策略只能由一位博士选择'), on: false, solo: false },
+  { key: 'itemSell', label: N_('装备可售卖'), tip: N_('开启后装备可以出售，售价 1 块钱；关闭时装备只能销毁'), on: false, solo: true },
 ]);
 
 /**
  * The 房主配置 panel of a room: one row per HOST_CONFIG_ROWS entry, `{ key, label, tip, on, editable }`, or null when
- * the panel does not apply. It shows in every 准备房间 with somebody to share with — the host edits it, everybody else
- * sees the same values read-only (like the difficulty picker and 「AI 队友最后选择」). A single-seat room (独立模拟) has
- * no teammates, so the panel is hidden there: the server refuses those options in a solo room anyway.
+ * the panel does not apply. It shows in every 准备房间 — the host edits it, everybody else sees the same values
+ * read-only (like the difficulty picker and 「AI 队友最后选择」). A single-seat room (独立模拟) has no teammates, so it
+ * gets only the rows that share nothing between players (HOST_CONFIG_SOLO_KEYS, 装备可售卖); the server refuses the rest
+ * there. No room at all ⇒ no panel.
  * @param {any} room room.state payload
  * @param {any} myId
  * @returns {Array<{ key: string, label: string, tip: string, on: boolean, editable: boolean }> | null}
  */
 export function hostConfigPanel(room, myId) {
-  if (!room || room.mode === 'solo') return null;
+  if (!room) return null;
   const cfg = room.hostConfig;
   const editable = room.hostId != null && room.hostId === myId;
-  return HOST_CONFIG_ROWS.map((r) => ({
+  return HOST_CONFIG_ROWS.filter((r) => room.mode !== 'solo' || r.solo).map((r) => ({
     key: r.key,
     label: r.label,
     tip: r.tip,
