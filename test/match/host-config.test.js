@@ -1,4 +1,4 @@
-// 房主配置 (opts.sharedPool / opts.sharedBounty / opts.multiAlliance; server/match/Match.js) — the three room options the
+// 房主配置 (opts.sharedPool / opts.sharedBounty / opts.multiAlliance / opts.itemSell; server/match/Match.js) — the room options the
 // host sets in the 准备房间 beyond 「AI 队友最后选择」 (test/match/ai-picks-last.test.js), as the engine runs them:
 //
 //   共享卡池      ON  — one 干员 stock for the whole team, one player's copy is gone for the others (the official rule)
@@ -26,7 +26,7 @@ function toBandDraft(o, before) {
   return h;
 }
 
-test('the three options: off unless opts says otherwise, never in a solo match', () => {
+test('the three sharing options: off unless opts says otherwise, never in a solo match', () => {
   const mk = (o, pick) => { const h = makeMatch(o); const v = pick(h.m); h.m.dispose(); return v; };
   const three = (m) => [m.sharedPool, m.sharedBounty, m.multiAlliance];
   // a caller that passes nothing gets the official behaviour: one shared pool, one shared 悬赏 set, no duplicate picks
@@ -37,6 +37,16 @@ test('the three options: off unless opts says otherwise, never in a solo match',
   assert.deepEqual(mk({ mode: 'coop', humans: 1, bots: 3, sharedPool: 'no', multiAlliance: 'yes' }, three), [true, true, false]);
   // solo: nothing to share with, so the official per-player behaviour either way
   assert.deepEqual(mk({ mode: 'solo', humans: 1, sharedPool: false, sharedBounty: false, multiAlliance: true }, three), [true, true, false]);
+});
+
+test('装备可售卖 (opts.itemSell): off unless opts says true, and a solo match may set it too', () => {
+  const mk = (o) => { const h = makeMatch(o); const v = h.m.itemSell; h.m.dispose(); return v; };
+  assert.equal(mk({ mode: 'coop', humans: 1, bots: 3 }), false, 'the official rule by default');
+  assert.equal(mk({ mode: 'coop', humans: 1, bots: 3, itemSell: true }), true);
+  assert.equal(mk({ mode: 'coop', humans: 1, bots: 3, itemSell: 'yes' }), false, 'only a real true turns it on');
+  assert.equal(mk({ mode: 'coop', humans: 1, bots: 3, itemSell: false }), false);
+  // a single seat shares nothing, so the 共享 options fall back — but its own items are its own business
+  assert.equal(mk({ mode: 'solo', humans: 1, itemSell: true }), true, 'HOST_CONFIG_SOLO_KEYS');
 });
 
 test('共享卡池 on (the official default): one pool for the team, a copy taken is gone for everybody', () => {
@@ -194,6 +204,6 @@ test('the options never move the random streams: the same seed draws the same se
 test('the options are published on every m.public frame, so the client can mark what they change', () => {
   const h = makeMatch({ mode: 'coop', humans: 2, bots: 2, sharedPool: false, multiAlliance: true }).start();
   const v = h.m.publicView();
-  assert.deepEqual(v.hostConfig, { sharedPool: false, sharedBounty: true, aiPicksLast: false, multiAlliance: true });
+  assert.deepEqual(v.hostConfig, { sharedPool: false, sharedBounty: true, aiPicksLast: false, multiAlliance: true, itemSell: false });
   h.m.dispose();
 });

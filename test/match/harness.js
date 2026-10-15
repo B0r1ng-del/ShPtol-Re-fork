@@ -9,7 +9,7 @@
 // scheduler runs battles synchronously; default true), timerScale, battleContent, botRehearsal (default 0),
 // botSliceMs (bot rehearsal slice budget; default: unbounded in virtual time), aiPicksLast (the room option
 // AI 队友最后选择: the drafts order every human seat before every AI seat), sharedPool / sharedBounty / multiAlliance
-// (房主配置: the 共享卡池 / 共享悬赏 / 多同盟模式 room options; undefined = the official behaviour).
+// (房主配置: the 共享卡池 / 共享悬赏 / 多同盟模式 / 装备可售卖 room options; undefined = the official behaviour).
 // Combat mode: clientCombat (default false here: the legacy server-run mode most suites were written for; production
 // defaults to client-side combat, DESIGN §14). With clientCombat: true every human gets a scripted browser
 // (test/match/simClient.js SimClient: h.clients) unless clients: false; pace 'instant' | 'paced', perPlayer
@@ -80,10 +80,11 @@ export function makeMatch(o = {}) {
     verify: o.verify ?? 'off',
     headlessSliceMs: o.headlessSliceMs,
     aiPicksLast: o.aiPicksLast,
-    // 房主配置 (opts.sharedPool / sharedBounty / multiAlliance): undefined = the official behaviour (Match.js)
+    // 房主配置 (opts.sharedPool / sharedBounty / multiAlliance / itemSell): undefined = the official behaviour (Match.js)
     sharedPool: o.sharedPool,
     sharedBounty: o.sharedBounty,
     multiAlliance: o.multiAlliance,
+    itemSell: o.itemSell,
     // Mod 开关 (opts.mods, MOD_KEYS): undefined = every switch off = the official mode (Match.js / GameData)
     mods: o.mods,
   });

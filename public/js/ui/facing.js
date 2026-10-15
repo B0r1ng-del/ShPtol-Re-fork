@@ -13,7 +13,7 @@
 // 销毁 on items and Arts (research 09 §5 / §6.5).
 
 import { researchRange } from '../../../shared/rhineRange.js';
-import { GEO } from '../../../shared/constants.js';
+import { GEO, ITEM_SELL_PRICE } from '../../../shared/constants.js';
 import { attackRangeGrid } from '../../../shared/loadoutRecord.js';
 import { N_ } from '../../../shared/i18n.js';
 
@@ -219,9 +219,14 @@ export function underframeActions(ctx, uid) {
   if (!e) return null;
   const p = e.piece;
   const onBoard = e.area === 'board';
-  // only a loose item (bench / temp) can be destroyed: an equipped one is locked (the server refuses g.destroy —
-  // research 04 §2; replacing it is the equip-replace dialog's job, g.equip replaceUid)
-  if (p.kind === 'item') return itemDestroyable(ctx, uid) ? { retreat: false, sell: null, destroy: true } : null;
+  // only a loose item (bench / temp) can be destroyed: an equipped one is locked (the server refuses g.destroy and
+  // g.sell — research 04 §2; replacing it is the equip-replace dialog's job, g.equip replaceUid). 房主配置 装备可售卖
+  // (ctx.itemSell) adds 出售 +1 beside 销毁: the same pieces, the same gate, one of them paying
+  if (p.kind === 'item') {
+    if (!itemDestroyable(ctx, uid)) return null;
+    // 装备可售卖 on: the diamond offers 出售 +1 beside the pre-existing 销毁 (selling and destroying are both allowed)
+    return { retreat: false, sell: ctx.itemSell ? ITEM_SELL_PRICE : null, destroy: true };
+  }
   if (p.kind === 'token') return onBoard ? { retreat: true, sell: null, destroy: false } : null;
   if (p.kind !== 'chess') return null;
   const price = ctx.getChess?.(p.id)?.sellPrice;

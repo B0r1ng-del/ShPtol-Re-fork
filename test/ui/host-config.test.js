@@ -1,7 +1,8 @@
 // 房主配置 — the room screen's host-only option panel (public/js/screens/room.js hostConfigPanel / hostConfigOption,
-// server room.setHostConfig): the four rows of shared/constants.js HOST_CONFIG_KEYS in the panel's order, their official
-// defaults when the server sends nothing, the host as the only editor, and the panel hidden in a single-seat room
-// (独立模拟: nobody to share with). The texts go through N_()/t() with English in public/i18n/en.json.
+// server room.setHostConfig): the rows of shared/constants.js HOST_CONFIG_KEYS in the panel's order, their official
+// defaults when the server sends nothing, the host as the only editor, and a single-seat room (独立模拟) showing only
+// the rows that share nothing between players (HOST_CONFIG_SOLO_KEYS, 装备可售卖). The texts go through N_()/t() with
+// English in public/i18n/en.json.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -28,35 +29,38 @@ test('the panel lists exactly the four HOST_CONFIG_KEYS, in order, with their de
   const rows = hostConfigPanel(room(), 'h');
   assert.deepEqual(rows.map((r) => r.key), [...HOST_CONFIG_KEYS]);
   for (const r of rows) assert.equal(r.on, HOST_CONFIG_DEFAULTS[r.key], `${r.key} default`);
-  // the mock of the request: 共享卡池 / 共享悬赏 on, AI 队友最后选择 / 多同盟模式 off
-  assert.deepEqual(rows.map((r) => r.on), [true, true, false, false]);
-  assert.deepEqual(rows.map((r) => r.label), ['共享卡池', '共享悬赏', 'AI 队友最后选择', '多同盟模式']);
+  // the mock of the request: 共享卡池 / 共享悬赏 on, AI 队友最后选择 / 多同盟模式 / 装备可售卖 off
+  assert.deepEqual(rows.map((r) => r.on), [true, true, false, false, false]);
+  assert.deepEqual(rows.map((r) => r.label), ['共享卡池', '共享悬赏', 'AI 队友最后选择', '多同盟模式', '装备可售卖']);
   for (const r of rows) assert.ok(r.tip && r.tip.length > 0, `${r.key} has an explanation`);
 });
 
 test('the panel is editable by the host alone; everybody else reads the same values', async () => {
   const { hostConfigPanel } = await mod();
-  const cfg = { sharedPool: false, sharedBounty: true, aiPicksLast: true, multiAlliance: true };
+  const cfg = { sharedPool: false, sharedBounty: true, aiPicksLast: true, multiAlliance: true, itemSell: true };
   const hostRows = hostConfigPanel(room({ hostConfig: cfg, aiPicksLast: true }), 'h');
   const guestRows = hostConfigPanel(room({ hostConfig: cfg, aiPicksLast: true }), 'g');
   assert.ok(hostRows.every((r) => r.editable), 'the host edits');
   assert.ok(guestRows.every((r) => !r.editable), 'the guest reads');
-  assert.deepEqual(hostRows.map((r) => r.on), [false, true, true, true], 'both see the same values');
-  assert.deepEqual(guestRows.map((r) => r.on), [false, true, true, true]);
+  assert.deepEqual(hostRows.map((r) => r.on), [false, true, true, true, true], 'both see the same values');
+  assert.deepEqual(guestRows.map((r) => r.on), [false, true, true, true, true]);
   // no host yet (the room is closing): nobody edits
   assert.ok(hostConfigPanel(room({ hostId: null }), 'h').every((r) => !r.editable));
 });
 
-test('the panel is hidden in a single-seat room (独立模拟) and absent for a missing room', async () => {
+test('a single-seat room (独立模拟) shows the rows that share nothing between players; no room shows nothing', async () => {
   const { hostConfigPanel, hostConfigOption } = await mod();
-  assert.equal(hostConfigPanel(room({ mode: 'solo' }), 'h'), null);
+  // 独立模拟 has nobody to share with: only 装备可售卖 (HOST_CONFIG_SOLO_KEYS) survives — it is about one's own items
+  assert.deepEqual(hostConfigPanel(room({ mode: 'solo' }), 'h').map((r) => r.key), ['itemSell']);
   assert.equal(hostConfigOption(room({ mode: 'solo' }), 'h', 'sharedPool'), null);
+  assert.equal(hostConfigOption(room({ mode: 'solo' }), 'h', 'itemSell').on, false);
+  assert.equal(hostConfigOption(room({ mode: 'solo' }), 'h', 'itemSell').editable, true, 'the solo host still edits it');
   assert.equal(hostConfigPanel(null, 'h'), null);
-  // 同盟模拟 (4) and 终极模拟 (6) both show it
-  for (const mode of ['coop', 'ultimate']) assert.equal(hostConfigPanel(room({ mode }), 'h').length, 4, mode);
+  // 同盟模拟 (4) and 终极模拟 (6) both show every row
+  for (const mode of ['coop', 'ultimate']) assert.equal(hostConfigPanel(room({ mode }), 'h').length, HOST_CONFIG_KEYS.length, mode);
 });
 
-test('「AI 队友最后选择」 reads its own pre-existing room.state field, the other three read hostConfig', async () => {
+test('「AI 队友最后选择」 reads its own pre-existing room.state field, every other row reads hostConfig', async () => {
   const { hostConfigOption } = await mod();
   // an older server that sends no hostConfig at all: the defaults stand, and aiPicksLast still works
   const legacy = room({ hostConfig: undefined, aiPicksLast: true });
@@ -93,7 +97,7 @@ test('room.js sends room.setHostConfig { key, on } and opens the dialog from the
   assert.ok(!/\.hostcfg__head/.test(CSS), 'no stale inline-band rules');
   assert.ok(!/\.hostcfg__title/.test(CSS), 'no stale inline-band rules');
   // the labels and explanations are msgids with a real English translation
-  for (const zh of ['房主配置', '共享卡池', '全同盟共用一个干员池', '共享悬赏', '全队共用一套悬赏决策牌，先选先得', '多同盟模式', '官方规则：每个策略只能由一位博士选择']) {
+  for (const zh of ['房主配置', '共享卡池', '全同盟共用一个干员池', '共享悬赏', '全队共用一套悬赏决策牌，先选先得', '多同盟模式', '官方规则：每个策略只能由一位博士选择', '装备可售卖', '开启后装备可以出售，售价 1 块钱；关闭时装备只能销毁']) {
     assert.ok(SRC.includes(`N_('${zh}')`) || SRC.includes(`t('${zh}')`), zh);
     assert.equal(typeof EN[zh], 'string', `en.json: ${zh}`);
     assert.ok(EN[zh].length > 0 && !/[一-鿿]/.test(EN[zh]), `English for ${zh}`);

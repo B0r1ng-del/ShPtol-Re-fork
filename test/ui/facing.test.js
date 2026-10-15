@@ -14,7 +14,7 @@ import {
 } from '../../public/js/ui/facing.js';
 import { placementContext, canPlace, dropIntent } from '../../public/js/ui/gameLogic.js';
 import { resolveDrop, createDragController, pieceSlot } from '../../public/js/render/drag.js';
-import { GEO } from '../../shared/constants.js';
+import { GEO, ITEM_SELL_PRICE } from '../../shared/constants.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const load = (f) => JSON.parse(readFileSync(path.join(ROOT, 'data', f), 'utf8'));
@@ -150,6 +150,16 @@ describe('underframe (research 09 §5): 撤退 / 出售 +N / 销毁', () => {
     assert.deepEqual(underframeActions(ctx, b.uid), { retreat: true, sell, destroy: false }, 'board operator');
     assert.deepEqual(underframeActions(ctx, h.uid), { retreat: false, sell: chess[RANGED].sellPrice, destroy: false }, 'bench operator: 出售 only');
     assert.deepEqual(underframeActions(ctx, it.uid), { retreat: false, sell: null, destroy: true }, 'items: 销毁 only');
+    // 房主配置 装备可售卖 (ctx.itemSell): the same loose item also offers 出售 +1 — 销毁 stays beside it
+    const sellCtx = ctxFor(privWith({ board: [b, bt], hand: [h, it, ht] }));
+    sellCtx.itemSell = true;
+    assert.deepEqual(underframeActions(sellCtx, it.uid), { retreat: false, sell: ITEM_SELL_PRICE, destroy: true }, '装备可售卖: 出售 + 销毁');
+    // an equipped item is locked either way: the switch adds nothing (itemDestroyable refuses it)
+    const holder = piece(MELEE, { items: [{ uid: ++uid, kind: 'item', id: EQUIP }] });
+    for (const itemSell of [false, true]) {
+      const equipped = { ...ctxFor(privWith({ board: [holder] })), itemSell };
+      assert.equal(underframeActions(equipped, holder.items[0].uid), null, `equipped item, 装备可售卖 ${itemSell}`);
+    }
     assert.deepEqual(underframeActions(ctx, bt.uid), { retreat: true, sell: null, destroy: false }, 'board summon: 撤退 only');
     assert.equal(underframeActions(ctx, ht.uid), null, 'bench summon: nothing');
     assert.equal(underframeActions(ctx, 999999), null);

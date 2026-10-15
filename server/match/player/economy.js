@@ -4,7 +4,7 @@
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
 // the player state).
 
-import { ERR, PHASE, layerGainRoom, CHEAT_KEYS, CHEAT_FREE_REFRESH_STEP, CHEAT_GOLD_FLOOR } from '../../../shared/constants.js';
+import { ERR, PHASE, layerGainRoom, CHEAT_KEYS, CHEAT_FREE_REFRESH_STEP, CHEAT_GOLD_FLOOR, ITEM_SELL_PRICE } from '../../../shared/constants.js';
 import { freeSlot } from '../board.js';
 import { OK, fail } from './common.js';
 
@@ -295,7 +295,20 @@ export class PlayerEconomy {
     const g = this._gate(); if (g) return g;
     const loc = this.find(uid);
     if (!loc) return fail(ERR.BAD_TARGET);
-    if (loc.piece.kind !== 'chess') return fail(ERR.BAD_TARGET, loc.piece.kind === 'item' ? 'items cannot be sold' : 'tokens cannot be sold');
+    // 房主配置 装备可售卖 (HOST_CONFIG_KEYS `itemSell`, default OFF = the official rule): an item follows 销毁's own gate
+    // — hand / temp only, an equipped one is locked (PlayerItems.destroy) — and pays ITEM_SELL_PRICE instead of being
+    // destroyed. Off, the old refusal stands ('items cannot be sold'). The funds go through the 销毁 path, so a trap
+    // item's own onDestroy (神秘顾客) still resolves: the item leaves the same way, it just pays for it.
+    if (loc.piece.kind === 'item') {
+      if (!this.m.itemSell) return fail(ERR.BAD_TARGET, 'items cannot be sold');
+      const res = this.destroy(uid); // its own gate: hand / temp only (an equipped item is locked)
+      if (!res || !res.ok) return res;
+      this.addFunds(ITEM_SELL_PRICE, { reason: 'sell' });
+      this.stats.sells++;
+      this.round.sells++;
+      return OK;
+    }
+    if (loc.piece.kind !== 'chess') return fail(ERR.BAD_TARGET, 'tokens cannot be sold');
     const piece = loc.piece;
     // its equipment returns to the hand (overflow temp): refuse rather than destroy it when there is no room
     // Removing the owner's summon stacks frees one slot per stack, regardless of its summon count.

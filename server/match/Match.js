@@ -269,6 +269,12 @@ export class Match {
     this.sharedBounty = this.isSolo ? true : opts.sharedBounty !== false;
     this.multiAlliance = this.isSolo ? false : opts.multiAlliance === true;
     /**
+     * 房主配置 装备可售卖 (opts.itemSell, HOST_CONFIG_KEYS `itemSell`): a loose item may be sold for ITEM_SELL_PRICE —
+     * PlayerEconomy.sell reads this. Default OFF (the official rule: items can only be 销毁). Unlike the 共享 options a
+     * single-seat room can set it too (HOST_CONFIG_SOLO_KEYS): it shares nothing between players.
+     */
+    this.itemSell = opts.itemSell === true;
+    /**
      * Mod 开关 (MOD_KEYS, `room.create.mods`): the lobby's per-device gameplay switches, fixed for the match like the
      * difficulty. All OFF by default, so a caller that passes nothing (the golden scenarios, the rehearsal tools, every
      * test) is byte-identical to the official mode. The GameData built above already carries them — it is what reads

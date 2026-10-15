@@ -69,7 +69,7 @@
 // phase). Its pill reads 观战中, never "你已被淘汰"; its exit only leaves the seat (ui/matchChrome.js ExitModal).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
-import { PHASE, GEO } from '../../../shared/constants.js';
+import { PHASE, GEO, ITEM_SELL_PRICE } from '../../../shared/constants.js';
 import { html, Spinner, PhaseBanner, ResultDialog, Icon, Button, confirmDialog, closeAllDialogs, useTicker } from '../ui/components.js';
 import { useGameData, GIcon } from '../ui/gameComponents.js';
 import { useFieldView } from '../ui/fieldHost.js';
@@ -298,11 +298,13 @@ function MatchScreen() {
   // player does not own is its stand-in (0.2.0 补位 — the owner's recall of the official mode, 2026-10-06); rules keep
   // ownChess (the composed record carries the chess's identity anyway)
   const ownShown = (id) => { const c = ownChess(id); return ownStandIn(c, live.current.priv, data.get('backups')) || c; };
+  // 房主配置 装备可售卖 (m.public.hostConfig.itemSell): the underframe offers 出售 +1 for a loose item instead of 销毁
+  const itemSell = pub?.hostConfig?.itemSell === true;
   const placeCtx = useMemo(() => placementContext({
-    priv, stage: gd.stage(pub?.stageId), editable, field: deployField,
+    priv, stage: gd.stage(pub?.stageId), editable, field: deployField, itemSell,
     getChess: (id) => { const c = gd.chess(id); return ownDiyRecord(c, priv, { chess: data.get('chess'), backups: data.get('backups') }) || c; },
     getToken: gd.token, getItem: gd.item, getEffect: gd.effect, backups: gd.backups,
-  }), [priv, pub?.stageId, editable, gd.ready, deployField]);
+  }), [priv, pub?.stageId, editable, gd.ready, deployField, itemSell]);
   live.current = { pub, priv, field, editable, hasPersonalChoice, placeCtx, watching, watchWho, home, myId, alive, spectator, detail, drawer, bondOpen, emoteOpen, settingsOpen, exitOpen, drag, facing, sel, selBusy, pen, collapsedNow: collapsed, canPause: false, paused };
 
   // ---- camera: every request goes through setCam, which remembers it for the pen's way back -----------------------
@@ -828,16 +830,25 @@ function MatchScreen() {
   // the prep ended (timer) while the question was open: drop it — the funds are gone either way
   useEffect(() => { if (phase !== PHASE.PREP && askingReady.current) closeAllDialogs(); }, [phase]);
 
-  /** 出售 (operators, underframe +N) / 销毁 (items and Arts, confirmed: they cannot be sold). */
+  /** 出售 (operators, underframe +N) / 销毁 (items and Arts, confirmed). 房主配置 装备可售卖 turns an item's 销毁 into a
+   * sale for ITEM_SELL_PRICE: one confirm either way, and the locked/loose gate (itemDestroyable) is the same. */
   const sellPiece = useCallback(async (piece) => {
     if (!piece) return false;
     const closeIt = () => { setDetail((d) => (d?.kind === 'piece' && d.uid === piece.uid ? null : d)); setSel((x) => (x && x.uid === piece.uid ? null : x)); };
     if (piece.kind === 'item') {
-      // an equipped item is locked (the server refuses g.destroy): replacing it is the equip-replace dialog's job
-      if (!itemDestroyable(live.current.placeCtx, piece.uid)) { toast(t('已配发的装备无法销毁'), 'warn'); audio.sfx('error', { volume: 0.5 }); return false; }
+      // an equipped item is locked (the server refuses g.destroy / g.sell): replacing it is the equip-replace dialog's job
+      const ctx = live.current.placeCtx;
+      const sellable = ctx && ctx.itemSell;
+      if (!itemDestroyable(ctx, piece.uid)) {
+        toast(t(sellable ? '已配发的装备无法出售' : '已配发的装备无法销毁'), 'warn'); audio.sfx('error', { volume: 0.5 }); return false;
+      }
       const it = data.lookup('items', piece.id);
-      const ok = await confirmDialog({ title: t('销毁道具'), text: t('道具无法出售。确定要销毁「{name}」吗？', { name: it?.name || t('道具') }), okText: t('销毁'), danger: true });
-      if (ok && await actions.destroy(piece.uid)) { closeIt(); return true; }
+      const ok = sellable
+        ? await confirmDialog({ title: t('出售装备'), text: t('确定要出售「{name}」吗？出售后获得 {price} 资金。', { name: it?.name || t('道具'), price: ITEM_SELL_PRICE }), okText: t('出售'), danger: true })
+        : await confirmDialog({ title: t('销毁道具'), text: t('道具无法出售。确定要销毁「{name}」吗？', { name: it?.name || t('道具') }), okText: t('销毁'), danger: true });
+      if (!ok) return false;
+      const done = sellable ? await actions.sell(piece.uid) : await actions.destroy(piece.uid);
+      if (done) { closeIt(); return true; }
       return false;
     }
     if (await actions.sell(piece.uid)) { closeIt(); return true; }
@@ -1572,6 +1583,7 @@ function MatchScreen() {
 
       ${resolved ? html`<${DetailPanel} detail=${resolved} snapHp=${snapHp} onClose=${() => { setDetail(null); setSel(null); }}
         bonds=${detailBonds} offBonds=${offBonds} loadout=${detailLoadout} ops=${priv?.ops ?? null} side=${dSide} shopOpen=${shopOpen} live=${liveStats} voice=${true}
+        onSell=${sellPiece} onDestroy=${sellPiece} itemSell=${itemSell}
         onBond=${(id) => openBond(id, detailOwner, 'detail')} />` : null}
 
       ${selEntry && editable && !facing && !drag && showPrep ? html`<${Underframe} key=${sel.uid} view=${view} uid=${sel.uid}

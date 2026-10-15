@@ -1,8 +1,10 @@
-// test/lobby-host-config.test.js — 房主配置 (room.setHostConfig {key, on}; room.state.hostConfig): the four room options
-// the host sets in the 准备房间 (shared/constants.js HOST_CONFIG_KEYS / HOST_CONFIG_DEFAULTS) — 共享卡池, 共享悬赏,
-// 「AI 队友最后选择」 and 多同盟模式. Host-only, before the match, kept across the room's matches; the match gets them as
-// opts (server/match/Match.js reads sharedPool / sharedBounty / multiAlliance; test/match/host-config.test.js plays them).
-// The 私人房间 option of the same panel is out of scope (the user's call: 忽略私人房间的选项).
+// test/lobby-host-config.test.js — 房主配置 (room.setHostConfig {key, on}; room.state.hostConfig): the room options the
+// host sets in the 准备房间 (shared/constants.js HOST_CONFIG_KEYS / HOST_CONFIG_DEFAULTS) — 共享卡池, 共享悬赏,
+// 「AI 队友最后选择」, 多同盟模式 and 装备可售卖. Host-only, before the match, kept across the room's matches; the match
+// gets them as opts (server/match/Match.js reads sharedPool / sharedBounty / multiAlliance / itemSell;
+// test/match/host-config.test.js plays them). A single-seat room may set only the ones that share nothing between
+// players (HOST_CONFIG_SOLO_KEYS) — 装备可售卖. The 私人房间 option of the same panel is out of scope (the user's call:
+// 忽略私人房间的选项).
 import { describe, test, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -85,11 +87,12 @@ describe('room.setHostConfig (lobby)', () => {
   test('room.state carries every option at its official default, and the panel is host-only editable', async () => {
     const host = await pool.player('Host');
     const st = await createRoom(host);
-    assert.deepEqual(st.hostConfig, { ...HOST_CONFIG_DEFAULTS }, '共享卡池/共享悬赏 on, AI 队友最后选择/多同盟模式 off');
+    assert.deepEqual(st.hostConfig, { ...HOST_CONFIG_DEFAULTS }, '共享卡池/共享悬赏 on, AI 队友最后选择/多同盟模式/装备可售卖 off');
     assert.equal(st.hostConfig.sharedPool, true);
     assert.equal(st.hostConfig.sharedBounty, true);
     assert.equal(st.hostConfig.aiPicksLast, false);
     assert.equal(st.hostConfig.multiAlliance, false);
+    assert.equal(st.hostConfig.itemSell, false, '装备可售卖: off by default, the official rule');
     const guest = await pool.player('Guest');
     const js = await joinRoom(guest, st.code);
     assert.deepEqual(js.hostConfig, { ...HOST_CONFIG_DEFAULTS });
@@ -115,7 +118,7 @@ describe('room.setHostConfig (lobby)', () => {
     await guest.waitFor('room.state', (s) => s.hostConfig.multiAlliance === false);
   });
 
-  test('「AI 队友最后选择」 is one of the four: both messages set the same option', async () => {
+  test('「AI 队友最后选择」 is one of the rows: both messages set the same option', async () => {
     const host = await pool.player('Host');
     await createRoom(host);
     await ok(host, { t: 'room.setHostConfig', key: 'aiPicksLast', on: true });
@@ -138,6 +141,18 @@ describe('room.setHostConfig (lobby)', () => {
     assert.equal(after.t, 'error');
     // room.setAiPicksLast keeps its own (older) diagnostic in a solo room
     await err(host, { t: 'room.setAiPicksLast', on: true }, ERR.BAD_TARGET);
+  });
+
+  test('装备可售卖 is the one option a solo room may set: it shares nothing between players', async () => {
+    const host = await pool.player('Solo');
+    const st = await createRoom(host, 'solo');
+    assert.equal(st.hostConfig.itemSell, false);
+    await ok(host, { t: 'room.setHostConfig', key: 'itemSell', on: true });
+    const on = await host.waitFor('room.state', (s) => s.hostConfig.itemSell === true);
+    assert.equal(on.hostConfig.itemSell, true, 'HOST_CONFIG_SOLO_KEYS: a single seat can still rule on its own items');
+    assert.equal(on.hostConfig.sharedPool, true, 'the sharing options are untouched');
+    await ok(host, { t: 'room.setHostConfig', key: 'itemSell', on: false });
+    await host.waitFor('room.state', (s) => s.hostConfig.itemSell === false);
   });
 
   test('the match gets every option at the start; they cannot change during it; the room keeps them for the next match and a new host', async () => {
@@ -166,7 +181,7 @@ describe('room.setHostConfig (lobby)', () => {
     await ok(host, { t: 'g.infoReady' });
     await ok(guest, { t: 'g.infoReady' });
     const back = await guest.waitFor('room.state', (s) => !s.inMatch);
-    assert.deepEqual(back.hostConfig, { sharedPool: false, sharedBounty: true, aiPicksLast: true, multiAlliance: true });
+    assert.deepEqual(back.hostConfig, { sharedPool: false, sharedBounty: true, aiPicksLast: true, multiAlliance: true, itemSell: false });
     // host migration keeps the room's settings
     await ok(host, { t: 'room.leave' });
     const migrated = await guest.waitFor('room.state', (s) => s.hostId === guest.id);
