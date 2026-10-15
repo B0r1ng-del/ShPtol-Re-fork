@@ -60,6 +60,19 @@ test('the CSS keeps the parts aligned as a column and gives both controls a real
   assert.ok(!/\.sw:active[^{]*\{[^}]*transform/.test(CSS), 'no transform on the switch button itself');
 });
 
+test('the knob is centred: its offset subtracts the border, or the pill hangs 1px low and right', () => {
+  // An absolutely positioned child is laid out against the PADDING box, so `top: var(--sw-p)` double-counts the 1px
+  // border: the knob then sits `--sw-p + 1px` from the track's top/left but `--sw-p - 1px` from its bottom/right. On the
+  // 44×24 pill that is a 3px / 1px gap — the owner's report of 2026-10-15 (「所有开关按钮位置都有偏移，对不齐，且手机和
+  // 电脑端表现不一致」; measured in a browser across desktop + phone). The border width is named so the two cannot drift.
+  assert.match(CSS, /\.sw \{ [^}]*--sw-b: 1px;/, 'the border width has a name');
+  assert.match(CSS, /\.sw \{ [^}]*border: var\(--sw-b\) solid var\(--line-2\)/, 'and the border uses it');
+  assert.match(CSS, /\.sw__knob \{ position: absolute; top: calc\(var\(--sw-p\) - var\(--sw-b\)\); left: calc\(var\(--sw-p\) - var\(--sw-b\)\);/,
+    'the knob subtracts the border from its inset');
+  // the travel is still the two sizes' difference: with the corrected inset the ON right gap equals `--sw-p`
+  assert.match(CSS, /\.sw\.is-on \.sw__knob \{ transform: translateX\(calc\(var\(--sw-w\) - var\(--sw-h\)\)\)/);
+});
+
 test('both menus use it: the Mod submenu and 房主配置 render one SwitchRow per option', () => {
   /** The code with comments stripped: the old class names live on in the comments that explain the change. */
   const code = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
