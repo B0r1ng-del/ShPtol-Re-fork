@@ -221,11 +221,13 @@ export function underframeActions(ctx, uid) {
   const onBoard = e.area === 'board';
   // only a loose item (bench / temp) can be destroyed: an equipped one is locked (the server refuses g.destroy and
   // g.sell — research 04 §2; replacing it is the equip-replace dialog's job, g.equip replaceUid). 房主配置 装备可售卖
-  // (ctx.itemSell) adds 出售 +1 beside 销毁: the same pieces, the same gate, one of them paying
+  // (ctx.itemSell) REPLACES 销毁 with 出售 +1 — the same pieces, the same gate, one of them paying. The two are never
+  // offered together (owner, 2026-10-15: 开启「装备可售卖」后隐藏「装备销毁」); the server keeps both verbs.
   if (p.kind === 'item') {
     if (!itemDestroyable(ctx, uid)) return null;
-    // 装备可售卖 on: the diamond offers 出售 +1 beside the pre-existing 销毁 (selling and destroying are both allowed)
-    return { retreat: false, sell: ctx.itemSell ? ITEM_SELL_PRICE : null, destroy: true };
+    return ctx.itemSell
+      ? { retreat: false, sell: ITEM_SELL_PRICE, destroy: false }
+      : { retreat: false, sell: null, destroy: true };
   }
   if (p.kind === 'token') return onBoard ? { retreat: true, sell: null, destroy: false } : null;
   if (p.kind !== 'chess') return null;

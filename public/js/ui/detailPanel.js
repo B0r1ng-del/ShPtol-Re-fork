@@ -520,8 +520,8 @@ export function ItemDetail({ item, piece, editable, onDestroy, onSell = null, se
       : html`<p class="dhint"><${Icon} name="info" />${t('拖拽至干员身上进行配发（每名干员最多 2 件，配发后无法取下）')}${item.mergeable ? t('；2 件相同装备自动合成进阶装备') : ''}</p>`}
     ${item.shopExcluded ? html`<p class="dhint dhint--source"><${Icon} name="info" />${t('调度中心不出售 · 获取途径：{source}', { source: item.shopExcludedBy || t('效果获得') })}</p>` : null}
     ${piece && editable ? html`<div class="dactions">
-      ${onSell && sellPrice != null ? html`<${Button} variant="amber" icon="close" class="dpanel__sell" onClick=${() => onSell(piece, item)}>${t('出售')}<span class="dsell num">+${sellPrice}</span><//>` : null}
-      <${Button} variant="danger" onClick=${() => onDestroy(piece, item)}>${t('销毁道具')}<//>
+      ${onSell && sellPrice != null ? html`<${Button} variant="amber" icon="close" class="dpanel__sell" onClick=${() => onSell(piece, item)}>${t('出售')}<span class="dsell num">+${sellPrice}</span><//>`
+        : html`<${Button} variant="danger" onClick=${() => onDestroy(piece, item)}>${t('销毁道具')}<//>`}
     </div>` : null}`;
 }
 

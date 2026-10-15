@@ -150,10 +150,10 @@ describe('underframe (research 09 §5): 撤退 / 出售 +N / 销毁', () => {
     assert.deepEqual(underframeActions(ctx, b.uid), { retreat: true, sell, destroy: false }, 'board operator');
     assert.deepEqual(underframeActions(ctx, h.uid), { retreat: false, sell: chess[RANGED].sellPrice, destroy: false }, 'bench operator: 出售 only');
     assert.deepEqual(underframeActions(ctx, it.uid), { retreat: false, sell: null, destroy: true }, 'items: 销毁 only');
-    // 房主配置 装备可售卖 (ctx.itemSell): the same loose item also offers 出售 +1 — 销毁 stays beside it
+    // 房主配置 装备可售卖 (ctx.itemSell): 出售 +1 REPLACES 销毁 (owner 2026-10-15: 开启后隐藏「装备销毁」)
     const sellCtx = ctxFor(privWith({ board: [b, bt], hand: [h, it, ht] }));
     sellCtx.itemSell = true;
-    assert.deepEqual(underframeActions(sellCtx, it.uid), { retreat: false, sell: ITEM_SELL_PRICE, destroy: true }, '装备可售卖: 出售 + 销毁');
+    assert.deepEqual(underframeActions(sellCtx, it.uid), { retreat: false, sell: ITEM_SELL_PRICE, destroy: false }, '装备可售卖: 出售 only');
     // an equipped item is locked either way: the switch adds nothing (itemDestroyable refuses it)
     const holder = piece(MELEE, { items: [{ uid: ++uid, kind: 'item', id: EQUIP }] });
     for (const itemSell of [false, true]) {
