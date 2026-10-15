@@ -1485,7 +1485,7 @@ function MatchScreen() {
     <div class="gm__vignette" aria-hidden="true"></div>
     ${tempNotice ? html`<${TempRowNotice} view=${view} count=${temp.count} items=${temp.items} label=${!drag && !facing}
       ready=${phase === PHASE.PREP && !!priv?.ready} />` : null}
-    ${showPrep && view && viewKind !== 'loading' && priv && !pen ? html`<${StandInTags} view=${view} priv=${priv} getChess=${gd.chess} backups=${gd.backups} diyData=${{ chess: data.get('chess'), backups: data.get('backups') }} />` : null}
+    ${showPrep && view && viewKind !== 'loading' && priv && !pen ? html`<${StandInTags} view=${view} priv=${priv} getChess=${gd.chess} backups=${gd.backups} />` : null}
 
     <div class="gm__hud" ref=${hudElRef}>
       <${TopBar} pub=${pub} priv=${priv} conn=${conn} hud=${hud} total=${total} drawer=${drawer}

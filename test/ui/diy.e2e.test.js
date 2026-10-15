@@ -1,8 +1,9 @@
 // Real-server browser E2E of 0.2.0 自选编队 end to end (research 0.2.0 §2; the owner's decisions of 2026-10-05): the
 // 自选编队 tab of the 干员调配 overlay fills the first tier-5 slot with 推进之王 (real clicks: the slot, the operator, S3, the
 // SOL-X module, 确认; persisted in localStorage; room.diy → session → seat → the next match's m.private.diy); in the
-// match the 调度中心 is at level 5 and the shop sells the slot as 推进之王 with the 「自选」 badge; bought, the hand piece is
-// tagged 「自选」 and draws 推进之王's model; deployed, the detail card shows 推进之王 with the pick's skill; and in the
+// match the 调度中心 is at level 5 and the shop sells the slot as 推进之王 with the 「自选」 badge; bought, the hand piece
+// draws 推进之王's model (no tag under its feet any more — owner request 2026-10-15); deployed, the detail card shows
+// 推进之王 with the pick's skill; and in the
 // browser's own battle (client-side combat) the unit is the operator — the b.start spec carries the pick (`diy`), the
 // local sim fields char_112_siege with its operator kit, and the battle view draws its Spine model.
 //
@@ -230,7 +231,10 @@ describe('0.2.0 自选编队 — a slotted operator in the own shop and battle (
       await sleep(900);
       const [piece] = (await c.handPieces('chess')).filter((p) => p.id === SLOT);
       assert.ok(piece, 'the slot\'s piece is in the hand');
-      await c.page.waitForFunction((uid) => document.querySelector(`.sitag[data-uid="${uid}"]`)?.textContent === '自选', { timeout: 5000 }, piece.uid);
+      // No in-match 「自选」 tag under the piece any more (owner request 2026-10-15): the shop badge, the drawn model and
+      // the detail card's .dtag-diy carry it. Assert the tag is NOT there, so a regression that brings it back fails.
+      assert.equal(await c.page.evaluate((uid) => !!document.querySelector(`.sitag[data-uid="${uid}"]`), piece.uid), false,
+        'no 自选 tag under the hand piece');
       const handModel = await c.page.evaluate((uid) => globalThis.__SP_VIEW__?.raw?.debug?.views?.get(`p:${uid}`)?.info?.spine ?? null, piece.uid);
       assert.equal(handModel, SIEGE, 'the hand draws the operator');
       await c.shot('hand');

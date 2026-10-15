@@ -170,8 +170,9 @@ describe('the folded board grows and every bench / temp tile stays clear of the 
   test('fold → shop-collapsed camera (bigger tiles), bench above the band, back row under the bond strip; unfold → the shop camera', () => {
     for (const [w, h, coarse] of VIEWPORTS) {
       const rem = remAt(w, h);
-      // .ewheel__btn.has-sprite: 55/151 of its width, max(1.51rem, 96px) on touch screens / max(1.51rem, 72px) otherwise
-      const talk = (Math.max(1.51 * rem, coarse ? 96 : 72) * 55) / 151;
+      // .ewheel__btn.has-sprite: 55/151 of its width, max(1.51rem, 96px) on touch screens / max(1.51rem, 72px) otherwise,
+      // x .7 since the 交流 button was scaled to 70% (owner request 2026-10-15, css/emotes.css)
+      const talk = (Math.max(1.51 * rem, coarse ? 96 : 72) * 55 / 151) * .7;
       for (const [kind, rows, opts] of [['prep', { bench: 7, temp: 8, back: 12 }, { rect: { ...GEO.NORMAL_RECT }, side: 'L' }],
         ['bossPrep', { bench: 0, temp: 1, back: 5 }, { side: 'L' }], ['bossPrep', { bench: 0, temp: 1, back: 5 }, { side: 'R' }]]) {
         const dom = { rem, corner: cornerRow(h, rem, talk), coarse };

@@ -226,6 +226,8 @@ describe('文字大小: the CSS text root', () => {
     const byRel = new Map(sheets.map((s) => [s.rel, s.src]));
     const plain = [
       ['screens/game-panels.css', /\.sitag \{[^}]*font-size: max\(\.12rem, 9px\)/, '.sitag'],
+      // the picker's box only tracks the shop row's height (css/screens/rhine.css) — a fixed rem, not --t
+      ['screens/rhine.css', /\.rhine-dock\{[^}]*height:calc\(2\.44rem \+ 3px\)/, '.rhine-dock (pinned to the shop row)'],
       ['screens/game-panels.css', /\.tempnote__title \{[^}]*font-size: \.15rem/, '.tempnote__title'],
       ['screens/game-panels.css', /\.uframe__label \{[^}]*font-size: \.14rem/, '.uframe__label'],
       ['screens/game-panels.css', /\.spcard__desc \{ flex: none; font-size: \.2rem/, '.spcard__desc (7 clamped lines)'],
