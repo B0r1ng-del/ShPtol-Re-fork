@@ -23,7 +23,7 @@ const OFF = normalizeMods(undefined);
 
 describe('内容包开关: the switches themselves', () => {
   test('one switch per pack, all off by default, all in MOD_KEYS (so they travel with room.create.mods)', () => {
-    assert.deepEqual([...PACK_KEYS], ['packRhine', 'packAphris', 'packRelic', 'packExtra6', 'packCustom']);
+    assert.deepEqual([...PACK_KEYS], ['packRhine', 'packAphris', 'packRelic']);
     for (const k of PACK_KEYS) {
       assert.ok(MOD_KEYS.includes(k), `${k} is a Mod key`);
       assert.equal(MOD_DEFAULTS[k], false, `${k} defaults off`);
@@ -34,8 +34,15 @@ describe('内容包开关: the switches themselves', () => {
     assert.equal(PACK_AUTHORS.packRhine, 'YUYUYUYUYUYUYUTOUA');
     assert.equal(PACK_AUTHORS.packAphris, 'SrC204');
     assert.equal(PACK_AUTHORS.packRelic, 'UNDFFIO');
-    assert.equal(PACK_AUTHORS.packExtra6, 'remember-4');
-    assert.equal(PACK_AUTHORS.packCustom, 'Lunac1a');
+    // 2026-10-15 (owner): 「新干员包」/「额外干员包」 are embedded, not switches — no key, no author, no row
+    const modsSrc = read('public/js/ui/mods.js');
+    for (const gone of ['packExtra6', 'packCustom']) {
+      assert.ok(!PACK_KEYS.includes(gone), `${gone} is no longer a 内容包开关`);
+      assert.ok(!MOD_KEYS.includes(gone), `${gone} is no longer a Mod key`);
+      assert.ok(!(gone in MOD_DEFAULTS), `${gone} has no default`);
+      assert.ok(!(gone in PACK_AUTHORS), `${gone} has no author`);
+      assert.ok(!modsSrc.includes(`'${gone}'`), `${gone} has no row`);
+    }
     // the switches are no room-host options and no cheats
     assert.deepEqual(Object.keys(MOD_DEFAULTS).length, MOD_KEYS.length);
   });
@@ -143,7 +150,7 @@ describe('内容包开关: the filter (shared/packData.js)', () => {
   test('backups.json: units and 自选 operators are filtered, their bonds resolved', () => {
     const data = {
       backups: {
-        units: { u1: { charId: 'u1' }, u2: { charId: 'u2', packId: 'packExtra6' } },
+        units: { u1: { charId: 'u1' }, u2: { charId: 'u2', packId: 'packRelic' } },
         diy: { operators: { char_4229_aphris: { bonds: ['emptyShip', 'rhineShip'], packBonds: { packAphris: ['rhineShip'] } } }, slots: {} },
       },
     };
@@ -152,12 +159,12 @@ describe('内容包开关: the filter (shared/packData.js)', () => {
     assert.deepEqual(off.backups.diy.operators.char_4229_aphris.bonds, ['emptyShip'], 'and its bond contribution taken back');
     assert.equal(off.backups.diy.slots, data.backups.diy.slots, 'untouched keys are shared, not copied');
     assert.ok('u2' in data.backups.units, 'the input is untouched');
-    const on = filterRawData({ packExtra6: true, packAphris: true }, data);
+    const on = filterRawData({ packRelic: true, packAphris: true }, data);
     assert.ok('u2' in on.backups.units, 'the enabled pack stays');
     assert.deepEqual(on.backups.diy.operators.char_4229_aphris.bonds, ['emptyShip', 'rhineShip'], 'and the membership holds');
     assert.deepEqual(data.backups.diy.operators.char_4229_aphris.bonds, ['emptyShip', 'rhineShip'], 'the input is untouched');
     // with only one of the two on, the other's contribution is still taken back out
-    const onlyExtra = filterRawData({ packExtra6: true }, data);
+    const onlyExtra = filterRawData({ packRelic: true }, data);
     assert.deepEqual(onlyExtra.backups.diy.operators.char_4229_aphris.bonds, ['emptyShip'], 'packAphris is off');
   });
 });
@@ -168,7 +175,7 @@ describe('内容包开关: the server sees only what the room contains', () => {
     config: { modes: { mode_standard: { id: 'mode_standard' } }, economy: {} },
     chess: {
       chess_orig: { chessId: 'chess_orig', visible: true, isGolden: false, isDiy: false, isHidden: false, tier: 1, bonds: ['yanShip'] },
-      chess_pack: { chessId: 'chess_pack', visible: true, isGolden: false, isDiy: false, isHidden: false, tier: 1, packId: 'packCustom', bonds: ['rhineShip'] },
+      chess_pack: { chessId: 'chess_pack', visible: true, isGolden: false, isDiy: false, isHidden: false, tier: 1, packId: 'packRelic', bonds: ['rhineShip'] },
     },
     bonds: {
       yanShip: { bondId: 'yanShip', name: '炎', activeCount: 2, thresholds: [2, 3] },
@@ -190,7 +197,7 @@ describe('内容包开关: the server sees only what the room contains', () => {
   });
 
   test('a pack on: its chess enters the pool and its 盟约 exists', () => {
-    const gd = new GameData(raw, 'mode_standard', { packCustom: true, packRhine: true });
+    const gd = new GameData(raw, 'mode_standard', { packRelic: true, packRhine: true });
     assert.deepEqual(gd.visibleChess.sort(), ['chess_orig', 'chess_pack']);
     assert.ok(gd.chess('chess_pack'));
     assert.deepEqual(gd.bondIds.slice().sort(), ['rhineShip', 'yanShip']);
@@ -211,7 +218,7 @@ describe('内容包开关: the server sees only what the room contains', () => {
   });
 
   test('the switch does NOT leak: a pack off is off for items too', () => {
-    const gd = new GameData(raw, 'mode_standard', { packCustom: true });
+    const gd = new GameData(raw, 'mode_standard', { packRhine: true });
     assert.ok(!gd.item('item_pack'), 'the relic pack item needs its own switch');
     const gd2 = new GameData(raw, 'mode_standard', { packRelic: true });
     assert.ok(gd2.item('item_pack'), 'and then it is there');

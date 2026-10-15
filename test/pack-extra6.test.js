@@ -1,17 +1,13 @@
-// test/pack-extra6.test.js — 六.C 内容包 packExtra6: 结城理 (char_4217_makoto) + 丰川祥子 (char_4182_oblvns).
+// test/pack-extra6.test.js — 六.C: 结城理 (char_4217_makoto) + 丰川祥子 (char_4182_oblvns), EMBEDDED content.
 //
-// The third ported content pack (shared/constants.js PACK_KEYS, shared/packData.js). Its two operators are NOT official
-// chess — no autochess season lists their shop row — so the fork's data layer synthesizes them whole
-// (tools/fork-extra6.mjs `applyForkExtra6Act`), and everything downstream (buildChess / buildBackups / buildGarrisons /
-// buildBonds) then treats them as native records. What the switch owns:
+// The two operators are NOT official chess — no autochess season lists their shop row — so the fork's data layer
+// synthesizes them whole (tools/fork-extra6.mjs `applyForkExtra6Act`), and everything downstream (buildChess /
+// buildBackups / buildGarrisons / buildBonds) then treats them as native records.
 //
-//   * `packId: 'packExtra6'` on all four records (both forms of both operators), stamped by tools/fork-overrides.mjs
-//     `applyForkPackMembers`, so `GameData` drops them with the pack off (`filterRawData`).
-//   * `packMembers: { packExtra6: [chessId] }` on the OFFICIAL 盟约 they join (`emptyShip`, `lateranoShip`, `indomShip`),
-//     so their names leave those bonds' member lists too (`withPackMembers`) — a dropped chess record does not drop what
-//     points at it, and a phantom row would render in the client's 盟约 popup.
-//   * the two kits (kits/ops/chess_char_5_makoto-makoto.js, chess_char_6_oblvns-oblvns.js), which the roster only ever
-//     reaches while the pack is on.
+// 2026-10-15 (owner): this was 内容包 packExtra6, the third switch of the Mod submenu's second column. It is now
+// embedded in the game — always on, no switch — so the records carry NO `packId` and NO 盟约 carries a `packMembers`
+// entry for them. They are ordinary content in every room, exactly like the official operators: that is what this file
+// now pins. The 莱茵生命 pack (六.F) is the one that keeps a switch.
 //
 // Run: node --test test/pack-extra6.test.js
 
@@ -19,8 +15,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { GameData } from '../server/match/gamedata.js';
-import { normalizeMods, PACK_KEYS, PACK_AUTHORS, packEnabled } from '../shared/constants.js';
-import { filterFile, withPackMembers } from '../shared/packData.js';
+import { normalizeMods, PACK_KEYS, MOD_KEYS, PACK_AUTHORS } from '../shared/constants.js';
 import { makeBattle, enemyRec, checkInvariants } from './helpers/battleHarness.js';
 import { DATA } from './match/harness.js';
 import { FORK_EXTRA6_PACK, FORK_EXTRA6_BOND_MEMBERS } from '../tools/fork-extra6.mjs';
@@ -39,62 +34,41 @@ const CHAR_OF = {
   [OBLVNS]: 'char_4182_oblvns', [OBLVNS_B]: 'char_4182_oblvns',
 };
 
-describe('六.C packExtra6: the switch gates the whole pack', () => {
-  test('the pack is the second column\'s third switch, default OFF, credited in PACK_AUTHORS', () => {
-    assert.ok(PACK_KEYS.includes(FORK_EXTRA6_PACK), `${FORK_EXTRA6_PACK} is a 内容包开关`);
-    assert.equal(OFF[FORK_EXTRA6_PACK], false, 'the default is off');
-    assert.equal(PACK_AUTHORS[FORK_EXTRA6_PACK], 'remember-4');
-    // and the helper this pack relies on agrees with the normaliser
-    assert.equal(packEnabled(OFF, FORK_EXTRA6_PACK), false);
-    assert.equal(packEnabled({ [FORK_EXTRA6_PACK]: true }, FORK_EXTRA6_PACK), true);
-    assert.equal(packEnabled({ [FORK_EXTRA6_PACK]: false }, FORK_EXTRA6_PACK), false);
+describe('六.C: the two operators are EMBEDDED content, not a 内容包开关 (2026-10-15 owner)', () => {
+  test('the pack is gone: no switch, no author, no key anywhere', () => {
+    assert.equal(FORK_EXTRA6_PACK, 'packExtra6', 'the id still names the tool chain');
+    assert.ok(!PACK_KEYS.includes(FORK_EXTRA6_PACK), `${FORK_EXTRA6_PACK} is no longer a 内容包开关`);
+    assert.ok(!MOD_KEYS.includes(FORK_EXTRA6_PACK), `${FORK_EXTRA6_PACK} is no longer a Mod key`);
+    assert.ok(!(FORK_EXTRA6_PACK in PACK_AUTHORS), 'and it is not credited as a pack');
   });
 
-  test('all off: neither operator is reachable — not the record, not the shop pool, not a 盟约 member', () => {
-    const g = gd(undefined);
+  test('the records carry no packId, so EVERY room contains them — a default room included', () => {
+    const off = gd(undefined);
     for (const id of PACKED) {
-      assert.equal(g.chess(id), null, `${id}: must not be in the match at all`);
-      assert.equal(g.raw.chess[id], undefined, `${id}: and not in the raw data`);
+      assert.ok(off.chess(id), `${id}: in the match with every switch off`);
+      assert.equal(DATA.chess[id].packId, undefined, `${id}: no packId in the committed data`);
     }
-    assert.deepEqual(g.visibleChess.filter((id) => PACKED.includes(id)), [], 'not in the shop pool');
-    assert.ok(!g.chessOfBond('lateranoShip').includes(MAKOTO));
+    assert.deepEqual(off.visibleChess.filter((id) => PACKED.includes(id)).sort(), [MAKOTO, OBLVNS],
+      'both base cards are in the shop pool by default (the elites are the golden twins)');
+    assert.ok(off.chessOfBond('lateranoShip').includes(MAKOTO));
+    assert.ok(off.bond('emptyShip').visibleMembers.includes(OBLVNS));
   });
 
-  test('all off: the official 盟约 the pack adds members to keep their ORIGINAL member lists (no phantom row)', () => {
-    // `packMembers` is the pack's own contribution INSIDE a survivor's record: the client draws a row per member
-    // (public/js/ui/gameLogic/bonds.js bondMembers), so a dropped chess must leave the list too. The expectation is
-    // the list the room had before ANY pack existed — the committed all-packs-on one with the ids EVERY pack added
-    // taken back out. 内容包 packRhine (六.F) contributes to some of the same bonds through `packRestore`, which holds
-    // the pre-rhine list, so it is the better base wherever it is present.
-    const g = gd(undefined);
+  test('no 盟约 carries a packMembers entry for them: their membership is plain membership', () => {
+    // `packMembers` was the pack's own contribution INSIDE a survivor's record. Embedded content has no switch to take
+    // it back out with, so the field must be gone and the committed lists simply include them.
     for (const [bondId, ids] of Object.entries(FORK_EXTRA6_BOND_MEMBERS)) {
-      const now = g.bond(bondId);
-      for (const field of ['members', 'visibleMembers']) {
-        const base = DATA.bonds[bondId].packRestore?.packRhine?.[field] ?? DATA.bonds[bondId][field];
-        const want = base.filter((id) => !ids.includes(id));
-        assert.notDeepEqual(base, want, `${bondId}.${field}: the pack really did add names`);
-        assert.deepEqual(now[field], want, `${bondId}.${field}: the pack took its names back out`);
-        for (const id of ids) assert.ok(!now[field].includes(id), `${bondId}.${field} still lists ${id}`);
+      assert.equal(DATA.bonds[bondId].packMembers, undefined, `${bondId}: no packMembers left`);
+      const off = gd(undefined).bond(bondId);
+      for (const id of ids) {
+        assert.ok(DATA.bonds[bondId].members.includes(id), `${bondId}.members lists ${id}`);
+        assert.ok(off.members.includes(id), `${bondId}.members still lists ${id} with every switch off`);
       }
     }
   });
 
-  test('the switch on: both operators and their member lists are back, and only then', () => {
-    const g = gd({ [FORK_EXTRA6_PACK]: true });
-    for (const id of PACKED) assert.ok(g.chess(id), `${id}: in the match`);
-    assert.deepEqual(g.visibleChess.filter((id) => PACKED.includes(id)).sort(), [MAKOTO, OBLVNS], 'base cards, not the elites');
-    assert.ok(g.chessOfBond('lateranoShip').includes(MAKOTO));
-    assert.ok(g.bond('emptyShip').visibleMembers.includes(OBLVNS));
-    // an unrelated pack opens none of it
-    for (const other of PACK_KEYS.filter((k) => k !== FORK_EXTRA6_PACK)) {
-      const o = gd({ [other]: true });
-      assert.equal(o.chess(MAKOTO), null, `${other} alone must not carry ${MAKOTO}`);
-      assert.equal(o.chess(OBLVNS), null, `${other} alone must not carry ${OBLVNS}`);
-    }
-  });
-
   test('the two operators are PRESET — they field their own operator, never another one', () => {
-    const g = gd({ [FORK_EXTRA6_PACK]: true });
+    const g = gd(undefined);
     for (const id of PACKED) {
       const c = g.chess(id);
       assert.equal(c.chessType, 'PRESET', `${id}: a 补位 NORMAL would need another charId`);
@@ -109,25 +83,8 @@ describe('六.C packExtra6: the switch gates the whole pack', () => {
     }
   });
 
-  test('the filter is pure and all-off is the ORIGINAL object (zero allocation, byte-identical room)', () => {
-    const bonds = { emptyShip: { bondId: 'emptyShip', members: ['a', 'b'], visibleMembers: ['a', 'b'], packMembers: { [FORK_EXTRA6_PACK]: ['b'] } } };
-    const chess = { a: { chessId: 'a' }, b: { chessId: 'b', packId: FORK_EXTRA6_PACK } };
-    const on = { [FORK_EXTRA6_PACK]: true };
-    assert.equal(filterFile(on, 'chess', chess), chess, 'on: nothing to drop, the same object');
-    assert.equal(filterFile(on, 'bonds', bonds), bonds, 'on: the member list is untouched');
-    const offBonds = filterFile(OFF, 'bonds', bonds);
-    assert.deepEqual(offBonds.emptyShip.members, ['a'], 'off: the pack\'s name is out');
-    assert.deepEqual(offBonds.emptyShip.visibleMembers, ['a']);
-    assert.deepEqual(bonds.emptyShip.members, ['a', 'b'], 'the input is never mutated');
-    assert.equal(JSON.stringify(withPackMembers(OFF, offBonds)), JSON.stringify(offBonds), 'idempotent');
-    // a record the pack names no members in is untouched — and all-off stays the same object end to end
-    const plain = { emptyShip: { bondId: 'emptyShip', members: ['a'] } };
-    assert.equal(withPackMembers(OFF, plain), plain, 'nothing to drop: the same object');
-    assert.equal(filterFile(OFF, 'bonds', plain), plain);
-  });
-
-  test('the 盟约 the pack registers are the ones its operators actually carry', () => {
-    const g = gd({ [FORK_EXTRA6_PACK]: true });
+  test('the 盟约 they register are the ones they actually carry', () => {
+    const g = gd(undefined);
     for (const [bondId, ids] of Object.entries(FORK_EXTRA6_BOND_MEMBERS)) {
       for (const id of ids) {
         assert.ok(g.chessBondIds(id).includes(bondId), `${id}: carries ${bondId}`);
@@ -138,19 +95,15 @@ describe('六.C packExtra6: the switch gates the whole pack', () => {
     assert.deepEqual(g.chessBondIds(OBLVNS), ['emptyShip']);
   });
 
-  test('the garrisons the pack synthesizes ride along with their owners', () => {
-    const on = gd({ [FORK_EXTRA6_PACK]: true });
+  test('the synthesized garrisons are ordinary records too', () => {
+    const g = gd(undefined);
     for (const id of [MAKOTO, MAKOTO_B]) {
-      const gids = on.chess(id).garrisonIds;
+      const gids = g.chess(id).garrisonIds;
       assert.equal(gids.length, 1, `${id}: one 特质`);
-      assert.ok(on.raw.garrisons[gids[0]], `${id}: its record exists`);
+      assert.ok(g.raw.garrisons[gids[0]], `${id}: its record exists`);
+      assert.equal(DATA.garrisons[gids[0]].packId, undefined, `${gids[0]}: no packId — it stays`);
     }
-    assert.deepEqual(on.chess(OBLVNS).garrisonIds, [], '丰川祥子 has no 卫戍协议特质');
-    // and none of them survives the switch
-    const off = gd(undefined);
-    for (const gid of ['garrison_makoto_a', 'garrison_makoto_b']) {
-      assert.equal(off.raw.garrisons[gid], undefined, `${gid}: gone with the pack`);
-    }
+    assert.deepEqual(g.chess(OBLVNS).garrisonIds, [], '丰川祥子 has no 卫戍协议特质');
   });
 });
 
