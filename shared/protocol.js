@@ -449,15 +449,16 @@ export const C2S = {
   'g.freeze': {},
   'g.levelUp': {},
   // 作弊菜单 (the floating cheat ball, a local-only aid): the per-player cheats of ONE player, accepted in PREP only
-  // (`Match.cheat`). `set` carries the two toggles; `freeRefresh` is the one-shot 「免费刷新 +5」 button. Both fields are
-  // optional so one message can flip a switch, press the button, or do both.
+  // (`Match.cheat`). `set` carries the two toggles; `freeRefresh` is the one-shot 「免费刷新 +5」 button and `bondLayers`
+  // the one-shot 「盟约 +100」 button. Every field is optional, so one message can flip a switch, press a button, or both.
   'g.cheat': {
     set: nullable((v) => {
       if (v == null || typeof v !== 'object' || Array.isArray(v)) return false;
       return Object.entries(v).every(([k, b]) => CHEAT_KEYS.includes(k) && typeof b === 'boolean');
     }),
     freeRefresh: nullable((v) => v === true),
-    $optional: ['set', 'freeRefresh'],
+    bondLayers: nullable((v) => v === true),
+    $optional: ['set', 'freeRefresh', 'bondLayers'],
   },
   'g.sell': { uid: isUid },
   // dir: the facing chosen on the deploy wheel for a board target (absent ⇒ RIGHT; the piece's own tile ⇒ re-orient)

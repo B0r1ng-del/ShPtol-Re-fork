@@ -18,20 +18,23 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { makeMatch } from './match/harness.js';
+import { makeMatch, give } from './match/harness.js';
 import { createBattleFromSpec } from '../server/sim/spec.js';
 import { normalizeEnemy } from '../server/sim/simdata.js';
 import { validateC2S } from '../shared/protocol.js';
 import {
-  PHASE, CHEAT_KEYS, CHEAT_DEFAULTS, CHEAT_FREE_REFRESH_STEP, CHEAT_ENEMY_HP, CHEAT_GOLD_FLOOR, MOD_KEYS,
+  PHASE, CHEAT_KEYS, CHEAT_DEFAULTS, CHEAT_FREE_REFRESH_STEP, CHEAT_BOND_LAYER_STEP, CHEAT_ENEMY_HP, CHEAT_GOLD_FLOOR, MOD_KEYS,
 } from '../shared/constants.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
 
-/** A 2-human 同盟模拟 match sitting in round 1's PREP. */
-function prepMatch() {
-  const h = makeMatch({ mode: 'coop', difficulty: 'ABYSS', humans: 2, seed: 3, fake: true }).start();
+/** The three min-3 莱茵生命 operators, used to activate a stackable 盟约 on the board. */
+const MEMBERS = ['chess_rhine_astgenne_a', 'chess_rhine_dorothy_a', 'chess_rhine_mayer_a'];
+
+/** A 2-human 同盟模拟 match sitting in round 1's PREP. `mods` turns content packs on for the bond tests. */
+function prepMatch(mods = undefined) {
+  const h = makeMatch({ mode: 'coop', difficulty: 'ABYSS', humans: 2, seed: 3, fake: true, mods }).start();
   h.toPrep(1);
   return h;
 }
@@ -110,6 +113,53 @@ test('cheat menu — one 「免费刷新 +5」 press grants 5 free refreshes, wh
   } finally { h.m.dispose(); }
 });
 
+test('cheat menu — one 「盟约+100」 press adds 100 layers to every active stackable bond, to that player only', () => {
+  const h = prepMatch({ packRhine: true });
+  const a = h.ps('p_0');
+  const b = h.ps('p_1');
+  try {
+    // Real board members, because recompute() derives `bonds` from what stands there: 3 members activate 莱茵生命
+    // (and nothing else here), so it is the one stackable 盟约 that must move.
+    for (const [i, id] of MEMBERS.entries()) give(h.m, a, id, 'board', [11, 3 + i]);
+    a.recompute();
+    assert.equal(a.bonds.rhineShip?.active, true, 'the members really activate 莱茵生命');
+    assert.equal(a.layers.rhineShip ?? 0, 0, 'no layers yet');
+
+    assert.equal(h.m.handle('p_0', { t: 'g.cheat', bondLayers: true }).ok, true);
+    assert.equal(a.layers.rhineShip, CHEAT_BOND_LAYER_STEP);
+    assert.equal(b.layers.rhineShip ?? 0, 0, 'the other player got nothing');
+
+    // press again: one press = one +100, like the 免费刷新 button
+    assert.equal(h.m.handle('p_0', { t: 'g.cheat', bondLayers: true }).ok, true);
+    assert.equal(a.layers.rhineShip, 2 * CHEAT_BOND_LAYER_STEP, 'a second press adds another 100');
+
+    // the cue the normal layer gains send, so the client shows the gain
+    assert.ok(h.sent.some(([, m]) => m.t === 'm.layer' && m.bondId === 'rhineShip' && m.add === CHEAT_BOND_LAYER_STEP),
+      'the gain rides the ordinary m.layer cue');
+  } finally { h.m.dispose(); }
+});
+
+test('cheat menu — 盟约+100 skips inactive and non-stackable bonds', () => {
+  const h = prepMatch({ packRhine: true });
+  const a = h.ps('p_0');
+  try {
+    // 调和 (maniShip) is one of the four noStack 盟约: it has no layers at all, so adding to it would be a number
+    // nothing reads. It must stay untouched even while active and counted.
+    const mani = Object.values(h.m.gd._chess).find((c) => (c.bonds || []).includes('maniShip'));
+    assert.ok(mani, 'the fixture data carries a 调和 operator');
+    for (const [i, id] of MEMBERS.entries()) give(h.m, a, id, 'board', [11, 3 + i]);
+    give(h.m, a, mani.chessId, 'board', [10, 3]);
+    a.recompute();
+    assert.equal(a.bonds.maniShip?.active, true, '调和 really is active here');
+    const inactive = Object.entries(a.bonds).filter(([, v]) => v.active !== true).map(([k]) => k);
+
+    h.m.handle('p_0', { t: 'g.cheat', bondLayers: true });
+    assert.equal(a.layers.rhineShip, CHEAT_BOND_LAYER_STEP, 'the active stackable 莱茵生命 gained');
+    assert.ok(!a.layers.maniShip, 'a noStack 盟约 gains nothing even while active');
+    for (const id of inactive) assert.ok(!a.layers[id], `${id} is inactive and gained nothing`);
+  } finally { h.m.dispose(); }
+});
+
 test('cheat menu — 怪物血量降为1血 lands every enemy on exactly 1 HP in the REAL sim, for that player only', () => {
   const h = prepMatch();
   const a = h.ps('p_0');
@@ -170,7 +220,9 @@ test('cheat menu — the protocol rejects an unknown switch and a non-boolean va
   assert.equal(validateC2S({ t: 'g.cheat', set: { infiniteFunds: true } }), null);
   assert.equal(validateC2S({ t: 'g.cheat', set: { enemyOneHp: false } }), null);
   assert.equal(validateC2S({ t: 'g.cheat', freeRefresh: true }), null);
-  assert.equal(validateC2S({ t: 'g.cheat' }), null, 'both fields are optional');
+  assert.equal(validateC2S({ t: 'g.cheat', bondLayers: true }), null, 'the 盟约+100 press is a legal one-shot');
+  assert.ok(validateC2S({ t: 'g.cheat', bondLayers: 1 }) !== null, 'and takes no payload but true');
+  assert.equal(validateC2S({ t: 'g.cheat' }), null, 'every field is optional');
   assert.ok(validateC2S({ t: 'g.cheat', set: { bogusKey: true } }) !== null, 'an unknown switch is refused');
   assert.ok(validateC2S({ t: 'g.cheat', set: { infiniteFunds: 'yes' } }) !== null, 'a non-boolean is refused');
   assert.ok(validateC2S({ t: 'g.cheat', set: [] }) !== null, 'an array is not a switch map');
@@ -200,11 +252,12 @@ test('cheat menu — the client ball is device-local, off by default, and only i
 
   assert.match(ui, /loadPref\(PREF_CHEATS, false\)/, 'the ball preference defaults to off');
   assert.match(ui, /if \(!enabled\) return null;/, 'and an off device renders nothing at all');
-  assert.match(ui, /CHEAT_ROWS/, 'the three cheats are one declared list');
-  assert.match(ui, /role="switch"/, 'the two switches use the shared switch role');
+  assert.match(ui, /CHEAT_ROWS/, 'the cheats are one declared list');
+  assert.match(ui, /role="switch"/, 'the switches use the shared switch role');
 
   assert.match(actions, /cheatSet: \(key, on\) => act\('g\.cheat'/);
   assert.match(actions, /cheatFreeRefresh: \(\) => act\('g\.cheat', \{ freeRefresh: true \}/);
+  assert.match(actions, /cheatBondLayers: \(\) => act\('g\.cheat', \{ bondLayers: true \}/);
   assert.match(game, /CheatBall/, 'the game screen mounts the ball');
   assert.match(game, /canUse=\$\{phase === PHASE\.PREP && !priv\?\.ready && !spectator\}/,
     'and only enables it in PREP, not-ready, non-spectator — the same gate the server applies');

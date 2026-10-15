@@ -75,12 +75,14 @@ test('the +5 button uses a size class that exists', () => {
 });
 
 test('the rows still drive the real cheats, and the panel is still PREP-gated', () => {
-  // the three controls the owner asked for (server side: test/cheat-menu.test.js)
+  // the four controls the owner asked for (server side: test/cheat-menu.test.js)
   for (const key of ['infiniteFunds', 'enemyOneHp']) {
     assert.ok(CHEATS.includes(`'${key}'`) || CHEATS.includes(key), `${key} is still a row`);
   }
   assert.match(CHEATS, /onSet && onSet\(r\.key, state\[r\.key\] !== true\)/, 'a switch flips through onSet');
-  assert.match(CHEATS, /onFreeRefresh && onFreeRefresh\(\)/, 'the +5 button is one-shot');
+  // both one-shot buttons (免费刷新 +5, 盟约+100) share one handler and name themselves by their row's `action`
+  assert.match(CHEATS, /onClick=\$\{\(\) => canUse && onAction && onAction\(r\.action\)\}/, 'a one-shot press names its action');
+  assert.match(CHEATS, /data-testid=\$\{`cheat-\$\{r\.action\}`\}/, 'and stays addressable by it');
   assert.match(CHEATS, /disabled=\$\{!canUse\}/, 'controls are disabled when the server would refuse');
   assert.match(CHEATS, /data-testid="cheat-hint"/, 'and the hint explains why');
 });
