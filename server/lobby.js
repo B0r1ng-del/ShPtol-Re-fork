@@ -99,7 +99,7 @@
 //     a player seat (the seat is kept and given back on resume).
 
 import { randomBytes, randomInt } from 'node:crypto';
-import { ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, HOST_CONFIG_KEYS, HOST_CONFIG_DEFAULTS, HOST_CONFIG_SOLO_KEYS, MOD_DEFAULTS, normalizeMods, roomSeatCap, ULTIMATE_DIFFICULTY, modeIdFor } from '../shared/constants.js';
+import { ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, HOST_CONFIG_KEYS, HOST_CONFIG_DEFAULTS, HOST_CONFIG_SOLO_KEYS, HOST_ENEMY_KEYS, HOST_ENEMY_DEFAULTS, HOST_ENEMY_MAX_STEPS, MOD_DEFAULTS, normalizeMods, roomSeatCap, ULTIMATE_DIFFICULTY, modeIdFor } from '../shared/constants.js';
 import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks } from '../shared/protocol.js';
 import { encode, isDroppable, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
@@ -188,6 +188,14 @@ export class Room {
      */
     this.hostConfig = { ...HOST_CONFIG_DEFAULTS };
     /**
+     * 房主配置「对局选项」(room.setEnemyBuff, room.state.enemyBuff): how far each of the four enemy buffs is turned up, as
+     * an integer count of 10 % steps per HOST_ENEMY_KEYS entry (0 = the official numbers, HOST_ENEMY_MAX_STEPS = +100 %).
+     * Kept across the room's matches like the rest of the room options, and read by the match when it starts. Every mode
+     * may set them — a buff on one's own enemies shares nothing with teammates — so there is no solo restriction.
+     * @type {Record<string, number>}
+     */
+    this.enemyBuff = { ...HOST_ENEMY_DEFAULTS };
+    /**
      * Mod 开关 (MOD_KEYS, `room.create.mods`): the per-device gameplay switches the creator carried in, normalised to
      * exactly MOD_KEYS booleans (all off = the official mode). Kept across the room's matches like the mode and the
      * difficulty — a joiner plays the host's rules — and read by the match when it starts (Match.mods).
@@ -247,6 +255,9 @@ export class Room {
       // 房主配置: the four room options (shared/constants.js HOST_CONFIG_KEYS) — the panel shows the same values to
       // everybody, only the host may change them (room.setHostConfig)
       hostConfig: { ...this.hostConfig },
+      // 房主配置「对局选项」(HOST_ENEMY_KEYS, room.setEnemyBuff): the four enemy buffs as 10 % step counts. Everybody sees
+      // them (they describe the enemies the whole room fights); only the host may change them.
+      enemyBuff: { ...this.enemyBuff },
       // Mod 开关 (MOD_KEYS, room.create.mods): the gameplay switches the creator carried in. Everybody in the room
       // sees them (a joiner plays the host's rules); nobody may change them after the room exists.
       mods: { ...this.mods },
@@ -361,6 +372,7 @@ export class Lobby {
       case 'room.setDifficulty': return this.setDifficulty(session, msg);
       case 'room.setAiPicksLast': return this.setAiPicksLast(session, msg);
       case 'room.setHostConfig': return this.setHostConfig(session, msg);
+      case 'room.setEnemyBuff': return this.setEnemyBuff(session, msg);
       case 'room.addBot': return this.addBot(session);
       case 'room.removeBot': return this.removeBot(session, msg);
       case 'room.kick': return this.kick(session, msg);
@@ -595,6 +607,30 @@ export class Lobby {
     return OK;
   }
 
+  /**
+   * 房主配置「对局选项」(room.setEnemyBuff): one HOST_ENEMY_KEYS slider, host-only and before the match, `steps` an integer
+   * count of 10 % steps (0…HOST_ENEMY_MAX_STEPS). Kept on the room across its matches so the next match reads it, and —
+   * like a difficulty change — it un-readies the other humans, because it changes what they are about to fight.
+   *
+   * Every mode may set it, 独立模拟 included (no solo gate): the buff is on one's own enemies and shares nothing.
+   */
+  setEnemyBuff(session, { key, steps }) {
+    const room = this.roomOf(session);
+    if (!room) return fail(ERR.NOT_IN_ROOM);
+    if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
+    if (room.match) return fail(ERR.ROOM_STARTED);
+    if (!HOST_ENEMY_KEYS.includes(key)) return fail(ERR.BAD_MSG, 'unknown enemy option'); // i18n-ignore (developer diagnostic)
+    const n = Math.trunc(Number(steps));
+    if (!Number.isFinite(n) || n < 0 || n > HOST_ENEMY_MAX_STEPS) return fail(ERR.BAD_MSG, 'enemy option out of range'); // i18n-ignore (developer diagnostic)
+    this.dropReplay(room, session.playerId);
+    if (room.enemyBuff[key] !== n) {
+      room.enemyBuff[key] = n;
+      for (const s of room.seats) if (s && !s.isBot && s.playerId !== room.hostId) s.ready = false;
+      this.broadcastState(room);
+    }
+    return OK;
+  }
+
   addBot(session) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -796,6 +832,9 @@ export class Lobby {
         multiAlliance: room.hostConfig.multiAlliance === true,
         // 装备可售卖 (HOST_CONFIG_KEYS itemSell): the one room option a single-seat room may set too
         itemSell: room.hostConfig.itemSell === true,
+        // 房主配置「对局选项」(room.setEnemyBuff, HOST_ENEMY_KEYS): the four enemy buffs as 10 % step counts. All 0 unless
+        // the host turned one up, so a room that never touched them (and every test / tool) is the official numbers.
+        enemyBuff: { ...room.enemyBuff },
         // Mod 开关 (room.create.mods, MOD_KEYS): the room's gameplay switches, fixed for the match. All off unless the
         // creator switched one on, so a room created without them (and every test / tool) is the official mode.
         mods: { ...room.mods },

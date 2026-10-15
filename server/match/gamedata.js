@@ -14,7 +14,7 @@
 import { getConfig, getMode } from '../data.js';
 import { isShopItem } from '../sim/simdata.js';
 import { standInRecord } from '../../shared/standIn.js';
-import { normalizeMods, MOD_RANDOM_SP_FAMILIES, MOD_EXTRA_ROUNDS, layerCapFor } from '../../shared/constants.js';
+import { normalizeMods, MOD_RANDOM_SP_FAMILIES, MOD_EXTRA_ROUNDS, layerCapFor, enemyBuffMul } from '../../shared/constants.js';
 import { filterRawData, effectiveBonds } from '../../shared/packData.js';
 
 const own = (map, id) => (map && typeof map === 'object' && typeof id === 'string' && Object.hasOwn(map, id) && map[id] && typeof map[id] === 'object' ? map[id] : null);
@@ -97,9 +97,18 @@ export class GameData {
    *   `modeInactiveBonds`, `bans()` and `spDraftRules` — the three rule seams the switches change. Absent = all off =
    *   the official mode, byte-identical to before (the golden scenarios, the tools and every test pass nothing).
    */
-  constructor(data, modeId, mods) {
+  constructor(data, modeId, mods, enemyBuff) {
     /** Mod 开关 of this match (MOD_KEYS, all off by default). @type {Record<string, boolean>} */
     this.mods = normalizeMods(mods);
+    /**
+     * 房主配置「对局选项」(HOST_ENEMY_KEYS, `room.setEnemyBuff`): the four enemy buff multipliers, or null when the host
+     * turned none up. `enemyScale` folds HP / ATK into the official round table so EVERY consumer of it inherits them
+     * (ordinary spawns, the leader / hidden-core pool, leader summons' `flags.enemyScale`, the client's own spec);
+     * `waves.js roundMods` adds DEF / RES from `enemyBuffDefRes` (they have no place in the round table). Null — the
+     * default, and what every caller that passes nothing gets — allocates nothing and changes no number.
+     * @type {{ hp: number, atk: number, def: number, res: number } | null}
+     */
+    this.enemyBuff = enemyBuffMul(enemyBuff);
     // 内容包开关: the ported packs' records are dropped HERE, once, so every accessor below — the shop pool, the reels,
     // the 盟约 lists, the detail cards, the client-result bounds — sees only what this room actually contains. With
     // every pack off (the default, every golden scenario, every test) `filterRawData` returns `data` itself and this
@@ -180,7 +189,10 @@ export class GameData {
     if (base == null) base = 500000;
     // × the fork's per-class extra (二.3): the leader's and the hidden core's factors are looked up separately by boss
     // id (`bossHpExtra`), so this is a per-boss value and not one blanket multiplier over the pool. 1 officially.
-    return Math.max(1, Math.round(base * this.bossPoolShare(aliveCount) * this.bossHpExtra(bossId)));
+    // × the 房主配置「对局选项」血量 buff (enemyBuff.hp, 1 without one): the leader's HP is the shared pool, so it takes
+    // the buff here rather than through `enemyScale` — that is the only place a leader's HP lives.
+    const buffHp = this.enemyBuff ? this.enemyBuff.hp : 1;
+    return Math.max(1, Math.round(base * this.bossPoolShare(aliveCount) * this.bossHpExtra(bossId) * buffHp));
   }
 
   /**
@@ -553,9 +565,31 @@ export class GameData {
     };
   }
 
-  /** Enemy multipliers of round r = the official table (baseEnemyScale; no custom multiplier). */
+  /**
+   * Enemy multipliers of round r = the official table (baseEnemyScale) with the 房主配置「对局选项」folded in
+   * (`enemyBuff`, HOST_ENEMY_KEYS `enemyHp` / `enemyAtk`).
+   *
+   * Folding them HERE is what makes the buffs apply to EVERY enemy of every mode in one place: this getter is read by
+   * `waves.js` for ordinary spawns, 部位 and bounty adds, by `finalAssault.bossPoolHp` for the shared leader / hidden-core
+   * pool, by `match/bossRounds.js` as the battle's `flags.enemyScale` (the leaders' mid-fight summons read it in
+   * `sim/content/bosses.js summonMods`) and by the client, which builds its own spec from the same numbers.
+   *
+   * With no buff (`enemyBuff` null) this returns the same fresh object it returned before the option existed, so an
+   * unbuffed match is byte-identical. DEF / RES are NOT here — the round table has no place for them, and they reach a
+   * spawn through `waves.js roundMods` (`enemyBuffDefRes`).
+   */
   enemyScale(r) {
-    return this.baseEnemyScale(r);
+    const s = this.baseEnemyScale(r);
+    const b = this.enemyBuff;
+    if (!b) return s;
+    return { ...s, hpMul: s.hpMul * b.hp, atkMul: s.atkMul * b.atk };
+  }
+
+  /** The 房主配置「对局选项」DEF / RES multipliers for `waves.js roundMods`, or null when neither is buffed. */
+  get enemyBuffDefRes() {
+    const b = this.enemyBuff;
+    if (!b || (b.def === 1 && b.res === 1)) return null;
+    return { defMul: b.def, resMul: b.res };
   }
 
   /**

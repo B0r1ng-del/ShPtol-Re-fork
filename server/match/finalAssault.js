@@ -85,9 +85,13 @@ export function bossPoolHp(gd, bossId, aliveCount) {
   const tune = typeof gd.bossHpMul === 'function' ? gd.bossHpMul(bossId) : 1;
   // the mode's own per-class extra (fork 二.3: GameData.bossHpExtra — leader vs hidden core, each on its own boss id)
   const extra = typeof gd.bossHpExtra === 'function' ? gd.bossHpExtra(bossId) : 1;
+  // the 房主配置「对局选项」血量 buff (GameData.enemyBuff.hp, 1 without one): a leader's HP IS this shared pool, so the buff
+  // lands here rather than through `enemyScale` — the pool is the only place a leader's HP exists. GameData.bossPoolHp
+  // applies the same factor, so the two agree.
+  const buffHp = gd.enemyBuff ? gd.enemyBuff.hp : 1;
   const share = typeof gd.bossPoolShare === 'function' ? gd.bossPoolShare(aliveCount)
     : bossPoolShareOf(gd.mode && gd.mode.bossHpScale, gd.config && gd.config.bossHpScale, !!gd.isSolo, aliveCount);
-  return Math.max(1, Math.round(base * share * tune * extra));
+  return Math.max(1, Math.round(base * share * tune * extra * buffHp));
 }
 
 /**

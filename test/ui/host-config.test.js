@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { HOST_CONFIG_KEYS, HOST_CONFIG_DEFAULTS } from '../../shared/constants.js';
+import { HOST_CONFIG_KEYS, HOST_CONFIG_DEFAULTS, HOST_ENEMY_KEYS } from '../../shared/constants.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SRC = readFileSync(path.join(ROOT, 'public/js/screens/room.js'), 'utf8');
@@ -60,6 +60,78 @@ test('a single-seat room (独立模拟) shows the rows that share nothing betwee
   for (const mode of ['coop', 'ultimate']) assert.equal(hostConfigPanel(room({ mode }), 'h').length, HOST_CONFIG_KEYS.length, mode);
 });
 
+test('the 对局选项 sliders: the four HOST_ENEMY_KEYS in order, at 0 by default, host-editable in EVERY mode', async () => {
+  const { enemyBuffPanel, enemyBuffTotal, HOST_ENEMY_ROWS } = await mod();
+  assert.deepEqual(HOST_ENEMY_ROWS.map((r) => r.key), [...HOST_ENEMY_KEYS], 'the panel order is the normative key order');
+  // a room that never touched them: all four at 0, and no total to warn about
+  const rows = enemyBuffPanel(room(), 'h');
+  assert.deepEqual(rows.map((r) => r.key), [...HOST_ENEMY_KEYS]);
+  assert.deepEqual(rows.map((r) => r.steps), [0, 0, 0, 0]);
+  assert.equal(enemyBuffTotal(rows), 0, 'no warning line at 0');
+  assert.ok(rows.every((r) => r.editable), 'the host moves them');
+  assert.ok(rows.every((r) => r.label && r.icon && r.tip), 'each row has a label, an icon and an explanation');
+  // the values come from room.state.enemyBuff, and the total is their sum in percent
+  const set = enemyBuffPanel(room({ enemyBuff: { enemyHp: 5, enemyAtk: 3, enemyDef: 0, enemyRes: 1 } }), 'h');
+  assert.deepEqual(set.map((r) => r.steps), [5, 3, 0, 1]);
+  assert.equal(enemyBuffTotal(set), 90, '5 + 3 + 0 + 1 steps = 90 %');
+  // a guest reads the same values and may not move them
+  const guest = enemyBuffPanel(room({ enemyBuff: { enemyHp: 5 } }), 'g');
+  assert.deepEqual(guest.map((r) => r.steps), [5, 0, 0, 0], 'the guest sees what the host set');
+  assert.ok(guest.every((r) => !r.editable), 'but only reads it');
+  // no host yet (the room is closing): nobody edits
+  assert.ok(enemyBuffPanel(room({ hostId: null }), 'h').every((r) => !r.editable));
+  // EVERY mode shows all four — a buff on one's own enemies shares nothing with teammates (需求方: 所有模式通用)
+  for (const mode of ['solo', 'coop', 'ultimate']) {
+    const m = enemyBuffPanel(room({ mode }), 'h');
+    assert.deepEqual(m.map((r) => r.key), [...HOST_ENEMY_KEYS], mode);
+    assert.ok(m.every((r) => r.editable), `${mode}: the host edits them`);
+  }
+  // a legacy server sending nothing at all still yields the four rows at 0
+  assert.deepEqual(enemyBuffPanel(room({ enemyBuff: undefined }), 'h').map((r) => r.steps), [0, 0, 0, 0]);
+  assert.equal(enemyBuffPanel(null, 'h'), null, 'no room, no panel');
+});
+
+test('the 对局选项 markup: one slider per row, wired to room.setEnemyBuff, with the total in a warning line', async () => {
+  const { HOST_ENEMY_ROWS } = await mod();
+  // the four sliders reuse 设置's own control (.set-row / .set-range) so they look and drag the same
+  assert.match(SRC, /class="set-row ebuff__row" key=\$\{r\.key\}/, 'the settings slider row');
+  assert.match(SRC, /class="set-range" type="range" min="0" max=\$\{HOST_ENEMY_MAX_STEPS\} step="1"/);
+  assert.match(SRC, /data-testid=\$\{`ebuff-\$\{r\.key\}`\}/, 'every slider has a testid the e2e suite can select');
+  assert.match(SRC, /onInput=\$\{\(e\) => r\.editable && onSet\(r\.key, Number\(e\.currentTarget\.value\)\)\}/, 'only the host writes');
+  // a slider is a CONTINUOUS control: it is NOT disabled while a round trip is in flight (that would freeze all four
+  // for every step of a drag), so `busy` must not appear in this block — only the host's own editability gates it
+  const section = SRC.slice(SRC.indexOf('function EnemyBuffSection('), SRC.indexOf('/** The ready bar'));
+  assert.match(section, /disabled=\$\{!r\.editable\}/, 'a non-host gets a disabled slider');
+  assert.ok(!/busy/.test(section), 'and a drag is never blocked by an in-flight request');
+  // it goes through its own one-shot request, not run() (whose inFlight guard would drop every step after the first)
+  assert.match(SRC, /net\.request\('room\.setEnemyBuff', \{ key, steps \}\)\.catch\(toastError\)/);
+  // the header, the rule above the sliders and the total's warning line (the owner's screenshot)
+  assert.match(SRC, /class="ebuff__title"><\$\{Icon\} name="sliders" \/>\$\{t\('对局选项'\)\}/);
+  assert.match(SRC, /t\('每格 \+10%，最高 \+100% · 加强本局全部敌人（含首领与联防）'\)/);
+  assert.match(SRC, /t\('本局敌人已获得强化（合计 \{n\}%），请谨慎调整', \{ n: total \}\)/);
+  // the warning only renders once something is actually buffed
+  assert.match(SRC, /\$\{total > 0 \? html`<p class="ebuff__warn">/);
+  // the ready bar's badge counts the buffed sliders too, not just the switch rows
+  assert.match(SRC, /\(enemyRows \|\| \[\]\)\.filter\(\(r\) => r\.steps !== 0\)\.length/);
+  // the section is inside the 房主配置 dialog, after the switch rows
+  const dialog = SRC.slice(SRC.indexOf('function HostConfigDialog('), SRC.indexOf('/** The ready bar'));
+  assert.ok(dialog.includes('hostcfg__rows'), 'the switch rows');
+  assert.ok(dialog.indexOf('ebuff') > dialog.indexOf('hostcfg__rows'), 'and the sliders after them');
+  assert.ok(dialog.includes('EnemyBuffSection'), 'rendered by its own component');
+  // every label and explanation is a msgid with a real English translation
+  for (const zh of ['对局选项', '怪物血量', '怪物攻击', '怪物防御', '怪物魔抗', '每格 +10%，最高 +100% · 加强本局全部敌人（含首领与联防）', '本局敌人已获得强化（合计 {n}%），请谨慎调整']) {
+    // the warning's msgid carries a {n} param, so match the literal alone
+    assert.ok(SRC.includes(`'${zh}'`), zh);
+    assert.equal(typeof EN[zh], 'string', `en.json: ${zh}`);
+    assert.ok(EN[zh].length > 0 && !/[一-鿿]/.test(EN[zh]), `English for ${zh}`);
+  }
+  for (const r of HOST_ENEMY_ROWS) assert.equal(typeof EN[r.tip], 'string', `en.json: ${r.tip}`);
+  // and the block's own styles exist
+  assert.match(CSS, /\.ebuff \{/);
+  assert.match(CSS, /\.ebuff__rows \{/);
+  assert.match(CSS, /\.ebuff__warn \{/);
+});
+
 test('「AI 队友最后选择」 reads its own pre-existing room.state field, every other row reads hostConfig', async () => {
   const { hostConfigOption } = await mod();
   // an older server that sends no hostConfig at all: the defaults stand, and aiPicksLast still works
@@ -75,7 +147,7 @@ test('「AI 队友最后选择」 reads its own pre-existing room.state field, e
 test('room.js sends room.setHostConfig { key, on } and opens the dialog from the ready bar', () => {
   assert.match(SRC, /net\.request\('room\.setHostConfig', \{ key, on \}\)/);
   // the panel is a dialog opened by a button in the ready bar (the 干员调配 pattern), not a band under the seats
-  assert.match(SRC, /<[$]\{HostConfigDialog\} rows=[$]\{cfgRows\} open=[$]\{cfgOpen\}/, 'the dialog is rendered');
+  assert.match(SRC, /<[$]\{HostConfigDialog\} rows=[$]\{cfgRows\} enemyRows=[$]\{enemyRows\} open=[$]\{cfgOpen\}/, 'the dialog is rendered');
   assert.match(SRC, /<[$]\{HostConfigButton\} rows=[$]\{cfgRows\}/, 'the entry button is in the ready bar');
   assert.match(SRC, /const \[cfgOpen, setCfgOpen\] = useState\(false\)/);
   assert.match(SRC, /const cfgRows = hostConfigPanel\(room, me\.playerId\)/);

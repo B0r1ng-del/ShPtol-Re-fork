@@ -12,7 +12,7 @@
 // Texts go through t() (docs/I18N.md).
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SPECTATORS, HOST_CONFIG_DEFAULTS, roomSeatCap } from '../../../shared/constants.js';
+import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SPECTATORS, HOST_CONFIG_DEFAULTS, HOST_ENEMY_MAX_STEPS, HOST_ENEMY_STEP_PCT, normalizeEnemyBuff, roomSeatCap } from '../../../shared/constants.js';
 import {
   html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyTag, DifficultyIcon, Tooltip, Modal, confirmDialog, doctorNo, SwitchRow,
 } from '../ui/components.js';
@@ -252,15 +252,51 @@ function DifficultyPicker({ room, isHost, busy, onPick }) {
 }
 
 /**
+ * 房主配置「对局选项」— the four enemy buffs of a room (room.setEnemyBuff, HOST_ENEMY_KEYS), in the order the panel shows
+ * them. Each row is one slider: `key` the message's key, `label` its text, `icon` the glyph before it and `tip` the
+ * explanation behind the ⓘ. Every mode shows all four — a buff on one's own enemies shares nothing with teammates, so
+ * there is no solo restriction (需求方 2026-10-15: 「确保该功能在所有模式中均通用」).
+ *
+ * A slider's value is an integer count of 10 % steps (HOST_ENEMY_MAX_STEPS = 10, i.e. +100 %); 0 is the official numbers.
+ */
+export const HOST_ENEMY_ROWS = Object.freeze([
+  { key: 'enemyHp', label: N_('怪物血量'), icon: 'shield', tip: N_('每格 +10%，最高 +100%：本局全部敌人（含首领与联防）的最大生命值按此提高') },
+  { key: 'enemyAtk', label: N_('怪物攻击'), icon: 'sword', tip: N_('每格 +10%，最高 +100%：本局全部敌人（含首领与联防）的攻击力按此提高') },
+  { key: 'enemyDef', label: N_('怪物防御'), icon: 'shield', tip: N_('每格 +10%，最高 +100%：本局全部敌人（含首领与联防）的防御力按此提高') },
+  { key: 'enemyRes', label: N_('怪物魔抗'), icon: 'shield', tip: N_('每格 +10%，最高 +100%：本局全部敌人（含首领与联防）的法术抗性按此提高') },
+]);
+
+/**
+ * The 对局选项 rows of a room: `{ key, label, icon, tip, steps, editable }`, or null when there is no room. Everybody
+ * sees the same values (they describe the enemies the whole room fights); only the host may move a slider.
+ * @param {any} room room.state payload
+ * @param {any} myId
+ * @returns {Array<{ key: string, label: string, icon: string, tip: string, steps: number, editable: boolean }> | null}
+ */
+export function enemyBuffPanel(room, myId) {
+  if (!room) return null;
+  const cfg = normalizeEnemyBuff(room.enemyBuff);
+  const editable = room.hostId != null && room.hostId === myId;
+  return HOST_ENEMY_ROWS.map((r) => ({ ...r, steps: cfg[r.key], editable }));
+}
+
+/** The total the room has reached, as a percentage of buff across all four sliders (the warning line's number). */
+export const enemyBuffTotal = (rows) => (rows || []).reduce((n, r) => n + r.steps, 0) * HOST_ENEMY_STEP_PCT;
+
+/**
  * 房主配置 — the host's room options in a dialog (the 干员调配 button's pattern: a button in the ready bar opens it).
  * One <SwitchRow/> per option (图二, 2026-10-13): the name on the left, the pill switch on the right, and the option's
  * own explanation behind the ⓘ after the name (hover on a desktop, long press on a phone). The host toggles them;
  * everybody else sees the same state read-only (the switches render disabled), with a dim 「由创建者设置」 in the header
  * saying who owns them. Nothing is rendered in a single-seat room (null rows).
+ *
+ * 「对局选项」 (需求方 2026-10-15) sits under the switches: four sliders that strengthen this match's enemies, with the
+ * total shown in a warning line under them. Same editability rule — the host moves them, everybody else reads them.
  */
-function HostConfigDialog({ rows, open, busy, onClose, onToggle }) {
+function HostConfigDialog({ rows, enemyRows, open, busy, onClose, onToggle, onEnemy }) {
   if (!rows || !rows.length) return null;
   const editable = rows.some((r) => r.editable);
+  const total = enemyBuffTotal(enemyRows);
   return html`<${Modal} open=${open} onClose=${onClose} tone="mint" width="min(7.6rem, 96vw)"
       title=${t('房主配置')} micro="HOST CONFIG"
       actions=${html`<${Button} variant="secondary" onClick=${onClose}>${t('完成')}<//>`}>
@@ -273,14 +309,44 @@ function HostConfigDialog({ rows, open, busy, onClose, onToggle }) {
           testid=${`hostcfg-${r.key}`} infoTestid=${`hostcfg-info-${r.key}`}
           onChange=${(v) => r.editable && onToggle(r.key, v)} />`)}
       </div>
+      ${enemyRows && enemyRows.length ? html`<${EnemyBuffSection} rows=${enemyRows} onSet=${onEnemy} total=${total} />` : null}
     </div>
   <//>`;
 }
 
+/**
+ * 对局选项 — the four enemy-buff sliders. Each row is the settings dialog's own `.set-row` / `.set-range` control (the
+ * shared slider, so it looks and drags the same as 设置's), with the current +N % printed on the right. The line under
+ * them states the total and warns that it is already in effect — the owner's screenshot carries exactly that.
+ */
+function EnemyBuffSection({ rows, onSet, total }) {
+  return html`<div class="ebuff">
+    <div class="ebuff__head">
+      <span class="ebuff__title"><${Icon} name="sliders" />${t('对局选项')}</span>
+      <${MicroLabel}>MATCH OPTIONS<//>
+    </div>
+    <p class="ebuff__hint">${t('每格 +10%，最高 +100% · 加强本局全部敌人（含首领与联防）')}</p>
+    <div class="ebuff__rows">
+      ${rows.map((r) => html`<label class="set-row ebuff__row" key=${r.key}>
+        <span class="set-row__label"><${Icon} name=${r.icon} />${t(r.label)}</span>
+        <input class="set-range" type="range" min="0" max=${HOST_ENEMY_MAX_STEPS} step="1"
+          value=${r.steps} style=${`--pct:${(r.steps / HOST_ENEMY_MAX_STEPS) * 100}%`}
+          disabled=${!r.editable}
+          data-testid=${`ebuff-${r.key}`} aria-label=${t(r.label)}
+          onInput=${(e) => r.editable && onSet(r.key, Number(e.currentTarget.value))} />
+        <span class="set-row__val num">+${r.steps * HOST_ENEMY_STEP_PCT}%</span>
+      </label>`)}
+    </div>
+    ${total > 0 ? html`<p class="ebuff__warn">${t('本局敌人已获得强化（合计 {n}%），请谨慎调整', { n: total })}</p>` : null}
+  </div>`;
+}
+
 /** The ready bar's 房主配置 button (the 干员调配 button's shape), showing how many options differ from their default. */
-function HostConfigButton({ rows, busy, onClick }) {
+function HostConfigButton({ rows, enemyRows, busy, onClick }) {
   if (!rows || !rows.length) return null;
-  const n = rows.filter((r) => r.on !== HOST_CONFIG_DEFAULTS[r.key]).length;
+  // the switch rows that left their default, plus every enemy slider that is not at 0 (its own default)
+  const n = rows.filter((r) => r.on !== HOST_CONFIG_DEFAULTS[r.key]).length
+    + (enemyRows || []).filter((r) => r.steps !== 0).length;
   return html`<button type="button" class=${cx('btn', 'btn--secondary', 'btn--lg', 'hostcfg-entry')} data-testid="hostcfg-open"
       disabled=${!!busy} onClick=${onClick} title=${t('房主配置 · 只有房主可以修改')}>
     <${Icon} name="crown" class="btn__icon" />
@@ -309,6 +375,9 @@ export function RoomScreen() {
   const info = difficultyInfo(room.mode, room.difficulty);
   // 房主配置 (null in a single-seat room: nothing to share with, so neither the button nor the dialog renders)
   const cfgRows = hostConfigPanel(room, me.playerId);
+  // 对局选项 (room.setEnemyBuff): the four enemy-buff sliders, shown in EVERY mode (no solo gate — a buff on one's own
+  // enemies shares nothing with teammates). Same rows for everybody; only the host may move them.
+  const enemyRows = enemyBuffPanel(room, me.playerId);
 
   const run = async (kind, fn) => {
     if (inFlight.current) return;
@@ -337,6 +406,17 @@ export function RoomScreen() {
   // 「AI 队友最后选择」 is one of the four rows and goes through the same message; room.setAiPicksLast (GitHub #338) stays
   // valid on the server for older clients.
   const setHostConfig = (key, on) => run(`hcfg${key}`, () => net.request('room.setHostConfig', { key, on }));
+  // 对局选项 (room.setEnemyBuff): one slider at a time, `steps` the 10 % step count the slider now sits at.
+  //
+  // NOT through `run()`: a slider is a CONTINUOUS control (a drag emits an input event per step) and `run()` is built for
+  // one-shot buttons — its `inFlight` guard would drop every step after the first and its `busy` state would disable all
+  // four sliders (and every switch row) for the length of each round trip. The message is idempotent and the server keeps
+  // last-write-wins, so firing each step and letting the state broadcast settle the UI is both correct and what a slider
+  // is expected to do; a failure still surfaces as a toast.
+  const setEnemyBuff = (key, steps) => {
+    if (!online) { toast(t('连接中断，请稍候重试'), 'warn'); return; }
+    net.request('room.setEnemyBuff', { key, steps }).catch(toastError);
+  };
   // spectator seats: the host frees one; a spectator takes a free player seat with room.join of this room
   const removeSpectator = (playerId) => run(`rs${playerId}`, () => net.request('room.removeSpectator', { playerId }));
   const sit = () => run('sit', () => net.request('room.join', { code: room.code }));
@@ -432,7 +512,7 @@ export function RoomScreen() {
         <div class="room-bar__status">${statusLine}</div>
       </div>
       <div class="room-bar__right">
-        <${HostConfigButton} rows=${cfgRows} busy=${busy} onClick=${() => setCfgOpen(true)} />
+        <${HostConfigButton} rows=${cfgRows} enemyRows=${enemyRows} busy=${busy} onClick=${() => setCfgOpen(true)} />
         <${LoadoutButton} from="room" size="lg" class="room-loadout" label=${t('干员调配')} />
         ${facts.isHost
           ? html`<${Tooltip} text=${facts.canStart ? null : t('仍有博士未准备就绪')}>
@@ -444,6 +524,6 @@ export function RoomScreen() {
               loading=${busy === 'ready'} disabled=${!online || !facts.mine} onClick=${toggleReady}>${myReady ? t('已就绪') : t('准备就绪')}<//>`}
       </div>
     </footer>
-    <${HostConfigDialog} rows=${cfgRows} open=${cfgOpen} busy=${busy} onClose=${() => setCfgOpen(false)} onToggle=${setHostConfig} />
+    <${HostConfigDialog} rows=${cfgRows} enemyRows=${enemyRows} open=${cfgOpen} busy=${busy} onClose=${() => setCfgOpen(false)} onToggle=${setHostConfig} onEnemy=${setEnemyBuff} />
   </div>`;
 }
