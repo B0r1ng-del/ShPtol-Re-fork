@@ -541,12 +541,19 @@
 .swrow__info .icon { width: .16rem; height: .16rem; }
 /* the pill switch. Sized with max() so it is never below a 44×24 CSS-px pointer target on a phone while staying the
    design's own size on a desktop; the knob's travel is derived from the two custom properties, so changing either size
-   keeps the knob inside the track. The ON state is a mint track plus a travelled knob — the 「显眼」 the owner asked for. */
-.sw { --sw-w: max(.52rem, 44px); --sw-h: max(.28rem, 24px); --sw-p: max(2px, calc(.02 * var(--t)));
-  flex: none; position: relative; width: var(--sw-w); height: var(--sw-h); padding: 0; border: 1px solid var(--line-2);
+   keeps the knob inside the track. The ON state is a mint track plus a travelled knob — the 「显眼」 the owner asked for.
+
+   The knob is offset by `--sw-p - --sw-b`, not `--sw-p`: an absolutely positioned child is laid out against the
+   PADDING box, so a plain `--sw-p` put the border's own 1px on top of the inset and the knob measured 3px from the
+   track's top/left but 1px from its bottom/right — visibly off-centre (owner 2026-10-15: 「所有开关按钮位置都有偏移，
+   对不齐，且手机和电脑端表现不一致」; measured in a browser: 44×24 track, 20×20 knob, gaps 3/1). Subtracting the
+   border restores a symmetric `--sw-p` gap on every side, at every `--t` and in all three menus (Mod 开关 / 房主配置 /
+   作弊菜单) — they share this rule. `--sw-b` is the border width, named so the two cannot drift apart. */
+.sw { --sw-w: max(.52rem, 44px); --sw-h: max(.28rem, 24px); --sw-p: max(2px, calc(.02 * var(--t))); --sw-b: 1px;
+  flex: none; position: relative; width: var(--sw-w); height: var(--sw-h); padding: 0; border: var(--sw-b) solid var(--line-2);
   border-radius: calc(var(--sw-h) / 2); background: var(--bg-3); cursor: pointer;
   transition: background var(--t-fast), border-color var(--t-fast); }
-.sw__knob { position: absolute; top: var(--sw-p); left: var(--sw-p); width: calc(var(--sw-h) - 2 * var(--sw-p)); height: calc(var(--sw-h) - 2 * var(--sw-p));
+.sw__knob { position: absolute; top: calc(var(--sw-p) - var(--sw-b)); left: calc(var(--sw-p) - var(--sw-b)); width: calc(var(--sw-h) - 2 * var(--sw-p)); height: calc(var(--sw-h) - 2 * var(--sw-p));
   border-radius: 50%; background: var(--text-lo); transition: transform var(--t-fast) var(--ease-out), background var(--t-fast); }
 .sw.is-on { background: var(--mint-800); border-color: var(--mint-700); }
 .sw.is-on .sw__knob { transform: translateX(calc(var(--sw-w) - var(--sw-h))); background: var(--mint-400); }
