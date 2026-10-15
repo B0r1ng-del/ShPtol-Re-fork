@@ -235,12 +235,17 @@ export function scaleFor(gd, r) {
 }
 
 /** The spawn mods of a round's scale for a non-leader enemy: HP / ATK / speed, plus `supplyHpMul` when the round has one. */
-export function roundMods(scale, ex = null) {
+export function roundMods(scale, ex = null, gd = null) {
   const m = { hpMul: scale.hpMul, atkMul: scale.atkMul, speedMul: scale.speedMul };
   if (scale.supplyHpMul != null) m.supplyHpMul = scale.supplyHpMul;
   // the MODE's own spawn extras on top of the official table (fork 二.3; all 1 for every official mode). An ordinary
   // spawn takes the +HP only: the leader / hidden core ATK+DEF extra is applied by the boss branch of templateSpawns.
   if (ex) m.hpMul *= ex.normalHp;
+  // the 房主配置「对局选项」DEF / RES buff (GameData.enemyBuffDefRes; null without one, so an unbuffed spec is byte-identical
+  // — the two keys are only written when they are not 1). HP / ATK are already in `scale` (GameData.enemyScale folds them
+  // into the round table, which is what makes the buff reach every enemy kind in one place).
+  const dr = gd && typeof gd.enemyBuffDefRes === 'object' ? gd.enemyBuffDefRes : null;
+  if (dr) { m.defMul = dr.defMul; m.resMul = dr.resMul; }
   return m;
 }
 
@@ -293,6 +298,9 @@ function templateSpawns(gd, tpl, round, pick) {
   const scale = scaleFor(gd, round);
   // the MODE's own spawn extras on top of the official table (fork 二.3; all 1 for every official mode)
   const ex = gd.enemyExtras(round);
+  // the 房主配置「对局选项」DEF / RES buff, `{ defMul: 1, resMul: 1 }` without one (see roundMods for the ordinary-spawn path;
+  // HP / ATK arrive already folded into `scale`)
+  const buffDR = gd.enemyBuffDefRes || { defMul: 1, resMul: 1 };
   const ph = placeholderMap(gd);
   const routes = Array.isArray(tpl.routes) ? tpl.routes : [];
   const leader = isLeaderTemplate(tpl);
@@ -344,9 +352,17 @@ function templateSpawns(gd, tpl, round, pick) {
       // The mode's own extras sit on top (ex.*, fork 二.3): the ordinary +HP never reaches the leader (it has no hpMul
       // here) nor a 部位 (`isPart`), while the leader's / hidden core's ATK and DEF do — `defMul` is only added when it
       // is not 1, so an official spec is byte-identical to before.
+      //
+      // The 房主配置「对局选项」reaches a leader through `scale` (HP / ATK, `GameData.enemyScale`) and through `buffDR` here
+      // (DEF / RES). Its HP is the shared pool, so its own `hpMul` stays absent — `finalAssault.bossPoolHp` applies the
+      // HP buff to the pool itself.
       mods: isBoss
-        ? { atkMul: scale.atkMul * ex.bossAtk, speedMul: scale.speedMul, slot, ...(ex.bossDef !== 1 ? { defMul: ex.bossDef } : null) }
-        : { ...roundMods(scale, isPart ? null : ex), slot },
+        ? {
+          atkMul: scale.atkMul * ex.bossAtk, speedMul: scale.speedMul, slot,
+          ...(ex.bossDef * buffDR.defMul !== 1 ? { defMul: ex.bossDef * buffDR.defMul } : null),
+          ...(buffDR.resMul !== 1 ? { resMul: buffDR.resMul } : null),
+        }
+        : { ...roundMods(scale, isPart ? null : ex, gd), slot },
       actionIndex: i,
       preview: previewInfo(gd, key, routes[routeIndex], isBoss, leader),
     };
@@ -548,7 +564,7 @@ function bountyPlan(gd, round, wave, bounties, playerId, side) {
         routeIndex,
         count: run.len,
         interval: run.len > 1 ? step : 0,
-        mods: { ...roundMods(scale, ex), slot: classOf(gd, c.enemyKey), bountyId: b.id },
+        mods: { ...roundMods(scale, ex, gd), slot: classOf(gd, c.enemyKey), bountyId: b.id },
         tag: 'bounty',
         ownerPlayerId: playerId,
         preview: previewInfo(gd, c.enemyKey, routes[routeIndex], false, leader),

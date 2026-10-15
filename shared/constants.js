@@ -74,6 +74,67 @@ export const HOST_CONFIG_SOLO_KEYS = Object.freeze(['itemSell']);
 export const ITEM_SELL_PRICE = 1;
 
 /**
+ * 房主配置「对局选项」— the enemy buffs (a fork feature, `room.setEnemyBuff`). Four sliders that strengthen EVERY enemy of
+ * the match: 怪物血量 / 怪物攻击 / 怪物防御 / 怪物魔抗. Each is an integer count of 10 % steps, so `steps × 10 %` is the
+ * multiplier and 0 (the default) is the official numbers — a room that never touches them is byte-identical to vanilla.
+ *
+ * 需求方 2026-10-15: 「按照图中所示添加对应功能，并确保该功能在所有模式中均通用」— the panel is on every 准备房间 (all
+ * modes, 独立模拟 included, so there is no solo restriction: a buff on one's own enemies shares nothing with teammates).
+ * The label under the sliders reads the TOTAL the room has reached ("本局敌人已获得强化（合计 260%）").
+ *
+ * Where each one lands (server/match/gamedata.js `enemyScale` folds hp/atk into the official round table so every
+ * consumer inherits them; def/res are added by `server/match/waves.js`):
+ *   * 血量 — ordinary spawns, 首领 (the shared pool), 隐秘核心, 部位, bounty adds, 联防 leaked enemies, leader summons;
+ *   * 攻击 — the same set (the leader's own ATK / DEF do take the round effects, only its HP is the server pool);
+ *   * 防御 / 魔抗 — every enemy too; a multiplier of 1 is not written at all, so an unbuffed spec is byte-identical.
+ */
+export const HOST_ENEMY_KEYS = Object.freeze(['enemyHp', 'enemyAtk', 'enemyDef', 'enemyRes']);
+/** Defaults of HOST_ENEMY_KEYS: no buff (the official numbers). */
+export const HOST_ENEMY_DEFAULTS = Object.freeze({ enemyHp: 0, enemyAtk: 0, enemyDef: 0, enemyRes: 0 });
+/** The most steps a slider can reach: 10 steps × 10 % = +100 %. */
+export const HOST_ENEMY_MAX_STEPS = 10;
+/**
+ * What one step is worth, in PERCENT — 10. The integer is the source of truth and `HOST_ENEMY_STEP` is derived from it,
+ * so a slider's own label reads an exact `steps × 10`: a `steps × 0.1 × 100` round trip prints `+60.00000000000001 %`.
+ */
+export const HOST_ENEMY_STEP_PCT = 10;
+/** What one step is worth as a multiplier (0.1). */
+export const HOST_ENEMY_STEP = HOST_ENEMY_STEP_PCT / 100;
+/** The enemy buffs a single-seat room may set too — every one of them (they share nothing between players). */
+export const HOST_ENEMY_SOLO_KEYS = HOST_ENEMY_KEYS;
+
+/**
+ * Normalise a `room.enemyBuff` payload to exactly HOST_ENEMY_KEYS integers in `[0, HOST_ENEMY_MAX_STEPS]`: a missing /
+ * malformed value is 0 (the official numbers), so a room created without them — and every caller that passes nothing
+ * (the golden scenarios, the tools, every test) — reads exactly what it read before the feature existed.
+ * @param {any} src
+ * @returns {Record<string, number>}
+ */
+export const normalizeEnemyBuff = (src) => {
+  const s = src && typeof src === 'object' && !Array.isArray(src) ? src : {};
+  /** @type {Record<string, number>} */
+  const out = {};
+  for (const k of HOST_ENEMY_KEYS) {
+    const v = Math.trunc(Number(s[k]));
+    out[k] = Number.isFinite(v) ? Math.max(0, Math.min(HOST_ENEMY_MAX_STEPS, v)) : 0;
+  }
+  return out;
+};
+
+/**
+ * The four multipliers `normalizeEnemyBuff` implies, or null when nothing is buffed (so an unbuffed match allocates
+ * nothing and takes the byte-identical path). `hp` / `atk` / `def` / `res`, each `1 + steps × 10 %`.
+ * @param {any} src `room.enemyBuff` / `opts.enemyBuff`
+ * @returns {{ hp: number, atk: number, def: number, res: number } | null}
+ */
+export const enemyBuffMul = (src) => {
+  const b = normalizeEnemyBuff(src);
+  if (HOST_ENEMY_KEYS.every((k) => b[k] === 0)) return null;
+  const mul = (k) => 1 + b[k] * HOST_ENEMY_STEP;
+  return { hp: mul('enemyHp'), atk: mul('enemyAtk'), def: mul('enemyDef'), res: mul('enemyRes') };
+};
+
+/**
  * Mod 开关 — the lobby's per-device gameplay switches (a fork feature, `room.create.mods`). They live in the 模式界面
  * only, beside 干员调配, and they are NOT room options: they are a local preference the creator carries into the room it
  * creates (`public/js/ui/mods.js`, localStorage), and the match then runs under them like it runs under the difficulty.

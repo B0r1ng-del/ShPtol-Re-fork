@@ -172,7 +172,7 @@
 //   common.js        what the modules share (FLOW_TICKER_PRIORITY, DELAYS, BAND_TURN_SECONDS — re-exported here, OK,
 //                    fail, BOSS_CLOCK_MS)
 
-import { PHASE, ROOM_MODES, ULTIMATE_DIFFICULTY, modeIdFor, packEnabled } from '../../shared/constants.js';
+import { PHASE, ROOM_MODES, ULTIMATE_DIFFICULTY, modeIdFor, packEnabled, normalizeEnemyBuff } from '../../shared/constants.js';
 import { Battle } from '../sim/Battle.js';
 import { DataSource } from '../sim/simdata.js';
 import { createRng, deriveSeed } from '../sim/rng.js';
@@ -253,7 +253,7 @@ export class Match {
     this.broadcastFn = opts.broadcast;
     this.onEndFn = opts.onEnd;
     this.data = opts.data && typeof opts.data === 'object' ? opts.data : {};
-    this.gd = new GameData(this.data, this.modeId, opts.mods);
+    this.gd = new GameData(this.data, this.modeId, opts.mods, opts.enemyBuff);
     if (!this.difficulty) this.difficulty = this.gd.difficulty;
     this.isSolo = this.mode === 'solo' || this.gd.isSolo;
     /** 「AI 队友最后选择」 (opts.aiPicksLast, GitHub #338): humans draft before AI seats (MatchPhases.humansFirst) */
@@ -274,6 +274,14 @@ export class Match {
      * single-seat room can set it too (HOST_CONFIG_SOLO_KEYS): it shares nothing between players.
      */
     this.itemSell = opts.itemSell === true;
+    /**
+     * 房主配置「对局选项」(opts.enemyBuff, HOST_ENEMY_KEYS `room.setEnemyBuff`): the four enemy buffs the host turned up,
+     * as 10 % step counts. `this.gd` already carries the multipliers it implies (`GameData.enemyScale` folds HP / ATK in,
+     * `waves.js` adds DEF / RES), so the match itself only keeps the raw counts for its own reporting. All 0 by default,
+     * so a caller that passes nothing (the golden scenarios, the rehearsal tools, every test) is byte-identical.
+     * @type {Record<string, number>}
+     */
+    this.enemyBuff = normalizeEnemyBuff(opts.enemyBuff);
     /**
      * Mod 开关 (MOD_KEYS, `room.create.mods`): the lobby's per-device gameplay switches, fixed for the match like the
      * difficulty. All OFF by default, so a caller that passes nothing (the golden scenarios, the rehearsal tools, every
