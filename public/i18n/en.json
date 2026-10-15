@@ -1557,5 +1557,8 @@
   "开启后装备可以出售，售价 1 块钱；关闭时装备只能销毁": "On: equipment can be sold for 1 Fund. Off: equipment can only be destroyed.",
   "出售装备": "Sell Equipment",
   "确定要出售「{name}」吗？出售后获得 {price} 资金。": "Sell \"{name}\"? You get {price} Funds.",
-  "已配发的装备无法出售": "Equipped Equipment cannot be sold"
+  "已配发的装备无法出售": "Equipped Equipment cannot be sold",
+  "莱茵科技": "Rhine Tech",
+  "查看莱茵生命科研装置": "Show the Rhine Lab research devices",
+  "返回商店干员表": "Back to the shop operator list"
 }

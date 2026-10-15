@@ -291,11 +291,14 @@ export function RewardCards({ offer, priv, editable, onPick, onDetail, onLater, 
  * @param {{ priv:any, editable:boolean, collapsed:boolean, refreshBusy?:boolean, onCollapse:(c:boolean)=>void,
  *   onBuy:(i:number)=>void, onLevel:Function, onRefresh:Function, onFreeze:Function, onDetail:(id:string, kind?:string, hint?:string|null)=>void,
  *   onDetailClose?: () => void, onRefuse?: (reason: string) => void, barRef:any,
- *   reward?: any, onReward?: (idx:number)=>void, onRewardLater?: Function, offBonds?: Set<string>|null }} props — offBonds:
- *   the bonds this mode never activates (gameLogic modeOffBonds), struck through on the operator cards
+ *   reward?: any, onReward?: (idx:number)=>void, onRewardLater?: Function, offBonds?: Set<string>|null,
+ *   rhineDock?: any, rhineOpen?: boolean, onRhineToggle?: (open:boolean)=>void }} props — offBonds:
+ *   the bonds this mode never activates (gameLogic modeOffBonds), struck through on the operator cards;
+ *   rhineDock/rhineOpen/onRhineToggle: 莱茵科技 — the rendered 科研装置 picker, which of the two the slot shows, and the
+ *   button's toggle (css/screens/rhine.css `.has-rhine`)
  */
 export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onCollapse, onBuy, onLevel, onRefresh, onFreeze, onDetail, onDetailClose, onRefuse, barRef,
-  reward = null, onReward, onRewardLater, onArm = null, offBonds = null }) {
+  reward = null, onReward, onRewardLater, onArm = null, offBonds = null, rhineDock = null, rhineOpen = false, onRhineToggle = null }) {
   const shop = priv?.shop || {};
   const slots = Array.isArray(shop.slots) ? shop.slots : [];
   const chessSlots = slots.map((s, i) => ({ s, i })).filter(({ s }) => !s || s.kind !== 'item');
@@ -348,9 +351,20 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
   }
 
   const hk = { refresh: hotkeyLabelOf('refresh'), freeze: hotkeyLabelOf('freeze') }; // the player's keys (设置 → 快捷键)
-  return html`<section class=${cx('shopbar', frozen && 'is-frozen', !editable && 'is-locked', showReward && 'has-reward', armed && 'has-armed')} ref=${barRef} aria-label=${t('调度中心')}>
+  // 莱茵科技 (owner request 2026-10-15): the 科研装置 picker and this card row are mutually exclusive and share ONE slot
+  // in the column, 商店 by default. `rhineDock` is the rendered picker (or null) and `rhineOpen` says which of the two is
+  // showing; the button only exists while 莱茵生命 is activated — the picker renders null otherwise (ui/rhineDock.js), so
+  // an inactive room never offers a swap. Passing the picker through the bar keeps it a flex child, with the tools row
+  // above it, instead of an absolutely positioned box guessing the bar's height.
+  const rhine = !!rhineDock;
+  return html`<section class=${cx('shopbar', frozen && 'is-frozen', !editable && 'is-locked', showReward && 'has-reward', armed && 'has-armed', rhine && rhineOpen && 'has-rhine')} ref=${barRef} aria-label=${t('调度中心')}>
     <div class="shopbar__tools">
       <span class="shopbar__remain">${t('剩余可放置角色：')}<b class=${cx('num', remaining === 0 && 't-orange')}>${remaining}</b></span>
+      ${rhine ? html`<button type="button" class=${cx('toolbtn', 'toolbtn--rhine', rhineOpen && 'is-on')} onClick=${() => onRhineToggle?.(!rhineOpen)}
+        aria-pressed=${rhineOpen ? 'true' : 'false'} data-testid="rhine-toggle"
+        title=${rhineOpen ? t('返回商店干员表') : t('查看莱茵生命科研装置')}>
+        <${Icon} name="chart" /><span>${t('莱茵科技')}</span>
+      </button>` : null}
       <button type="button" class=${cx('toolbtn', 'toolbtn--ice', frozen && 'is-on')} disabled=${!!frzReason} onClick=${onFreeze}
         title=${frzReason || (frozen ? t('解冻商店 · {key}', { key: hk.freeze }) : t('冻结商店（下回合保留） · {key}', { key: hk.freeze }))}>
         <${Img} src=${uiUrl(data.get('assets'), frozen ? 'shopPanel/frozen_icon2' : 'shopPanel/frozen_icon')} class="toolbtn__img" fallback=${html`<${Icon} name="snow" />`} />
@@ -395,5 +409,6 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
         <button type="button" class="funds__collapse" onClick=${() => onCollapse(true)}><${Icon} name="close" />${t('收起')}</button>
       </div>
     </div>
+    ${rhineDock}
   </section>`;
 }
