@@ -2,7 +2,8 @@
 // the slots, the picker's operators with the kit list, skill / module choices without 集成战略 modules, export / import)
 // and its server sync (room.diy; welcome.diyKitted), the tab's components (ten slots, the picker, 确认), and the match
 // UI of a 自选 piece — the shop / reward card and the detail card show the operator (name, art, class, derived bonds,
-// the pick's skill and module) with a 「自选」 badge, the own pieces get a tag, placement reads the operator's position, and
+// the pick's skill and module) with a 「自选」 badge, the own pieces draw the operator (no in-match tag — 2026-10-15),
+// placement reads the operator's position, and
 // the bond popup lists the 自选 member (own and a teammate's).
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
@@ -29,7 +30,10 @@ const { ChessCard } = await import('../../public/js/ui/shopBar.js');
 const { ChessDetail, resolveDetail } = await import('../../public/js/ui/detailPanel.js');
 const { BondPopup } = await import('../../public/js/ui/bondStrip.js');
 const { ownerBoard } = await import('../../public/js/ui/watchBonds.js');
-const { diyPieces } = await import('../../public/js/screens/game/standInTags.js');
+const standInTagsRaw = readFileSync(path.join(ROOT, 'public/js/screens/game/standInTags.js'), 'utf8');
+/** Comments name what was removed on purpose; only real code counts here. */
+const stripComments = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');
+const standInTagsSource = stripComments(standInTagsRaw);
 const { DiyPanelView, DiyPickerView } = await import('../../public/js/screens/diy.js');
 const { data } = await import('../../public/js/data.js');
 const { DATA } = await import('../match/harness.js');
@@ -363,10 +367,20 @@ describe('match UI of a 自选 piece', () => {
     assert.ok(!blocks.some((b) => b.key === 'garrison'), 'no 特质');
   });
 
-  test('own prep pieces of a filled slot get the 「自选」 tag', () => {
-    const p = { ...priv, hand: [{ uid: 1, kind: 'chess', id: T5A }, { uid: 2, kind: 'chess', id: 'chess_char_4_22_a' }], temp: [], board: [{ uid: 4, kind: 'chess', id: 'chess_char_6_diy1_b', row: 10, col: 4 }] };
-    assert.deepEqual(diyPieces(p, getChess, D).map((x) => [x.uid, x.area, x.label, x.name]), [[1, 'hand', '自选', DATA.backups.units[SIEGE].name], [4, 'board', '自选', DATA.backups.units[SHARP].name]]);
-    assert.deepEqual(diyPieces({ ...p, diy: {} }, getChess, D), []);
+  test('the in-match 「自选」 tag under a piece\'s feet is gone (owner request 2026-10-15)', () => {
+    // It left with `diyPieces` and the `.sitag--diy` rule: a DIY piece already reads as its operator on the shop card
+    // (.scard__diy), on its drawn model and in the detail card (.dtag-diy), so a second badge under its feet was noise.
+    // The 替补 tag is untouched (test/ui/standin-ui.test.js); test/ui/diy.e2e.test.js asserts the missing tag in a real
+    // browser against a bought 自选 piece.
+    assert.equal(standInTagsRaw.includes('diyPieces'), true, 'the file still says why it went (a comment)');
+    assert.equal(standInTagsSource.includes('diyPieces'), false, 'diyPieces is gone from the code');
+    assert.equal(standInTagsSource.includes('ownDiyRecord'), false, 'and its reader with it');
+    assert.equal(standInTagsSource.includes('sitag--diy'), false, 'and so is its own style hook');
+    assert.equal(standInTagsSource.includes('data-diy'), false, 'and its data attribute');
+    assert.equal(readFileSync(path.join(ROOT, 'public/css/screens/game-panels.css'), 'utf8').includes('.sitag--diy'), false,
+      'and no rule paints one');
+    assert.equal(stripComments(readFileSync(path.join(ROOT, 'public/js/screens/game.js'), 'utf8')).includes('diyData='), false,
+      'and the screen passes it no DIY data any more');
   });
 
   test('bonds: the popup lists the own 自选 member (煌-style several bonds count each) and a teammate\'s by its unit\'s pick', () => {

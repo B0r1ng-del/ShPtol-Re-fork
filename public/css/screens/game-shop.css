@@ -16,11 +16,13 @@
    on bench slots 5–9. */
 .gm__hud > .shopbar { pointer-events: none; }
 .shopbar__row, .shopbar__tools > button { pointer-events: auto; }
+/* `flex-basis: 100%` is what puts 剩余可放置角色 on its own line above the buttons (flex-wrap); `max-width: fit-content`
+   is what keeps the label content-sized and right-aligned instead of stretching to the whole row (owner request
+   2026-10-15, green box). The buttons below keep their own content widths, so 莱茵科技 / 冻结 / 刷新 read as one row and
+   the pre-莱茵科技 two-button row is byte-identical to what it was. */
 .shopbar__tools { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: .06rem .12rem; }
-/* 莱茵科技 (owner request 2026-10-15) adds a third button to this row; `flex-basis: 100%` keeps 剩余可放置角色 on its own
-   line and `flex-wrap` puts the new button left of 冻结/刷新 when 莱茵生命 is active, leaving the two-button row as it was. */
 .shopbar__remain {
-  flex-basis: 100%; pointer-events: none;
+  flex-basis: 100%; max-width: fit-content; pointer-events: none;
   font-size: .16rem; color: var(--text-md); padding: .04rem .14rem; background: rgba(8, 11, 10, .78);
   border-left: 3px solid var(--mint-500);
 }

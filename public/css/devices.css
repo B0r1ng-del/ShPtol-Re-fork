@@ -134,12 +134,12 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
   .gm__tools .gm__gear .icon { width: max(.28rem, 17px); height: max(.28rem, 17px); }
   .gm__bonds { left: 3.4rem; }
   /* The left-docked detail card now only has to clear the 交流 button left in the corner (.24rem + the sprite's height,
-     55/151 of its width): at its desktop bottom (1.02rem) it covered that button's hit area. (gameLogic panelSlots
-     keeps the taller desktop slot: conservative.) */
-  .dpanel:not(.dpanel--right) { bottom: calc(.38rem + max(1.51rem, 72px) * 55 / 151); }
+     55/151 of its width, x .7 since the button shrank - css/emotes.css): at its desktop bottom (1.02rem) it covered that
+     button's hit area. (gameLogic panelSlots keeps the taller desktop slot: conservative.) */
+  .dpanel:not(.dpanel--right) { bottom: calc(.38rem + max(1.51rem, 72px) * 55 / 151 * .7); }
 }
 @media (max-width: 767px) and (pointer: coarse), (max-width: 767px) and (any-pointer: coarse) {
-  .dpanel:not(.dpanel--right) { bottom: calc(.38rem + max(1.51rem, 96px) * 55 / 151); }
+  .dpanel:not(.dpanel--right) { bottom: calc(.38rem + max(1.51rem, 96px) * 55 / 151 * .7); }
 }
 
 /* Short landscape phones (≤ 460 CSS px tall, 1rem = 40 px): the lobby's two columns are compressed so the

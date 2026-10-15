@@ -580,7 +580,6 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .sitag { position: absolute; transform: translate(-50%, .02rem); pointer-events: none; white-space: nowrap; font-size: max(.12rem, 9px); font-weight: 700;
   line-height: 1.35; padding: 0 .05rem; letter-spacing: .03em; background: var(--ice); color: var(--ice-900); box-shadow: 0 1px 3px rgba(0, 0, 0, .7); opacity: .92; }
 .sitag--board { background: #c2e3ff; }
-.sitag--diy { background: var(--mint-500); color: var(--text-on-mint); }
 .gm.is-dragging .sitags { display: none; }
 
 /* ---- underframe: the selection diamond of a tapped own piece (ui/underframe.js): 撤退 / 出售 +N / 销毁 ----
