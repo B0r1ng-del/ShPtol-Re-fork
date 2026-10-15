@@ -34,6 +34,12 @@ export class PlayerPieces {
       if (p.uid === uid) return { piece: p, area: 'board', key };
       if (p.items) for (const it of p.items) if (it.uid === uid) return { piece: it, area: 'equipped', holder: p };
     }
+    // 六.F: a 科研装置 lives in its own reserve (player/research.js), not the hand. Without this every `g.move` of a
+    // device out of the reserve failed BAD_TARGET before it ever reached _moveTokenToBoard (owner report 2026-10-15).
+    for (let i = 0; i < this.research.hand.length; i++) {
+      const p = this.research.hand[i];
+      if (p && p.uid === uid) return { piece: p, area: 'research', idx: i };
+    }
     return null;
   }
 
@@ -60,6 +66,7 @@ export class PlayerPieces {
     if (!loc) return;
     if (loc.area === 'hand') this.hand[loc.idx] = null;
     else if (loc.area === 'temp') { this.temp[loc.idx] = null; this._tempDue.delete(loc.piece.uid); }
+    else if (loc.area === 'research') this.research.hand[loc.idx] = null;
     else if (loc.area === 'board') this.board.delete(loc.key);
     else if (loc.area === 'equipped') {
       const i = loc.holder.items.indexOf(loc.piece);

@@ -194,6 +194,9 @@ function MatchScreen() {
   // deals duplicates) carry the same chess id and no piece, and each must say its 选中干员 (detailPanel selectVoiceKey)
   const cardTap = useRef(0);
   const [collapsed, setCollapsed] = useState(false);
+  // 莱茵科技 (owner request 2026-10-15): which of the two the shop slot shows — the 商店干员表 (default) or the 莱茵生命
+  // 科研装置 picker. Session state, like 收起: it is a view choice, not a game decision, so it is not persisted.
+  const [rhineOpen, setRhineOpen] = useState(false);
   // GitHub #501: a g.refresh is still waiting for its reply — the shop's 刷新 button dims while it is (gameActions.js
   // single-flights the intent; the R hotkey is dropped by the same guard)
   const [refreshBusy, setRefreshBusy] = useState(false);
@@ -1515,15 +1518,6 @@ function MatchScreen() {
         </div>
       </div>
 
-      ${!watchingOther && !pen && !sp ? html`<${RhineDock} research=${priv?.research} editable=${editable && showPrep}
-        view=${view} placeCtx=${placeCtx}
-        onDeploy=${async (uid, tile) => {
-          const check = canPlace(live.current.placeCtx, uid, tile);
-          if (!check.ok) { toast(check.reason, 'warn'); return; }
-          await actions.move(uid, tile, 'RIGHT');
-        }} onRecall=${(uid) => actions.move(uid, { area: 'research' })}
-        onDetail=${(uid) => setDetail({ kind: 'piece', uid })} />` : null}
-
       <${TeamPanel} pub=${pub} myId=${myId} watching=${watchingNow} bubbles=${bubbles} onWatch=${watchPlayer} cap=${gd.config?.lpCapPerRound ?? 10} uniteLocal=${uniteLocal}
         self=${Number.isFinite(priv?.lp) ? { lp: priv.lp, pending: liveLpNow.pending, unite: liveLpNow.unite, left: liveLpNow.left } : null}
         observe=${cc
@@ -1546,6 +1540,15 @@ function MatchScreen() {
 
       ${showShop ? html`<${ShopBar} priv=${priv} editable=${editable} collapsed=${collapsed} refreshBusy=${refreshBusy} onCollapse=${setCollapsed}
         barRef=${barRef} offBonds=${offBonds}
+        rhineOpen=${rhineOpen} onRhineToggle=${setRhineOpen}
+        rhineDock=${!watchingOther && !pen && !sp && priv?.research?.unlocked ? html`<${RhineDock} research=${priv.research} editable=${editable && showPrep}
+          view=${view} placeCtx=${placeCtx}
+          onDeploy=${async (uid, tile) => {
+            const check = canPlace(live.current.placeCtx, uid, tile);
+            if (!check.ok) { toast(check.reason, 'warn'); return; }
+            await actions.move(uid, tile, 'RIGHT');
+          }} onRecall=${(uid) => actions.move(uid, { area: 'research' })}
+          onDetail=${(uid) => setDetail({ kind: 'piece', uid })} />` : null}
         onBuy=${buy} onLevel=${() => actions.levelUp()} onRefresh=${() => actions.refresh()} onFreeze=${() => actions.freeze()}
         onDetail=${(id, kind, hint) => setDetail({ kind: kind === 'item' ? 'item' : 'chess', id, hint: hint || null, tap: ++cardTap.current })}
         onDetailClose=${() => setDetail((d) => (d?.kind === 'chess' || d?.kind === 'item' ? null : d))}

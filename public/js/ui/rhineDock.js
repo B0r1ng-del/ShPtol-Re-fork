@@ -110,7 +110,7 @@ export function RhineDock({ research, editable, view, placeCtx, onDeploy, onReca
   }, [armed, editable, view, placeCtx, onDeploy, research]);
   if (!research?.unlocked) return null;
   const deployed = (research.devices || []).filter(d => d.onBoard).length;
-  return html`<section class=${`rhine-dock${collapsed ? ' is-collapsed' : ''}${armed != null ? ' is-placing' : ''}`} aria-label=${t('莱茵生命科研备牌区')} data-testid="rhine-dock">
+  return html`<section class=${`rhine-dock${collapsed ? ' is-collapsed' : ''}`} aria-label=${t('莱茵生命科研备牌区')} data-testid="rhine-dock">
     <header><b>${t('莱茵生命 · 联合科研')}</b><span>${t('盟约 {layers} 层 · 部署 {deployed}/{capacity}', { layers: research.layers || 0, deployed, capacity: research.capacity || 0 })}</span>
       <button type="button" aria-label=${collapsed ? t('展开科研装置') : t('收起科研装置')} onClick=${() => setCollapsed(!collapsed)}>${collapsed ? '+' : '−'}</button></header>
     ${collapsed ? null : html`<div class="rhine-dock__cards">${RHINE_DEVICES.map((def, index) => {
@@ -134,6 +134,6 @@ export function RhineDock({ research, editable, view, placeCtx, onDeploy, onReca
         <div class="rhine-card__actions"><button type="button" disabled=${uid == null} onClick=${() => uid != null && onDetail?.(uid)}>${t('详情')}</button>
           ${status.onBoard ? html`<button type="button" disabled=${!editable} onClick=${() => onRecall?.(uid)}>${t('收回')}</button>` : null}</div>
       </article>`;
-    })}</div><p class="rhine-dock__hint">${armed != null ? t('点击高亮格或拖动到棋盘部署 · Esc取消') : research.capacity ? t('3人可部署1台，6人可部署2台，9人可部署3台 · 科研位不占普通备牌格') : t('莱茵生命未激活，装置停机；研究成果已保留')}</p>`}
+    })}</div>`}
   </section>`;
 }

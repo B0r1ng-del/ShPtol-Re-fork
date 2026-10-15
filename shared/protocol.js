@@ -380,6 +380,10 @@ const target = (v) => {
   if (!v || typeof v !== 'object') return false;
   if (v.area === 'board') return isInt(v.row, 0, GEO.ROWS - 1) && isInt(v.col, 0, GEO.COLS - 1);
   if (v.area === 'hand') return isInt(v.idx, 0, GEO.HAND_SIZE - 1);
+  // 六.F 科研位 (player/research.js): the device reserve, its own target area like hand/board. Without it 收回
+  // (RhineDock onRecall `g.move { area: 'research' }`) died here as BAD_MSG (owner report 2026-10-15). The reserve is
+  // fixed by device kind, so `idx` is not needed; move() re-checks it when a caller sends one.
+  if (v.area === 'research') return v.idx == null || isInt(v.idx, 0, Number.MAX_SAFE_INTEGER);
   return false;
 };
 
