@@ -84,9 +84,52 @@ export const HOST_CONFIG_DEFAULTS = Object.freeze({ sharedPool: true, sharedBoun
  *                                  attribution) — the same rule 终极模拟's own `spDraft.randomVote` follows (二.4).
  *                             off — no vote button anywhere the mode itself does not ask for it (the official draft).
  */
-export const MOD_KEYS = Object.freeze(['noBondBan', 'untimedSp', 'randomSpVote', 'extraRounds', 'targetedPick', 'uncapLayers']);
+export const MOD_KEYS = Object.freeze([
+  'noBondBan', 'untimedSp', 'randomSpVote', 'extraRounds', 'targetedPick', 'uncapLayers',
+  'packRhine', 'packAphris', 'packRelic', 'packExtra6', 'packCustom',
+]);
 /** Defaults of MOD_KEYS: the official behaviour of each switch (all off). */
-export const MOD_DEFAULTS = Object.freeze({ noBondBan: false, untimedSp: false, randomSpVote: false, extraRounds: false, targetedPick: false, uncapLayers: false });
+export const MOD_DEFAULTS = Object.freeze({
+  noBondBan: false, untimedSp: false, randomSpVote: false, extraRounds: false, targetedPick: false, uncapLayers: false,
+  packRhine: false, packAphris: false, packRelic: false, packExtra6: false, packCustom: false,
+});
+
+/**
+ * 内容包开关 — the second column of the Mod submenu: whether a ported content pack may be used IN GAME. One key per
+ * pack, all in MOD_KEYS (they travel with `room.create.mods` like every other switch, and a joiner plays the host's).
+ *
+ * ON  — every chess / bond / item of that pack is offered and plays normally.
+ * OFF (the default) — its records are invisible to the match and to the client: they are filtered out of the shop pool,
+ *                     the reels and every 干员/盟约 list, so a room created without the pack is the original content.
+ *
+ * A record carries its pack in ITS OWN `packId` field (`data/chess.json` / `backups.json` / `bonds.json` / `items.json`),
+ * written by the fork's data layer (`tools/fork-overrides.mjs` → `tools/fork-data.mjs`); a record WITHOUT one is the
+ * original content and is always offered. `packEnabled` is the whole rule, read by `GameData` (server) and by the
+ * client's data store, so both agree on what a match contains.
+ *
+ * `PACK_AUTHORS` is the ported content's credit, shown in each switch's own ⓘ (the second column's tip).
+ */
+export const PACK_KEYS = Object.freeze(['packRhine', 'packAphris', 'packRelic', 'packExtra6', 'packCustom']);
+export const PACK_AUTHORS = Object.freeze({
+  packRhine: 'YUYUYUYUYUYUYUTOUA',
+  packAphris: 'SrC204',
+  packRelic: 'UNDFFIO',
+  packExtra6: 'remember-4',
+  packCustom: 'Lunac1a',
+});
+/**
+ * Whether a data record of pack `packId` may be used under these switches. No `packId` = the original content (`null`
+ * / `undefined` is truthy here only when the record names no pack, which is the whole point); an unknown pack id is
+ * only available when a switch of that exact name is on, so a pack whose switch was removed stays off. An ARRAY of ids
+ * means the record belongs to every one of them (`rhineShip` is contributed by both 莱茵生命 and 谬因·并入莱茵): it is
+ * available when ANY of them is on, because either switch alone has to be able to bring its own bond with it.
+ * @param {Record<string, boolean>|null|undefined} mods
+ * @param {string|string[]|null|undefined} packId
+ */
+export const packEnabled = (mods, packId) => {
+  if (Array.isArray(packId)) return packId.length === 0 || packId.some((id) => mods?.[id] === true);
+  return !packId || mods?.[packId] === true;
+};
 /**
  * How many extra 普通回合 the 「额外 4 回合」 switch (`extraRounds`) inserts before the boss: the run goes 14 → 18 rounds
  * in every mode. `GameData.extraRounds` reads it; the inserted rounds reuse the last ordinary round's own table.

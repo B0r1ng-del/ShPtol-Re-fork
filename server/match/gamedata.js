@@ -15,6 +15,7 @@ import { getConfig, getMode } from '../data.js';
 import { isShopItem } from '../sim/simdata.js';
 import { standInRecord } from '../../shared/standIn.js';
 import { normalizeMods, MOD_RANDOM_SP_FAMILIES, MOD_EXTRA_ROUNDS, layerCapFor } from '../../shared/constants.js';
+import { filterRawData, effectiveBonds } from '../../shared/packData.js';
 
 const own = (map, id) => (map && typeof map === 'object' && typeof id === 'string' && Object.hasOwn(map, id) && map[id] && typeof map[id] === 'object' ? map[id] : null);
 const numOr = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -97,12 +98,16 @@ export class GameData {
    *   the official mode, byte-identical to before (the golden scenarios, the tools and every test pass nothing).
    */
   constructor(data, modeId, mods) {
-    this.raw = data && typeof data === 'object' ? data : {};
+    /** Mod 开关 of this match (MOD_KEYS, all off by default). @type {Record<string, boolean>} */
+    this.mods = normalizeMods(mods);
+    // 内容包开关: the ported packs' records are dropped HERE, once, so every accessor below — the shop pool, the reels,
+    // the 盟约 lists, the detail cards, the client-result bounds — sees only what this room actually contains. With
+    // every pack off (the default, every golden scenario, every test) `filterRawData` returns `data` itself and this
+    // constructor reads exactly what it read before the packs existed.
+    this.raw = filterRawData(this.mods, data && typeof data === 'object' ? data : {});
     this.config = getConfig(this.raw) || {};
     this.modeId = modeId;
     this.mode = getMode(modeId, this.raw) || {};
-    /** Mod 开关 of this match (MOD_KEYS, all off by default). @type {Record<string, boolean>} */
-    this.mods = normalizeMods(mods);
     this.economy = this.config.economy && typeof this.config.economy === 'object' ? this.config.economy : {};
     const chess = this.raw.chess && typeof this.raw.chess === 'object' ? this.raw.chess : {};
     this._chess = chess;
@@ -212,8 +217,10 @@ export class GameData {
    * @returns {string[]}
    */
   chessBondIds(id) {
-    const b = own(this._chess, id)?.bonds;
-    return Array.isArray(b) ? b.filter((x) => typeof x === 'string') : [];
+    // `effectiveBonds`: a record's own bonds plus what the ENABLED packs contribute (`packBonds`), so 谬因 counts as a
+    // 莱茵生命 member while that pack is on and as an ordinary operator while it is off. Nothing to add ⇒ the same array.
+    const b = effectiveBonds(this.mods, own(this._chess, id));
+    return b.filter((x) => typeof x === 'string');
   }
 
   /**

@@ -16,7 +16,7 @@
 
 import { useState } from '../../vendor/hooks.module.js';
 import { loadPref, savePref, createStore, useStore } from '../store.js';
-import { MOD_KEYS, MOD_DEFAULTS, normalizeMods } from '../../../shared/constants.js';
+import { MOD_KEYS, MOD_DEFAULTS, normalizeMods, PACK_AUTHORS } from '../../../shared/constants.js';
 import { html, Fragment, Icon, Button, Modal, SwitchRow } from './components.js';
 import { t, N_ } from '../../../shared/i18n.js';
 
@@ -56,15 +56,28 @@ export function useMods() {
  * The submenu's rows, in display order: `key` (MOD_KEYS), `label` the switch's text and `tip` its one-line
  * explanation — both msgids (N_: the table is built once, before a language can change; the component calls t()
  * where they are shown). One row per switch the submenu offers.
+ *
+ * 图三 (2026-10-14): the submenu is TWO columns. The first column is the game-rule switches (关闭盟约禁用 … 解除叠层
+ * 上限) and the second the ported 内容包 switches (`MOD_COLUMN.pack`) — one per pack, each credited to its author in
+ * the ⓘ beside it. The split is data (`MOD_ROWS[].col`), so the layout never has to know a key by name.
  */
 export const MOD_ROWS = Object.freeze([
-  { key: 'noBondBan', label: N_('关闭盟约禁用'), tip: N_('所有模式都不再禁用盟约：既不会有随机禁用，也不会保留模式固有的禁用盟约') },
-  { key: 'untimedSp', label: N_('机变不限时间'), tip: N_('所有模式的机变阶段都不再有时间限制，全部选择完毕后结束') },
-  { key: 'randomSpVote', label: N_('机变随机分配'), tip: N_('所有模式的机变阶段都可以投票「随机分配」：过半即由系统随机发放（悬赏决策除外）') },
-  { key: 'extraRounds', label: N_('额外 4 回合'), tip: N_('所有模式的回合数由 14 回合变为 18 回合，新增的 4 回合都是普通回合，Boss 回合相应后移到第 18 回合') },
-  { key: 'targetedPick', label: N_('定向甄选'), tip: N_('三个相同干员合为进阶干员时，奖励的高阶干员三选一改为从当前已激活最高层数的盟约旗下的干员中随机') },
-  { key: 'uncapLayers', label: N_('解除叠层上限'), tip: N_('盟约叠层上限由 999 层解除，可以叠到 999 层以上；只解除上限，其他盟约规则不变') },
+  { col: 'rule', key: 'noBondBan', label: N_('关闭盟约禁用'), tip: N_('所有模式都不再禁用盟约：既不会有随机禁用，也不会保留模式固有的禁用盟约') },
+  { col: 'rule', key: 'untimedSp', label: N_('机变不限时间'), tip: N_('所有模式的机变阶段都不再有时间限制，全部选择完毕后结束') },
+  { col: 'rule', key: 'randomSpVote', label: N_('机变随机分配'), tip: N_('所有模式的机变阶段都可以投票「随机分配」：过半即由系统随机发放（悬赏决策除外）') },
+  { col: 'rule', key: 'extraRounds', label: N_('额外 4 回合'), tip: N_('所有模式的回合数由 14 回合变为 18 回合，新增的 4 回合都是普通回合，Boss 回合相应后移到第 18 回合') },
+  { col: 'rule', key: 'targetedPick', label: N_('定向甄选'), tip: N_('三个相同干员合为进阶干员时，奖励的高阶干员三选一改为从当前已激活最高层数的盟约旗下的干员中随机') },
+  { col: 'rule', key: 'uncapLayers', label: N_('解除叠层上限'), tip: N_('盟约叠层上限由 999 层解除，可以叠到 999 层以上；只解除上限，其他盟约规则不变') },
+  { col: 'pack', key: 'packRhine', label: N_('莱茵生命'), tip: N_('开启后游戏内可使用移植内容：莱茵生命盟约与科研装置、联合科研干员。关闭（默认）时完全不加载，回到原版内容。') },
+  { col: 'pack', key: 'packAphris', label: N_('谬因·并入莱茵'), tip: N_('开启后莱茵生命盟约解锁，干员谬因加入其中，并可获得其层数加成。关闭（默认）时谬因保持原版盟约。') },
+  { col: 'pack', key: 'packRelic', label: N_('收藏品玩法'), tip: N_('开启后游戏内可使用移植内容：收藏品玩法（每回合三选一、护盾与图鉴）。关闭（默认）时不加载任何收藏品。') },
+  { col: 'pack', key: 'packExtra6', label: N_('新干员包'), tip: N_('开启后游戏内可使用移植内容：予愿安洁莉娜、丰川祥子等新增干员。关闭（默认）时这些干员不出现在商店与名单里。') },
+  { col: 'pack', key: 'packCustom', label: N_('额外干员包'), tip: N_('开启后游戏内可使用移植内容：五名自定义干员。关闭（默认）时这些干员不出现在商店与名单里。') },
 ]);
+
+/** The two columns of MOD_ROWS, in display order (图三). */
+export const MOD_COLS = Object.freeze(['rule', 'pack']);
+
 
 /**
  * The Mod submenu of the 模式界面: one switch row per MOD_ROWS entry, opened by <ModButton/>. It is a local
@@ -72,18 +85,29 @@ export const MOD_ROWS = Object.freeze([
  *
  * Each row is the shared <SwitchRow/> (图二, 2026-10-13): the name on the left, a pill switch on the right, and the
  * one-line explanation behind the ⓘ after the name — on hover on a desktop, on a long press on a phone.
+ *
+ * 图三 (2026-10-14): the rows are laid out in TWO columns — MOD_COLS, the rule switches left and the ported 内容包
+ * switches right (`.mods__col`). Each pack's ⓘ carries its author, so the port's credit travels with the switch that
+ * turns the content on.
  */
 function ModDialog({ open, onClose, mods, onToggle }) {
-  return html`<${Modal} open=${open} onClose=${onClose} tone="mint" width="min(7.6rem, 96vw)"
+  // A pack row's ⓘ carries the port's credit under its explanation (`{tip}\n原作者：{author}`), built from the row's
+  // own msgid and PACK_AUTHORS, so the author travels with the switch that turns the content on.
+  const tipOf = (r) => (r.col === 'pack' ? `${t(r.tip)}\n${t('原作者：{author}', { author: PACK_AUTHORS[r.key] })}` : t(r.tip));
+  const row = (r) => html`<${SwitchRow} key=${r.key}
+    label=${t(r.label)} tip=${tipOf(r)} on=${mods[r.key] === true}
+    testid=${`mod-${r.key}`} infoTestid=${`mod-info-${r.key}`}
+    onChange=${(v) => onToggle(r.key, v)} />`;
+  return html`<${Modal} open=${open} onClose=${onClose} tone="mint" width="min(13rem, 96vw)"
       title=${t('Mod 开关')} micro="MOD SWITCHES"
       actions=${html`<${Button} variant="secondary" onClick=${onClose}>${t('完成')}<//>`}>
     <div class="mods">
       <p class="mods__note">${t('这些开关只在本机保存，进入房间时随你创建的房间一起生效；加入他人的房间时以房主的设置为准。')}</p>
       <div class="mods__rows">
-        ${MOD_ROWS.map((r) => html`<${SwitchRow} key=${r.key}
-          label=${t(r.label)} tip=${t(r.tip)} on=${mods[r.key] === true}
-          testid=${`mod-${r.key}`} infoTestid=${`mod-info-${r.key}`}
-          onChange=${(v) => onToggle(r.key, v)} />`)}
+        ${MOD_COLS.map((col) => html`<div class="mods__col" key=${col} data-col=${col}>
+          ${col === 'pack' ? html`<p class="mods__colhead">${t('额外内容')}</p>` : null}
+          ${MOD_ROWS.filter((r) => r.col === col).map(row)}
+        </div>`)}
       </div>
     </div>
   <//>`;
