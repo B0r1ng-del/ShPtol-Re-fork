@@ -20,6 +20,7 @@
 // shallow-merges into one nested object. Subscribers are notified synchronously.
 
 import { useLayoutEffect, useReducer, useRef } from '../vendor/hooks.module.js';
+import { installNumberMask } from './ui/numberMask.js';
 import { PHASE } from '../../shared/constants.js';
 import { t } from '../../shared/i18n.js';
 
@@ -88,6 +89,9 @@ export const initialState = Object.freeze({
 
 /** The app-wide store singleton. */
 export const store = createStore(initialState);
+// 六.E 木棍 (packRelic, relic_159): masks the digits of this client's own interface while the player holds it. The
+// installer watches the store and does nothing until one of the player's collectibles sets `hideNumbers`.
+installNumberMask(store);
 
 /**
  * Which screen the router shows for a given app state:

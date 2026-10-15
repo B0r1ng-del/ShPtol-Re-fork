@@ -6,6 +6,7 @@
 import { PHASE, GEO, CHEAT_ENEMY_HP } from '../../../shared/constants.js';
 import { deriveSeed } from '../../sim/rng.js';
 import { withBounties } from '../waves.js';
+import { redistributeRelicWaves } from '../relicWaves.js';
 import { planUnite } from '../unite.js';
 import { FieldRunner, DeadBattle } from '../fields.js';
 import { DELAYS } from './common.js';
@@ -41,12 +42,26 @@ export class MatchCombat {
 
   _normalBattle(ps) { return this.newBattle(this._normalOpts(ps)); }
 
+  /**
+   * 六.E 解压玩具 (relic_156): each player's normal-round spawns before bounties are placed — the collectible halves a
+   * holder's enemies and hands them to the other alive players (or, on its 10 % trigger, concentrates all of them on one
+   * holder). Only reached with `packRelic` on; a match without the switch keeps its own spawns (see `_normalOpts`).
+   */
+  _normalRelicSpawns() {
+    const plans = this.alivePlayers().filter((ps) => !ps.left).map((ps) => ({
+      ps, routes: this.wave.routes,
+      spawns: withBounties(this.gd, this.round, this.wave, ps.bounties, ps.playerId).map((s) => ({ ...s, ownerPlayerId: ps.playerId })),
+    }));
+    return redistributeRelicWaves(plans, { solo: this.isSolo, round: this.round, seed: this.seed });
+  }
+
   /** Battle options of a player's normal field (after the onBattleStart handlers). */
   _normalOpts(ps) {
     const wave = this.wave;
     const input = ps.battleInput({ side: 'L', colOffset: 0 });
     // the client's list: bounty units inserted among their host action's own units, which are re-timed around them
-    const spawns = withBounties(this.gd, this.round, wave, ps.bounties, ps.playerId).map((s) => ({ ...s, ownerPlayerId: ps.playerId }));
+    const spawns = this.relicsOn ? (this._normalRelicSpawns().get(ps.playerId) || [])
+      : withBounties(this.gd, this.round, wave, ps.bounties, ps.playerId).map((s) => ({ ...s, ownerPlayerId: ps.playerId }));
     const ev = { input, kind: 'normal', round: this.round, spawns };
     this.dispatch(ps, 'onBattleStart', ev);
     const list = this._sanitizeSpawns(Array.isArray(ev.spawns) ? ev.spawns : spawns, ps.playerId);
@@ -176,7 +191,12 @@ export class MatchCombat {
       this._collectSimErrors(f, res);
       for (const pid of f.players) {
         const pp = res.perPlayer && res.perPlayer[pid];
-        this.lastResults.set(pid, pp || { killed: 0, total: 0, leaked: [], perfect: true, layerGains: {}, coins: 0, damageDealt: 0, unitsEnd: [], unitStats: [] });
+        // 六.E: `relicCompleted` marks a result a collectible offer may be drawn from (a real clear / timeout, never a
+        // synthetic one). Stamped behind the switch, so an off match records the exact object it did before the port.
+        this.lastResults.set(pid, this.relicsOn
+          ? (pp ? { ...pp, synthetic: !!res.synthetic, relicCompleted: !res.synthetic && (res.reason === 'cleared' || res.reason === 'timeout') }
+            : { killed: 0, total: 0, leaked: [], perfect: true, synthetic: true, layerGains: {}, coins: 0, damageDealt: 0, unitsEnd: [], unitStats: [] })
+          : (pp || { killed: 0, total: 0, leaked: [], perfect: true, layerGains: {}, coins: 0, damageDealt: 0, unitsEnd: [], unitStats: [] }));
         // the views show the layers the battle reached until settle() makes them persistent (DESIGN §20.15)
         const ps = this.players.get(pid);
         const gains = pp && pp.layerGains && typeof pp.layerGains === 'object' ? pp.layerGains : null;

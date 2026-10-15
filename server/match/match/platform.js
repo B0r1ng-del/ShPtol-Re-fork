@@ -5,6 +5,7 @@
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 import { C2S } from '../../../shared/protocol.js';
+import { autoSelectRelic } from '../relics.js';
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { syntheticResult } from '../fields.js';
 import { FLOW_TICKER_PRIORITY, OK, fail } from './common.js';
@@ -82,6 +83,8 @@ export class MatchPlatform {
     if (!ps || ps.isBot || this.disposed) return;
     this.guard(() => {
       ps.connected = false;
+      // 六.E: a disconnected player's open collectible offer is auto-picked, so the others are not held by the choice
+      if (this.relicsOn && ps.relicOffer) { autoSelectRelic(ps); this._completeRelicChoices(); }
       // A disconnected human's silence is never consent to a new setup.
       this.cancelSetupVote();
       // a paused solo battle resumes (the server takes the field over; nobody is left to resume it)
@@ -198,6 +201,8 @@ export class MatchPlatform {
     }
     if (phase === PHASE.SP_DRAFT && this.sp && this.spTurn() === ps.playerId) this.startSpTurn();
     else if (phase === PHASE.PREP) this.maybeEndPrep();
+    // 六.E: a player who left had an open collectible offer — re-check whether the phase can go on without them
+    else if (phase === PHASE.SETTLE) this._completeRelicChoices();
   }
 
   dispose() {

@@ -3,7 +3,7 @@
 // b.snap  = { fieldId, t, units: [[id, x, y, hp, maxHp, sp, spMax, flags, anim]], dp, killed, total, resolved }
 //   (hp of a countdown summon — unit.countdown, content/tokens.js startCountdown — is maxHp × the share of its life left)
 // UnitInfo = { id, kind, side, ownerId, defId, name, tier, golden, spine, avatar, x, y, facing, dir, maxHp, motion?, boss?, uid?,
-//   form?, skillIndex?, ammoSkill?, moduleId?, items?, standInFor?, diy? }  (ammoSkill = an ally whose skill is an ammo
+//   form?, skillIndex?, ammoSkill?, moduleId?, items?, researchStage?, researchActive?, sp?, spMax?, standInFor?, diy? }  (ammoSkill = an ally whose skill is an ammo
 //   magazine: the HP bar shows its rounds as cells, b.snap `ammo`; standInFor = the replaced operator's charId of a 补位
 //   stand-in; diy = a 自选 piece's pick { charId, skillIndex, uniEquipId } — defId is its slot, spine / avatar the operator's;
 //   form = the unit's current model form — an enemy's, content/enemies/helpers.js setForm:
@@ -55,6 +55,17 @@ export function unitInfo(u) {
     // DESIGN §16: an elite ally's equipped module (uniEquipId | 'none'; display only — a teammate's unit in a shared
     // field shows its owner's module in the detail card)
     moduleId: u.side === 'ally' && d.golden && typeof d.loadout?.moduleId === 'string' ? d.loadout.moduleId : undefined,
+    // 六.F: a 科研装置 keeps its stage / active flag across a reconnect — a field opened mid-battle must not
+    // restore an inactive area, and a late join must draw the rig at the stage the sim is on.
+    researchStage: Number.isInteger(u.researchStage) ? u.researchStage : undefined,
+    researchActive: typeof u.researchActive === 'boolean' ? u.researchActive : undefined,
+    // the drill's own lock-on state (render/rhineDevices.js restores its beam)
+    researchLaserTarget: u.researchLaserTarget === null || Number.isInteger(u.researchLaserTarget) ? u.researchLaserTarget : undefined,
+    researchLaserProgress: Number.isFinite(u.researchLaserProgress) ? Math.max(0, Math.min(20, r2(u.researchLaserProgress))) : undefined,
+    researchLaserActive: typeof u.researchLaserActive === 'boolean' ? u.researchLaserActive : undefined,
+    // independent research charging reuses the ordinary skill-bar slots, including late joins
+    sp: Number.isFinite(u.researchCharges) ? u.researchCharges : undefined,
+    spMax: Number.isFinite(u.researchChargeMax) ? u.researchChargeMax : undefined,
     // an ally operator's equipped item ids (display: a 变形同构体 wearer counts for the bond it grants — the bond popup's
     // member list and the detail card's bond chips of a teammate's unit)
     items: u.side === 'ally' && u.kind === 'op' && Array.isArray(u.items) && u.items.length ? [...u.items] : undefined,
@@ -105,8 +116,9 @@ export function animOf(u, t) {
 /** Snapshot tuple for one unit. */
 export function unitTuple(u, t) {
   const sk = u.skill;
-  let spMax = sk && !sk.noSkill ? sk.spCost : 0;
-  let sp = sk && !sk.noSkill ? sk.sp : 0;
+  const research = Number.isFinite(u.researchChargeMax);
+  let spMax = research ? u.researchChargeMax : sk && !sk.noSkill ? sk.spCost : 0;
+  let sp = research ? u.researchCharges : sk && !sk.noSkill ? sk.sp : 0;
   if (sk && sk.active && sk.isTimed) {
     // show remaining duration/ammo as a draining bar — ammo out of the activation's real total (base + bullets added:
     // 拉特兰, 逃犯引渡手续, refills; community report #35), so every bullet shortens it

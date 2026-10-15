@@ -29,6 +29,7 @@ import { DIRS, DIR_LABEL, DEAD_ZONE_TILES, dirFromDelta, dirFromKey, rangeTiles,
 import { facingSwallows, facingEnter } from './gameLogic.js';
 import { settingsStore } from './settings.js';
 import { t } from '../../../shared/i18n.js';
+import { GEO } from '../../../shared/constants.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 const rawOf = (view) => (view && view.raw) || view || null;
@@ -137,10 +138,15 @@ export function syncPieceDirs(view, priv, skip = null) {
 }
 
 /** Light the rotated range of a piece on (row, col) facing `dir` (no grid / dir clears the style's group). */
-export function showRange(view, grid, row, col, dir, style = FACING_STYLE) {
+export function showRange(view, grid, row, col, dir, style = FACING_STYLE, radius = null) {
   if (!view || typeof view.highlightTiles !== 'function') return [];
-  const tiles = grid && dir ? rangeTiles(grid, row, col, dir) : [];
-  try { view.highlightTiles(tiles, style); } catch { /* cosmetic */ }
+  const radial = Number.isFinite(radius) && radius > 0;
+  // The shared global device shape has radius 0 and an empty grid. Complete board cells
+  // let the renderer clip the preview to its normal, united or mirrored boss battlefield.
+  const global = radius === 0 && Array.isArray(grid) && grid.length === 0;
+  const tiles = global ? Array.from({ length: GEO.ROWS }, (_, r) => Array.from({ length: GEO.COLS }, (_, c) => [r, c])).flat()
+    : grid && (dir || radial) ? rangeTiles(grid, row, col, radial ? 'RIGHT' : dir) : [];
+  try { view.highlightTiles(tiles, radial || global ? { ...style, researchRange: true, ...(global ? { researchGlobal: true } : {}) } : style); } catch { /* cosmetic */ }
   return tiles;
 }
 
@@ -183,7 +189,7 @@ function Chevron({ dir, on }) {
  * @param {{ view: any, row: number, col: number, grid: Array<[number, number]>|null, name?: string,
  *   onPreview?: (dir: string|null) => void, onCommit: (dir: string) => void, onCancel: () => void }} props
  */
-export function FacingWheel({ view, row, col, grid, name = '', onPreview, onCommit, onCancel }) {
+export function FacingWheel({ view, row, col, grid, radius = null, name = '', onPreview, onCommit, onCancel }) {
   const g = useTileScreen(view, row, col);
   const [dir, setDir] = useState(null);
   const [drag, setDrag] = useState(null); // { id } while a pointer is down
@@ -199,7 +205,7 @@ export function FacingWheel({ view, row, col, grid, name = '', onPreview, onComm
   live.current = { g, half, dead, dir, bdir, mirror, onCommit, onCancel, onPreview };
 
   // preview: model / wedge direction and the rotated range under the units
-  const tiles = useRangeHighlight(view, grid, row, col, bdir);
+  const tiles = useRangeHighlight(view, grid, row, col, bdir, radius);
   useEffect(() => { try { onPreview?.(bdir); } catch { /* ignore */ } }, [bdir]);
   useEffect(() => () => { showRange(view, null, row, col, null); }, []);
 
@@ -292,9 +298,9 @@ export function FacingWheel({ view, row, col, grid, name = '', onPreview, onComm
 }
 
 /** Keep the view's 'facing' highlight group on the rotated range; returns the tiles. */
-function useRangeHighlight(view, grid, row, col, dir) {
+function useRangeHighlight(view, grid, row, col, dir, radius) {
   const [tiles, setTiles] = useState([]);
-  useLayoutEffect(() => { setTiles(showRange(view, grid, row, col, dir)); }, [view, grid, row, col, dir]);
+  useLayoutEffect(() => { setTiles(showRange(view, grid, row, col, dir, FACING_STYLE, radius)); }, [view, grid, row, col, dir, radius]);
   return tiles;
 }
 

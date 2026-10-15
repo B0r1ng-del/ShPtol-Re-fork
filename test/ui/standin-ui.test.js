@@ -85,11 +85,13 @@ describe('干员持有 model (ui/ownershipModel.js)', () => {
     assert.deepEqual(M.setOwned(list, SILVER, true), [SARIA]);
     assert.deepEqual(list, [SILVER, SARIA].sort(), 'input unchanged');
   });
-  test('roster: the 53 NORMAL chess of the shop by tier (6 / 13 / 17 / 17); each has its stand-in summary', () => {
+  test('roster: the 53 NORMAL chess of the shop by tier (7 / 13 / 16 / 17); each has its stand-in summary', () => {
     const roster = M.ownershipRoster(data.list('chess'));
     assert.equal(roster.length, 53);
     assert.ok(!roster.some((c) => c.chessType !== 'NORMAL' || c.isGolden || !c.visible));
-    assert.deepEqual(M.rosterByTier(roster).map((g) => [g.tier, g.list.length]), [[3, 6], [4, 13], [5, 17], [6, 17]]);
+    // 六.F 莱茵生命 (tools/rhine-data.mjs) moves 塞雷娅 / 白面鸮 V → III: tier 5 loses two, tier 3 gains two.
+    // The room's all-off view restores them (shared/packData.js `packRestore`), so the split depends on the view.
+    assert.deepEqual(M.rosterByTier(roster).map((g) => [g.tier, g.list.length]), [[3, 7], [4, 13], [5, 16], [6, 17]]);
     for (const c of roster) {
       const si = M.standInSummary(c, BACKUPS);
       assert.ok(si && si.charId === c.backup.charId && si.skill.index === c.backup.skillIndex, c.chessId);

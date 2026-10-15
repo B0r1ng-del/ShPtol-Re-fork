@@ -91,7 +91,11 @@ test('a not-owned chess keeps its identity and fights as the stand-in: backup se
     const f = p0.fieldRecord(rec);
     assert.equal(f.charId, body);
     assert.equal(f.standInFor, rec.charId);
-    assert.deepEqual([f.chessId, f.tier, f.price, f.bonds], [rec.chessId, rec.tier, rec.price, rec.bonds], 'identity kept');
+    // "identity kept" = the MATCH's own view of the chess, not the raw file: the committed data carries the
+    // all-packs-on bond set and a match strips a 内容包's contribution (`chessBondIds`, shared/packData.js), and the
+    // stand-in record composes from `gd.chess` — so compare against that, never against `DATA.chess`.
+    const own = m.gd.chess(rec.chessId);
+    assert.deepEqual([f.chessId, f.tier, f.price, f.bonds], [own.chessId, own.tier, own.price, own.bonds], 'identity kept');
     assert.equal(p0.loadoutFor(rec).skillIndex, skill, 'the backup skill');
     assert.equal(p1.fieldRecord(rec), rec);
   }
@@ -113,9 +117,14 @@ test('a not-owned chess keeps its identity and fights as the stand-in: backup se
   const tokens = (ps) => [...ps.hand, ...ps.temp].filter((p) => p && p.kind === 'token').map((p) => p.id);
   assert.deepEqual(tokens(p1), ['token_10030_mlyss_wtrman']);
   assert.deepEqual(tokens(p0), []);
-  // identity rules still read the chess: sell price, bonds
+  // identity rules still read the chess: sell price, bonds — the MATCH's bonds (`chessBondIds` = effectiveBonds), not
+  // the raw file's: the committed data carries the all-packs-on set, and a 内容包's contribution is stripped here
+  // (`shared/packData.js`), so `p0.bonds` never has a 盟约 this room does not contain. A stand-in keeps the CHESS's
+  // bonds (its own body would have different ones).
   assert.equal(p0.gd.sellPrice(MLYSS), chess(MLYSS).sellPrice);
-  for (const b of chess(MLYSS).bonds) assert.ok(p0.bonds[b] && p0.bonds[b].count >= 1, `bond ${b} counts the stand-in`);
+  const ownBonds = p0.gd.chessBondIds(MLYSS);
+  assert.ok(ownBonds.includes('maniShip'), 'the sane half: the chess\'s own official bond is still counted');
+  for (const b of ownBonds) assert.ok(p0.bonds[b] && p0.bonds[b].count >= 1, `bond ${b} counts the stand-in`);
   h.invariants();
   m.dispose();
 });

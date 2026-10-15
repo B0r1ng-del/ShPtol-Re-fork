@@ -22,9 +22,14 @@ const CHESS = load('chess');
 const YUAN = 'https://raw.githubusercontent.com/yuanyan3060/ArknightsGameResource/main/';
 const FEXLI = 'https://raw.githubusercontent.com/fexli/ArknightsResource/main/';
 
-test('dataExtras: every backups.json unit (skills by index, once), the 自选 summons, the type icon of every module of chess.json and backups.json', () => {
+test('dataExtras: every backups.json unit (skills by index, once), the ported packExtra6 operators, the 自选 summons, the type icon of every module of chess.json and backups.json', () => {
   const x = dataExtras(BACKUPS, CHESS);
-  assert.deepEqual(Object.keys(x.extraOperators), Object.keys(BACKUPS.units));
+  // every 自选 unit, plus the 内容包 packExtra6 operators (六.C, tools/fork-extra6.mjs): they are PRESET cards fielding
+  // their own operator, so no 补位 unit names them and their art has to be read off the chess record instead.
+  const extra = Object.keys(x.extraOperators).filter((id) => !BACKUPS.units[id]).sort();
+  assert.deepEqual(Object.keys(x.extraOperators).sort(), [...Object.keys(BACKUPS.units), ...extra].sort());
+  assert.deepEqual(extra, ['char_4182_oblvns', 'char_4217_makoto'], 'exactly the two ported operators, no more');
+  for (const id of extra) assert.ok(x.extraOperators[id].skills.length >= 1, `${id}: its skill icons are planned`);
   assert.deepEqual(x.extraOperators.char_112_siege, {
     name: '推进之王', subProfessionId: 'pioneer', nationId: 'victoria',
     skills: [{ index: 0, skillId: 'skcom_charge_cost[3]', iconId: 'skcom_charge_cost[3]' }, { index: 1, skillId: 'skchr_siege_2', iconId: 'skchr_siege_2' }, { index: 2, skillId: 'skchr_siege_3', iconId: 'skchr_siege_3' }],

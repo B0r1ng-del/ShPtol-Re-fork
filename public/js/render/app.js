@@ -1,3 +1,4 @@
+import { installPixiNumberMask } from '../ui/numberMask.js';
 // render/app.js — battlefield view (DESIGN §9). PixiJS 7 (global PIXI) + pixi-spine (PIXI.spine), loaded on demand
 // from /vendor when the page did not include them as classic <script> tags.
 //
@@ -141,7 +142,7 @@ import { loadThree, loadBoardPack, loadScenePack, webgl2Available, boardArtListe
 import { BoardScene } from './board3d/scene.js';
 import { unionAreas } from './board3d/layout.js';
 import { layoutPen, penSignature } from './pen.js';
-import { IDENTITY, bossPrepField, tilesToDisp, leaderStand } from './prepfield.js';
+import { IDENTITY, bossPrepField, tilesToDisp, circleToDisp, leaderStand } from './prepfield.js';
 import { pickOnTile, pickBattle, hitTiles } from './pick.js';
 import { promotionsOf } from './promote.js';
 import { ensurePixi } from './app/pixi.js';
@@ -172,6 +173,8 @@ export async function createFieldView(host, options = {}) {
   signal?.throwIfAborted();
   const P = await withTimeout(ensurePixi(), null, signal);
   signal?.throwIfAborted();
+  // 六.E 木棍 (packRelic, relic_159): the battlefield's own damage numbers / countdowns mask too, at rasterization
+  installPixiNumberMask(P);
   const assets = resolveAssets(opts.assets);
   const data = makeData(opts.data);
   const settings = { damageNumbers: true, officialDamageNumbers: false, ammoCount: false, quality: 'high', ...(opts.settings || {}) };
@@ -700,7 +703,7 @@ export async function createFieldView(host, options = {}) {
     }
     if (kind === 'token') {
       const rec = data.token(piece.id);
-      return { kind: 'token', side: 'ally', defId: piece.id, spine: rec?.assets?.spine || piece.id, avatar: rec?.assets?.avatar || piece.id, tier: piece.tier || 1, golden: false, dir };
+      return { kind: 'token', side: 'ally', defId: piece.id, spine: rec?.assets?.spine || piece.id, avatar: rec?.assets?.avatar || piece.id, tier: piece.tier || 1, golden: false, dir, researchStage: piece.research ? piece.stage : undefined };
     }
     const chess = data.chess(piece.id);
     // 0.2.0 补位: a piece of a chess the player does not own (m.private.standIns) is its stand-in's model, in the hand,
@@ -841,6 +844,8 @@ export async function createFieldView(host, options = {}) {
         if (was && e.area === 'board' && (was.area !== 'board' || was.row !== e.row || was.col !== e.col) && !(dragState && dragState.key === key)) landPiece(v, 'board');
       }
       v._home = w;
+      // 六.F: a 科研装置 built late starts at the stage the sim is on
+      if (info.researchStage != null) v.setResearchStage?.(info.researchStage);
       v.dimmed = false;
       if (info.kind === 'item' && v.setIcon) v.setIcon(info.icon); // an icon the manifest named late (onAssets)
       if (v.setCount) v.setCount(e.piece.kind === 'token' ? e.piece.count : 0);
@@ -1162,10 +1167,19 @@ export async function createFieldView(host, options = {}) {
    */
   function drawHighlight(list, style, group) {
     const key = hlKey(style, group);
+    // 六.F: a circular research range is drawn as an arc, not a tile grid
+    if (style?.circle) style = { ...style, circle: circleToDisp(mode === 'prep' ? prepXf : IDENTITY, style.circle) };
     const range = RANGE_GROUPS.has(key) || style === 'range';
     let t = tilesToDisp(IDENTITY, list);
-    if (range) t = t.filter(([r]) => r !== GEO.HAND_ROW && r !== GEO.TEMP_ROW);
+    if (range && !style?.researchRange) t = t.filter(([r]) => r !== GEO.HAND_ROW && r !== GEO.TEMP_ROW);
     if (mode === 'prep' && prepXf !== IDENTITY) t = tilesToDisp(prepXf, t);
+    // a device's range is clipped to the field actually being simulated (the boss field in prep, a united /
+    // mirrored battle rect in combat), never the reserve rows
+    if (style?.researchRange) {
+      const bounds = mode === 'prep' && prepXf !== IDENTITY ? GEO.BOSS_RECT
+        : mode === 'battle' && battleMeta?.rect ? battleMeta.rect : GEO.NORMAL_RECT;
+      t = t.filter(([r, c]) => r >= bounds.r0 && r <= bounds.r1 && c >= bounds.c0 && c <= bounds.c1);
+    }
     tiles.setHighlights(t, style, key, { stripes: range && key !== 'rangeStand' && !board3d });
   }
   function clearHl(group) {

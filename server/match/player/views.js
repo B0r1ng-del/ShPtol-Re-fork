@@ -4,9 +4,11 @@
 // the player state).
 
 import { PHASE } from '../../../shared/constants.js';
+import { relicsView, relicOfferView, activeRelicShield, activeReverseLp } from '../relics.js';
 import { boardOrder, pieceDir } from '../board.js';
 import { bondList, offBondCounts } from '../bondsMeta.js';
 import { bountyText, bountyCard } from '../choices.js';
+import { RHINE_BOND, rhineDevice, rhineDeviceStage, rhineDeviceUnlocked } from '../../../shared/rhineResearch.js';
 
 export class PlayerViews {
   pieceView(p, rc = null) {
@@ -22,6 +24,16 @@ export class PlayerViews {
       ownerUid: p.kind === 'token' ? p.ownerUid ?? null : null,
     };
     if (rc) { v.row = rc[0]; v.col = rc[1]; v.dir = pieceDir(p); }
+    // 六.F: a research device carries its own progress so the reserve card can show 研究点 / 阶段 / 解锁. Only a device
+    // piece has `research`, so an unmodded room's pieceView is unchanged.
+    if (p.research) {
+      const d = rhineDevice(p.id);
+      v.research = true; v.researchKey = d?.key ?? p.researchKey;
+      v.points = d?.maxStage === 0 ? 0 : this.research.points[v.researchKey] || 0;
+      v.stage = rhineDeviceStage(d, this.research.stages[v.researchKey]);
+      v.locked = !this.alive || !rhineDeviceUnlocked(d, this.bonds[RHINE_BOND]);
+      v.minCount = d?.minCount; v.maxStage = d?.maxStage;
+    }
     return v;
   }
 
@@ -89,6 +101,7 @@ export class PlayerViews {
       },
       hand: this.hand.map((p) => (p ? this.pieceView(p) : null)),
       temp: this.temp.map((p) => (p ? this.pieceView(p) : null)),
+      research: this.researchView(),
       board,
       // The stage's 外勤医疗 reserve medic is present during prep, but is not a draggable board piece.
       prepMapChars: this.m.prepMapChars(this),
@@ -97,6 +110,17 @@ export class PlayerViews {
       // + the mode-off bonds it has members of (`off: true`, the strip's grey 本局禁用 discs — bondsMeta.offBondCounts)
       bonds: bondList(this.gd, this.bondsView(), { full: true, off: offBondCounts(this.gd, this) }),
       effects: this.effectsView(),
+      // 六.E: the collectibles this player holds, the round's reward flash, the open offer, the queued revival operators,
+      // the leak streak and the shield. Every entry reads a field that stays empty with the switch off, so an off match
+      // sends the same arrays / nulls as one built before the port.
+      relics: relicsView(this),
+      relicReward: this.relicReward ? { ...this.relicReward } : null,
+      relicOffer: relicOfferView(this),
+      relicChessQueue: [...this.relicChessQueue],
+      relicLeakStreak: this.relicLeakStreak,
+      lpShield: activeRelicShield(this),
+      reverseLp: activeReverseLp(this),
+      nextLpShield: this.relicNextShieldRound > this.m.round ? 2 : 0,
       nextEnemies: this.m.nextEnemiesFor(this),
       // DESIGN §16: the effective operator loadout ({ [baseChessId]: { skill, module } }; chess not listed use defaults)
       loadout: this.loadout,

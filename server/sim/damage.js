@@ -623,6 +623,27 @@ export function reduceElement(target, amount, el = null) {
 }
 
 /**
+ * Shared recipient rule for healing selectors and the final pipeline (六.F 莱茵装置 / 梅尔's 机械水獭).
+ *
+ * `flags.noOperatorHeal` (梅尔's otters, kits/rhineSupport.js): an OPERATOR's heal cannot reach the summon — the owner
+ * chain is walked so a summon-of-a-summon is covered — while another summon's own heal still can. The flag is only ever
+ * set by ported content, so with every 内容包开关 off this is exactly the two checks `heal` used to inline.
+ */
+export function canReceiveHeal(source, target, opts = {}) {
+  if (!target) return false;
+  if (target.s.flags.noOperatorHeal && source !== target) {
+    const seen = new Set();
+    for (let origin = source; origin && !seen.has(origin); origin = origin.ownerUnit) {
+      if (origin.kind === 'op') return false;
+      seen.add(origin);
+    }
+  }
+  const self = source === target || !!opts.self;
+  const through = !!source?.profile?.healThrough?.(source, target);
+  return self || !((target.s.flags.noHeal && !through) || target.profile?.noHeal);
+}
+
+/**
  * Heal pipeline. Returns the HP actually restored. `noHeal` stops heals from others (`self` heals pass); `healFree` (禁疗,
  * PRTS 异常效果 HEAL_FREE "受到的治疗量变为0") stops the unit's own too — except an HP-regeneration attribute (`regen`:
  * "增减生命回复速度或生命回复速度（百分比）属性的效果不会被识别为治疗类能力") and a heal that ignores it (`ignoreHealFree`:
@@ -637,14 +658,16 @@ export function reduceElement(target, amount, el = null) {
  */
 export function heal(battle, source, target, amount, opts = {}) {
   if (!target || !target.alive || target.removed || !target.deployed || target.bossPool) return 0;
-  const self = source === target || !!opts.self;
+  if (!canReceiveHeal(source, target, opts)) return 0;
   const through = !!(source && source.profile && typeof source.profile.healThrough === 'function' && source.profile.healThrough(source, target));
-  if (!self && ((target.s.flags.noHeal && !through) || (target.profile && target.profile.noHeal))) return 0;
   const regen = !!opts.regen;
   if (target.s.flags.healFree && !regen && !opts.ignoreHealFree && !through) return 0;
   let amt = regen ? amount : amount * (source && source.s ? source.s.healingDealtMul : 1) * target.s.healingTakenMul;
   if (!(amt > 0) || !Number.isFinite(amt)) return 0;
   if (battle._hooks.heal) {
+    // The hook may opt this action into overhealing (`opts.overheal`, 六.E 护愈之手 relic_172) without mutating the
+    // options object the caller reuses for its other targets. Inert when no handler writes to opts.
+    opts = { ...opts };
     const ctx = { source, target, amount: amt, opts };
     battle.emit('heal', ctx);
     if (!regen) amt = Number.isFinite(ctx.amount) ? Math.max(0, ctx.amount) : 0;

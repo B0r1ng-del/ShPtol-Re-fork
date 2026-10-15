@@ -78,8 +78,10 @@
 // ground point, i.e. on the pointer (render/app.js).
 
 import { UF, ANIM } from '../../../shared/constants.js';
+import { rhineDevice } from '../../../shared/rhineResearch.js';
 import { SpineActor } from './spine.js';
-import { diamondTexture, shadowTexture, fxAtlas, tierChip, statusTexture, itemTexture, hudRings, ringArc, downLabel, HUD_DISC, ELEMENT_RING } from './textures.js';
+import { ResearchDeviceActor } from './rhineDevices.js';
+import { diamondTexture, unitSpriteTexture, shadowTexture, fxAtlas, tierChip, statusTexture, itemTexture, hudRings, ringArc, downLabel, HUD_DISC, ELEMENT_RING } from './textures.js';
 import { COLORS, TIER_COLORS, ENEMY_FRAME, UNIT, PROJ, statusIconKey, statusIconSuppressed } from './style.js';
 import { drawCrate, rowDepthKey, ROW_KEY, deviceBoxOf, DEVICE_BOX } from './tiles.js';
 
@@ -373,6 +375,16 @@ export const FORMS = Object.freeze({
   char_1023_ghost2: Object.freeze({
     doll: Object.freeze({ change: 'Start_B', end: 'Die_B', leave: 'Start_2', roles: dollRoles('Idle_B', 'Die_B_2') }),
   }),
+  // 内容包 packExtra6 (六.C) — 结城理: every persona has its own clip set, and the <替身> change clip differs per skill
+  // (Doll_Skill_1/2/3_SwitchIn). The kit maps its persona to these keys (kits/ops/chess_char_5_makoto-makoto.js
+  // `personaForm`), so one operator draws five different bodies.
+  char_4217_makoto: Object.freeze({
+    body: Object.freeze({ roles: dollRoles('Idle', 'SwitchOut', 'Attack_A') }),
+    makoto_s1: Object.freeze({ change: 'Doll_Skill_1_SwitchIn', leave: 'Doll_Skill_1_SwitchOut', roles: dollRoles('Doll_Skill_1_Idle', 'Doll_Skill_1_Die', 'Doll_Skill_1_Attack') }),
+    makoto_s2: Object.freeze({ change: 'Doll_Skill_2_SwitchIn', leave: 'Doll_Skill_2_SwitchOut', roles: dollRoles('Doll_Skill_2_Loop', 'Doll_Skill_2_Die') }),
+    makoto_s3a: Object.freeze({ change: 'Doll_Skill_3_P1_SwitchIn', leave: 'Doll_Skill_3_P1_SwitchOut', roles: dollRoles('Doll_Skill_3_P1_Idle', 'Doll_Skill_2_Die', 'Doll_Skill_3_P1_Attack_A') }),
+    makoto_s3b: Object.freeze({ change: 'Doll_Skill_3_P1toP2_ChangeBegin', leave: 'Doll_Skill_3_P2_SwitchOut', roles: dollRoles('Doll_Skill_3_P2_Loop', 'Doll_Skill_3_P2_Die') }),
+  }),
   char_4016_kazema: Object.freeze({
     doll: Object.freeze({ change: 'Start_B', leave: 'Start', roles: dollRoles('Idle_B', 'Die_B', 'Attack_B') }),
   }),
@@ -587,6 +599,8 @@ export class UnitView {
     this.modelKY = this.isEnemy ? enemyModelScaleY(def) : 1;
     this.mirrorX = this.isEnemy && !!(def && def.mirrorX);
     this.isToken = info.kind === 'token';
+    // 六.F: a 科研装置 draws itself through render/rhineDevices.js instead of a Spine model
+    this.researchDevice = this.isToken ? rhineDevice(info.defId) : null;
     this.golden = !!info.golden;
     this.tier = clamp(Number(info.tier) || 1, 1, 6);
     this.x = Number(info.x) || 0; this.y = Number(info.y) || 0; this.z = 0;
@@ -661,6 +675,7 @@ export class UnitView {
     this.fallback = new P.Sprite(P.Texture.EMPTY);
     this.fallback.anchor.set(0.5, 1);
     this.body.addChild(this.fallback);
+    this.researchActor = this.researchDevice ? new ResearchDeviceActor(this) : null;
     this.actor = null;
     this.spineReady = false;
     this._modelDirty = false;            // died / stood up since the last frame: update() checks Front ⇄ Back (_syncModel)
@@ -697,15 +712,16 @@ export class UnitView {
   // is missing or still loading after PIC_WAIT_MS).
   _loadPicture() {
     const a = this.ctx.assets;
-    // (an ICE_TOKENS unit takes no picture: the token fallback would be its owner's face — assets.js tokenAvatarUrl)
-    const url = ICE_TOKENS.has(this.info.defId) ? null : a && (a.picture ? a.picture(this.info.avatar) || a.picture(this.info.defId) || a.picture(this.info.spine) : null);
+    // An ice marker has no portrait; a research device instead prefers its uncropped full sprite.
+    const picture = !ICE_TOKENS.has(this.info.defId) && a?.picture ? a.picture(this.info.avatar) || a.picture(this.info.defId) || a.picture(this.info.spine) : null;
+    const urls = this.researchDevice ? [...new Set([this.researchDevice.sprite, picture, this.researchDevice.icon].filter(Boolean))] : [picture].filter(Boolean);
     this._pic = { key: String(this.info.avatar || this.info.defId || 'unknown'), color: this._frameColor(), img: null, state: 'none', shown: null, t0: nowMs() };
-    if (!url || !a.image) return;
-    const cached = typeof a.imageNow === 'function' ? a.imageNow(url) : null;
+    if (!urls.length || !a?.image) return;
+    const cached = typeof a.imageNow === 'function' ? a.imageNow(urls[0]) : null;
     if (cached) { this._pic.img = cached; this._pic.state = 'img'; return; }
     this._pic.state = 'wait';
     const pic = this._pic;
-    Promise.resolve().then(() => a.image(url)).then((img) => {
+    Promise.resolve().then(() => a.image(urls[0])).then((img) => {
       if (img) { pic.img = img; pic.state = 'img'; } else pic.state = 'none';
     }, () => { pic.state = 'none'; });
   }
@@ -717,12 +733,15 @@ export class UnitView {
     let want = pic.state === 'img' ? 'img' : 'placeholder';
     if (pic.state === 'wait' && nowMs() - pic.t0 < PIC_WAIT_MS) want = null;
     if (!want || pic.shown === want) return;
-    this.fallback.texture = diamondTexture(pic.key, want === 'img' ? pic.img : null, pic.color, { enemy: this.isEnemy, golden: this.golden, ice: ICE_TOKENS.has(this.info.defId) });
+    // Research art depicts the whole device; a portrait's diamond mask would crop its chassis / leaves away.
+    this.fallback.texture = this.researchDevice && want === 'img' ? unitSpriteTexture(pic.img)
+      : diamondTexture(pic.key, want === 'img' ? pic.img : null, pic.color, { enemy: this.isEnemy, golden: this.golden, ice: ICE_TOKENS.has(this.info.defId) });
     pic.shown = want;
   }
 
   /** @param {boolean} [retry] load again even after a remembered failure (assets.js acquire `{ retry }`) */
   _loadSpine(retry = false) {
+    if (this.researchDevice) return;
     const a = this.ctx.assets;
     if (!a || !a.spineEntry || !a.spine) return;
     const id = this.info.spine || this.info.defId;
@@ -825,6 +844,12 @@ export class UnitView {
       if (!this.actor && this._spineTries < SPINE_RETRY_MS.length) this._retryAt = nowMs() + SPINE_RETRY_MS[this._spineTries++];
     });
   }
+
+  setResearchStage(stage) {
+    if (this.researchActor) { this.researchActor.setStage(stage); this.info.researchStage = this.researchActor.stage; }
+  }
+
+  onResearchFx(kind, extra) { this.researchActor?.trigger(kind, extra); }
 
   _formSpec() {
     return this.form ? FORMS[this.info.spine || this.info.defId]?.[this.form] || null : null;
@@ -1368,6 +1393,7 @@ export class UnitView {
     this.root.position.set(bx, by);
     this.root.alpha = alpha;
     this.root.zIndex = unitDepthKey(cam, this.x, this.y, this.lift);
+    this.researchActor?.advance(dt);
     // off-screen: nothing to animate or draw (bounds / hit-testing still follow `screen`)
     if (this._cull(bx, by, s, dt)) return;
     const flip = (this.isEnemy ? (ENEMY_MODEL_FACES_LEFT ? -this.visFacing : this.visFacing) : this.visFacing) * (this.mirrorX ? -1 : 1);
@@ -1431,6 +1457,7 @@ export class UnitView {
       const bob = this.alive ? Math.sin(t * 2.4 + this.bob) * s * 0.03 : 0;
       this.fallback.scale.set(size / 160);
       this.fallback.position.set(0, -s * 0.08 + bob);
+      if (this.researchActor) this.researchActor.update(t, s);
       this.fallback.tint = this.down ? DOWN_LOOK.tint : this.flash > 0 ? mixTint(0xffffff, 0xff8a80, this.flash) : (this.flags & UF.FROZEN ? 0x9fd4ff : 0xffffff);
       if (!this.alive) this.fallback.alpha = Math.max(0, this.fallback.alpha);
     }
@@ -1438,7 +1465,7 @@ export class UnitView {
 
     // facing chevron on the ground, like the original's orange › (research 09 §1.2: prep and combat): own prep pieces
     // on the board (app.js sets _showFacing; bench pieces have none); battle / scouting allies whose dir is known
-    const wedge = this._showFacing !== undefined ? this._showFacing && this.prep : this.hasDir && this.info.kind !== 'device';
+    const wedge = !this.researchDevice && (this._showFacing !== undefined ? this._showFacing && this.prep : this.hasDir && this.info.kind !== 'device');
     if (wedge && this.alive) {
       if (!this.facingArrow) {
         this.facingArrow = new P.Sprite(fxAtlas().tex.chevron);
@@ -1473,7 +1500,7 @@ export class UnitView {
     // keep the original short-circuit: many views never build an actor (prep chips, diamonds, tests), so the model
     // only counts when a spine is actually shown
     const actor = spineShown ? this.actor : null;
-    const headTiles = this._headTiles = headTilesForUnit({
+    const headTiles = this._headTiles = this.researchActor?.look.head ?? headTilesForUnit({
       isEnemy: this.isEnemy, isBoss: this.isBoss, spineShown,
       bounds: actor && actor.entry ? actor.entry.bounds : null,
       modelK: this.modelK, modelKY: this.modelKY,
@@ -1538,8 +1565,9 @@ export class UnitView {
     if (shielded) { this.shieldBar.position.set(x0, cy - bh / 2 - 1); this.shieldBar.width = bw; this.shieldBar.height = Math.max(1.5, bh * 0.35); }
     // SP — or, while an ammo skill runs, its magazine: yellow cells, one per round, emptying from the right (b.snap `ammo`;
     // the SP bar's own fraction, ammoLeft / ammoMax, is the same width). Without an `ammo` row the bar is the plain SP bar.
+    const researchCharge = this.researchDevice?.key === 'energy';
     const ammo = !this.isEnemy ? this.ammo : null;
-    const showSp = showBars && !this.isEnemy && (this.spMax > 0 || !!ammo);
+    const showSp = showBars && !this.isEnemy && (this.spMax > 0 || !!ammo || researchCharge);
     this.spBg.visible = this.spFill.visible = showSp;
     const spH = Math.max(2, bh * (ammo ? AMMO_BAR.height : 0.6));
     let ready = false;
@@ -1548,10 +1576,10 @@ export class UnitView {
       const active = !!(this.flags & UF.SKILL);
       const k = ammo ? ammo[0] / ammo[1] : clamp(this.sp / this.spMax, 0, 1);
       ready = !active && k >= 0.999;
-      sy = cy + bh / 2 + spH / 2 + 1.5;
+      sy = researchCharge ? this.screen.y + s * .1 : cy + bh / 2 + spH / 2 + 1.5;
       this.spBg.position.set(x0 - 1, sy); this.spBg.width = bw + 2; this.spBg.height = spH + 2;
       this.spFill.position.set(x0, sy); this.spFill.width = bw * k; this.spFill.height = spH;
-      this.spFill.tint = ammo ? COLORS.ammo : active ? COLORS.spActive : ready ? COLORS.spReady : COLORS.sp;
+      this.spFill.tint = researchCharge ? ready ? COLORS.spReady : 0xffbc70 : ammo ? COLORS.ammo : active ? COLORS.spActive : ready ? COLORS.spReady : COLORS.sp;
       this._spY = sy;
     }
     this._updateAmmoCuts(showSp && !!ammo, ammo, x0, sy, bw, spH);

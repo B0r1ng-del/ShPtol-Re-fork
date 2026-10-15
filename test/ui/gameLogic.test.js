@@ -134,7 +134,10 @@ describe('phases', () => {
     assert.deepEqual(roundResultBox(0), { title: '作战结束', micro: 'BATTLE OVER', tone: 'mint', sub: '全员无伤！', duration: RESULT_BOX_MS });
     assert.deepEqual(roundResultBox(4), { title: '作战结束', micro: 'BATTLE OVER', tone: 'red', sub: '生命值减少 −4', duration: RESULT_BOX_MS });
     assert.equal(roundResultBox(undefined).sub, '全员无伤！', 'an unknown loss reads as no loss');
-    assert.equal(roundResultBox(-2).sub, '全员无伤！');
+    // 六.E: a negative loss is 时间机器's gain and reads as one (the official 「生命值增加 +N」); it used to be floored
+    // to 0, which 全员无伤！ would claim — wrong for a round that charged nothing but gained LP
+    assert.equal(roundResultBox(-2).sub, '生命值增加 +2');
+    assert.equal(roundResultBox(-2).tone, 'mint');
     assert.equal(roundResultBox(2.7).sub, '生命值减少 −2');
     // through t(): the English pack (public/i18n/en.json — no official EN wording in the data, a plain translation)
     try {

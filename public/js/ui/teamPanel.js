@@ -53,8 +53,9 @@ export function rowLp(p, pub, self = null, { uniteLocal = null, cap = 10 } = {})
   const rawLeft = pub.phase !== PHASE.UNITE ? null : self ? self.left : local != null ? local : p.uniteLeft;
   const left = Number.isFinite(rawLeft) && rawLeft >= 0 ? Math.trunc(rawLeft) : null;
   if (lp == null) return { lp, pending: 0, unite: false, left };
-  const raw = self ? self.pending : local != null ? Math.min(cap, local) : p.pendingLp;
-  const pending = Math.min(lp, Math.max(0, Math.trunc(Number(raw) || 0)));
+  const raw = self ? self.pending : local != null ? (p.reverseLp ? -Math.min(cap, local) : Math.max(0, Math.min(cap, local) - (Number(p.lpShield) || 0))) : p.pendingLp;
+  // 六.E: a local 联防 preview pays the same collectible shield, and a negative raw is 时间机器's gain, not a charge
+  const pending = raw < 0 ? raw : Math.min(lp, Math.max(0, Math.trunc(Number(raw) || 0)));
   return { lp, pending, unite: (pending > 0 || left != null) && (self ? !!self.unite : pub.phase === PHASE.UNITE), left };
 }
 
@@ -117,6 +118,8 @@ const AVATAR_CLICK_GAP_MS = 500;
  * @param {number} [cap] lpCapPerRound
  */
 export function rowLpTip(lp, cap = 10) {
+  // 六.E 时间机器 (relic_158): a pending loss below zero is a gain, and reads as one
+  if (lp?.pending < 0) return t('时间机器：本场战斗结算时目标生命值增加 {0} 点', { 0: -lp.pending });
   if (!lp || !(lp.pending > 0)) return null;
   if (lp.unite && lp.left != null) return t('目标生命值 {lp}，联防中：漏过的敌人还剩 {left} 个，按现在结算扣除 {pending} 点（每回合至多 {cap} 点）', { lp: lp.lp, left: lp.left, pending: lp.pending, cap });
   return lp.unite ? t('目标生命值 {lp}，联防中，结算时扣除至多 {pending} 点', { lp: lp.lp, pending: lp.pending })

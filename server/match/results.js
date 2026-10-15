@@ -14,6 +14,7 @@
 
 import { bondList } from './bondsMeta.js';
 import { boardOrder } from './board.js';
+import { relicsView } from './relics.js';
 
 const STAT_OF = {
   bossDamage: (ps) => ps.stats.bossDamage,
@@ -120,6 +121,8 @@ export function buildResult(m, outcome) {
       eliminatedRound: ps.eliminatedRound,
       lp: Math.max(0, ps.lp),
       bandId: ps.bandId,
+      // 六.E: the collectibles the player ended the match with (the result screen's 本局收藏品 list); [] with the switch off
+      relics: relicsView(ps),
       lineup,
       // the settlement record keeps what the player ended the match with: a bond it accumulated layers in but whose
       // members are all off the field is still shown here (`keepLayerOnly`) — the in-game strip is the one that drops it

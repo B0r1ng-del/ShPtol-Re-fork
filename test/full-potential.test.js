@@ -18,6 +18,17 @@ import { resolveLoadout, loadoutRecord } from '../server/sim/simdata.js';
 import { diyRecordOf } from '../shared/diy.js';
 import { standInRecord } from '../shared/standIn.js';
 import { makeBattle } from './helpers/battleHarness.js';
+import { RHINE_CHARACTERS, RHINE_BALANCE } from '../shared/rhineResearch.js';
+
+/**
+ * The summon COUNT a ported operator's talent carries is the ported pack's own balance, not the official table's
+ * (`RHINE_BALANCE.mayerSummons` / `dorothyTrapLimit`, applied by tools/rhine-data.mjs adaptMayerTalent /
+ * adaptDorothyTalent). Every other blackboard key still has to match the official candidate exactly.
+ */
+const RHINE_SUMMON_COUNT = new Map([
+  [RHINE_CHARACTERS.mayer, RHINE_BALANCE.mayerSummons],
+  [RHINE_CHARACTERS.dorothy, RHINE_BALANCE.dorothyTrapLimit],
+]);
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = process.env.DATA_DIR || join(ROOT, 'data');
@@ -87,7 +98,9 @@ test('every chess, 自选 form and stand-in form: the raw keyframes plus every p
     n++;
     if (Object.keys(steps(c.charId)).length) withSteps++;
   }
-  assert.equal(n, 258);
+  // 258 official + the two ported packExtra6 operators (内容包 六.C) and the six ported packRhine ones (六.F),
+  // each a base/elite pair
+  assert.equal(n, 274);
   assert.ok(withSteps >= 220, `chess with potential steps: ${withSteps}`);
   let forms = 0;
   for (const [charId, u] of Object.entries(backups.units)) {
@@ -117,7 +130,11 @@ test('talent candidates: every chess talent is the last one unlocked at its stat
       // a fully empty placeholder (no name / text / blackboard / token) is dropped from the record (mergeTalentChanges)
       if (!best || (!best.name && !best.description && !best.blackboard.length && !best.tokenKey)) return;
       assert.ok(rec, `${c.chessId} talent ${index}`);
-      for (const b of best.blackboard) if (!(b.valueStr && b.value === 0)) assert.ok(Math.abs(rec.bb[b.key] - b.value) < 1e-9, `${c.chessId} talent ${index} ${b.key}: ${rec.bb[b.key]} vs ${b.value}`);
+      const override = b => b.key === 'cnt' ? RHINE_SUMMON_COUNT.get(c.charId)?.[c.isGolden ? 1 : 0] : null;
+      for (const b of best.blackboard) if (!(b.valueStr && b.value === 0)) {
+        const want = override(b) ?? b.value;
+        assert.ok(Math.abs(rec.bb[b.key] - want) < 1e-9, `${c.chessId} talent ${index} ${b.key}: ${rec.bb[b.key]} vs ${want}`);
+      }
       if ((best.requiredPotentialRank || 0) > 0) potentialTalents++;
     });
   }

@@ -18,7 +18,6 @@ const T6A = 'chess_char_6_diy1_a';
 const HUANG = 'char_017_huang'; // 煌: 炎 + 维多利亚 (both from her 隐藏势力)
 const CROSLY = 'char_1502_crosly'; // 弑君者: 叙拉古
 const SHARP = 'char_609_acguad'; // a prototype: 协防
-const OPS = DATA.backups?.diy?.operators ?? {};
 
 function soloMatch() {
   const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }];
@@ -44,6 +43,12 @@ function deploy(h, ps, id) {
 
 test('the derived bonds of the data: each owned pick its core bonds or 协防, 煌 alone two, every prototype 协防 (read from the data)', REAL, () => {
   const owned = DATA.backups.diy.ownedPool; // never hard-coded: the pool changes (焰狐龙梓兰 left it as a collab operator)
+  // Read a default match's OWN filtered view, not the raw file: a 盟约 a ported 内容包 contributes is not in a default
+  // room (`packId`, shared/packData.js) — the committed data holds the all-packs-on set and the match strips it, so
+  // 谬因's membership here is the original one. With the switch ON she joins 莱茵 (test/pack-rhine.test.js).
+  const probe = makeMatch({ mode: 'solo', seats: [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true }], seed: 21 }).start();
+  const OPS = probe.m.gd.raw.backups.diy.operators;
+  probe.m.dispose();
   const core = new Set(Object.entries(DATA.bonds).filter(([, b]) => b && b.isCore).map(([id]) => id));
   for (const id of owned) {
     const b = OPS[id].bonds;

@@ -167,7 +167,9 @@ test('per-match disabled bonds: 3 core + 4 add-on (NORMAL+), FUNNY static + 0 + 
       }
       const off = new Set([...drawn, ...staticOff]);
       for (const id of gd.visibleChess) {
-        const bonds = DATA.chess[id].bonds;
+        // the match's OWN bonds (`chessBondIds` = effectiveBonds): the raw file carries the all-packs-on set, so a
+        // 盟约 a 内容包 contributes is not a reason to ban the piece in a room without that pack
+        const bonds = gd.chessBondIds(id);
         assert.equal(banned.includes(id), bonds.length > 0 && bonds.every((b) => off.has(b)), id);
       }
     }

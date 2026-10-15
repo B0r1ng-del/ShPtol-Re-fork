@@ -104,6 +104,9 @@ test('data: the six deviated 重装 skills are DEFAULT (深巡 S2: ACTIVE_RANGE 
   // nothing else changed: every other MANUAL 重装 skill keeps the row (深巡 S1 included), and the generic
   // skcom_atk_up[3] keeps each other carrier's own rule (the deviation is keyed per chess, never per skill id)
   for (const c of Object.values(CHESS)) {
+    // 六.F: the ported 莱茵生命 records are PRESET bodies the pack owns (tools/rhine-data.mjs stamps `packId`),
+    // and an all-off room does not have them — the upstream roster is what this deviation check covers.
+    if (c.packId) continue;
     for (const s of c.skills || []) {
       if (isDeviated(c, s.skillId)) continue;
       if (s.trigger.rawRule === 'TAKE_DAMAGE') assert.equal(s.trigger.rule, 'TAKE_DAMAGE', `${c.chessId} ${s.skillId}`);

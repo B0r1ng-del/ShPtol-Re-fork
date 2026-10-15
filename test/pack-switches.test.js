@@ -238,9 +238,16 @@ describe('内容包开关: the server sees only what the room contains', () => {
     const src = read('server/match/gamedata.js');
     assert.match(src, /this\.raw = filterRawData\(this\.mods, /, 'the raw data is filtered at construction');
     assert.match(src, /const b = effectiveBonds\(this\.mods, own\(this\._chess, id\)\)/);
-    // no second copy of the rule: every other consumer goes through `gd`, which is already filtered
+    // no second copy of the rule: every other consumer goes through `gd`, which is already filtered. Check the CODE —
+    // comments in these files legitimately NAME the mechanism (`packId` …) while explaining why the file does not read
+    // it (`server/match/pool.js` uses `gd.chessBondIds`, which is the filtered view), so a substring search over the
+    // whole file would fail on the honest implementation.
+    const code = (f) => read(f).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
     for (const f of ['server/match/pool.js', 'server/match/match/platform.js', 'server/match/match/views.js']) {
-      assert.ok(!read(f).includes('packId'), `${f} must not re-implement the pack filter`);
+      const body = code(f);
+      for (const re of [/rec(?:ord)?\.packId/, /\.packId\b(?!\s*:)/, /packEnabled\s*\(/, /filterRawData\s*\(/, /filterFile\s*\(/, /PACK_ID_FIELD/]) {
+        assert.ok(!re.test(body), `${f} must not re-implement the pack filter (${re})`);
+      }
     }
   });
 });

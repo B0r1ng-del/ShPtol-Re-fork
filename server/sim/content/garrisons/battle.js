@@ -241,6 +241,21 @@ function ammoScope(it, u) {
 }
 
 const INSTALLERS = {
+  RHINE_ASTGENNE_FIRST_SKILL(battle, list) {
+    // 六.F 溯光星源: her FIRST skill of the battle grants `layer` layers to the bonds `bond_ids` names (莱茵生命 / 精准),
+    // once per instance — `it.cnt` is the same per-instance counter the generic gains use.
+    const m = byUnit(list);
+    battle.on('skillStart', ({ unit }) => {
+      const arr = m.get(unit);
+      if (!arr) return;
+      for (const it of arr) {
+        if (it.cnt++) continue;
+        S.gainLayers(battle, { playerId: unit.ownerId, bonds: ids(it.bbStr.bond_ids),
+          n: S.num(it.bb.layer), requireActive: true, source: unit, reason: 'garrison' });
+      }
+    });
+  },
+
   act1autochess_gar_event_useskill(battle, list) {
     const m = byUnit(list);
     battle.on('skillStart', ({ unit }) => {

@@ -102,7 +102,7 @@ server/
       kits/ops/*.js        one operator kit (skills + talents) per file, <chessId>-<codename>.js
       kits/shared/*.js     helpers the kits share (shared/tier1.js: the general ones)
       tokens.js            summon/token definitions
-      bonds.js             battle side of the 23 bonds
+      bonds.js             battle side of the 24 bonds (23 official + the ported 莱茵生命, docs/FORK.md 六.3)
       garrisons.js         battle side (IN_BATTLE) garrison effect keys
       items.js             battle side of equipment + Arts
       bands.js             battle side of band (strategy) effects

@@ -18,6 +18,9 @@ import { html, Icon, MicroLabel, Button, Spinner } from './components.js';
 import { createStore, useStore } from '../store.js';
 import { data, useData, artUrls, nextArtUrl } from '../data.js';
 import { t, N_ } from '../../../shared/i18n.js';
+import { RELICS } from '../../../shared/relics.js';
+import { RelicList } from './relicPanel.js';
+import { installRelicJournal, relicJournalStore } from './relicJournal.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -80,15 +83,15 @@ export function guidePreloadUrl(pages, i, failed) {
   return nextArtUrl(pages[(((i + 1) % n) + n) % n]?.urls, failed);
 }
 
-/** Open/closed + current page. */
-export const guideStore = createStore({ open: false, page: 0 });
+/** Open/closed + current page / section (六.E adds the 收藏品图鉴 tab beside the pages). */
+export const guideStore = createStore({ open: false, page: 0, section: 'pages' });
 
 /** Open the viewer (optionally at a page index). */
 export function openGuide(page = 0) {
   data.load('local');
   data.load('assets');
   data.load('config');
-  guideStore.set({ open: true, page: Math.max(0, page | 0) });
+  guideStore.set({ open: true, page: Math.max(0, page | 0), section: 'pages' });
 }
 export const closeGuide = () => guideStore.set({ open: false });
 
@@ -118,7 +121,10 @@ function TipsFallback() {
 
 /** The viewer (mounted once near the root). */
 export function GuideHost() {
-  const { open, page } = useStore((s) => s, Object.is, guideStore);
+  const { open, page, section } = useStore((s) => s, Object.is, guideStore);
+  const ids = useStore((s) => s.ids, Object.is, relicJournalStore);
+  useEffect(() => installRelicJournal(), []);
+  const journal = section === 'relics';
   const ready = useData('local', 'assets', 'config');
   const pages = useMemo(() => (ready ? guidePages() : []), [ready]);
   const [loaded, setLoaded] = useState(() => new Set());
@@ -127,7 +133,7 @@ export function GuideHost() {
   const n = pages.length;
   const i = n ? Math.min(Math.max(0, page), n - 1) : 0;
   const cur = pages[i] || null;
-  const go = (k) => { if (n) guideStore.set({ open: true, page: ((k % n) + n) % n }); };
+  const go = (k) => { if (n) guideStore.set({ open: true, page: ((k % n) + n) % n, section: 'pages' }); };
 
   useEffect(() => {
     if (!open) return undefined;
@@ -170,15 +176,23 @@ export function GuideHost() {
           ${GUIDE_CHAPTERS.map((ch, ci) => {
             const at = firstOf(ci);
             if (at < 0) return null;
-            return html`<button key=${ch.id} type="button" class=${cx('guide__chapter', cur?.chapter === ci && 'is-on')} onClick=${() => go(at)}>
+            return html`<button key=${ch.id} type="button" class=${cx('guide__chapter', !journal && cur?.chapter === ci && 'is-on')} aria-pressed=${!journal && cur?.chapter === ci} onClick=${() => go(at)}>
               <span class="guide__chname">${t(ch.name)}</span><span class="guide__chmicro">${ch.micro}</span>
             </button>`;
           })}
+          <button type="button" class=${cx('guide__chapter', journal && 'is-on')} aria-pressed=${journal} onClick=${() => guideStore.set({ section: 'relics' })}>
+            <span class="guide__chname">${t('收藏品图鉴')}</span><span class="guide__chmicro">COLLECTION</span>
+          </button>
         </nav>` : null}
         <button type="button" class="guide__close" aria-label=${t('关闭')} title=${t('关闭 (Esc)')} onClick=${closeGuide}><${Icon} name="close" /></button>
       </header>
 
-      ${src ? html`<div class="guide__stage">
+      ${journal ? html`<section class="guide__journal" aria-label=${t('收藏品图鉴')} tabindex="0">
+        <div class="guide__journal-head"><div><${MicroLabel} tone="mint">${t('COLLECTION // 已获得过')}</${MicroLabel}>
+          <h3>${t('收藏品图鉴')}</h3></div><span class="guide__count num">${ids.length} / ${RELICS.length}</span></div>
+        <p class="guide__journal-note">${t('领取后自动收录，跨局保留。以下为收藏品在本游戏中的效果；获得记录保存在当前浏览器。')}</p>
+        <${RelicList} relics=${ids.map((id) => ({ id }))} history=${true} />
+      </section>` : src ? html`<div class="guide__stage">
         <button type="button" class="guide__nav guide__prev" aria-label=${t('上一页')} onClick=${() => go(i - 1)}><${Icon} name="chevronLeft" /></button>
         <div class=${cx('guide__page', isLoaded && 'is-loaded')}>
           <img key=${src} src=${src} alt=${t(cur.title)} draggable=${false}

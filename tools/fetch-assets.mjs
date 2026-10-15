@@ -62,12 +62,15 @@ import { existsSync, realpathSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Downloader } from './assets/downloader.mjs';
+import { prepareCustomRelicIcons } from './assets/relics.mjs';
+import { rhineArtInput, addRhineArt } from './assets/rhine-plan.mjs';
 import { restartForEnvProxy } from './assets/env-proxy.mjs';
 import { MirrorPolicy, selectDownloadSource, validateSource } from './assets/network.mjs';
 import { normalizeProxyPrefix } from './assets/sources.mjs';
 import { loadIndexes } from './assets/cache.mjs';
 import { indexAudio, VOICE_DIRS } from './assets/audio.mjs';
 import { buildPlan } from './assets/plan.mjs';
+import { FORK_EXTRA6_CHARS } from './fork-extra6.mjs';
 import {
   processModels, findLocalEnemyModels, findLocalTokenModels, localSpineMeta, loadLocalSpines, LOCAL_ENEMY_SPINES_FILE,
   LOCAL_TOKEN_SPINES_FILE, LOCAL_ENEMY_SPINE_DIR, LOCAL_TOKEN_SPINE_DIR,
@@ -191,6 +194,20 @@ export function dataExtras(backups, chess) {
       for (const m of f.modules || []) if (m.typeIcon) moduleTypes.add(m.typeIcon);
     }
     extraOperators[id] = { name: u.name, subProfessionId: u.subProfessionId, nationId: u.nationId, skills: [...skills.values()].sort((a, b) => a.index - b.index) };
+  }
+  // …and the 内容包 operators that have no 补位 unit at all: a ported chess record (tools/fork-extra6.mjs) is a PRESET
+  // card fielding its own operator, so nothing in `backups.units` names it and it would ship with no avatar / portrait /
+  // Spine. `chess.json` is what the shop and the board field, so read the art of that operator from the record it built.
+  // Only the packs' operators are looked up (their own list is the one place that knows them), so every official chess
+  // still comes from research 07 exactly as before.
+  for (const id of FORK_EXTRA6_CHARS.map((c) => c.charId)) {
+    if (extraOperators[id]) continue;
+    const rec = Object.values(chess || {}).find((c) => c?.charId === id && !c.isGolden) || Object.values(chess || {}).find((c) => c?.charId === id);
+    if (!rec) continue;
+    const skills = new Map();
+    for (const sk of rec.skills || []) if (Number.isInteger(sk?.index) && !skills.has(sk.index)) skills.set(sk.index, { index: sk.index, skillId: sk.skillId, iconId: sk.iconId || sk.skillId });
+    extraOperators[id] = { name: rec.name, subProfessionId: rec.subProfessionId, nationId: rec.nationId, skills: [...skills.values()].sort((a, b) => a.index - b.index) };
+    for (const m of rec.modules || []) if (m.typeIcon) moduleTypes.add(m.typeIcon);
   }
   for (const c of Object.values(chess || {})) for (const m of c?.modules || []) if (m.typeIcon) moduleTypes.add(m.typeIcon);
   return { extraOperators, tokenIds: Object.keys(backups?.tokens || {}).sort(), moduleTypes: [...moduleTypes].sort() };
@@ -322,6 +339,7 @@ function countStats(m, bytes, files) {
     bonds: Object.keys(m.bonds || {}).length,
     items: Object.keys(m.items || {}).length,
     bands: Object.keys(m.bands || {}).length,
+    relics: Object.keys(m.relics || {}).length,
     skills: Object.keys(m.skills || {}).length,
     modules: Object.keys(m.modules || {}).length,
     ui: Object.keys(m.ui || {}).length,
@@ -403,7 +421,9 @@ async function main() {
   const localEnemySpines = await syncLocalSpines(opts, 'enemy');
   const localTokenSpines = await syncLocalSpines(opts, 'token');
   const plan = buildPlan({
-    assets07, ops03, enemies05, maps05, audio, modelsData, charword, voiceLang: opts.voiceLang,
+    // 六.F 莱茵生命 (tools/rhine-data.mjs): its six operators field PRESET chess of their own, so research 07/03 do
+    // not name them and they would ship with no avatar / portrait / Spine (assets/rhine-plan.mjs).
+    ...rhineArtInput(assets07, ops03), enemies05, maps05, audio, modelsData, charword, voiceLang: opts.voiceLang,
     // default: only the slots a battle can play (plan.mjs VOICE_BATTLE_SLOTS); --voice-all takes the whole official set
     voiceSlots: opts.voiceAll ? null : undefined,
     extraEnemyIds: Object.keys(dataEnemies || {}),
@@ -426,6 +446,9 @@ async function main() {
     return 0;
   }
 
+  // 六.E 本局收藏品 (packRelic): the original collectible PNGs have no remote URL — they are read from
+  // tools/assets/custom-relics/ into public/assets/relics/ before the plan resolves them (like the fonts' local copies).
+  await prepareCustomRelicIcons(ASSETS);
   const dl = new Downloader({
     root: ASSETS, ledgerPath: join(CACHE, 'assets-ledger.json'),
     concurrency: opts.concurrency, force: opts.force, keepExisting: opts.addOnly, log, ...network,
@@ -458,7 +481,9 @@ async function main() {
 
   // Manifest
   const resolved = resolveTemplate(plan.template, { root: ASSETS, spine: spine.entries, sourceOf: (rel) => dl.ledger.files[rel]?.url });
-  const body = resolved.value;
+  // 六.F: the pack's own art is LOCAL (public/art/rhine/, like the relic icons) — the bond icon, the three device
+  // sprites and the two equipment icons have no remote URL (assets/rhine-plan.mjs addRhineArt).
+  const body = addRhineArt(resolved.value);
   tidyManifest(body);
   const fontFaces = {};
   for (const [name, f] of Object.entries(fonts.files)) fontFaces[name] = f;

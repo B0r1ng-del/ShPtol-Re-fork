@@ -571,6 +571,7 @@ export class DataSource {
     this._chess = new Map();
     this._enemy = new Map();
     this._token = new Map();
+    this._rawToken = new Map();
     this._stage = new Map();
   }
 
@@ -578,8 +579,24 @@ export class DataSource {
   rawEnemy(key) {
     return this.raw.enemies[key] ?? this.raw.enemies['enemy_' + key] ?? this.raw.enemies[String(key).replace(/^enemy_/, '')] ?? this.fallback?.rawEnemy(key) ?? null;
   }
-  /** A token record: data/tokens.json, else the 自选 picks' summons (data/backups.json `tokens`). */
-  rawToken(id) { return this.raw.tokens[id] ?? this.fallback?.rawToken(id) ?? this.rawBackups()?.tokens?.[id] ?? null; }
+  /**
+   * A token record: data/tokens.json, else the 自选 picks' summons (data/backups.json `tokens`).
+   *
+   * 六.F: one token id can be shared by a ported 莱茵 chess AND a 自选 pick — 多萝西's 共振装置 is both her 六.F summon and
+   * the fork's own `op-doroth.js` pick. The two live in different files with different `variants` owners, and the
+   * primary record used to shadow the backup wholesale, so the pick lost its resolved variants. Keep BOTH variant maps
+   * (the primary's owners win on a collision) and cache the merged record.
+   */
+  rawToken(id) {
+    if (this._rawToken.has(id)) return this._rawToken.get(id);
+    const primary = this.raw.tokens[id] ?? this.fallback?.rawToken(id) ?? null;
+    const backup = this.rawBackups()?.tokens?.[id] ?? null;
+    const record = primary && backup && primary !== backup
+      ? { ...backup, ...primary, variants: { ...backup.variants, ...primary.variants } }
+      : primary ?? backup;
+    this._rawToken.set(id, record);
+    return record;
+  }
   rawStage(id) { return this.raw.stages[id] ?? this.fallback?.rawStage(id) ?? null; }
   rawWave(id) { return this.raw.waves[id] ?? this.fallback?.rawWave(id) ?? null; }
   /** data/backups.json (`{ units, diy }`) of this source or its fallback, or null. */

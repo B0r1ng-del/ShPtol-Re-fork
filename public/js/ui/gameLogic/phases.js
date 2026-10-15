@@ -2,6 +2,7 @@
 // start's deploy replay. Re-exported from ../gameLogic.js.
 
 import { PHASE } from '../../../../shared/constants.js';
+import { RELIC_CHOICE_SECONDS } from '../../../../shared/relics.js';
 import { bossLevelSeconds } from '../matchStatus.js';
 import { clamp, int, isObj, sortedPlayers } from './shared.js';
 import { normalizeSp } from './draft.js';
@@ -91,6 +92,9 @@ export const RESULT_BOX_MS = 2800;
  */
 export function ownRoundLoss(cost) {
   if (!cost) return null;
+  // 六.E: the server's own charge (m.public.roundLosses) wins — a collectible shield or 时间机器 makes it differ from
+  // the leak count, and it may be negative (LP gained). Absent without the switch, so the leak arithmetic below stands.
+  if (Number.isFinite(cost.loss)) return Math.trunc(cost.loss);
   const leaks = Number.isFinite(cost.leaks) ? Math.max(0, Math.trunc(cost.leaks)) : null;
   if (leaks == null) return null;
   const cap = Number.isFinite(cost.cap) && cost.cap > 0 ? Math.trunc(cost.cap) : 10; // no cap known → the official 10
@@ -125,7 +129,9 @@ export function battleOverSfx(cost, uniteLoss = null) {
  * @returns {{ title: string, micro: string, tone: string, sub: string, duration: number }}
  */
 export function roundResultBox(loss) {
-  const n = Math.max(0, Math.trunc(Number(loss) || 0));
+  const n = Math.trunc(Number(loss) || 0);
+  // 六.E: 时间机器 turns a round's charge into a gain; the official dialog has 「生命值增加 +N」 for it
+  if (n < 0) return { title: t('作战结束'), micro: 'BATTLE OVER', tone: 'mint', sub: t('生命值增加 +{n}', { n: -n }), duration: RESULT_BOX_MS };
   return n === 0
     ? { title: t('作战结束'), micro: 'BATTLE OVER', tone: 'mint', sub: t('全员无伤！'), duration: RESULT_BOX_MS }
     : { title: t('作战结束'), micro: 'BATTLE OVER', tone: 'red', sub: t('生命值减少 −{n}', { n }), duration: RESULT_BOX_MS };
@@ -152,8 +158,9 @@ export function uniteResultBox(res, selfId) {
   const losses = isObj(res.losses) ? res.losses : null;
   if (losses && (selfId == null || !Object.hasOwn(losses, selfId))) return null;
   const raw = losses ? Number(losses[selfId]) : NaN;
-  const loss = Number.isFinite(raw) ? Math.max(0, Math.trunc(raw)) : null;
-  if (loss != null && loss > 0) return roundResultBox(loss);
+  // 六.E: a negative loss is 时间机器's gain, not 0 — keep the sign for roundResultBox
+  const loss = Number.isFinite(raw) ? Math.trunc(raw) : null;
+  if (loss != null && loss !== 0) return roundResultBox(loss);
   if (loss != null && through === 0) return roundResultBox(0);
   return { title: t('作战结束'), micro: 'BATTLE OVER', tone: 'orange', sub: '', duration: RESULT_BOX_MS };
 }
@@ -260,6 +267,9 @@ export function phaseTotalSeconds(pub, config, myId = null) {
     // 最终攻势 / 隐秘核心: m.public.deadline is the level's 120 s countdown (maxPlayTime; the battle goes on past it)
     case PHASE.FINAL_ASSAULT:
     case PHASE.HIDDEN_CORE: return bossLevelSeconds(pub, config);
+    // 六.E: the SETTLE phase normally has no countdown (the server moves on); while a collectible choice holds it open
+    // there is one, the length of the choice window
+    case PHASE.SETTLE: return pub.relicChoosing ? RELIC_CHOICE_SECONDS : null;
     default: return null;
   }
 }

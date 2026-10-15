@@ -23,6 +23,7 @@ import { data } from '../data.js';
 import { enemyIconUrl, titleIconUrl, uiUrl } from '../ui/assetUrls.js';
 import { store, useStore, emptyMatch } from '../store.js';
 import { audio } from '../audio.js';
+import { RelicList, relicEntries } from '../ui/relicPanel.js';
 import { sentText } from '../ui/lang.js';
 import { t, tParts, N_ } from '../../../shared/i18n.js';
 
@@ -63,7 +64,7 @@ export function LineupThumb({ u, gd }) {
     title=${si ? t('{name}（{note}）', { name: si.name, note: standInForText(chess.name) }) : undefined} />`;
 }
 
-function PlayerCard({ p, myId, titles, best, solo = false }) {
+function PlayerCard({ p, relics, myId, titles, best, solo = false }) {
   const gd = useGameData();
   const titleRec = p.title ? titles.find((x) => x.id === p.title.id) || null : null;
   // (the server sends the title's Chinese name: the localized config.titles record when it is that record's)
@@ -100,6 +101,10 @@ function PlayerCard({ p, myId, titles, best, solo = false }) {
       ${stats.map(([k, label]) => html`<div key=${k} class=${cx('rstat', best[k] === p.playerId && 'is-best')}><span>${t(label)}</span><b class="num">${fmtNum(p.stats[k])}</b></div>`)}
       ${Number.isFinite(p.lp) ? html`<div class="rstat" title=${p.lpShared && !solo ? t('最终攻势起全队共享目标生命值') : ''}><span>${p.lpShared && !solo ? t('同盟剩余生命') : t('剩余生命')}</span><${LpTower} value=${p.lp} size="sm" /></div>` : null}
     </div>
+    <details class="rcard__relics">
+      <summary><${Icon} name="key" /><span>${t('本局收藏品 ·')} <b class="num">${relicEntries(relics).length}</b></span><span class="rcard__relicshint">${t('查看效果')}</span></summary>
+      <${RelicList} relics=${relics} />
+    </details>
   </article>`;
 }
 
@@ -121,6 +126,9 @@ export function ResultScreen() {
 export function ResultView({ res, pub = null, myId = null, backLabel, onBack, quiet = false }) {
   const gd = useGameData();
   const r = normalizeResult(res, pub);
+  // 六.E: normalizeResult has a fixed schema, so the per-player collectible list is kept by identity from the raw
+  // payload (an older payload simply has none).
+  const playerRelics = new Map((Array.isArray(res?.players) ? res.players : []).filter((p) => p && p.playerId).map((p) => [p.playerId, p.relics]));
   const titles = Array.isArray(gd.config?.titles) ? gd.config.titles : [];
   const best = {};
   for (const [k] of STAT_ROWS) {
@@ -166,7 +174,7 @@ export function ResultView({ res, pub = null, myId = null, backLabel, onBack, qu
       </section>
       <section class="result__players">
         <h2 class="brief-h"><span>${t('同盟成员')}</span><${MicroLabel}>ALLIANCE REPORT</${MicroLabel}></h2>
-        ${r.players.length ? r.players.map((p) => html`<${PlayerCard} key=${p.playerId} p=${p} myId=${myId} titles=${titles} best=${best} solo=${r.players.length < 2} />`)
+        ${r.players.length ? r.players.map((p) => html`<${PlayerCard} key=${p.playerId} p=${p} relics=${playerRelics.get(p.playerId)} myId=${myId} titles=${titles} best=${best} solo=${r.players.length < 2} />`)
           : html`<p class="t-dim">${t('暂无结算数据')}</p>`}
       </section>
     </main>

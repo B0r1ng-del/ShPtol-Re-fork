@@ -75,6 +75,9 @@ const STAT_CASES = [
   [A('6_06'), { res: 40 }], [B('6_06'), { res: 60 }],                                     // 耶拉冈德之泪
   [A('6_10'), { redeployMul: 0.6, maxHp: 2000 }], [B('6_10'), { redeployMul: 0.4 }],      // 骑士戒律
   [A('6_11'), { spRecovery: 1.2 }], [B('6_11'), { spRecovery: 1.35 }],                   // 家族徽章
+  // 六.F 莱茵生命装备 (tools/rhine-data.mjs): 莱茵实验终端 攻击 / 联合研究主机 生命上限
+  ['chess_item_rhine_terminal_a', { atk: 575 }], ['chess_item_rhine_terminal_b', { atk: 625 }],
+  ['chess_item_rhine_mainframe_a', { maxHp: 2900 }], ['chess_item_rhine_mainframe_b', { maxHp: 3400 }],
 ];
 
 test('stat equipment: percentages are 直接乘算 — additive with each other (normal / golden numbers from data)', () => {
@@ -683,10 +686,10 @@ test('变形同构体: carrier counts as a member of the other item\'s giveBondI
   assert.deepEqual([...unitBonds(h.unit('t_op'))], ['lateranoShip']);
   const h2 = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [A('4_08')] }] });
   assert.deepEqual([...unitBonds(h2.unit('t_op'))], [], 'the bond item alone grants nothing');
-  // every giveBondId item grants its bond (14 bonds)
+  // every giveBondId item grants its bond (the official 14, plus 莱茵生命 from 莱茵实验终端, 六.F)
   const grants = Object.values(DATA.items).filter((r) => r.giveBondId && !r.isGolden);
-  assert.equal(grants.length, 18);
-  assert.equal(new Set(grants.map((r) => r.giveBondId)).size, 14);
+  assert.equal(grants.length, 19);
+  assert.equal(new Set(grants.map((r) => r.giveBondId)).size, 15);
   for (const r of grants) {
     const hh = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [r.id, A('6_09')] }] });
     assert.ok(unitBonds(hh.unit('t_op')).includes(r.giveBondId), r.id);
@@ -736,9 +739,15 @@ function setup({ mode = 'solo', humans = 1, seed = 41 } = {}) {
   return { h, m, ps, equip };
 }
 const handIds = (ps, kind) => [...ps.hand, ...ps.temp].filter((p) => p && (!kind || p.kind === kind)).map((p) => p.id);
-/** Visible normal chess whose 特质 are all IN_BATTLE (no prep-side side effects), sorted. */
+/**
+ * Visible normal chess whose 特质 are all IN_BATTLE (no prep-side side effects), sorted.
+ *
+ * `!c.packId`: the committed `data/chess.json` is the ALL-PACKS-ON truth and a default room has every 内容包 switch off
+ * (`shared/packData.js recordAvailable`), so a record a pack owns is not in the match these tests build — 结城理 /
+ * 丰川祥子 (内容包 packExtra6, 六.C) included. `give()` asserts on the MATCH's data, which is the honest source here.
+ */
 const plain = (pred = () => true) => Object.values(DATA.chess)
-  .filter((c) => c.visible && !c.isGolden && (c.garrisonIds || []).every((g) => DATA.garrisons[g].eventType === 'IN_BATTLE') && pred(c))
+  .filter((c) => c.visible && !c.isGolden && !c.packId && (c.garrisonIds || []).every((g) => DATA.garrisons[g].eventType === 'IN_BATTLE') && pred(c))
   .map((c) => c.chessId).sort();
 /** Record the chess granted by item effects (acquireChess with an `item:` source). */
 /** The warn toasts sent to the match's players from now on: [{ msgid, who, name }] (server msg() objects). */
@@ -1278,5 +1287,5 @@ test('coverage: every equipment (normal + golden) and every Art is exercised by 
   // items whose numbers are asserted in the stat table, the proc tests or the meta tests
   const missing = Object.keys(DATA.items).filter((id) => !COVER.has(id)).sort();
   assert.deepEqual(missing, []);
-  assert.equal(Object.keys(DATA.items).length, 115);
+  assert.equal(Object.keys(DATA.items).length, 119);
 });

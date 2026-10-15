@@ -12,13 +12,15 @@
 // The rest pin down what the fork actually is, so a later change to it is a deliberate one.
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
   applyForkOverrides, forkUltimateMode, applyForkChoices, applyForkChess, applyForkBackups,
   FORK_MODE_ID, FORK_BASE_MODE_ID, FORK_DIY_SLOT_IDS, forkDiySlotId, forkDiyGoldenId,
+  applyForkBonds, applyForkEffects, applyForkPackMembers, applyForkPackAphris, applyForkAssets,
+  FORK_RHINE_BOND_ID, FORK_RHINE_CHESS, FORK_RHINE_ICON, FORK_APHRIS_CHAR_ID, FORK_APPLIERS,
 } from '../tools/fork-overrides.mjs';
 import { MOD_RANDOM_SP_FAMILIES } from '../shared/constants.js';
 
@@ -282,5 +284,172 @@ describe('fork 自选编队 slots (二.8: 5 × tier 5 + 5 × tier 6)', () => {
     assert.deepEqual(applyForkBackups(backups).diy.ownedPool, backups.diy.ownedPool);
     assert.deepEqual(Object.keys(applyForkBackups(backups)), Object.keys(backups), 'no new top-level key');
     assert.deepEqual(Object.keys(applyForkBackups(backups).diy), Object.keys(backups.diy), 'no new diy key');
+  });
+});
+
+describe('fork 莱茵生命 盟约 (六.3: rhineShip + 谬因·并入莱茵)', () => {
+  const chess = readJson('chess');
+  const bonds = readJson('bonds');
+  const effects = readJson('effects');
+  const backups = readJson('backups');
+  const assets = readJson('assets');
+
+  // The five appliers own five records across four files; each file's block starts with its drift guard.
+  test('every 六.3 record already carries what the applier builds (idempotence drift guards)', () => {
+    assert.deepEqual(applyForkBonds(bonds), bonds, 'data/bonds.json is stale — run: node tools/fork-data.mjs');
+    assert.deepEqual(applyForkEffects(effects), effects, 'data/effects.json is stale — run: node tools/fork-data.mjs');
+    assert.deepEqual(applyForkPackMembers(chess), chess, 'data/chess.json is stale — run: node tools/fork-data.mjs');
+    assert.deepEqual(applyForkPackAphris(backups), backups, 'data/backups.json is stale — run: node tools/fork-data.mjs');
+    assert.deepEqual(applyForkAssets(assets), assets, 'data/assets.json is stale — run: node tools/fork-data.mjs');
+  });
+
+  test('all five appliers are pure and idempotent', () => {
+    const pairs = [
+      [applyForkBonds, bonds], [applyForkEffects, effects], [applyForkPackMembers, chess],
+      [applyForkPackAphris, backups], [applyForkAssets, assets],
+    ];
+    for (const [apply, input] of pairs) {
+      const before = JSON.stringify(input);
+      const out = apply(input);
+      assert.equal(JSON.stringify(input), before, 'the input is untouched');
+      assert.deepEqual(apply(out), out, 'idempotent');
+      // the two 叠加 appliers return the SAME object when there is nothing to add (the committed data is already
+      // patched, so the drift guard above is exactly that case); the two OWNER appliers rebuild their record every run
+      if (apply === applyForkBonds || apply === applyForkEffects) assert.notEqual(out, input);
+    }
+    assert.notEqual(applyForkBonds(bonds), bonds, 'the owner appliers rebuild instead of sharing');
+  });
+
+  test('a partial data set is a no-op, never a throw', () => {
+    for (const bad of [null, undefined, 42, 'x', [], {}]) {
+      for (const apply of [applyForkBonds, applyForkEffects, applyForkPackMembers, applyForkPackAphris, applyForkAssets]) {
+        assert.doesNotThrow(() => apply(bad));
+      }
+    }
+    // an unrelated record set is returned as it is, and only the bridge files have a shape to check
+    assert.equal(applyForkBonds(null), null);
+    assert.equal(applyForkAssets(null), null);
+    // the two OWNER appliers build their record from FORK_RHINE, so a set without it gains the record and keeps the rest
+    const onlyOther = { yanShip: { bondId: 'yanShip' } };
+    const withRhine = applyForkBonds(onlyOther);
+    assert.equal(withRhine.yanShip, onlyOther.yanShip, 'the other records are shared, not copied');
+    assert.ok(withRhine[FORK_RHINE_BOND_ID], 'and the 盟约 record is rebuilt');
+    assert.deepEqual(onlyOther, { yanShip: { bondId: 'yanShip' } }, 'the input is untouched');
+    // the three 叠加 appliers add nothing when there is nobody to add to
+    assert.deepEqual(applyForkPackMembers({ yanShip: {} }), { yanShip: {} });
+    assert.deepEqual(applyForkAssets({ chars: {} }), { chars: {} }, 'no bonds block → nothing to write into');
+    assert.deepEqual(applyForkPackAphris({ diy: {} }), { diy: {} });
+    assert.deepEqual(applyForkPackAphris({ diy: { operators: {} } }), { diy: { operators: {} } });
+  });
+
+  test('rhineShip is the source expansion\'s own record, owned by BOTH 莱茵 switches', () => {
+    const b = bonds[FORK_RHINE_BOND_ID];
+    assert.ok(b, `${FORK_RHINE_BOND_ID} missing from data/bonds.json`);
+    assert.deepEqual(
+      [b.bondId, b.name, b.identifier, b.bondType, b.countMode, b.activeCount],
+      [FORK_RHINE_BOND_ID, '莱茵生命', 24, 'SEASON', 'BOARD', 3],
+    );
+    assert.deepEqual(b.thresholds, [3, 6, 9], '3 / 6 / 9 distinct members');
+    // an ARRAY packId: only ONE of the two switches has to be on for the 盟约 to exist (shared/constants.js packEnabled)
+    assert.deepEqual(b.packId, ['packRhine', 'packAphris']);
+    assert.deepEqual(b.bb, { base_atk: 300, atk_per_stack: 4, sharing_count: 6, sharing_atk: 0.15, sharing_golden_atk: 0.25 });
+    assert.equal(b.bbStr.key, 'rhine_research', 'the device table key the 六.4 port will read');
+    // The numbers are read through the SAME `env_gbuff_new` blackboard every other 盟约 uses (`addon/battle.js bondBb`,
+    // `rhine.js rhineBb`). A `buffs: []` here reads back as `{}` and silently zeroes the 盟约's whole effect, so this is
+    // pinned rather than left to the record's shape.
+    assert.equal(b.buffs.length, 1, 'one env_gbuff_new blackboard');
+    assert.equal(b.buffs[0].key, 'env_gbuff_new');
+    assert.deepEqual(b.buffs[0].bb, b.bb, 'the buff carries the bond\'s own numbers');
+    assert.equal(b.buffs[0].bbStr.key, b.bbStr.key);
+    // Members list the BASE (`_a`) ids only: data.test.js asserts a member is a non-golden chess. The six official
+    // 莱茵 operators plus the four ported ones that name the 盟约 (tools/rhine-data.mjs recomputes the list from the
+    // chess that carry it), in the natural key order `data/chess.json` is written in.
+    assert.deepEqual(b.members, [
+      'chess_char_2_02_a', 'chess_char_4_21_a', 'chess_char_5_11_a', 'chess_char_5_16_a', 'chess_char_6_11_a', 'chess_char_6_16_a',
+      'chess_rhine_astgenne_a', 'chess_rhine_dorothy_a', 'chess_rhine_ifrit_a', 'chess_rhine_mayer_a',
+    ]);
+    // 白面鸮's II-cost form is HIDDEN, so the visible list is one shorter — the 9 the 盟约's own thresholds need
+    assert.deepEqual(b.visibleMembers, b.members.filter((id) => id !== 'chess_char_5_16_a'));
+    assert.equal(b.visibleMembers.length, 9, 'the 盟约 starts at 3 and caps at 9');
+    assert.ok(!FORK_RHINE_CHESS.some((id) => b.members.includes(id) && id.endsWith('_b')), 'no golden member');
+    const ids = Object.values(bonds).map((x) => x.identifier).filter(Number.isInteger);
+    assert.equal(new Set(ids).size, ids.length, 'identifier 24 continues the official run and stays unique');
+  });
+
+  test('the effect record resolves, carries the same numbers and the same two packs', () => {
+    const e = effects[bonds[FORK_RHINE_BOND_ID].effectId];
+    assert.ok(e, 'data.test.js requires every bond\'s effectId to resolve');
+    assert.equal(e.effectType, 'BOND');
+    assert.deepEqual(e.packId, bonds[FORK_RHINE_BOND_ID].packId, 'the pair appears and disappears together');
+    assert.deepEqual(e.params, bonds[FORK_RHINE_BOND_ID].bb);
+    // the source expansion ships no effect buff either, and the sim reads the BOND record's blackboard — repeating the
+    // numbers here would be a second copy to keep in sync
+    assert.deepEqual(e.buffs, []);
+  });
+
+  test('every ported member lists the 盟约 and the pack that contributed it — both forms, _a and _b', () => {
+    assert.equal(FORK_RHINE_CHESS.length, 12, '6 operators × (normal, elite)');
+    for (const id of FORK_RHINE_CHESS) {
+      const c = chess[id];
+      assert.ok(c, `${id} is not a chess record`);
+      assert.ok(c.bonds.includes(FORK_RHINE_BOND_ID), `${id} lacks ${FORK_RHINE_BOND_ID}`);
+      assert.deepEqual(c.packBonds, { packRhine: [FORK_RHINE_BOND_ID] });
+    }
+    // the operators themselves are untouched: nothing about the card is rewritten, only its bond list appended to
+    const base = chess[FORK_RHINE_CHESS[0]];
+    assert.equal(base.isGolden, false);
+    assert.ok(Array.isArray(base.bonds));
+  });
+
+  test('谬因 joins through her 自选 bond list (there is no chess record for her at all)', () => {
+    assert.ok(!chess[FORK_APHRIS_CHAR_ID], 'she has no chess record — she is fielded through a 自选 slot');
+    const rec = backups.diy.operators[FORK_APHRIS_CHAR_ID];
+    assert.ok(rec, `${FORK_APHRIS_CHAR_ID} missing from backups.diy.operators`);
+    assert.ok(rec.bonds.includes(FORK_RHINE_BOND_ID), 'she is a 莱茵生命 member in the committed (all-packs-on) data');
+    assert.deepEqual(rec.packBonds, { packAphris: [FORK_RHINE_BOND_ID] }, 'and only the 谬因 switch carries it');
+    // the roster of 自选 operators is unchanged: the port adds a membership, not an operator
+    assert.ok(Object.values(backups.diy.operators).every((o) => !o.packId));
+  });
+
+  test('the 盟约 has its icon, and the SVG it names is committed (assetUrls.test.js needs every bond to resolve)', () => {
+    assert.equal(assets.bonds[FORK_RHINE_BOND_ID], FORK_RHINE_ICON);
+    assert.deepEqual(assets.bonds[FORK_RHINE_BOND_ID], '/art/rhine/bond.svg');
+    assert.ok(existsSync(join(ROOT, 'public', FORK_RHINE_ICON)), `${FORK_RHINE_ICON} is not committed`);
+    assert.ok(!assets.bonds[FORK_RHINE_BOND_ID].startsWith('/assets/'), 'never an official art path — public/assets is gitignored');
+  });
+});
+
+describe('the fork layer reaches BOTH directions (tools/build-data.mjs ⇄ tools/fork-data.mjs)', () => {
+  // 六.3's regression: its appliers reached the CLI but not the builder, so `npm run build-data` silently dropped the
+  // ported 盟约. Nothing failed — the committed files had been patched in place, and the one test that could see it
+  // (test/data.test.js, byte-for-byte offline rebuild) skips without `.cache/gamedata`, so CI never ran it. These
+  // assertions are structural and need no cache: they fail the moment a fork feature is wired to one direction only.
+  test('every applier the builder runs is one the CLI runs too, from the same list', () => {
+    const src = (p) => readFileSync(join(ROOT, p), 'utf8');
+    // Comments in these files legitimately NAME the appliers while explaining why the file does not call them, so the
+    // code-only body is what the structural checks below read (the same reason test/pack-switches.test.js strips them).
+    const code = (p) => src(p).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    const builderCode = code('tools/build-data.mjs');
+    const cli = src('tools/fork-data.mjs');
+    // both read the shared list
+    for (const [name, body] of [['build-data', builderCode], ['fork-data', cli]]) {
+      assert.match(body, /FORK_APPLIERS/, `${name}: must read the shared FORK_APPLIERS list`);
+    }
+    // the CLI's file list is exactly the shared list — a name it forgot would never be patched
+    const cliNames = [...cli.matchAll(/\{ name: '([a-z]+)'/g)].map((m) => m[1]);
+    assert.deepEqual([...cliNames].sort(), Object.keys(FORK_APPLIERS).sort(), 'the CLI patches every fork-applied file');
+    // the builder applies the shared list rather than naming appliers itself
+    assert.match(builderCode, /Object\.entries\(FORK_APPLIERS\)/, 'the builder iterates the shared list');
+    for (const fn of ['applyForkBonds', 'applyForkEffects', 'applyForkPackMembers', 'applyForkPackAphris']) {
+      assert.ok(!new RegExp(`\\b${fn}\\b`).test(builderCode), `build-data must not call ${fn} by hand — it comes from FORK_APPLIERS`);
+    }
+  });
+
+  test('a data file the CLI patches is one the builder either writes or never owns', () => {
+    const builder = readFileSync(join(ROOT, 'tools/build-data.mjs'), 'utf8');
+    // build-data writes these; `assets` it does not (tools/fetch-assets.mjs owns it, docs/ASSETS.md), which is why the
+    // builder skips a name missing from its `files` map instead of throwing.
+    assert.match(builder, /if \(FORK_PASS_APPLIERS\[name\] \|\| !files\[name\]\) continue;/);
+    assert.ok(!/files\.assets\b|`\$\{name\}\.json`.*assets/.test(builder), 'build-data never writes data/assets.json');
   });
 });

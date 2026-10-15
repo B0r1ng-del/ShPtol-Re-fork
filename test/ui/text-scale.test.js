@@ -71,6 +71,8 @@ const NOT_SCALED = [
   /\.field--code/, /\.minfo-dlg/, /\.set-diag__text/,
   // the keyboard hints of the 快捷键 list (a shared rule with the HUD's .toolbtn kbd)
   /\.set-hint kbd/,
+  // 六.F 的科研装置控制面板：固定宽度的战内控件，对齐棋盘 / HUD 几何尺寸
+  /\.rhine-dock/, /\.rhine-card/,
 ];
 
 const notScaled = (selector) => NOT_SCALED.some((re) => re.test(selector));

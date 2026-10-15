@@ -5,6 +5,7 @@
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 import { unitStatsEntry } from '../../../shared/protocol.js';
+import { autoSelectRelic } from '../relics.js';
 import { PHASE, ERR, EMOTES, EMOTE_COOLDOWN_MS, EMOTE_BURST_COUNT, GEO } from '../../../shared/constants.js';
 import { deriveSeed } from '../../sim/rng.js';
 import { OK, fail } from './common.js';
@@ -49,6 +50,9 @@ export class MatchIntents {
       case 'g.watch': return this.watch(ps, msg.fieldId, msg.playerId ?? null);
       case 'g.autoplay': return this.setAutoplay(ps, !!msg.on);
       case 'g.pause': return this.setPause(ps, !!msg.on);
+      // 六.E: the collectible choice of the SETTLE phase and the 「时光之末」 revival of an eliminated teammate
+      case 'g.relic': return this.pickRelicChoice(ps, msg.offerId, msg.idx);
+      case 'g.relicRevive': return this.reviveTeammate(ps, msg.relicId, msg.playerId);
       // the stats the board's units start their next battle with (the detail card in prep, user playtest #4 item 7)
       case 'g.unitStats': return this.unitStats(ps, msg.seq ?? null);
       case 'g.leave': this.onLeave(ps.playerId); return OK;
@@ -104,6 +108,9 @@ export class MatchIntents {
     ps.autoplay = on;
     this.markPublic();
     if (on) this.kickBot(ps);
+    // 六.E: 托管 turned on mid-offer picks for the player too (the offer's own waiting path covers a player already at
+    // 托管 when it opened)
+    if (this.relicsOn && on && this.phase === PHASE.SETTLE && ps.relicOffer) { autoSelectRelic(ps); this._completeRelicChoices(); }
     return OK;
   }
 

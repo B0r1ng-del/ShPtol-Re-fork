@@ -17,6 +17,17 @@ import {
   cultivatedStats, cultivationOf, CULTIVATE_EFFECTS, POTENTIAL_DEFAULT, CULTIVATE_DEFAULT, FULL_RANK,
 } from '../shared/potential.js';
 import { composeTalents } from '../shared/loadoutRecord.js';
+import { RHINE_CHARACTERS, RHINE_BALANCE } from '../shared/rhineResearch.js';
+
+/**
+ * A ported summoner's talent COUNT is the pack's own balance (`RHINE_BALANCE.mayerSummons` /
+ * `dorothyTrapLimit`), not the official table's — tools/rhine-data.mjs adaptMayerTalent / adaptDorothyTalent
+ * replace it at every potential. Every other blackboard key still matches the official candidate.
+ */
+const RHINE_SUMMON_COUNT = new Map([
+  [RHINE_CHARACTERS.mayer, RHINE_BALANCE.mayerSummons],
+  [RHINE_CHARACTERS.dorothy, RHINE_BALANCE.dorothyTrapLimit],
+]);
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = process.env.DATA_DIR || join(ROOT, 'data');
@@ -94,7 +105,9 @@ test('every chess and 自选 form at every potential: the raw keyframes plus the
     if (c.isDiy || !c.charId) continue;
     for (let rank = 0; rank <= FULL_RANK; rank++) { const r = atRank(c, rank); check(c.chessId, c.charId, c.status, r.statsBase ?? r.stats, rank); n++; }
   }
-  assert.equal(n, 258 * 6);
+  // 258 official records + the two ported packExtra6 operators' base/elite pairs (内容包 六.C) + the six ported
+  // packRhine ones' (六.F), × six potential ranks
+  assert.equal(n, 274 * 6);
   let forms = 0;
   for (const [charId, u] of Object.entries(backups.units)) {
     for (const f of Object.values(u.forms)) {
@@ -122,7 +135,14 @@ test('talent candidates at every potential: each talent is the last one unlocked
         if (!best || (!best.name && !best.description && !best.blackboard.length && !best.tokenKey)) return;
         const rec = talentAtRank(list.find((x) => x.index === index), rank);
         assert.ok(rec, `${label} talent ${index}`);
-        for (const b of best.blackboard) if (!(b.valueStr && b.value === 0)) assert.ok(Math.abs(rec.bb[b.key] - b.value) < 1e-9, `${label} talent ${index} rank ${rank} ${b.key}: ${rec.bb[b.key]} vs ${b.value}`);
+        // Only the ported records: the pack's own balance value (either form, since this walk does not know
+        // whether the record is the normal or the elite one). A 自选 / 补位 form keeps the official candidate.
+        const pack = label.startsWith('chess_rhine_') ? RHINE_SUMMON_COUNT.get(charId) : null;
+        for (const b of best.blackboard) if (!(b.valueStr && b.value === 0)) {
+          const allowed = b.key === 'cnt' ? pack : null;
+          const ok2 = allowed ? allowed.includes(rec.bb[b.key]) : Math.abs(rec.bb[b.key] - b.value) < 1e-9;
+          assert.ok(ok2, `${label} talent ${index} rank ${rank} ${b.key}: ${rec.bb[b.key]} vs ${allowed ? allowed.join('|') : b.value}`);
+        }
         if (rank === 0 && (best.requiredPotentialRank || 0) === 0 && (CT[charId].talents[index].candidates || []).some((x) => (x.requiredPotentialRank || 0) > 0 && ok(x, status.phase, status.level, FULL_RANK))) moved++;
       });
     }

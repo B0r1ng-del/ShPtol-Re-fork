@@ -719,8 +719,39 @@ test('real data: every owned IN_BATTLE garrison installs without errors on its r
   }
 });
 
+test('莱茵星源: first activation grants each active bond once, including after redeployment', () => {
+  for (const suffix of ['a', 'b']) {
+    const gid = `garrison_rhine_astgenne_${suffix}`, n = suffix === 'b' ? 6 : 3;
+    const h = battle({ units: [{ id: 'star', g: [gid], row: 10, col: 4 }], bonds: { rhineShip: B(), preciShip: B() } });
+    const u = h.unit('star'); skill(h, u); skill(h, u);
+    h.b.retreat(u); h.b.redeploy(u); skill(h, u);
+    assert.deepEqual(gains(h), { rhineShip: n, preciShip: n }); cover(gid);
+    const inactive = battle({ units: [{ id: 'star', g: [gid], row: 10, col: 4 }], bonds: { rhineShip: B(), preciShip: B(0, false) } });
+    skill(inactive, inactive.unit('star')); assert.deepEqual(gains(inactive), { rhineShip: n });
+  }
+});
+
+test('多罗西: retired trap events never award research; attack trait is dispatched by Rhine content', () => {
+  for (const suffix of ['a', 'b']) {
+    const gid = `garrison_rhine_dorothy_${suffix}`;
+    assert.equal(GR(gid).effectKey, 'RHINE_DOROTHY_ATTACK');
+    assert.equal(GR(gid).bb.atk_per_layer, suffix === 'b' ? 2 : 1);
+    const h = battle({ units: [{ id: 'doro', g: [gid], row: 10, col: 4 }], bonds: { rhineShip: B() } });
+    const owner = h.unit('doro'), token = { ownerUnit: owner, mem: {} };
+    for (let seq = 1; seq <= 20; seq++) {
+      token.mem.dorothyTriggered = seq;
+      h.b.emit('trapTriggered', { owner, token, deploySeq: seq });
+      h.b.emit('trapTriggered', { owner, token, deploySeq: seq });
+    }
+    assert.equal(gains(h).rhineShip ?? 0, 0); cover(gid);
+  }
+});
+
 test('coverage: every IN_BATTLE garrison id of a visible chess (and every id they grant) was exercised above', () => {
-  const missing = [...VISIBLE_IDS].filter((g) => !COVER.has(g)).sort();
+  // 梅尔 / 塞雷娅 / 伊芙利特的特质由 content/rhine.js 派发（不是这个旧派发器），它们的计算公式
+  // 在 test/pack-rhine.test.js 里跟它们读的装置一起覆盖。
+  const rhine = /^garrison_rhine_(mayer|saria|ifrit)_[ab]$/;
+  const missing = [...VISIBLE_IDS].filter((g) => !COVER.has(g) && !rhine.test(g)).sort();
   assert.deepEqual(missing, []);
   assert.ok(VISIBLE_IDS.size >= 100, `${VISIBLE_IDS.size} ids`);
 });

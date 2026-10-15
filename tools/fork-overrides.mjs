@@ -16,6 +16,8 @@
 //   * `bans: { core: 0, addon: 0 }` on the 终极模拟 mode — no per-match bond ban there (requirement 二.1)
 //   * the 自选编队 slots of `data/chess.json` / `data/backups.json` — 5 per tier instead of the official 2 (二.8)
 
+import { FORK_EXTRA6_BOND_MEMBERS, FORK_EXTRA6_CHESS, FORK_EXTRA6_PACK } from './fork-extra6.mjs';
+
 /** modeId of the fork's third room mode (终极模拟, AC-4, up to six 博士). */
 export const FORK_MODE_ID = 'mode_ultimate_abyss';
 /** The official mode every fork field of `FORK_MODE_ID` is derived from (identical rules, difficulty ABYSS). */
@@ -320,3 +322,279 @@ export function applyForkBackups(backups) {
   }
   return { ...backups, diy: { ...diy, slots: out } };
 }
+
+// =====================================================================================================================
+// 六.3 莱茵生命 (Rhine Lab) — the ported 盟约 and its members
+
+/**
+ * The ported 莱茵生命 盟约 (`rhineShip`), one of the 内容包 switches (六.2). It is CARRIED BY TWO switches: 莱茵生命
+ * (`packRhine`, the whole Rhine expansion) and 谬因·并入莱茵 (`packAphris`, the one-operator change) — either of them
+ * has to bring the 盟约 with it, since a member with no 盟约 to join is meaningless. `packId` is an ARRAY for exactly
+ * that reason (`shared/constants.js packEnabled`).
+ *
+ * Values are the source expansion's own (`YUYUYUYUYUYUYUTOUA/Stronghold-Protocol-Rhine` `data/bonds.json`
+ * `rhineShip`), which itself reads the official 莱茵生命 insignia and the maintainer's balance table
+ * (`shared/rhineResearch.js` there): 3 / 6 / 9 distinct members, base ATK 300, +4 per 科研 layer, and the 6-member
+ * ATK sharing of 15 % / 25 % (elite).
+ */
+export const FORK_RHINE_BOND_ID = 'rhineShip';
+/** The ported 盟约's icon: the author's own monochrome SVG redraw of the 莱茵生命 insignia (`public/art/rhine/bond.svg`). */
+export const FORK_RHINE_ICON = '/art/rhine/bond.svg';
+const FORK_RHINE_PACKS = Object.freeze(['packRhine', 'packAphris']);
+/** `rhineShip`'s blackboard and its 效果 text (the source expansion's own words). */
+const FORK_RHINE = Object.freeze({
+  name: '莱茵生命',
+  identifier: 24,
+  thresholds: [3, 6, 9],
+  effectId: 'bondeffect_rhine',
+  bb: { base_atk: 300, atk_per_stack: 4, sharing_count: 6, sharing_atk: 0.15, sharing_golden_atk: 0.25 },
+  desc: '在场3名不同【莱茵生命】干员时启动一台科研装置；在场6名时同时启动两台，9名时三台全部启动。达到6名时，除伊芙利特和治疗干员外的莱茵输出干员获得己方已部署装置中最高基础攻击力的15%，精锐25%，作为额外攻击力；多个装置不重复共享。3名时获得生态维持仪与能量谐振仪，9名时解锁只有一级的全场激光钻机。装置基础攻击力300，每层科研增加4点。生态维持仪与能量谐振仪参战成功获得2研究点，失败获得1点；第1次突破需要5点，第2次突破需要5点。每次突破后研究点清零，溢出不保留；科研层数不受影响，激光钻机不积累研究点或突破。',
+});
+
+/**
+ * The official 莱茵生命 operators that already exist in this fork's chess pool (`character_table` groupId `rhine`).
+ * They are ordinary operators — the port only ADDS `rhineShip` to their bond list, so the membership disappears again
+ * with the switch (`packBonds`). 谬因 (`char_4229_aphris`) is not here: she is a 自选 operator and joins through
+ * `data/backups.json` `diy.operators` instead (`applyForkPackAphris`).
+ *
+ * Both forms of each operator are patched, but `bonds[].members` lists the BASE (`_a`) ids only — the same convention
+ * every official bond follows (`data.test.js` asserts a member is a non-golden chess).
+ */
+const FORK_RHINE_BASES = Object.freeze([
+  'chess_char_2_02_a', 'chess_char_4_21_a', 'chess_char_5_16_a', 'chess_char_5_11_a', 'chess_char_6_11_a', 'chess_char_6_16_a',
+]);
+export const FORK_RHINE_CHESS = Object.freeze(FORK_RHINE_BASES.flatMap((id) => [id, `${id.slice(0, -1)}b`]));
+/** The 自选 operator the 谬因·并入莱茵 switch makes a 莱茵生命 member. */
+export const FORK_APHRIS_CHAR_ID = 'char_4229_aphris';
+
+/**
+ * `data/bonds.json` with the ported 莱茵生命 盟约 added (六.3) and the ported operators registered as members of the
+ * official 盟约 they join (六.C).
+ *
+ * The `rhineShip` record is OWNED here (rebuilt from FORK_RHINE on every run), so a hand-edit is reverted and caught by
+ * test/fork-data.test.js. For 六.C there is nothing to own — the official bonds are the official bonds — only the list
+ * of names the pack contributed, as `packMembers` (`shared/packData.js withPackMembers` takes them back out while
+ * `packExtra6` is off, so an all-off room sees the original member list).
+ * @param {Record<string, any>} bonds data/bonds.json
+ */
+export function applyForkBonds(bonds) {
+  if (!isPlainObject(bonds)) return bonds;
+  const { bb, name, identifier, thresholds, effectId, desc } = FORK_RHINE;
+  // 六.F: `tools/rhine-data.mjs` recomputes every 盟约's member list from the chess that name it (the source
+  // expansion's own recompute), which is what adds the four ported operators (梅尔 / 伊芙利特 / 溯光星源 / 多萝西) to this
+  // one — 10 members, 9 visible (白面鸮's II-cost form is hidden). This applier runs BEFORE that overlay in
+  // `tools/build-data.mjs` (where the record does not exist yet, so the six bases seed it) and AFTER it in
+  // `node tools/fork-data.mjs` (where the record is already complete). Preserving an existing list keeps both orders
+  // on the same result instead of truncating the ported members back off on every in-place patch.
+  const prev = isPlainObject(bonds[FORK_RHINE_BOND_ID]) ? bonds[FORK_RHINE_BOND_ID] : null;
+  const seeded = (field) => (prev && Array.isArray(prev[field]) && prev[field].length ? prev[field] : [...FORK_RHINE_BASES]);
+  const out = {
+    ...bonds,
+    [FORK_RHINE_BOND_ID]: {
+      bondId: FORK_RHINE_BOND_ID, name, identifier, isCore: false, bondType: 'SEASON', bondOrder: identifier,
+      powerIdList: [], iconId: FORK_RHINE_BOND_ID, activeCount: thresholds[0], thresholds: [...thresholds],
+      maxCount: null, thresholdTemplate: 'count_threshold_upward', countMode: 'BOARD', countsHand: false,
+      countsGoldenOnly: false, activeType: 'BATTLE', isActiveInDeck: false, noStack: false, weight: 10,
+      maxInactiveBondCount: -1, layerMilestones: [],
+      desc, descRaw: desc, effectId, effectName: name, effectDesc: desc, effectDescRaw: desc, effectDescParams: [],
+      bb: { ...bb },
+      // Every other 盟约's numbers are read through `env_gbuff_new` (`sim/content/bonds/addon/battle.js bondBb`), so this
+      // one carries its blackboard the same way instead of inventing a second lookup. `bbStr.key` keeps the source
+      // expansion's own rune key name.
+      bbStr: { key: 'rhine_research' },
+      buffs: [{ key: 'env_gbuff_new', bb: { ...bb }, bbStr: { key: 'rhine_research' } }],
+      baseParams: [], perStackParams: [],
+      members: seeded('members'), visibleMembers: seeded('visibleMembers'), packId: [...FORK_RHINE_PACKS],
+      // `packRestore` (shared/packData.js) is the overlay's, not this applier's: the record outlives a single switch
+      // (its `packId` is an array), so while `packRhine` is off but `packAphris` on it has to fall back to the six
+      // official members. Carrying it through keeps the in-place `tools/fork-data.mjs` patch from erasing it.
+      ...(prev && isPlainObject(prev.packRestore) ? { packRestore: prev.packRestore } : {}),
+    },
+  };
+  // 六.C: register the ported operators as members of the official 盟约 they join, and record the names as the pack's
+  // own contribution so they come back out with the switch. The official lists are only ever appended to — the ids are
+  // sorted and de-duplicated the way buildBonds writes them, so a regeneration and this diff agree.
+  for (const [bondId, ids] of Object.entries(FORK_EXTRA6_BOND_MEMBERS)) {
+    const rec = out[bondId];
+    if (!isPlainObject(rec)) continue;
+    const members = Array.isArray(rec.members) ? rec.members : [];
+    const add = ids.filter((id) => !members.includes(id));
+    const next = { ...rec, packMembers: { ...(isPlainObject(rec.packMembers) ? rec.packMembers : {}), [FORK_EXTRA6_PACK]: [...ids] } };
+    if (add.length) {
+      next.members = [...members, ...add].sort();
+      next.visibleMembers = (Array.isArray(rec.visibleMembers) ? rec.visibleMembers : []).concat(add).sort();
+    }
+    out[bondId] = next;
+  }
+  return out;
+}
+
+/**
+ * `data/effects.json` with the 莱茵生命 盟约's effect record. `effectType` BOND, `buffs` empty (the 盟约's numbers are
+ * read from the bond record's own `bb` by the sim's generic path, like the other add-on bonds whose effect is all in
+ * `env_gbuff_new`), and the same `packId` as the bond so the pair appears and disappears together.
+ * @param {Record<string, any>} effects data/effects.json
+ */
+export function applyForkEffects(effects) {
+  if (!isPlainObject(effects)) return effects;
+  const { name, desc, effectId, bb } = FORK_RHINE;
+  return {
+    ...effects,
+    [effectId]: {
+      effectId, effectType: 'BOND', name, desc, descRaw: desc, counterType: 'NONE', continuedRound: -1,
+      decoIconId: null, enemyPrice: 0, buffs: [], params: { ...bb }, packId: [...FORK_RHINE_PACKS],
+    },
+  };
+}
+
+/**
+ * `data/chess.json` with the pack contributions of 六.3 and 六.C. Two independent blocks, both keyed off the record:
+ *
+ *   * 六.3 — every 莱茵生命 member lists the ported 盟约. The operators themselves are untouched; this only appends
+ *     `rhineShip` to their `bonds` and records WHERE it came from (`packBonds`, so `shared/packData.js` takes it back
+ *     out while neither 莱茵生命 switch is on).
+ *   * 六.C — the two ported operators are the pack's own records, so they carry `packId: 'packExtra6'` and the whole
+ *     card pair disappears with the switch (`shared/packData.js recordAvailable`). The builder synthesized their rows
+ *     (tools/fork-extra6.mjs), so this is the one place that names them as a pack's.
+ *
+ * Their `garrisonIds` point at records `buildGarrisons` synthesizes too — `applyForkGarrisons` stamps those, because a
+ * garrison the pack owns must leave with it (`test/pack-extra6.test.js`).
+ *
+ * Idempotent: a second pass writes the same fields.
+ * @param {Record<string, any>} chess data/chess.json
+ */
+export function applyForkPackMembers(chess) {
+  if (!isPlainObject(chess)) return chess;
+  const out = {};
+  let changed = false;
+  for (const [id, rec] of Object.entries(chess)) {
+    if (!isPlainObject(rec)) { out[id] = rec; continue; }
+    const patch = {};
+    if (FORK_RHINE_CHESS.includes(id)) {
+      const bonds = Array.isArray(rec.bonds) ? rec.bonds : [];
+      if (!bonds.includes(FORK_RHINE_BOND_ID)) {
+        patch.bonds = [...bonds, FORK_RHINE_BOND_ID];
+        patch.packBonds = { ...(isPlainObject(rec.packBonds) ? rec.packBonds : {}), packRhine: [FORK_RHINE_BOND_ID] };
+      }
+    }
+    if (FORK_EXTRA6_CHESS.includes(id) && rec.packId !== FORK_EXTRA6_PACK) patch.packId = FORK_EXTRA6_PACK;
+    if (!Object.keys(patch).length) { out[id] = rec; continue; }
+    changed = true;
+    out[id] = { ...rec, ...patch };
+  }
+  return changed ? out : chess;
+}
+
+/**
+ * `data/garrisons.json` with the 六.C garrison records owned by the pack. `buildGarrisons` synthesizes them from the act
+ * row `tools/fork-extra6.mjs` writes (makoto's 卫戍协议特质), but it knows nothing about packs: without this the record
+ * would outlive its switch — `chess.json` loses the operator while `garrisons.json` keeps a record whose `owners` name
+ * it, which every `garrison` lookup would still resolve.
+ *
+ * The ids are derived from the operators the pack owns, so a third operator added to `FORK_EXTRA6_CHARS` is covered
+ * without touching this function. Idempotent.
+ * @param {Record<string, any>} garrisons data/garrisons.json
+ */
+export function applyForkGarrisons(garrisons) {
+  if (!isPlainObject(garrisons)) return garrisons;
+  const owned = new Set(FORK_EXTRA6_CHESS);
+  const out = {};
+  let changed = false;
+  for (const [id, rec] of Object.entries(garrisons)) {
+    if (!isPlainObject(rec)) { out[id] = rec; continue; }
+    const mine = Array.isArray(rec.owners) && rec.owners.some((owner) => owned.has(owner));
+    if (!mine || rec.packId === FORK_EXTRA6_PACK) { out[id] = rec; continue; }
+    changed = true;
+    out[id] = { ...rec, packId: FORK_EXTRA6_PACK };
+  }
+  return changed ? out : garrisons;
+}
+
+/**
+ * `data/backups.json` with 谬因 a 莱茵生命 member — 六.3's 「谬因·并入莱茵」, which is a 自选 operator's bond list
+ * (`diy.operators[charId].bonds`, shared/diy.js reads it). Handled apart from the chess records because she has no
+ * chess record at all: she is fielded through a 自选 slot. Idempotent like the others.
+ * @param {Record<string, any>} backups data/backups.json
+ */
+export function applyForkPackAphris(backups) {
+  if (!isPlainObject(backups)) return backups;
+  const diy = isPlainObject(backups.diy) ? backups.diy : null;
+  const operators = isPlainObject(diy?.operators) ? diy.operators : null;
+  const rec = operators && isPlainObject(operators[FORK_APHRIS_CHAR_ID]) ? operators[FORK_APHRIS_CHAR_ID] : null;
+  if (!rec) return backups;
+  const bonds = Array.isArray(rec.bonds) ? rec.bonds : [];
+  if (bonds.includes(FORK_RHINE_BOND_ID)) return backups;
+  return {
+    ...backups,
+    diy: {
+      ...diy,
+      operators: {
+        ...operators,
+        [FORK_APHRIS_CHAR_ID]: {
+          ...rec,
+          bonds: [...bonds, FORK_RHINE_BOND_ID],
+          packBonds: { ...(isPlainObject(rec.packBonds) ? rec.packBonds : {}), packAphris: [FORK_RHINE_BOND_ID] },
+        },
+      },
+    },
+  };
+}
+
+/**
+ * `data/assets.json` with the ported 盟约's icon. The file is a tracked build product of `tools/fetch-assets.mjs` (not of
+ * `tools/build-data.mjs`), and `test/ui/assetUrls.test.js` requires EVERY bond in `data/bonds.json` to have one, so the
+ * ported bond needs its entry here. The file itself is the author's own monochrome SVG redraw of the 莱茵生命 insignia
+ * (`public/art/rhine/bond.svg`, GPL-3.0-or-later per that folder's README) — no official art is committed.
+ * @param {Record<string, any>} assets data/assets.json
+ */
+export function applyForkAssets(assets) {
+  if (!isPlainObject(assets)) return assets;
+  const bonds = isPlainObject(assets.bonds) ? assets.bonds : null;
+  if (!bonds || bonds[FORK_RHINE_BOND_ID] === FORK_RHINE_ICON) return assets;
+  return { ...assets, bonds: { ...bonds, [FORK_RHINE_BOND_ID]: FORK_RHINE_ICON } };
+}
+
+/**
+ * The fork layer of the generated data files, by file name — the ONE list both directions read:
+ * `tools/build-data.mjs` applies it to a freshly built file set before writing, and `tools/fork-data.mjs` applies the
+ * same functions to the committed files. A fork feature that lives in generated data gets its applier named here and
+ * nowhere else.
+ *
+ * That is not tidiness: 六.3 added its appliers to the CLI's own list but not to the builder's, and a full
+ * `npm run build-data` silently dropped the ported 盟约 — the builder *and* a regeneration both looked fine, because the
+ * committed files had been patched in place. Only `test/data.test.js`'s offline rebuild check could see it, and that
+ * check skips without `.cache/gamedata`, so CI never caught it either.
+ *
+ * `assets` is in the list although `tools/fetch-assets.mjs` owns that file (docs/ASSETS.md) and build-data.mjs never
+ * writes it: one list means the CLI needs no list of its own. build-data looks each name up in the files it built, so
+ * it simply never reaches `assets`.
+ */
+export const FORK_APPLIERS = {
+  config: applyForkOverrides,
+  choices: applyForkChoices,
+  chess: applyForkPackMembers,
+  backups: applyForkPackAphris,
+  bonds: applyForkBonds,
+  garrisons: applyForkGarrisons,
+  effects: applyForkEffects,
+  assets: applyForkAssets,
+};
+
+/**
+ * The subset of `FORK_APPLIERS` `tools/build-data.mjs` runs on EVERY potential pass (潜能 1–6) instead of once on the
+ * finished files, and — because each of them also has a later half — the file each one finishes at the end.
+ *
+ * Two reasons these two files are special:
+ *   * `attachPotential` rebuilds every chess record and unit form from `passes.map((p) => p.chess[id])` and reports
+ *     "missing at a rank" for an id only one pass has, so a record the fork adds (`applyForkChess` / `applyForkBackups`,
+ *     二.8's 自选 slots) must exist at all six ranks;
+ *   * it also annotates the FULL-rank record **in place**, and `files.chess` / `files.backups` are that very object, so
+ *     their remaining additions (`applyForkPackMembers` / `applyForkPackAphris`, 六.3's `bonds` / `packBonds`) must land
+ *     AFTER it — a spread appends at the end, and `data/chess.json` is the file `tools/fork-data.mjs` patched in place,
+ *     where `packBonds` therefore sits after `potDown`. Building it the other way round is the same JSON in the same
+ *     order only by luck; it is not, and the byte-for-byte check says so.
+ */
+export const FORK_PASS_APPLIERS = {
+  chess: applyForkChess,
+  backups: applyForkBackups,
+};

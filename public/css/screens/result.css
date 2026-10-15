@@ -77,3 +77,15 @@
 .rstat.is-best b { color: var(--gold); }
 .result__foot { flex: 0 0 auto; margin-top: auto; padding-top: .2rem; display: flex; }
 .result__foot .btn { min-width: 3.4rem; }
+
+/* 六.E 本局收藏品 (packRelic): the per-player list of what they finished the match holding. */
+.rcard__relics { border-top: 1px solid var(--line); margin-top: .02rem; padding-top: .05rem; }
+.rcard__relics > summary { display: flex; align-items: center; gap: .06rem; min-height: .28rem; cursor: pointer; font-size: max(calc(.14 * var(--t)), 10px); color: var(--mint-400); list-style: none; }
+.rcard__relics > summary::-webkit-details-marker { display: none; }
+.rcard__relics > summary::after { content: '+'; margin-left: .04rem; font-family: var(--font-num); font-size: calc(.19 * var(--t)); }
+.rcard__relics[open] > summary::after { content: '−'; }
+.rcard__relics > summary:focus-visible { outline: 2px solid var(--mint-400); outline-offset: 2px; }
+.rcard__relics > summary .icon { width: .17rem; height: .17rem; flex: none; }
+.rcard__relicshint { color: var(--text-lo); margin-left: auto; font-size: max(calc(.12 * var(--t)), 9px); }
+.rcard__relics .relic-list { margin-top: .06rem; }
+.rcard__relics .relic-card { padding: .07rem .1rem; }

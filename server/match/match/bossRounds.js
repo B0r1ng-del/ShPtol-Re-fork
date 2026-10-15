@@ -11,6 +11,8 @@ import { buildBossWave, bountySpawns } from '../waves.js';
 import { pairPlayers, bossPoolHp, SharedBossPool, CreditPool, hiddenEligible, BOSS_HIT_STEPS } from '../finalAssault.js';
 import { FieldRunner, HeadlessPacer, syntheticResult, BOSS_SILENCE_MS, CATCHUP_TICKS_PER_INTERVAL } from '../fields.js';
 import { FLOW_TICKER_PRIORITY, BOSS_CLOCK_MS, DELAYS } from './common.js';
+import { msg } from '../../../shared/i18n.js';
+import { settleRelics, activeReverseLp, consumeRelicLpLoss, consumeRelicShield, unusedRevival, consumeRevival } from '../relics.js';
 
 /** b.pool broadcasts at most this often (ms). */
 const POOL_MIN_GAP_MS = 250;
@@ -110,9 +112,9 @@ export class MatchBoss {
       if (this.clientCombat) return { fieldId, kind: hidden ? 'hidden' : 'boss', players: g.map((p) => p.playerId), opts: bopts, battle: null, live: true };
       const battle = this.newBattle(bopts);
       try {
-        battle.on('enemyLeak', (ctx) => this._bossLeak(ctx && ctx.enemy), { priority: -1000, owner: 'match' });
+        battle.on('enemyLeak', (ctx) => this._bossLeak(ctx && ctx.enemy, g.map((p) => p.playerId)), { priority: -1000, owner: 'match' });
         // leader "扣除目标生命" effects (boss_7 Doom, 斥退 …: server/sim/content/bosses.js lpLoss) hit the team pool
-        battle.on('lpLoss', (ctx) => this._teamLpLoss(ctx && ctx.amount), { priority: -1000, owner: 'match' });
+        battle.on('lpLoss', (ctx) => this._teamLpLoss(ctx && ctx.amount, g.map((p) => p.playerId)), { priority: -1000, owner: 'match' });
       } catch (e) { this.reportError('boss leak hook', e); }
       return { fieldId, kind: hidden ? 'hidden' : 'boss', players: g.map((p) => p.playerId), battle, live: true };
     });
@@ -153,8 +155,8 @@ export class MatchBoss {
         f.credit = new CreditPool(pool);
         f.battle = this._specBattle(f.spec, { sharedBoss: f.credit });
         try {
-          f.battle.on('enemyLeak', (ctx) => this._bossLeak(ctx && ctx.enemy), { priority: -1000, owner: 'match' });
-          f.battle.on('lpLoss', (ctx) => this._teamLpLoss(ctx && ctx.amount), { priority: -1000, owner: 'match' });
+          f.battle.on('enemyLeak', (ctx) => this._bossLeak(ctx && ctx.enemy, f.players), { priority: -1000, owner: 'match' });
+          f.battle.on('lpLoss', (ctx) => this._teamLpLoss(ctx && ctx.amount, f.players), { priority: -1000, owner: 'match' });
         } catch (e) { this.reportError('boss leak hook', e); }
       }
       this._watchBossFields(recs);
@@ -228,13 +230,13 @@ export class MatchBoss {
       if (n <= f.lpAcked) return;
       const d = n - f.lpAcked;
       f.lpAcked = n;
-      this._teamLpLoss(d);
+      this._teamLpLoss(d, f.players);
       return;
     }
     const before = f.lpCum;
     f.lpCum += n;
     const credit = Math.max(0, f.lpCum - Math.max(before, f.lpAcked));
-    if (credit > 0) this._teamLpLoss(credit);
+    if (credit > 0) this._teamLpLoss(credit, f.players);
   }
 
   /**
@@ -423,17 +425,41 @@ export class MatchBoss {
     ps.dirty();
   }
 
-  _bossLeak(enemy) {
+  _bossLeak(enemy, players = null) {
     if (!enemy || this.teamLp == null) return;
     // lifePointReduce from data: 0 for harmless enemies (e.g. 装置 / unharmful escorts), 1 when absent
     const lpr = Number.isFinite(enemy.lpr) && enemy.lpr >= 0 ? enemy.lpr : 1;
-    this._teamLpLoss(lpr);
+    this._teamLpLoss(lpr, players);
   }
 
-  _teamLpLoss(amount) {
-    const n = Number(amount);
+  _teamLpLoss(amount, players = null) {
+    let n = Number(amount);
     if (this.teamLp == null || !Number.isFinite(n) || !(n > 0)) return;
+    // 六.E: the pool is the team's, but a collectible shield / 时间机器 / 「时光之末」 belongs to a player. A field's
+    // losses pay from its own players' shields (`players`); the global overtime drain spreads them over the team's LP
+    // shares. With the switch off every helper reads a zeroed field, so the three branches all leave `n` alone.
+    if (this.relicsOn) {
+      const affected = this.alivePlayers().filter((ps) => !players || players.includes(ps.playerId));
+      if (players && affected.some(activeReverseLp)) n = -n;
+      else if (!players && affected.some(activeReverseLp)) {
+        const raw = Number(amount);
+        const total = affected.reduce((sum, ps) => sum + Math.max(0, ps.lpAtFinal ?? ps.lp), 0);
+        n = affected.reduce((sum, ps) => {
+          const share = total > 0 ? Math.max(0, ps.lpAtFinal ?? ps.lp) / total : 1 / affected.length;
+          return sum + consumeRelicLpLoss(ps, raw * share);
+        }, 0);
+      } else for (const ps of affected) n = consumeRelicShield(ps, n);
+    }
     this.teamLp = Math.max(0, this.teamLp - n);
+    // 六.E: the pool is empty — a seat holding 「时光之末」 spends its one use to restore 11 LP and the fight goes on
+    if (this.relicsOn && this.teamLp <= 0) {
+      const owner = this.alivePlayers().find((ps) => unusedRevival(ps));
+      if (owner) {
+        const effect = consumeRevival(owner, owner.playerId);
+        this.teamLp = effect.lp;
+        this.toast(owner, 'success', msg('「时光之末」已自动使用，共享生命恢复 {lp} 点', { lp: effect.lp }));
+      }
+    }
     if (this._bossLazyPublic()) { this._bossPublic(); return; }
     this._syncTeamLp();
     this.markPublic();
@@ -520,7 +546,8 @@ export class MatchBoss {
       for (const pid of f.players) {
         const pp = res.perPlayer && res.perPlayer[pid];
         const ps = this.players.get(pid);
-        if (pp) this.lastResults.set(pid, pp);
+        // 六.E: settleRelics refuses a synthetic result, so a boss field's own result carries the mark
+        if (pp) this.lastResults.set(pid, this.relicsOn ? { ...pp, synthetic: !!res.synthetic } : pp);
         if (pp && ps) {
           ps.stats.dmgDealt += Number(pp.damageDealt) || 0;
           ps.stats.kills += Number(pp.killed) || 0;
@@ -538,14 +565,21 @@ export class MatchBoss {
         if (pp && ps) this.dispatch(ps, 'onBattleResult', { result: pp, lpLoss: 0, perfect: !!pp.perfect, boss: true });
       }
     }
+    // 六.E: a won boss round offers a collectible (the hidden core's 胜利 counts too); this round's shields expire; the
+    // next round waits for the choices. Off, the plain DELAYS.SETTLE timer runs as before.
+    if (this.relicsOn) {
+      if (victory) for (const ps of this.alivePlayers()) settleRelics(ps, this.lastResults.get(ps.playerId), { completed: true });
+      for (const ps of this.alivePlayers()) { ps.relicShield = 0; ps.dirty(); }
+    }
     this._syncTeamLp();
     this.deadline = 0;
     this.overtimeAt = 0;
     this.markPublic();
     this.runner = null;
+    const eligible = !hidden && victory && !!this.hiddenBossId
+      && hiddenEligible(this.gd, { layerSum: this.hiddenLayerSum, teamLp: this.teamLp });
     if (!hidden) {
-      const eligible = victory && !!this.hiddenBossId && hiddenEligible(this.gd, { layerSum: this.hiddenLayerSum, teamLp: this.teamLp });
-      this.later(this.scaled(DELAYS.SETTLE), () => {
+      const cont = () => {
         if (eligible) {
           this.hiddenReached = true;
           this.bossPool = null;
@@ -554,9 +588,13 @@ export class MatchBoss {
         } else {
           this.finish({ victory, reason: victory ? 'victory' : 'defeat' });
         }
-      });
+      };
+      if (this.relicsOn) this._waitRelicChoices(cont);
+      else this.later(this.scaled(DELAYS.SETTLE), cont);
     } else {
-      this.later(this.scaled(DELAYS.SETTLE), () => this.finish({ victory: true, hiddenCleared: victory, reason: 'victory' }));
+      const endHidden = () => this.finish({ victory: true, hiddenCleared: victory, reason: 'victory' });
+      if (this.relicsOn) this._waitRelicChoices(endHidden);
+      else this.later(this.scaled(DELAYS.SETTLE), endHidden);
     }
   }
 }

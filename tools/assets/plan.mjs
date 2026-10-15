@@ -25,6 +25,7 @@ import { RAW, joinUrl, safeName, urlBase, urlDir } from './sources.mjs';
 import { kindOf } from './formats.mjs';
 import { pickUnitSfx, pickModeAttacks, pickModeHits, skillModeLetter, SLOT_MODE_LETTER, UI_SFX, BATTLE_SFX, resolveSpec, indexVoice, VOICE_DIRS, VOICE_BATTLE_SLOTS } from './audio.mjs';
 import { literal } from './manifest.mjs';
+import { relicIconTemplate } from './relics.mjs';
 import { EMOTE_CATALOG } from '../../shared/constants.js';
 
 /**
@@ -684,7 +685,8 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
   if (!Object.keys(voice).length) notes.push('battle voice: charword_table.json has no slots (index missing?)');
 
   const template = {
-    chars, enemies, tokens, bonds, items, bands, skills, skillsById, modules, ui, prof,
+    // 六.E 本局收藏品 (packRelic): the collectible icons (46 PRTS-catalogued + original art, tools/assets/relics.mjs)
+    chars, enemies, tokens, bonds, items, bands, skills, skillsById, modules, ui, prof, relics: relicIconTemplate(),
     audio: {
       bgm,
       bossBgm: Object.fromEntries(Object.entries(bossBgm).sort(([a], [b]) => a.localeCompare(b, 'en', { numeric: true }))),

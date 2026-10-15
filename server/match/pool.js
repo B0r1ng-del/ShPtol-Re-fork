@@ -41,8 +41,11 @@ export function drawDisabledBonds(gd, rng) {
   const off = new Set([...drawn, ...staticOff]);
   const banned = [];
   for (const id of gd.visibleChess) {
-    const c = gd.chess(id);
-    const bonds = Array.isArray(c.bonds) ? c.bonds : [];
+    // `chessBondIds`, not the raw `chess(id).bonds`: the committed data holds the ALL-PACKS-ON set, so a 盟约 a
+    // 内容包 contributes (`packId`, shared/packData.js) would be counted here even though this room does not contain
+    // it — 谬因/莱茵生命 members would be banned for a bond the match never disabled. `chessBondIds` is the filtered
+    // view (effectiveBonds), i.e. the bonds the piece actually has in THIS match.
+    const bonds = gd.chessBondIds(id);
     if (bonds.length > 0 && bonds.every((b) => off.has(b))) banned.push(id);
   }
   return { drawn, staticOff, banned };

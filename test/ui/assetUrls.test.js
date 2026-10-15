@@ -18,7 +18,8 @@ const m = load('assets.json');
 const chess = load('chess.json');
 
 function manifestUrls(obj, out = new Set()) {
-  if (typeof obj === 'string' && obj.startsWith('/assets/')) out.add(obj);
+  // '/art/' too: 六.F 莱茵生命的装备图标是本地自绘的（public/art/rhine/，非官方素材）
+  if (typeof obj === 'string' && (obj.startsWith('/assets/') || obj.startsWith('/art/'))) out.add(obj);
   else if (obj && typeof obj === 'object') for (const v of Object.values(obj)) manifestUrls(v, out);
   return out;
 }

@@ -105,9 +105,11 @@ test('#17 the user\'s case on act2 m01: the front operator takes over the enemy 
       checked++;
       branches.add(c.subProfessionId);
       if (r.E.alive && r.E.blockedBy !== r.F) {
-        // only a status that cannot be blocked (妮芙's 恐惧, 浮空 …) or a displacement out of contact lets it go
+        // only a status that cannot be blocked (妮芙's 恐惧, 浮空 …), a displacement out of contact, or a blocker whose
+        // CURRENT form blocks nothing lets it go — 结城理's <替身> is 傀儡师's own "替身阻挡数为0" (tools/fork-extra6.mjs 六.C)
         const f = r.E.s.flags;
-        assert.ok(f.fear || f.unblockable || f.levitate || f.attract || Math.hypot(r.E.x - r.F.x, r.E.y - r.F.y) > 0.7071, `${c.name} ${dir}: takes the enemy over`);
+        assert.ok(f.fear || f.unblockable || f.levitate || f.attract || Math.hypot(r.E.x - r.F.x, r.E.y - r.F.y) > 0.7071 || r.F.s.blockCnt <= 0,
+          `${c.name} ${dir}: takes the enemy over (block ${r.F.s.blockCnt})`);
         continue;
       }
       // healers, and skills that say 停止攻击 (泡泡 “挨打”, 凯瑟琳 战火淬炼 …) / attack only while active (阵法术师), are the

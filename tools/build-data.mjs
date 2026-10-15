@@ -40,14 +40,19 @@ import { bandBondIds } from '../shared/bandBonds.js';
 import { statusKey, composeUnitRecord, standInRecord, unitForm } from '../shared/standIn.js';
 import { extendedGrid } from '../shared/loadoutRecord.js';
 import { FULL_RANK, atRank, stripPotential } from '../shared/potential.js';
+/** 六.F: `tools/rhine-data.mjs` builds its records at the same potential rank the official passes use. */
+const OPERATOR_POTENTIAL = FULL_RANK;
 // The fork's own mode/field layer over the built config and choices (终极模拟 …), and its extra 自选编队 slots over the
 // built chess/backups (二.8): kept out of the official-data derivation so a regeneration from the game's tables cannot
 // drop it, and so every fork-only value sits in one file.
-import { applyForkOverrides, applyForkChoices, applyForkChess, applyForkBackups } from './fork-overrides.mjs';
+import { FORK_APPLIERS, FORK_PASS_APPLIERS } from './fork-overrides.mjs';
+import { applyForkExtra6Act } from './fork-extra6.mjs';
 
 // ===== CLI & IO ==================================================================================
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+// 六.F: `tools/rhine-data.mjs` imports this module for its operator builders, so the CLI must not run on import.
+const IS_MAIN = !!process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 const RESEARCH_DIR = join(ROOT, 'docs', 'research');
 const GAMEDATA_URL = 'https://raw.githubusercontent.com/Kengxxiao/ArknightsGameData/master/zh_CN/gamedata/';
 const SEASON = 'act2autochess';
@@ -84,7 +89,7 @@ function parseArgs(argv) {
 
 let OPTS;
 try {
-  OPTS = parseArgs(process.argv.slice(2));
+  OPTS = parseArgs(IS_MAIN ? process.argv.slice(2) : []);
 } catch (e) {
   console.error(`build-data: ${e.message}`);
   process.exit(2);
@@ -355,7 +360,10 @@ async function loadContext() {
     loadGamedata('excel/enemy_handbook_table.json'),
     loadGamedata('levels/enemydata/enemy_database.json'),
   ]);
-  const act = activity?.activity?.AUTOCHESS_SEASON?.[SEASON];
+  // 内容包 packExtra6 (六.C): the two ported operators have a character_table row but no 卫戍协议 shop row, so their
+  // `charShopChessDatas` / `charChessDataDict` entries are synthesized here and injected into `act` — every builder below
+  // reads the season tables, so injecting the rows is the whole port (tools/fork-extra6.mjs says why).
+  const act = applyForkExtra6Act(activity?.activity?.AUTOCHESS_SEASON?.[SEASON], { charTable, uniequip });
   const ac = activity?.autoChessData;
   if (!act || !ac) throw new Error('activity_table has no act2autochess / autoChessData section');
 
@@ -1371,7 +1379,13 @@ function buildBackups(ctx, chess) {
   }).sort(naturalCmp);
   const collabNumber = (ch) => DIY_EXCLUDED_NUMBER_PREFIXES.some((p) => new RegExp(`^${p}\\d`).test(ch.displayNumber || ''));
   const excluded = legal6.filter((id) => teamsOf(charTable[id]).some((t) => excludedTeams.has(t)) || collabNumber(charTable[id]));
-  for (const t of DIY_EXCLUDED_TEAMS) if (!excluded.some((id) => teamsOf(charTable[id]).includes(t))) warn(`DIY_EXCLUDED_TEAMS: no owned-6★ pick of team ${t}`);
+  // A team is only unrepresented when NEITHER an excluded pick NOR a roster operator carries it: 内容包 packExtra6 (六.C)
+  // ports 丰川祥子 / 结城理 as chess, so mujica / sees stop being candidates and need no 自选 exclusion row. The warning
+  // exists to catch a stale or misspelled team name, and a roster member of that team proves the name is fine.
+  const rosterTeams = new Set([...roster].filter((id) => charTable[id]).flatMap((id) => teamsOf(charTable[id])));
+  for (const t of DIY_EXCLUDED_TEAMS) {
+    if (!rosterTeams.has(t) && !excluded.some((id) => teamsOf(charTable[id]).includes(t))) warn(`DIY_EXCLUDED_TEAMS: no owned-6★ pick of team ${t}`);
+  }
   const ownedPool = legal6.filter((id) => !excluded.includes(id));
   for (const id of ownedPool) for (const st of diyStatuses.values()) addNeed(id, st);
 
@@ -1849,8 +1863,8 @@ function buildEffects(ctx) {
 const BOND_COUNT_KEYS = ['power_bond_char_cnt', 'ex_bond_char_cnt', 'power_char_cnt', 'ex_char_cnt'];
 
 /**
- * Build data/bonds.json: the 23 bonds with thresholds, counting mode, effect blackboards and the
- * research implementer spec.
+ * Build data/bonds.json: the 23 official bonds with thresholds, counting mode, effect blackboards and the
+ * research implementer spec. The fork's ported 莱茵生命 (`rhineShip`) is added afterwards by applyForkBonds.
  */
 function buildBonds(ctx, chess, effects) {
   const { act, ac } = ctx;
@@ -3885,9 +3899,11 @@ function validateAll(f) {
     bad.slice(0, 5).forEach((p) => err(`non-finite number at ${p}`));
   }
   const visible = Object.values(chess).filter((c) => !c.isGolden && c.visible);
-  if (Object.keys(bonds).length !== 23) err(`expected 23 bonds, got ${Object.keys(bonds).length}`);
+  // validateAll runs on the files AFTER the fork layer above, so the counts are the committed ones: the official 23
+  // bonds plus the ported 莱茵生命 (`rhineShip`, fork-overrides.mjs applyForkBonds — 六.3).
+  if (Object.keys(bonds).length !== 24) err(`expected 24 bonds (23 official + the ported 莱茵生命), got ${Object.keys(bonds).length}`);
   if (Object.keys(bands).length !== 40) err(`expected 40 bands, got ${Object.keys(bands).length}`);
-  if (visible.length !== 112) err(`expected 112 visible non-DIY chess, got ${visible.length}`);
+  if (visible.length !== 114) err(`expected 114 visible non-DIY chess (112 official + the two ported packExtra6 operators), got ${visible.length}`);
   for (const c of Object.values(chess)) {
     if (!chess[c.baseId]) err(`chess ${c.chessId}: baseId missing`);
     if (c.goldenId && !chess[c.goldenId]) err(`chess ${c.chessId}: goldenId missing`);
@@ -4083,8 +4099,8 @@ async function main() {
     // applier runs before buildBackups so the new slots' forms / prototype picks are validated like the official ones;
     // applyForkBackups then replaces the `shopLevel: null` buildBackups gives them (the official shop-level table lists
     // only the four official slots) with their tier's own.
-    const chess = applyForkChess(built.chess);
-    passes.push({ ctx: pctx, chess, tokenOwners: built.tokenOwners, backups: applyForkBackups(buildBackups(pctx, chess)) });
+    const chess = FORK_PASS_APPLIERS.chess(built.chess);
+    passes.push({ ctx: pctx, chess, tokenOwners: built.tokenOwners, backups: FORK_PASS_APPLIERS.backups(buildBackups(pctx, chess)) });
   }
   const { chess, backups } = passes[FULL_RANK];
   const effects = buildEffects(ctx);
@@ -4103,12 +4119,43 @@ async function main() {
   // the bonds each strategy is built around (DESIGN §21.26): the bot skips, and the strategy draft marks 本局禁用, a band
   // whose bond the mode switches off
   for (const b of Object.values(bands)) b.bondIds = bandBondIds(b, { bonds, pools: choices.pools });
-  const config = applyForkOverrides(buildConfig(ctx, waves, stages, bands, chess, items));
-  const files = { config, chess, bonds, garrisons, items, bands, effects, choices: applyForkChoices(choices), enemies, factions, waves, stages, bosses, tokens, backups };
+  const config = buildConfig(ctx, waves, stages, bands, chess, items);
+  const files = { config, chess, bonds, garrisons, items, bands, effects, choices, enemies, factions, waves, stages, bosses, tokens, backups };
+  // The fork's own layer over the generated files (tools/fork-overrides.mjs), so a full regeneration keeps every fork
+  // feature. It reads the same `FORK_APPLIERS` list `node tools/fork-data.mjs` applies to the committed files — 六.3
+  // added its bond/effect appliers to that CLI but not here, and a regeneration silently dropped the ported 盟约
+  // without failing anything, because the committed files had been patched in place. One list, both directions.
+  // `chess`/`backups` apply in two stages around attachPotential (FORK_PASS_APPLIERS / the loop below);
+  // `assets` is not built here at all (tools/fetch-assets.mjs owns it).
+  for (const [name, apply] of Object.entries(FORK_APPLIERS)) {
+    if (FORK_PASS_APPLIERS[name] || !files[name]) continue;
+    files[name] = apply(files[name]);
+  }
 
-  // the unit forms rebuild every PRESET chess at every rank (before the annotation: each pass as built)
-  const errors = [...validateAll(files), ...passes.flatMap((p) => checkUnitFormParity(p.ctx, p.chess).map((e) => `${e} (potential rank ${p.ctx.potRank})`))];
+  // The unit forms rebuild every PRESET chess at every rank (before the annotation: each pass as built), so the parity
+  // check reads the pre-annotation records — composeUnitRecord composes at ONE potential and returns no potDown.
+  const errors = passes.flatMap((p) => checkUnitFormParity(p.ctx, p.chess).map((e) => `${e} (potential rank ${p.ctx.potRank})`));
   errors.push(...attachPotential(passes));
+  // The rest of the fork layer for chess/backups, AFTER attachPotential annotated the full-rank records in place: these
+  // appliers spread their record, so running them first would drop every `potDown`, and running them last is also what
+  // puts `packBonds` after `potDown` — the order the in-place `tools/fork-data.mjs` patch leaves in the committed file.
+  for (const name of Object.keys(FORK_PASS_APPLIERS)) files[name] = FORK_APPLIERS[name](files[name]);
+  errors.push(...validateAll(files));
+  // 六.F: the ported 莱茵生命 expansion (tools/rhine-data.mjs) — its 6 operators, 3 科研装置, 2 装备, the 盟约's members
+  // and the traits they carry. LAST of the fork layer, and specifically AFTER `applyForkPackMembers`: that applier is
+  // what gives the six official 莱茵 bases their `rhineShip` bond, and the overlay recomputes every 盟约's member list
+  // from the chess that name it (the source expansion's own recompute), so running it earlier would count 4 members
+  // instead of the 9 the 盟约's thresholds need. It carries its own `packRestore`/`packId` for the strip-on-read
+  // (shared/packData.js) and re-annotates its own records' `potDown` through the same attachPotential.
+  //
+  // `validateAll` runs BEFORE it, as in the source: that pass is calibrated to the fork's own counts (114 visible
+  // non-DIY chess, 24 bonds) and guards the ACCIDENTAL duplicate it was written for, while `validateRhineData` owns
+  // this expansion's own invariants. The one overlap it deliberately allows is 多萝西's 共振装置, which is both a
+  // ported operator's summon (tokens.json) and the fork's own `op-doroth` 自选 pick's (backups.json `tokens`) —
+  // `simdata.rawToken` merges the two records, and the pack's copy leaves with the switch.
+  const { applyRhineData, validateRhineData } = await import('./rhine-data.mjs');
+  await applyRhineData(files);
+  errors.push(...validateRhineData(files));
   let total = 0;
   const sizes = {};
   const texts = {};
@@ -4130,18 +4177,21 @@ async function main() {
       await rename(tmp, dest);
     }
   }
+  // The report describes the files this run WROTE, so every count reads `files` and never the pre-fork locals: the fork
+  // layer above replaces `files.bonds` / `files.effects` / `files.chess` / `files.backups` with new objects, and the
+  // locals still point at the pre-fork ones. Reading a local here reported 23 bonds on a run that wrote 24.
   const report = {
     counts: {
-      chess: Object.keys(chess).length,
-      visibleChess: Object.values(chess).filter((c) => !c.isGolden && c.visible).length,
-      bonds: Object.keys(bonds).length, garrisons: Object.keys(garrisons).length, items: Object.keys(items).length,
-      bands: Object.keys(bands).length, effects: Object.keys(effects).length, enemies: Object.keys(enemies).length,
-      waves: Object.keys(waves).length, stages: Object.keys(stages).length, bosses: Object.keys(bosses).length,
-      tokens: Object.keys(tokens).length, factionEntries: Object.keys(factions.entries).length,
-      backupUnits: Object.keys(backups.units).length,
-      backupForms: Object.values(backups.units).reduce((n, u) => n + Object.keys(u.forms).length, 0),
-      backupTokens: Object.keys(backups.tokens).length,
-      diyOwnedPicks: backups.diy.ownedPool.length,
+      chess: Object.keys(files.chess).length,
+      visibleChess: Object.values(files.chess).filter((c) => !c.isGolden && c.visible).length,
+      bonds: Object.keys(files.bonds).length, garrisons: Object.keys(files.garrisons).length, items: Object.keys(files.items).length,
+      bands: Object.keys(files.bands).length, effects: Object.keys(files.effects).length, enemies: Object.keys(files.enemies).length,
+      waves: Object.keys(files.waves).length, stages: Object.keys(files.stages).length, bosses: Object.keys(files.bosses).length,
+      tokens: Object.keys(files.tokens).length, factionEntries: Object.keys(files.factions.entries).length,
+      backupUnits: Object.keys(files.backups.units).length,
+      backupForms: Object.values(files.backups.units).reduce((n, u) => n + Object.keys(u.forms).length, 0),
+      backupTokens: Object.keys(files.backups.tokens).length,
+      diyOwnedPicks: files.backups.diy.ownedPool.length,
     },
     sizes, totalBytes: total, out: OPTS.out, written: write, warnings, errors,
   };
@@ -4162,7 +4212,16 @@ async function main() {
   }
 }
 
-main().catch((e) => {
+/**
+ * The operator builders `tools/rhine-data.mjs` (六.F) reuses to compile the ported 莱茵生命 operators at every potential
+ * rank. Exported so the ported extension builds its records from the SAME tables and conventions as the official roster
+ * instead of re-deriving stats/talents/modules.
+ */
+export { buildSkill, statsFrom, interpolateAttrs, baseTalentList, traitRecord, rangeGrid, immunitiesOf,
+  unlocked, bestCandidate, moduleAttr, moduleTalentChanges, splitModuleParts, tokenVariant, OPERATOR_POTENTIAL,
+  withPotential, attachPotential };
+
+if (IS_MAIN) main().catch((e) => {
   console.error('build-data failed:', e && e.stack ? e.stack : e);
   process.exitCode = 1;
 });

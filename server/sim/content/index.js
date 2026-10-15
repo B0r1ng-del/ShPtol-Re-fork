@@ -42,17 +42,22 @@ async function safeImport(path) {
 }
 
 const KIT_REGISTRY = await safeImport('./kits/index.js');
-const DOMAIN_NAMES = ['tokens', 'devices', 'enemies', 'bosses', 'bonds', 'garrisons', 'items', 'bands', 'choices'];
+const RHINE_KITS = await safeImport('./kits/rhine.js');
+const DOMAIN_NAMES = ['tokens', 'devices', 'enemies', 'bosses', 'bonds', 'garrisons', 'items', 'bands', 'choices', 'relics', 'rhine', 'rhineMeta'];
 const DOMAINS = await Promise.all(DOMAIN_NAMES.map((n) => safeImport(`./${n}.js`)));
 const tokens = DOMAINS[0];
+const rhine = DOMAINS[DOMAIN_NAMES.indexOf('rhine')];
 
 /**
  * Merged kit registry: baseChessId → (bb, chess, def) => Kit, then the 补位 stand-in kits: stand-in charId → builder
  * (kits/index.js; each kit file is loaded guarded too)
  */
-export const KITS = KIT_REGISTRY.KITS ?? Object.freeze({});
+// DIY characters keep upstream's charId kits. Rhine's own chess ids keep the expansion's rules — the expansion's
+// registry is spread FIRST, so a 自选 body's own kit still wins for its charId while the ported chess ids
+// (`chess_rhine_*_a`, which no other registry names) resolve to the expansion's kit.
+export const KITS = Object.freeze({ ...(RHINE_KITS.default ?? {}), ...(KIT_REGISTRY.KITS ?? {}) });
 
-/** Domain modules in install order: tokens, devices, enemies, bosses, bonds, garrisons, items, bands, choices. */
+/** Domain modules in install order, followed by the Rhine battle / prep expansion. */
 export const MODULES = Object.freeze(DOMAIN_NAMES.map((n, i) => [n, DOMAINS[i]]));
 
 /**
@@ -103,7 +108,10 @@ export function setupUnitKit(battle, unit, mode = 'full') {
   const raw = def.raw ?? def;
   const bb = def.skill?.bb ?? {};
   if (unit.kind === 'token') {
-    const tk = mode === 'full' ? (tokens.kits?.[def.id] ?? tokens.default?.[def.id]) : null;
+    // The expansion's own summons keep the expansion's rules; a 补位 / 自选 body keeps upstream's (the source's
+    // `expansionToken`), so a DIY pick cannot inherit 梅尔's otter or 多萝西's resonator behaviour.
+    const expansionToken = !isOtherBody(unit.ownerUnit?.def);
+    const tk = mode === 'full' ? (rhine.kits?.[def.id] ?? (expansionToken ? RHINE_KITS.tokenKits?.[def.id] : null) ?? tokens.kits?.[def.id] ?? tokens.default?.[def.id]) : null;
     if (typeof tk === 'function') {
       try { const k = tk(bb, raw, def); if (k) return k; } catch (e) { battle._handlerError(`tokenKit:${def.id}`, unit, e); }
     }
