@@ -54,9 +54,11 @@ describe('变形同构体 — the client rule', () => {
   });
 
   test('the client rule equals the server\'s (bondsMeta.pieceBonds) for every bond item, normal and golden', () => {
-    const gd = new GameData(getData({ log: { warn() {}, error() {}, info() {} } }), 'mode_multi_hard');
+    // packRhine on: 莱茵实验终端 is the ported pack's own item, so it is only in the room whose switch is on
+    // (shared/packData.js). The 14 official pairings read the same in an all-off room.
+    const gd = new GameData(getData({ log: { warn() {}, error() {}, info() {} } }), 'mode_multi_hard', { packRhine: true });
     const grants = Object.values(items).filter((r) => r.giveBondId);
-    assert.equal(grants.length, 36, '18 bond items × normal / golden');
+    assert.equal(grants.length, 38, '18 upstream bond items plus the Rhine terminal × normal / golden');
     for (const r of grants) {
       for (const iso of [ISO, ISO_B]) {
         const p = { id: WEARER, items: [{ id: r.id }, { id: iso }] };

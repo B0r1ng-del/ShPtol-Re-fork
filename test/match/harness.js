@@ -279,9 +279,15 @@ export function giveItem(m, ps, itemId, where = 'hand', at = null) {
   return piece;
 }
 
-/** Visible chess ids of a tier (sorted), optionally filtered. */
+/**
+ * Visible chess ids of a tier (sorted), optionally filtered.
+ *
+ * `!c.packId`: the committed `data/chess.json` is the ALL-PACKS-ON truth while `makeMatch` builds a room with every
+ * 内容包 switch off by default (`shared/packData.js` recordAvailable), so a record a pack owns is not in the match —
+ * and `give()` reads the MATCH's data, which is the honest source. Callers that turn a pack on pass their own filter.
+ */
 export function chessOfTier(tier, filter = () => true) {
-  return Object.values(DATA.chess).filter((c) => c.visible && !c.isGolden && c.tier === tier && filter(c)).map((c) => c.chessId).sort();
+  return Object.values(DATA.chess).filter((c) => c.visible && !c.isGolden && !c.packId && c.tier === tier && filter(c)).map((c) => c.chessId).sort();
 }
 
 /** First legal board tile for a chess (reading order). */

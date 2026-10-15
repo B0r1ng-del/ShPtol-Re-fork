@@ -63,6 +63,7 @@ import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Downloader } from './assets/downloader.mjs';
 import { prepareCustomRelicIcons } from './assets/relics.mjs';
+import { rhineArtInput, addRhineArt } from './assets/rhine-plan.mjs';
 import { restartForEnvProxy } from './assets/env-proxy.mjs';
 import { MirrorPolicy, selectDownloadSource, validateSource } from './assets/network.mjs';
 import { normalizeProxyPrefix } from './assets/sources.mjs';
@@ -420,7 +421,9 @@ async function main() {
   const localEnemySpines = await syncLocalSpines(opts, 'enemy');
   const localTokenSpines = await syncLocalSpines(opts, 'token');
   const plan = buildPlan({
-    assets07, ops03, enemies05, maps05, audio, modelsData, charword, voiceLang: opts.voiceLang,
+    // 六.F 莱茵生命 (tools/rhine-data.mjs): its six operators field PRESET chess of their own, so research 07/03 do
+    // not name them and they would ship with no avatar / portrait / Spine (assets/rhine-plan.mjs).
+    ...rhineArtInput(assets07, ops03), enemies05, maps05, audio, modelsData, charword, voiceLang: opts.voiceLang,
     // default: only the slots a battle can play (plan.mjs VOICE_BATTLE_SLOTS); --voice-all takes the whole official set
     voiceSlots: opts.voiceAll ? null : undefined,
     extraEnemyIds: Object.keys(dataEnemies || {}),
@@ -478,7 +481,9 @@ async function main() {
 
   // Manifest
   const resolved = resolveTemplate(plan.template, { root: ASSETS, spine: spine.entries, sourceOf: (rel) => dl.ledger.files[rel]?.url });
-  const body = resolved.value;
+  // 六.F: the pack's own art is LOCAL (public/art/rhine/, like the relic icons) — the bond icon, the three device
+  // sprites and the two equipment icons have no remote URL (assets/rhine-plan.mjs addRhineArt).
+  const body = addRhineArt(resolved.value);
   tidyManifest(body);
   const fontFaces = {};
   for (const [name, f] of Object.entries(fonts.files)) fontFaces[name] = f;

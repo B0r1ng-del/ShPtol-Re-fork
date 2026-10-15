@@ -80,7 +80,7 @@ import { diyRecordOf, DIY_TIERS } from '../shared/diy.js';
 import { unitForm } from '../shared/standIn.js';
 import { POTENTIAL_DEFAULT, CULTIVATE_DEFAULT } from '../shared/potential.js';
 import { OPERATOR_KITS, KITTED_CHARS } from '../server/sim/content/kits/index.js';
-import { filterRecords } from '../shared/packData.js';
+import { filterRawData } from '../shared/packData.js';
 import { GEO } from '../shared/constants.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -90,7 +90,12 @@ export const GOLDEN_DIR = join(ROOT, 'test', 'golden');
 export const FAMILY_NAMES = Object.freeze(['roster', 'bonds', 'fields', 'matches', 'standins', 'diy']);
 
 const QUIET = Object.freeze({ warn() {}, error() {}, info() {}, log() {}, debug() {} });
-const data = getData({ log: QUIET });
+// The corpus is the game a room gets by DEFAULT — every 内容包开关 off — so the generated files are stripped here the
+// way `GameData` strips them for a room (`filterRawData` → `filterFile`: drop the packs' own records, put back the
+// values they replaced via `packRestore`, take back the bond members they contributed). A bare `filterRecords` is not
+// enough: it only drops whole records, so a pack that RE-TIERS an official operator (六.F's 塞雷娅 5→3) or appends to
+// an official 盟约's member list would still move every digest. All-off returns the same objects, so nothing else moves.
+const data = filterRawData(undefined, getData({ log: QUIET }));
 const ds = new DataSource(data, null); // what Match and browsers use (no research fallback)
 const gdCache = new Map();
 const gdFor = (modeId) => { let g = gdCache.get(modeId); if (!g) { g = new GameData(data, modeId); gdCache.set(modeId, g); } return g; };
@@ -249,11 +254,12 @@ const ENEMY_COLS = Object.freeze(['spawned', 'killed', 'leaked', 'dmg', 'taken']
 // ---------------------------------------------------------------------------------------------------------------
 // corpus helpers (pure functions of data/*.json)
 
-// The corpus is the game a room gets by DEFAULT — every 内容包开关 off (shared/packData.js): the ported packs' records
-// carry a `packId` and are stripped here, exactly as `GameData` strips them for a room. Without this the two ported
-// operators (tools/fork-extra6.mjs) would join every roster / standin / diy scenario and move the stored digests; the
-// packed content is covered by test/pack-extra6.test.js instead. All-off returns the same object, so nothing else moves.
-const CHESS = Object.values(filterRecords(undefined, data.chess)).sort((a, b) => byId(a.chessId, b.chessId));
+// The corpus is the game a room gets by DEFAULT — every 内容包开关 off (shared/packData.js), applied to the whole file
+// set by `filterRawData` above. The ported packs' records carry a `packId` and are gone here, exactly as `GameData`
+// removes them for a room, and the records they REPLACED come back through `packRestore`; without that the ported
+// operators (tools/fork-extra6.mjs, tools/rhine-data.mjs) would join every roster / standin / diy scenario and move the
+// stored digests. The packed content is covered by test/pack-extra6.test.js / test/pack-rhine.test.js instead.
+const CHESS = Object.values(data.chess).sort((a, b) => byId(a.chessId, b.chessId));
 const VISIBLE = CHESS.filter((c) => c.visible);
 // the battle stages (data/stages.json also keeps the escaped levels' two maps, kind 'unite', which no field uses)
 const STAGES = Object.keys(data.stages).filter((id) => data.stages[id].kind !== 'unite').sort(byId);

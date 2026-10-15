@@ -62,14 +62,17 @@ describe('六.C packExtra6: the switch gates the whole pack', () => {
 
   test('all off: the official 盟约 the pack adds members to keep their ORIGINAL member lists (no phantom row)', () => {
     // `packMembers` is the pack's own contribution INSIDE a survivor's record: the client draws a row per member
-    // (public/js/ui/gameLogic/bonds.js bondMembers), so a dropped chess must leave the list too. The expectation is the
-    // committed all-packs-on list MINUS the pack's ids — the same list the room had before the pack existed.
+    // (public/js/ui/gameLogic/bonds.js bondMembers), so a dropped chess must leave the list too. The expectation is
+    // the list the room had before ANY pack existed — the committed all-packs-on one with the ids EVERY pack added
+    // taken back out. 内容包 packRhine (六.F) contributes to some of the same bonds through `packRestore`, which holds
+    // the pre-rhine list, so it is the better base wherever it is present.
     const g = gd(undefined);
     for (const [bondId, ids] of Object.entries(FORK_EXTRA6_BOND_MEMBERS)) {
       const now = g.bond(bondId);
       for (const field of ['members', 'visibleMembers']) {
-        const want = DATA.bonds[bondId][field].filter((id) => !ids.includes(id));
-        assert.notDeepEqual(DATA.bonds[bondId][field], want, `${bondId}.${field}: the pack really did add names`);
+        const base = DATA.bonds[bondId].packRestore?.packRhine?.[field] ?? DATA.bonds[bondId][field];
+        const want = base.filter((id) => !ids.includes(id));
+        assert.notDeepEqual(base, want, `${bondId}.${field}: the pack really did add names`);
         assert.deepEqual(now[field], want, `${bondId}.${field}: the pack took its names back out`);
         for (const id of ids) assert.ok(!now[field].includes(id), `${bondId}.${field} still lists ${id}`);
       }

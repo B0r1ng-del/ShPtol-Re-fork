@@ -73,6 +73,9 @@ export class PlayerRound {
     for (const p of this.hand) if (p) all.push(p);
     for (const p of this.temp) if (p) all.push(p);
     for (const p of all) this.returnCopies(p);
+    // 六.F: a research device is a board piece of its own (never hand / temp / copies) — send it back to its fixed
+    // reserve slot instead of dropping it, so an eliminated player's devices return on revival.
+    for (const p of this.board.values()) if (p.research) this._returnResearch(p);
     this.board.clear();
     this.hand.fill(null);
     this.temp.fill(null);
@@ -96,6 +99,9 @@ export class PlayerRound {
     // a free regular hand slot pulls a temp piece in (PRTS 卫戍协议/帮助 §手牌区 "常规手牌区出现空位时自动移入")
     this._fillHandFromTemp();
     this.bonds = computeBonds(this.gd, this);
+    // 六.F: the research reserve follows the live 莱茵生命 membership (capacity 0 with every switch off, so this only
+    // ever generates or retires device cards in a room that turned `packRhine` on).
+    this._syncResearch();
     this.dirty();
   }
 
@@ -117,7 +123,9 @@ export class PlayerRound {
     // a terrain change not yet followed by a recompute (a content hook at the prep end) never fields an illegal board
     this.deployMap();
     if (this._legalityStale) this.recompute();
+    this._syncResearch();
     const units = [];
+    const research = this.researchView();
     for (const { r, c, piece } of boardOrder(this.board)) {
       if (piece.kind === 'chess') {
         const u = { uid: piece.uid, kind: 'chess', chessId: piece.id, row: r, col: c, dir: pieceDir(piece), items: (piece.items || []).map((i) => i.id) };
@@ -143,7 +151,8 @@ export class PlayerRound {
         if (carry && carry.has(piece.uid)) u.carryState = carry.get(piece.uid);
         units.push(u);
       } else if (piece.kind === 'token') {
-        const u = { uid: piece.uid, kind: 'token', tokenId: piece.id, row: r, col: c, dir: pieceDir(piece), ownerUid: piece.ownerUid };
+        const u = { uid: piece.uid, kind: 'token', tokenId: piece.id, row: r, col: c, dir: pieceDir(piece), ownerUid: piece.ownerUid,
+          ...(piece.research ? { research: true, researchKey: piece.researchKey } : {}) };
         if (carry && carry.has(piece.uid)) u.carryState = carry.get(piece.uid); // 联防: { sp } (unite.js)
         units.push(u);
       }
@@ -160,6 +169,9 @@ export class PlayerRound {
         id: e.id, key: e.key ?? null, source: e.iconKind ?? null, params: e.params ?? null, counter: e.counter ?? null, data: e.data ?? null,
       })),
       deviceOverrides: { ...this.deviceOverrides },
+      // 六.F: the frozen research selection (rhine.js `selectedDevices` re-validates it at the sim boundary, and reads
+      // `active` first — false with every 内容包开关 off, so an unmodded room selects no device).
+      research,
       // 六.E: the collectibles this battle runs under (server/sim/content/relics.js install reads ps.input.relics). The
       // field is only present with the switch on, so an off match builds the same spec object as before the port.
       ...(this.m.relicsOn ? { relics: relicsView(this).map((r) => r.id) } : null),

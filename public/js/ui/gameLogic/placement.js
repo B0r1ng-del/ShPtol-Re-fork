@@ -5,6 +5,7 @@ import { attackRangeGrid } from '../../../../shared/loadoutRecord.js';
 import { meleeOnHighGround } from '../../../../shared/highGround.js';
 import { summonPlacementGrid } from '../../../../shared/summonPlacement.js';
 import { pieceDir, rangeTiles } from '../facing.js';
+import { isRhineDevice } from '../../../../shared/rhineResearch.js';
 import { isObj, tileKey } from './shared.js';
 import { boardTileOf, fieldTile } from './camera.js';
 import { deployedRecord, fieldsStandIn, standInOf } from './standIn.js';
@@ -185,6 +186,10 @@ export function indexPieces(priv) {
   (Array.isArray(priv?.temp) ? priv.temp : []).forEach((p, idx) => {
     if (isObj(p) && Number.isInteger(p.uid)) map.set(p.uid, { piece: p, area: 'temp', idx });
   });
+  // 六.F: a 科研装置 lives in its own reserve (player/research.js), not the hand
+  (Array.isArray(priv?.research?.hand) ? priv.research.hand : []).forEach((p, idx) => {
+    if (isObj(p) && Number.isInteger(p.uid)) map.set(p.uid, { piece: p, area: 'research', idx });
+  });
   return map;
 }
 
@@ -349,6 +354,21 @@ export function canPlace(ctx, uid, target) {
     return { ok: true, action: 'swap' };
   }
 
+  // 六.F: the device reserve is its own target area; only a 科研装置 may go there, and a device keeps to its own
+  // reserve / the board (server/match/player/placement.js enforces the same).
+  const research = piece.kind === 'token' && isRhineDevice(piece.id);
+  if (target.area === 'research') {
+    if (!research) return no('BAD_TARGET', t('科研位只能放置科研装置'));
+    return src.area === 'research' ? no('ALREADY', t('装置已在科研位')) : { ok: true, action: 'move' };
+  }
+  if (research && target.area === 'hand') return { ok: true, action: 'move' };
+  if (research && target.area === 'board') {
+    const capacity = ctx.priv?.research?.capacity || 0;
+    if (!capacity) return no('BAD_TARGET', t('需要激活三人莱茵生命盟约'));
+    const deployed = [...ctx.boardAt.values()].filter(e => isRhineDevice(e.piece.id)).length;
+    if (src.area !== 'board' && deployed >= capacity) return no('BOARD_FULL', t('当前最多部署{capacity}台科研装置，请先收回其他装置', { capacity }));
+  }
+
   if (target.area === 'board') {
     const { row, col } = target;
     if (!Number.isInteger(row) || !Number.isInteger(col)) return no('BAD_TILE', t('无法部署在该位置'));
@@ -483,7 +503,9 @@ export function dropIntent(ctx, uid, target) {
     // both slots used: the replace dialog picks the equipped item to destroy (g.equip replaceUid) — see equipReplaces
     return { t: 'g.equip', fields: { itemUid: uid, targetUid: occ.piece.uid }, confirmReplace: equipReplaces(ctx, uid, occ.piece) };
   }
-  const to = target.area === 'hand' ? { area: 'hand', idx: target.idx } : { area: 'board', row: target.row, col: target.col };
+  const research = isRhineDevice(ctx.pieces.get(uid)?.piece?.id);
+  const to = target.area === 'research' || (research && target.area === 'hand') ? { area: 'research' }
+    : target.area === 'hand' ? { area: 'hand', idx: target.idx } : { area: 'board', row: target.row, col: target.col };
   return { t: 'g.move', fields: { uid, to } };
 }
 

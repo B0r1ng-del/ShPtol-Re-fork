@@ -380,6 +380,14 @@ export const FORK_APHRIS_CHAR_ID = 'char_4229_aphris';
 export function applyForkBonds(bonds) {
   if (!isPlainObject(bonds)) return bonds;
   const { bb, name, identifier, thresholds, effectId, desc } = FORK_RHINE;
+  // 六.F: `tools/rhine-data.mjs` recomputes every 盟约's member list from the chess that name it (the source
+  // expansion's own recompute), which is what adds the four ported operators (梅尔 / 伊芙利特 / 溯光星源 / 多萝西) to this
+  // one — 10 members, 9 visible (白面鸮's II-cost form is hidden). This applier runs BEFORE that overlay in
+  // `tools/build-data.mjs` (where the record does not exist yet, so the six bases seed it) and AFTER it in
+  // `node tools/fork-data.mjs` (where the record is already complete). Preserving an existing list keeps both orders
+  // on the same result instead of truncating the ported members back off on every in-place patch.
+  const prev = isPlainObject(bonds[FORK_RHINE_BOND_ID]) ? bonds[FORK_RHINE_BOND_ID] : null;
+  const seeded = (field) => (prev && Array.isArray(prev[field]) && prev[field].length ? prev[field] : [...FORK_RHINE_BASES]);
   const out = {
     ...bonds,
     [FORK_RHINE_BOND_ID]: {
@@ -396,7 +404,11 @@ export function applyForkBonds(bonds) {
       bbStr: { key: 'rhine_research' },
       buffs: [{ key: 'env_gbuff_new', bb: { ...bb }, bbStr: { key: 'rhine_research' } }],
       baseParams: [], perStackParams: [],
-      members: [...FORK_RHINE_BASES], visibleMembers: [...FORK_RHINE_BASES], packId: [...FORK_RHINE_PACKS],
+      members: seeded('members'), visibleMembers: seeded('visibleMembers'), packId: [...FORK_RHINE_PACKS],
+      // `packRestore` (shared/packData.js) is the overlay's, not this applier's: the record outlives a single switch
+      // (its `packId` is an array), so while `packRhine` is off but `packAphris` on it has to fall back to the six
+      // official members. Carrying it through keeps the in-place `tools/fork-data.mjs` patch from erasing it.
+      ...(prev && isPlainObject(prev.packRestore) ? { packRestore: prev.packRestore } : {}),
     },
   };
   // 六.C: register the ported operators as members of the official 盟约 they join, and record the names as the pack's

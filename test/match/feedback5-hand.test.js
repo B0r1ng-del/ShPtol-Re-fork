@@ -14,7 +14,7 @@ import { DATA, makeMatch, give, giveItem, checkInvariants, chessOfTier, legalTil
 
 /** Plain equipment (no equip / merge side effects), all different: hand fillers that never merge with each other. */
 const PLAIN = Object.values(DATA.items)
-  .filter((i) => i.itemType === 'EQUIP' && !i.isGolden && i.kind === 'passive')
+  .filter((i) => i.itemType === 'EQUIP' && !i.isGolden && i.kind === 'passive' && !i.packId) // the room is all-off
   .map((i) => i.itemId ?? i.id).filter(Boolean);
 
 /** Solo 标准 (untimed) PREP R1 with an empty board and hand, 100 funds, a known stage. */

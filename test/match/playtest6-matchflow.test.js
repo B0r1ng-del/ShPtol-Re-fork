@@ -50,7 +50,9 @@ test('#19 the promotion reward (3 copies → 精锐) offers three DIFFERENT oper
     const ids = offer.slots.map((s) => s.id);
     assert.equal(ids.length, 3);
     assert.equal(new Set(ids).size, 3, `seed ${seed}: three different operators (${ids.join(', ')})`);
-    for (const x of ids) assert.equal(DATA.chess[x].tier, tier, `${x} is tier ${tier}`);
+    // the room's own record: `DATA` is the committed ALL-PACKS-ON table, while an all-off room gets the restored
+    // view (塞雷娅 / 白面鸺 come back at their vanilla tiers, shared/packData.js `packRestore`)
+    for (const x of ids) assert.equal(m.gd.chess(x).tier, tier, `${x} is tier ${tier}`);
     offers++;
     checkInvariants(m);
     m.dispose();
@@ -69,7 +71,7 @@ test('#19 many reward offers at every shop level: never the same operator twice;
       const ids = offer.slots.map((s) => s.id);
       if (new Set(ids).size !== ids.length) dupBefore++;
       assert.equal(ids.length, 3);
-      for (const x of ids) assert.equal(DATA.chess[x].tier, Math.min(level + 1, 6));
+      for (const x of ids) assert.equal(m.gd.chess(x).tier, Math.min(level + 1, 6));
       assert.deepEqual(m.pool.snapshot(), before, 'an offer takes no copies (only the pick does)');
       ps.offers.length = 0;
     }

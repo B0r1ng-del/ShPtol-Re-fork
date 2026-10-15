@@ -85,10 +85,17 @@ test('a kit file <chessId>-<codename>.js registers the kit of <chessId>_a (coden
   }
 });
 
-test('the registry is the tier groups in KIT_FILES order, then the stand-ins, then the 自选 operators, one key per file; content/index.js serves the same object', () => {
+test('the upstream registry keeps one key per file; content/index.js spreads the ported expansion over it', () => {
   assert.deepEqual(Object.keys(KITS), [...TIER_KITS.flatMap((t) => Object.keys(t)), ...Object.keys(STANDIN_KITS), ...Object.keys(OPERATOR_KITS)]);
   assert.equal(Object.keys(KITS).length, KIT_FILES.flat().length + STANDIN_KIT_FILES.length + OPERATOR_KIT_FILES.length, 'one key per file, none twice');
-  assert.equal(CONTENT_KITS, KITS);
+  // content/index.js serves the upstream registry with the ported packRhine builders SPREAD FIRST (六.F,
+  // tools/rhine-data.mjs): every upstream key keeps its own builder — a 自选 body still runs its own kit by charId —
+  // and the expansion only adds keys no upstream registry names (`chess_rhine_*_a`).
+  for (const [key, builder] of Object.entries(KITS)) assert.equal(CONTENT_KITS[key], builder, `${key}: upstream kit preserved`);
+  for (const key of Object.keys(CONTENT_KITS).filter((id) => id.startsWith('chess_rhine_'))) {
+    assert.equal(typeof CONTENT_KITS[key], 'function', `${key}: extension builder`);
+    assert.ok(!Object.hasOwn(KITS, key), `${key}: extension cannot replace upstream`);
+  }
 });
 
 test('kit files stay browser-safe and deterministic: no Node-only or server-only import, no clock, no Math.random', () => {

@@ -32,8 +32,56 @@ export const PACK_BONDS_FIELD = 'packBonds';
  * member would keep listing it and the 盟约 member list would draw a row for a piece this room does not contain.
  */
 export const PACK_MEMBERS_FIELD = 'packMembers';
+/**
+ * The field a record uses for what a pack CHANGED on it: `{ <packKey>: { <field>: <value before the pack> } }`.
+ *
+ * `packBonds`/`packMembers` record what a pack ADDED to a record (a bond, a member). This records what it REPLACED —
+ * 六.F's 莱茵生命 expansion re-tiers 白面鸮 and 塞雷娅 (V → III, with the status/price that implies) and swaps their
+ * 特质, and the ported content is supposed to be invisible while `packRhine` is off. Without this the record keeps the
+ * expansion's tier in a room that never turned the pack on, which is exactly the "off must equal the official mode"
+ * guarantee. `filterFile` restores these when the pack is off.
+ */
+export const PACK_RESTORE_FIELD = 'packRestore';
 
 const isPlain = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+
+/**
+ * `map` with every field a DISABLED pack replaced put back to the value it had before, or `map` itself when no record
+ * loses anything (so an all-off room shares the original object).
+ *
+ * `packBonds` / `packMembers` are about LISTS a pack appended to; this is about VALUES it overwrote. 六.F's 莱茵生命
+ * expansion re-tiers 白面鸮 (IV → III) and 塞雷娅 (V → III) — with the status and price that implies — and swaps their
+ * 特质 for its own; it also rewrites a few item/effect descriptions and a garrison's bond list. Those are existing
+ * OFFICIAL records, so dropping the pack's own records is not enough: the survivors must go back to their original
+ * values or a room that never turned `packRhine` on still plays a III-cost 白面鸮.
+ *
+ * The pack records the originals itself (`{ packRhine: { tier: 4, price: 4, … } }`), the same way `packBonds` records
+ * what it added, so this needs no cross-file knowledge. Returns the original object when there is nothing to restore.
+ * @param {Record<string, boolean>|null|undefined} mods
+ * @param {Record<string, any>|null|undefined} map
+ */
+export function withPackRestore(mods, map) {
+  if (!isPlain(map)) return map;
+  let out = null;
+  for (const [id, rec] of Object.entries(map)) {
+    if (!isPlain(rec) || !isPlain(rec[PACK_RESTORE_FIELD])) continue;
+    let next = null;
+    for (const [key, fields] of Object.entries(rec[PACK_RESTORE_FIELD])) {
+      if (packEnabled(mods, key) || !isPlain(fields)) continue;
+      // A fresh map on first use: deleting from `rec`'s own object would mutate the input.
+      if (!next) next = { ...rec, [PACK_RESTORE_FIELD]: { ...rec[PACK_RESTORE_FIELD] } };
+      for (const [field, value] of Object.entries(fields)) next[field] = value;
+      // The pack's own bookkeeping leaves with it: a room that never turned the switch on carries no trace of it.
+      delete next[PACK_RESTORE_FIELD][key];
+    }
+    if (next) {
+      if (!Object.keys(next[PACK_RESTORE_FIELD]).length) delete next[PACK_RESTORE_FIELD];
+      if (!out) out = { ...map };
+      out[id] = next;
+    }
+  }
+  return out ?? map;
+}
 
 /** Whether a data record may be used under these switches. A record with no pack is always available. */
 export const recordAvailable = (mods, rec) => !isPlain(rec) || packEnabled(mods, rec[PACK_ID_FIELD]);
@@ -134,10 +182,12 @@ export function withPackMembers(mods, map) {
 export function filterFile(mods, name, json) {
   if (!isPlain(json)) return json;
   if (name !== 'backups') {
-    // chess / items / bonds / … : drop the packs' own records, take back what a disabled pack contributed to the
-    // survivors (packBonds), and clear a disabled pack's own additions out of a survivor's lists (packMembers).
-    const kept = withPackBonds(mods, filterRecords(mods, json));
-    return withPackMembers(mods, kept);
+    // chess / items / bonds / … : drop the packs' own records, then put back any VALUE a disabled pack replaced
+    // (packRestore — 六.F's re-tiered 白面鸮 / 塞雷娅), and only THEN take back what a disabled pack contributed to the
+    // survivors (packBonds) and clear its additions out of their lists (packMembers). Restore must come first: the
+    // value it puts back is the all-packs-on one, so a `rhineShip` inside it still has to be stripped afterwards.
+    const kept = withPackRestore(mods, filterRecords(mods, json));
+    return withPackMembers(mods, withPackBonds(mods, kept));
   }
   const units = withPackBonds(mods, filterRecords(mods, json.units));
   const diy = json.diy;

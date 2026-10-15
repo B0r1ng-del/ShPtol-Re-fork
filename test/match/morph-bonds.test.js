@@ -18,13 +18,13 @@ const ISO_B = 'chess_item_6_09_e_b';
 const HAMMER = 'chess_item_1_01_e_a';
 const GRANTS = Object.values(DATA.items).filter((r) => r.giveBondId).map((r) => r.id).sort();
 
-/** A target chess outside `bond` (and not 调和: its +1 would blur the count). */
-const outsider = (bond) => Object.values(DATA.chess).find((c) => c.visible && !c.isGolden && c.tier <= 2 && !c.bonds.includes(bond) && !c.bonds.includes('maniShip')).chessId;
-const members = (bond) => Object.values(DATA.chess).filter((c) => c.visible && !c.isGolden && c.bonds.includes(bond) && !c.bonds.includes('maniShip')).map((c) => c.chessId).sort();
+/** A target chess outside `bond` (and not 调和: its +1 would blur the count), from the ROOM's own data. */
+const outsider = (bond, chess = DATA.chess) => Object.values(chess).find((c) => c.visible && !c.isGolden && c.tier <= 2 && !c.bonds.includes(bond) && !c.bonds.includes('maniShip')).chessId;
+const members = (bond, chess = DATA.chess) => Object.values(chess).filter((c) => c.visible && !c.isGolden && c.bonds.includes(bond) && !c.bonds.includes('maniShip')).map((c) => c.chessId).sort();
 
 /** PREP R1 of a real match (all 23 bonds: 绝境), the player's pieces cleared. */
-function prep({ mode = 'solo', humans = 1, fake = false, seed = 21 } = {}) {
-  const h = makeMatch({ mode, difficulty: 'HARD', humans, seed, fake }).start();
+function prep({ mode = 'solo', humans = 1, fake = false, seed = 21, mods } = {}) {
+  const h = makeMatch({ mode, difficulty: 'HARD', humans, seed, fake, mods }).start();
   h.toPrep(1);
   for (const ps of h.m.players.values()) {
     for (const p of [...ps.board.values(), ...ps.hand.filter(Boolean), ...ps.temp.filter(Boolean)]) if (p.kind === 'chess') ps.returnCopies(p);
@@ -72,20 +72,30 @@ test('缪尔赛思 hands out 变形同构体 on purchase (garrison_76), the boug
   h.invariants();
 });
 
-test('every pairing (18 bond items × normal / golden, both 变形同构体): the wearer counts in prep, in the views, in the battle input and in the real battle', () => {
+test('every pairing (18 official bond items plus the Rhine terminal, normal / golden): the wearer counts in prep, in the views, in the battle input and in the real battle', () => {
   const grants = Object.values(DATA.items).filter((r) => r.giveBondId);
-  assert.equal(grants.length, 36);
-  assert.equal(new Set(grants.map((r) => r.giveBondId)).size, 14, '14 bonds have a bond item (the official talent\'s list)');
+  // The 14 official bond items (× normal / golden) are the upstream talent's list; 莱茵实验终端 (六.F,
+  // tools/rhine-data.mjs) is the ported pack's own and grants rhineShip the same way.
+  const official = grants.filter((r) => r.giveBondId !== 'rhineShip');
+  const rhine = grants.filter((r) => r.giveBondId === 'rhineShip');
+  assert.equal(official.length, 36, '18 official bond items × normal / golden');
+  assert.equal(new Set(official.map((r) => r.giveBondId)).size, 14, '14 bonds have a bond item (the official talent list)');
+  assert.deepEqual(rhine.map((r) => r.id).sort(), ['chess_item_rhine_terminal_a', 'chess_item_rhine_terminal_b']);
+  assert.equal(grants.length, 38);
+  assert.equal(new Set(grants.map((r) => r.giveBondId)).size, 15, 'the official 14 plus the ported 莱茵生命');
   for (const r of grants) {
     const bond = r.giveBondId;
     const iso = r.isGolden ? ISO_B : ISO; // golden bond items with the golden 变形同构体, normal with normal
-    const h = prep({ seed: 31 });
+    // 莱茵实验终端 and the 盟约 it grants are the ported pack's own: they are only in a room whose packRhine switch is
+    // on (shared/packData.js). The 14 official pairings run in the default all-off room.
+    const h = prep({ seed: 31, mods: bond === 'rhineShip' ? { packRhine: true } : undefined });
     const { m } = h; const ps = h.ps('p_0');
-    const [a, b] = members(bond);
+    const roomChess = m.gd.raw.chess;
+    const [a, b] = members(bond, roomChess);
     place(h, 'p_0', a); place(h, 'p_0', b);
     assert.equal(count(ps, bond), 2, `${bond}: two members`);
     // the bond item first, then the 变形同构体 (the other order: the next test)
-    const w = wearer(h, 'p_0', outsider(bond), [r.id, iso]);
+    const w = wearer(h, 'p_0', outsider(bond, roomChess), [r.id, iso]);
     assert.equal(count(ps, bond), 3, `${r.id}: the wearer is the third member`);
     assert.equal(ps.bonds[bond].active, true, `${r.id}: the threshold of 3 (2 for add-on bonds) is reached with it`);
     assert.equal(ps.battleInput().bonds[bond].count, 3, `${r.id}: battle input`);

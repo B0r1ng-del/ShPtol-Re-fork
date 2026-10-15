@@ -5,7 +5,19 @@
  * Covers every kind emitted by server/sim (Battle, kits, tokens, enemies, bosses, devices, bonds, items); unknown
  * kinds fall back to a keyword guess, then to a generic sparkle (fxSpec).
  */
+import { RHINE_BALANCE } from '../../../../shared/rhineResearch.js';
+
 export const FX_KINDS = Object.freeze({
+  form: { a: 'none' }, // the persistent UnitView form is applied by render/app.js before cosmetic fx
+  burn: { a: 'flame', c: 0xff713b, r: 0.6 },
+  // 六.F 科研装置 (render/rhineDevices.js): the rig's own cues, drawn from the sim's explicit events
+  rhineHeal: { a: 'researchHeal', c: 0x6fe8c1, pt: true },
+  rhinePulse: { a: 'researchPulse', c: 0xffbc70, r: RHINE_BALANCE.energySpreadRadius, pt: true },
+  rhineEcology: { a: 'researchEcology', c: 0x6fe8c1, r: RHINE_BALANCE.radius, dur: RHINE_BALANCE.ecologyDuration, pt: true },
+  rhineLaser: { a: 'researchLaser', c: 0xe6a4ff, pt: true },
+  dorothyTrap: { a: 'blast', c: 0xffcf69, r: 1.2, pt: true },
+  dorothyCritical: { a: 'summon', c: 0xff665c, r: 0.4, pt: true },
+  dorothyChain: { a: 'dorothyChain', c: 0xffcf69, r: 0.5, pt: true },
   // blasts
   // [ASSUMED] Clementia's S3 uses the shared blast placeholder until her official effect is ported.
   blast: { a: 'blast', c: 0xffb35c },

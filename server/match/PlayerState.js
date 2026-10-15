@@ -135,6 +135,8 @@ import { PlayerRound } from './player/round.js';
 import { PlayerViews } from './player/views.js';
 import { PlayerDiy, DiyStock } from './player/diy.js';
 import { PlayerRelics } from './player/relics.js';
+import { PlayerResearch } from './player/research.js';
+import { RHINE_DEVICES } from '../../shared/rhineResearch.js';
 
 export class PlayerState {
   /**
@@ -207,6 +209,10 @@ export class PlayerState {
     this._tempDue = new Map();
     /** @type {Map<string, any>} 'r,c' → piece */
     this.board = new Map();
+    // Player-owned research devices have fixed reserve slots, independent of the ordinary hand and a summoner.
+    // Always present: the reserve is part of the player's shape, and the 科研 devices only reach it while the
+    // 莱茵生命 switch is on (every 内容包开关 off = `rhineCapacity` 0 and nothing ever fills it).
+    this.research = { unlocked: false, hand: RHINE_DEVICES.map(() => null), points: {}, stages: {}, battleRound: null, participants: [], settled: new Set() };
     /** persistent bond layers */
     this.layers = {};
     /** computed bond states */
@@ -273,7 +279,7 @@ export class PlayerState {
 }
 
 // the method modules, in this order (a name defined twice is an error, never a silent override)
-for (const part of [PlayerBasics, PlayerPieces, PlayerAcquire, PlayerEconomy, PlayerPlacement, PlayerItems, PlayerPrep, PlayerRound, PlayerViews, PlayerDiy, PlayerRelics]) {
+for (const part of [PlayerBasics, PlayerPieces, PlayerAcquire, PlayerEconomy, PlayerPlacement, PlayerItems, PlayerPrep, PlayerRound, PlayerViews, PlayerDiy, PlayerRelics, PlayerResearch]) {
   for (const key of Reflect.ownKeys(part.prototype)) {
     if (key === 'constructor') continue;
     if (Object.prototype.hasOwnProperty.call(PlayerState.prototype, key)) throw new Error(`PlayerState.${String(key)} is defined twice`);

@@ -32,6 +32,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ASSETS = path.join(ROOT, 'public/assets');
 const readJson = (rel) => JSON.parse(readFileSync(path.join(ROOT, rel), 'utf8'));
 const COMMITTED = readJson(LOCAL_TOKEN_SPINES_FILE).models;
+/** Ported tokens (六.F tools/rhine-data.mjs) whose web skin stays as an optional fallback. */
+const RHINE_WEB_FALLBACKS = new Set(['token_10025_doroth_recttp']);
 const MANIFEST = readJson('data/assets.json');
 const PY = ['python3', 'python'].find((bin) => spawnSync(bin, ['--version']).status === 0);
 /** extract.py TOKEN_SPINES (--print-jobs needs no dependencies). */
@@ -117,12 +119,12 @@ describe('the 自选 summon models from the local client are an optional overlay
     for (const id of IDS) {
       assert.deepEqual(MANIFEST.tokens[id].spineLocal, { group: `spine/token/${id}`, ...COMMITTED[id] }, `${id}: the committed metadata`);
       const web = MANIFEST.tokens[id].spine;
-      if (id === 'token_10031_swire2_gdtrap') assert.ok(validSpine(web), 'champagne keeps its web skin fallback');
+      if (id === 'token_10031_swire2_gdtrap' || RHINE_WEB_FALLBACKS.has(id)) assert.ok(validSpine(web), `${id} keeps its web skin fallback`);
       else assert.equal(web, undefined, `${id}: no web model`);
       assert.deepEqual(spineEntry(MANIFEST, id), web || null, `${id}: without local art keep the existing fallback`);
     }
     // the tokens that always had a web model keep it, without an overlay
-    for (const [id, t] of Object.entries(MANIFEST.tokens)) if (t.spine) { assert.ok(validSpine(t.spine), id); if (id !== 'token_10031_swire2_gdtrap') assert.equal(t.spineLocal, undefined, id); }
+    for (const [id, t] of Object.entries(MANIFEST.tokens)) if (t.spine) { assert.ok(validSpine(t.spine), id); if (id !== 'token_10031_swire2_gdtrap' && !RHINE_WEB_FALLBACKS.has(id)) assert.equal(t.spineLocal, undefined, id); }
   });
 
   test('the committed metadata is what the extracted models parse to', { skip: !IDS.every((id) => existsSync(path.join(ASSETS, 'local/spine/token', id))) && 'token models not extracted (tools/local-extract)' }, async () => {

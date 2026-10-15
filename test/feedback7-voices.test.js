@@ -62,21 +62,28 @@ test('plan: audio.voiceJp is the JP dub (ArknightsAssets2 voice/) of the very sl
   assert.ok(plan({ voiceSlots: null }).audio.voiceJp.char_263_skadi.gacha);
 });
 
-test('data/assets.json: voiceJp gives every voiced operator the JP twin of each Chinese line (192 operators, 2688 files); stand-ins, 盟约·辅助干员 and summons have neither', () => {
+test('data/assets.json: every voiced operator has its JP tree (the ported operators are JP-only upstream); stand-ins, 盟约·辅助干员 and summons have neither', () => {
   const m = readJson('data/assets.json');
   const cn = m.audio.voice;
   const jp = m.audio.voiceJp;
   assert.ok(jp && typeof jp === 'object', 'the manifest carries the JP tree');
-  assert.deepEqual(Object.keys(jp), Object.keys(cn), 'the same operators');
+  for (const id of Object.keys(cn)) assert.ok(jp[id], `${id}: the JP tree covers every Chinese one`);
   assert.equal(m.stats.voiceJpChars, Object.keys(jp).length);
   assert.equal(m.stats.voiceChars, Object.keys(cn).length);
-  assert.equal(Object.keys(jp).length, 192);
+  // 六.C / 六.F 的植入干员（tools/fork-extra6.mjs、tools/rhine-data.mjs）在官方语音表里**只有日文**，中文线未发布，
+  // 所以日文树覆盖中文树并多出这几个 id。
+  // 六.C 的两名联动干员在官方语音表里只有日文；六.F 的六名则中日都有。
+  const jpOnly = ['char_4182_oblvns', 'char_4217_makoto'];
+  assert.deepEqual(Object.keys(jp).filter((id) => !cn[id]).sort(), jpOnly, 'only the packExtra6 operators are JP-only');
+  assert.equal(Object.keys(jp).length, 192 + 3 + jpOnly.length);
   // the JP tree is the Chinese one with the folder swapped: same slots, same lines in the same order, same file names
-  assert.deepEqual(JSON.parse(JSON.stringify(cn).replaceAll('/assets/audio/voice/cn/', '/assets/audio/voice/jp/')), jp);
+  // the JP tree is the Chinese one with the folder swapped, plus the ported operators' own entries
+  const swapped = JSON.parse(JSON.stringify(cn).replaceAll('/assets/audio/voice/cn/', '/assets/audio/voice/jp/'));
+  for (const [id, v] of Object.entries(swapped)) assert.deepEqual(jp[id], v, `${id}: the same slots and lines`);
   const lines = [];
   const walk = (x) => { if (typeof x === 'string') lines.push(x); else if (Array.isArray(x)) x.forEach(walk); else if (x && typeof x === 'object') Object.values(x).forEach(walk); };
   walk(jp);
-  assert.equal(lines.length, 2688);
+  assert.equal(lines.length, 2758, '2688 upstream lines plus the ported operators own entries');
   for (const u of lines) assert.match(u, /^\/assets\/audio\/voice\/jp\/char_[^/]+\/cn_\d+\.mp3$/);
   // no voice: the 17 stand-ins of data/backups.json (预备干员 / 原型干员), the mode's 盟约·辅助干员, every summon
   const backups = readJson('data/backups.json');

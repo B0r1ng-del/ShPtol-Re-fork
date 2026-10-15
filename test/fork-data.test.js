@@ -361,9 +361,16 @@ describe('fork 莱茵生命 盟约 (六.3: rhineShip + 谬因·并入莱茵)', (
     assert.equal(b.buffs[0].key, 'env_gbuff_new');
     assert.deepEqual(b.buffs[0].bb, b.bb, 'the buff carries the bond\'s own numbers');
     assert.equal(b.buffs[0].bbStr.key, b.bbStr.key);
-    // members list the BASE (`_a`) ids only: data.test.js asserts a member is a non-golden chess
-    assert.deepEqual(b.members, [...FORK_RHINE_CHESS].filter((id) => id.endsWith('_a')));
-    assert.deepEqual(b.visibleMembers, b.members);
+    // Members list the BASE (`_a`) ids only: data.test.js asserts a member is a non-golden chess. The six official
+    // 莱茵 operators plus the four ported ones that name the 盟约 (tools/rhine-data.mjs recomputes the list from the
+    // chess that carry it), in the natural key order `data/chess.json` is written in.
+    assert.deepEqual(b.members, [
+      'chess_char_2_02_a', 'chess_char_4_21_a', 'chess_char_5_11_a', 'chess_char_5_16_a', 'chess_char_6_11_a', 'chess_char_6_16_a',
+      'chess_rhine_astgenne_a', 'chess_rhine_dorothy_a', 'chess_rhine_ifrit_a', 'chess_rhine_mayer_a',
+    ]);
+    // 白面鸮's II-cost form is HIDDEN, so the visible list is one shorter — the 9 the 盟约's own thresholds need
+    assert.deepEqual(b.visibleMembers, b.members.filter((id) => id !== 'chess_char_5_16_a'));
+    assert.equal(b.visibleMembers.length, 9, 'the 盟约 starts at 3 and caps at 9');
     assert.ok(!FORK_RHINE_CHESS.some((id) => b.members.includes(id) && id.endsWith('_b')), 'no golden member');
     const ids = Object.values(bonds).map((x) => x.identifier).filter(Number.isInteger);
     assert.equal(new Set(ids).size, ids.length, 'identifier 24 continues the official run and stays unique');

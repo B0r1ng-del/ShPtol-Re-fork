@@ -59,6 +59,7 @@ describe('extract.py helpers (no UnityPy needed)', { skip: !PY && 'no python3' }
     for (const id of ids) {
       assert.ok(tokens[id] || backups.tokens[id], `${id}: a token of the game data`);
       if (id === 'token_10031_swire2_gdtrap') assert.ok(web[id]?.spine, 'champagne has a web skin fallback');
+      else if (id === 'token_10025_doroth_recttp') assert.ok(web[id]?.spine?.skel, 'the ported resonator keeps its web skin as an optional fallback');
       else assert.equal(web[id]?.spine, undefined, `${id}: no web model`);
     }
     // the 自选 summons whose prefab draws nothing (an EmptyAnimator: displayType HIDDEN / an effect) are left out
