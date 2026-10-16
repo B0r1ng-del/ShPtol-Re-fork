@@ -330,7 +330,7 @@ function HostConfigDialog({ rows, enemyRows, modRows, open, busy, onClose, onTog
       ${/* 需求方 2026-10-17 (图三): the 「对局选项」 block moved to the TOP of the dialog — its header and note are what the
            owner pointed at with the upper line, while the switch rows keep their own order below it. */
         (enemyRows && enemyRows.length) || (modRows && modRows.length)
-        ? html`<${MatchOptionSection} rows=${modRows} enemyRows=${enemyRows} busy=${busy} onMod=${onMod} onEnemy=${onEnemy} />`
+        ? html`<${MatchOptionSection} rows=${modRows} busy=${busy} onMod=${onMod} />`
         : null}
       <div class="hostcfg__rows">
         ${rows.map((r) => html`<${SwitchRow} key=${r.key}
@@ -339,20 +339,25 @@ function HostConfigDialog({ rows, enemyRows, modRows, open, busy, onClose, onTog
           testid=${`hostcfg-${r.key}`} infoTestid=${`hostcfg-info-${r.key}`}
           onChange=${(v) => r.editable && onToggle(r.key, v)} />`)}
       </div>
+      ${/* 需求方 2026-10-17: the four sliders go LAST — every option above them is a switch, and a slider is a different
+           kind of control, so it reads as the dialog's tail rather than interrupting the switches. */
+        enemyRows && enemyRows.length
+        ? html`<${EnemyBuffSection} enemyRows=${enemyRows} onEnemy=${onEnemy} />`
+        : null}
     </div>
   <//>`;
 }
 
 /**
- * 对局选项 — everything that changes THIS match's rules: the five game-rule Mod switches on top, then the four
- * enemy-buff sliders under them (需求方 2026-10-15: 「对局选项」 was the sliders' own heading, and 2026-10-16 the owner
- * moved the rule switches in under the same heading). Both halves keep their own data and their own message
- * (room.setMods / room.setEnemyBuff); this component only draws them together, so neither needed changing.
+ * 对局选项 — the game-rule Mod switches that change THIS match's rules (需求方 2026-10-16: they moved out of the 模式界面's
+ * Mod submenu and in under 「对局选项」). The block is drawn by {@link MatchOptionSection}; this is its own heading.
+ *
+ * 2026-10-17 (owner): the four enemy-buff SLIDERS left for {@link EnemyBuffSection} at the dialog's tail — everything above
+ * them is a switch, and a slider is a different kind of control.
  */
-function MatchOptionSection({ rows, enemyRows, busy, onMod, onEnemy }) {
+function MatchOptionSection({ rows, busy, onMod }) {
   const switchRows = rows || [];
   const editable = switchRows.some((r) => r.editable);
-  const total = enemyBuffTotal(enemyRows);
   const tipOf = (r) => t(r.tip);
   return html`<div class="ebuff">
     <div class="ebuff__head">
@@ -371,7 +376,19 @@ function MatchOptionSection({ rows, enemyRows, busy, onMod, onEnemy }) {
         </div>
       </div>
     </div>` : null}
-    ${enemyRows && enemyRows.length ? html`<div class="ebuff__rows">
+  </div>`;
+}
+
+/**
+ * 怪物强化 — the four enemy-buff sliders (room.setEnemyBuff, HOST_ENEMY_KEYS), drawn at the 房间配置 dialog's tail
+ * (需求方 2026-10-17: 「把四个滑块功能放到最底下，有单独开关的往上放」). A slider is a continuous control, so it is NOT
+ * disabled while a round trip is in flight — that would freeze all four for every step of a drag (the slider's own
+ * `disabled` is `!r.editable` and never `busy`).
+ */
+function EnemyBuffSection({ enemyRows, onEnemy }) {
+  const total = enemyBuffTotal(enemyRows);
+  return html`<div class="ebuff">
+    <div class="ebuff__rows">
       ${enemyRows.map((r) => html`<label class="set-row ebuff__row" key=${r.key}>
         <span class="set-row__label"><${Icon} name=${r.icon} />${t(r.label)}</span>
         <input class="set-range" type="range" min="0" max=${HOST_ENEMY_MAX_STEPS} step="1"
@@ -381,8 +398,8 @@ function MatchOptionSection({ rows, enemyRows, busy, onMod, onEnemy }) {
           onInput=${(e) => r.editable && onEnemy(r.key, Number(e.currentTarget.value))} />
         <span class="set-row__val num">+${r.steps * HOST_ENEMY_STEP_PCT}%</span>
       </label>`)}
-    </div>` : null}
-    ${enemyRows && enemyRows.length ? html`<p class="ebuff__hint">${t('每格 +10%，最高 +100% · 加强本局全部敌人（含首领与联防）')}</p>` : null}
+    </div>
+    <p class="ebuff__hint">${t('每格 +10%，最高 +100% · 加强本局全部敌人（含首领与联防）')}</p>
     ${total > 0 ? html`<p class="ebuff__warn">${t('本局敌人已获得强化（合计 {n}%），请谨慎调整', { n: total })}</p>` : null}
   </div>`;
 }

@@ -118,11 +118,16 @@ test('the 对局选项 markup: one slider per row, wired to room.setEnemyBuff, w
   assert.match(SRC, /\$\{total > 0 \? html`<p class="ebuff__warn">/);
   // the ready bar's badge counts the buffed sliders too, not just the switch rows
   assert.match(SRC, /\(enemyRows \|\| \[\]\)\.filter\(\(r\) => r\.steps !== 0\)\.length/);
-  // the section is inside the 房主配置 dialog, after the switch rows
+  // the dialog's order (需求方 2026-10-17: 「把四个滑块功能放到最底下，有单独开关的往上放」):
+  // 对局选项 switches → 房主配置 switches → the four sliders last
   const dialog = SRC.slice(SRC.indexOf('function HostConfigDialog('), SRC.indexOf('/** The ready bar'));
   assert.ok(dialog.includes('hostcfg__rows'), 'the switch rows');
-  assert.ok(dialog.indexOf('ebuff') > dialog.indexOf('hostcfg__rows'), 'and the sliders after them');
   assert.ok(dialog.includes('MatchOptionSection'), 'rendered by its own component');
+  const at = (s) => dialog.indexOf(s);
+  assert.ok(at('MatchOptionSection') < at('hostcfg__rows'), '对局选项 opens the dialog');
+  assert.ok(at('hostcfg__rows') < at('EnemyBuffSection'), 'and the sliders are the dialog tail');
+  // the two halves are separate components, each with its own message
+  assert.ok(!/function MatchOptionSection\(\{[^}]*enemyRows/.test(SRC), 'the switches no longer take enemyRows');
   // 2026-10-16 (owner): the five game-rule Mod 开关 join the sliders under 「对局选项」, so one component draws both.
   // SwitchRow renders the attribute itself, so the prop here is `testid` (not `data-testid`).
   assert.match(SRC, /testid=\$\{`hostcfg-mod-\$\{r\.key\}`\}/, 'the rule switches keep their testid');
