@@ -10,15 +10,17 @@ import { redistributeRelicWaves } from '../relicWaves.js';
 import { planUnite } from '../unite.js';
 import { FieldRunner, DeadBattle } from '../fields.js';
 import { DELAYS } from './common.js';
+import { previewPlayer } from '../preview.js';
 
 export class MatchCombat {
   /** Construct a battle; a constructor failure yields a finished stand-in (clean result) and is logged. */
-  newBattle(opts) {
-    const full = { data: this.ds, content: this.battleContent, logger: this.log, ...opts };
+  newBattle(opts, { preview = false } = {}) {
+    const full = { data: this.ds, content: this.battleContent, logger: this.log, ...opts,
+      ...(preview ? { logger: {}, quiet: true } : {}) };
     try {
       return new this.BattleClass(full);
     } catch (e) {
-      this.reportError(`battle ${opts.fieldId} construct`, e);
+      if (!preview) this.reportError(`battle ${opts.fieldId} construct`, e);
       return new DeadBattle(full, 'forced');
     }
   }
@@ -56,14 +58,18 @@ export class MatchCombat {
   }
 
   /** Battle options of a player's normal field (after the onBattleStart handlers). */
-  _normalOpts(ps) {
-    const wave = this.wave;
+  _normalOpts(ps, { preview = false, board = ps.board } = {}) {
+    const wave = preview ? structuredClone(this.wave) : this.wave;
+    if (preview) ps = previewPlayer(ps, board);
     const input = ps.battleInput({ side: 'L', colOffset: 0 });
     // the client's list: bounty units inserted among their host action's own units, which are re-timed around them
+    // 六.E 收藏品 (relicsOn) owns this field's spawn list outright; without it the fork's own bounty insertion runs.
     const spawns = this.relicsOn ? (this._normalRelicSpawns().get(ps.playerId) || [])
       : withBounties(this.gd, this.round, wave, ps.bounties, ps.playerId).map((s) => ({ ...s, ownerPlayerId: ps.playerId }));
-    const ev = { input, kind: 'normal', round: this.round, spawns };
-    this.dispatch(ps, 'onBattleStart', ev);
+    const ev = { input, kind: 'normal', round: this.round, spawns, ...(preview ? { preview: true } : {}) };
+    // Preview construction failures go to the rehearsal's discard path, never Match.dispatch's live error sink.
+    if (preview) this.dispatcher.dispatch(ps, 'onBattleStart', ev);
+    else this.dispatch(ps, 'onBattleStart', ev);
     const list = this._sanitizeSpawns(Array.isArray(ev.spawns) ? ev.spawns : spawns, ps.playerId);
     return {
       seed: deriveSeed(this.seed, `n:${this.round}:${ps.seat}`),

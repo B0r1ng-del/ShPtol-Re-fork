@@ -126,7 +126,7 @@ export function wuhoo(bb, chess, def) {
     if (firstIsSelf) { amount *= selfScale; remaining++; }
     if (withHide) hide(b, u, first);
     let noDecay = firstIsSelf;
-    while (remaining-- > 0) {
+    while (remaining-- > 0) { // loop-cap: bounces left (remaining decrements each pass)
       const target = b.alliesInRadius(prev.x, prev.y, 2.5).filter(a => !seen.has(a.id) && healable(b, u, a))
         .sort((a, c) => a.hpRatio - c.hpRatio || c.deploySeq - a.deploySeq)[0];
       if (!target) break;

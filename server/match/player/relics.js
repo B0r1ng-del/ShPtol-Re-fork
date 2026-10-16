@@ -24,7 +24,7 @@ export class PlayerRelics {
     if (this._drainingRelicChess || !this.alive || this.left || this.ready || this.m.phase !== PHASE.PREP) return;
     this._drainingRelicChess = true;
     try {
-      while (this.relicChessQueue.length) {
+      while (this.relicChessQueue.length) { // loop-cap: one queue entry per pass (shift() at the end; breaks when no slot frees)
         const id = this.relicChessQueue[0];
         if (freeSlot(this.hand) < 0 && freeSlot(this.temp) < 0 && !this.completesChessMerge(id)) break;
         this.relicChessQueue.shift();
