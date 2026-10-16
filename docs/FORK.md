@@ -313,13 +313,18 @@ exists. The fork's per-mode rules land on top of it one change at a time, each o
     untouched. The draw stays **bond-first, topped up** rather than bond-only: at the promotion tier a bond usually has
     fewer than three operators (炎 has exactly one at tier 2), and a reward offer must never hand back an empty slot.
     Both switches are covered by `test/fork-mod-rounds-and-pick.test.js`.
-  - **What a switch is, and what it is not.** A Mod 开关 is a **per-device preference**, not a room option: it lives in
-    `localStorage` (`sp.pref.mods`, `public/js/ui/mods.js` — the `ui/emotes.js` 一键十连 / 弹幕 pattern), the 模式界面 is
-    the only place that shows it, and the creator carries it into the room it makes (`room.create.mods`, the new
-    optional field of `shared/protocol.js`). The room keeps it across its matches and hands it to the match as
-    `opts.mods`; a joiner therefore plays **the host's** rules, the same way it plays the host's mode and difficulty.
-    This is the requester's own choice (「本机偏好，开局时带到自己创建的房间」), and it is what makes the switches usable
-    without a second lobby panel and without disturbing 房主配置 (二.7), which stays the host-only room option set.
+  - **What a switch is, and what it is not (2026-10-16 改口径).** A Mod 开关 started life as a **per-device
+    preference** behind the 模式界面's 「Mod」按钮 (「本机偏好，开局时带到自己创建的房间」) and the creator carried it into the
+    room it made (`room.create.mods`). **The owner then had the whole left column moved into 房主配置**, and that makes
+    them **room options**: the lobby's Mod button and its submenu are gone (`public/js/ui/mods.js` keeps only the
+    catalogue — `MOD_ROWS` / `MOD_COLS` / `modsOn` / `rememberMods`), the host flips them inside the room through the new
+    `room.setMods` (one `MOD_KEYS` switch at a time, `NOT_HOST` for a guest, `ROOM_STARTED` during a match, un-readies the
+    other humans like a difficulty change), and `room.state.mods` shows the same values to every seat. The room keeps
+    them across its matches and hands them to the match as `opts.mods`; a joiner plays **the host's** rules, the same way
+    it plays the host's mode and difficulty. The old per-device path survives for one thing only: `room.create.mods`
+    still carries the creator's last-used switches in, so a host does not start from all-off every time. 房主配置 (二.7)
+    is therefore no longer untouched by the switches — it is their home, holding three sections: the room options, the
+    Mod 开关 block, and 对局选项 (二.10).
   - **The catalogue is `MOD_KEYS` / `MOD_DEFAULTS` / `normalizeMods` in `shared/constants.js`.** `normalizeMods` is pure
     and total: a missing, malformed or unknown-keyed payload becomes the official default, so an unknown switch can
     never turn anything on. `room.create.mods` is validated against `MOD_KEYS` with boolean values — an unknown key is

@@ -155,7 +155,7 @@
 //     a player seat (the seat is kept and given back on resume).
 
 import { randomBytes, randomInt } from 'node:crypto';
-import { DIFFICULTIES, ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, HOST_CONFIG_KEYS, HOST_CONFIG_DEFAULTS, HOST_CONFIG_SOLO_KEYS, HOST_ENEMY_KEYS, HOST_ENEMY_DEFAULTS, HOST_ENEMY_MAX_STEPS, MOD_DEFAULTS, normalizeMods, roomSeatCap, ULTIMATE_DIFFICULTY, modeIdFor } from '../shared/constants.js';
+import { DIFFICULTIES, ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, HOST_CONFIG_KEYS, HOST_CONFIG_DEFAULTS, HOST_CONFIG_SOLO_KEYS, HOST_ENEMY_KEYS, HOST_ENEMY_DEFAULTS, HOST_ENEMY_MAX_STEPS, MOD_KEYS, MOD_DEFAULTS, normalizeMods, roomSeatCap, ULTIMATE_DIFFICULTY, modeIdFor } from '../shared/constants.js';
 import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks, charPotentialChanges } from '../shared/protocol.js';
 import { encode, isDroppable, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
@@ -265,9 +265,10 @@ export class Room {
      */
     this.enemyBuff = { ...HOST_ENEMY_DEFAULTS };
     /**
-     * Mod 开关 (MOD_KEYS, `room.create.mods`): the per-device gameplay switches the creator carried in, normalised to
-     * exactly MOD_KEYS booleans (all off = the official mode). Kept across the room's matches like the mode and the
-     * difficulty — a joiner plays the host's rules — and read by the match when it starts (Match.mods).
+     * Mod 开关 (MOD_KEYS): the room's gameplay switches, normalised to exactly MOD_KEYS booleans (all off = the official
+     * mode). Created from the creator's own switches (`room.create.mods`) and after that owned by the 房主配置 panel
+     * (room.setMods, host-only). Kept across the room's matches like the mode and the difficulty — a joiner plays the
+     * host's rules — and read by the match when it starts (Match.mods).
      * @type {Record<string, boolean>}
      */
     this.mods = { ...MOD_DEFAULTS };
@@ -344,8 +345,8 @@ export class Room {
       // 房主配置「对局选项」(HOST_ENEMY_KEYS, room.setEnemyBuff): the four enemy buffs as 10 % step counts. Everybody sees
       // them (they describe the enemies the whole room fights); only the host may change them.
       enemyBuff: { ...this.enemyBuff },
-      // Mod 开关 (MOD_KEYS, room.create.mods): the gameplay switches the creator carried in. Everybody in the room
-      // sees them (a joiner plays the host's rules); nobody may change them after the room exists.
+      // Mod 开关 (MOD_KEYS, 房主配置): the gameplay switches the host sets in the room's 房主配置 panel. Everybody in the
+      // room sees them (a joiner plays the host's rules); only the host may change them (room.setMods).
       mods: { ...this.mods },
       inMatch: !!this.match,
       seats: this.seats.map((s) => (s
@@ -615,6 +616,7 @@ export class Lobby {
       case 'room.setAiPicksLast': return this.setAiPicksLast(session, msg);
       case 'room.setHostConfig': return this.setHostConfig(session, msg);
       case 'room.setEnemyBuff': return this.setEnemyBuff(session, msg);
+      case 'room.setMods': return this.setMods(session, msg);
       case 'room.addBot': return this.addBot(session);
       case 'room.removeBot': return this.removeBot(session, msg);
       case 'room.kick': return this.kick(session, msg);
@@ -904,6 +906,31 @@ export class Lobby {
     this.dropReplay(room, session.playerId);
     if (room.enemyBuff[key] !== n) {
       room.enemyBuff[key] = n;
+      for (const s of room.seats) if (s && !s.isBot && s.playerId !== room.hostId) s.ready = false;
+      this.broadcastState(room);
+    }
+    return OK;
+  }
+
+  /**
+   * Mod 开关 (room.setMods): one MOD_KEYS switch, host-only and before the match — the same shape as 房主配置
+   * (room.setHostConfig) and 「对局选项」 (room.setEnemyBuff), because since the 房主配置 panel owns these switches they are
+   * ROOM options: the host sets them in the room, everybody sees the same values, and a joiner plays the host's rules.
+   * Kept on the room across its matches (the next match reads it, `Match` ← `opts.mods`), and — like a difficulty change —
+   * it un-readies the other humans, because it changes the game they are about to play.
+   *
+   * The room is still created with the creator's own switches (`room.create.mods`, the per-device preference the lobby
+   * carries in), so a host that set them before creating does not have to set them twice.
+   */
+  setMods(session, { key, on }) {
+    const room = this.roomOf(session);
+    if (!room) return fail(ERR.NOT_IN_ROOM);
+    if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
+    if (room.match) return fail(ERR.ROOM_STARTED);
+    if (!MOD_KEYS.includes(key)) return fail(ERR.BAD_MSG, 'unknown Mod switch'); // i18n-ignore (developer diagnostic)
+    this.dropReplay(room, session.playerId);
+    if (room.mods[key] !== on) {
+      room.mods[key] = on;
       for (const s of room.seats) if (s && !s.isBot && s.playerId !== room.hostId) s.ready = false;
       this.broadcastState(room);
     }

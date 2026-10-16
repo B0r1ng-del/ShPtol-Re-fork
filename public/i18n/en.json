@@ -2154,5 +2154,6 @@
   "每格 +10%，最高 +100%：本局全部敌人（含首领与联防）的攻击力按此提高": "Each step +10 %, up to +100 %: raises the ATK of every enemy of this match (leaders and Unite included)",
   "每格 +10%，最高 +100%：本局全部敌人（含首领与联防）的防御力按此提高": "Each step +10 %, up to +100 %: raises the DEF of every enemy of this match (leaders and Unite included)",
   "每格 +10%，最高 +100%：本局全部敌人（含首领与联防）的法术抗性按此提高": "Each step +10 %, up to +100 %: raises the RES of every enemy of this match (leaders and Unite included)",
-  "本局敌人已获得强化（合计 {n}%），请谨慎调整": "This match's enemies are already strengthened ({n}% in total) — adjust with care"
+  "本局敌人已获得强化（合计 {n}%），请谨慎调整": "This match's enemies are already strengthened ({n}% in total) — adjust with care",
+  "这些改动默认全部关闭（原版规则）；开启后会改变本局的玩法，对其他玩家同样生效。": "These changes are all OFF by default (the original rules); turning one on changes how this match plays, for every player in it."
 }

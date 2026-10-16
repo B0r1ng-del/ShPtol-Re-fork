@@ -147,7 +147,9 @@ test('「AI 队友最后选择」 reads its own pre-existing room.state field, e
 test('room.js sends room.setHostConfig { key, on } and opens the dialog from the ready bar', () => {
   assert.match(SRC, /net\.request\('room\.setHostConfig', \{ key, on \}\)/);
   // the panel is a dialog opened by a button in the ready bar (the 干员调配 pattern), not a band under the seats
-  assert.match(SRC, /<[$]\{HostConfigDialog\} rows=[$]\{cfgRows\} enemyRows=[$]\{enemyRows\} open=[$]\{cfgOpen\}/, 'the dialog is rendered');
+  assert.match(SRC, /<[$]\{HostConfigDialog\} rows=[$]\{cfgRows\} enemyRows=[$]\{enemyRows\} modRows=[$]\{modRows\} open=[$]\{cfgOpen\}/, 'the dialog is rendered');
+  // 2026-10-16: the dialog carries the Mod 开关 block too (the lobby's submenu moved in), so its rows are passed along
+  assert.match(SRC, /const modRows = modPanel\(room, me\.playerId\)/, 'the Mod rows come from the panel');
   assert.match(SRC, /<[$]\{HostConfigButton\} rows=[$]\{cfgRows\}/, 'the entry button is in the ready bar');
   assert.match(SRC, /const \[cfgOpen, setCfgOpen\] = useState\(false\)/);
   assert.match(SRC, /const cfgRows = hostConfigPanel\(room, me\.playerId\)/);

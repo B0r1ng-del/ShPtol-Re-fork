@@ -21,7 +21,7 @@ import { openStats } from './stats.js';
 import { SettingsButton } from '../ui/settings.js';
 import { PwaInstallButton } from '../ui/device.js';
 import { LoadoutButton } from './loadout.js';
-import { ModButton, modsOn } from '../ui/mods.js';
+import { modsOn } from '../ui/mods.js';
 import { net, identity } from '../net.js';
 import { store, useStore, shallowEqual, loadPref, savePref } from '../store.js';
 import { getConfig, getMode, getStage, useData } from '../data.js';
@@ -290,8 +290,10 @@ export function LobbyScreen() {
       if (alive.current) setBusy(null);
     }
   };
-  // Mod 开关 (ui/mods.js, MOD_KEYS): this device's switches ride along with the room this player creates. They are a
-  // local preference — the server normalises them and the room keeps them for its matches; a joiner never sends any.
+  // Mod 开关 (ui/mods.js, MOD_KEYS): the switches are 房主配置 room options now (the lobby's Mod button is gone,
+  // 2026-10-16), so the room is created with them ALL OFF and the host sets them in the room (room.setMods). This
+  // device's last-used switches still ride along as the starting point, so a host who set them in a previous room does
+  // not have to set them again; `modsOn()` is that remembered preference.
   const create = () => run('create', () => net.request('room.create', { mode: roomMode, difficulty: effDifficulty, mods: modsOn() }));
   const join = (c = code) => {
     // `onClick=${join}` hands the click EVENT as the first argument, and a default parameter only applies to
@@ -342,7 +344,6 @@ export function LobbyScreen() {
       </div>
       <div class="topbar__right">
         <${ResumeMatchButton} />
-        <${ModButton} class="lobby-mod" />
         <${LoadoutButton} from="lobby" class="lobby-loadout" label=${t('干员调配')} />
         <button type="button" class="me-chip me-chip--btn stats-entry" onClick=${openStats} title=${t('统计数据')} aria-label=${t('统计数据')}>
           <${AvatarFrame} size="sm" name=${me.name} seat=${0} self=${true} />
