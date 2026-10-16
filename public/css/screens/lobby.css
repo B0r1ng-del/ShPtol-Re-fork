@@ -268,3 +268,14 @@
   .mods__rows { grid-template-columns: minmax(0, 1fr); gap: .18rem; }
   .mods__col .swrow__label { overflow-wrap: anywhere; }
 }
+
+/* ---- Mod 菜单 (2026-10-16, 需求方): the 内容包 switches' own dialog, opened from the button beside 干员调配 ------------
+   Three rows, one column — the packs are prose-heavy (each names its author), so unlike the old two-column submenu they
+   read better stacked at every width. The dialog reuses the `.swrow` / `.sw` shape 房主配置 draws, so the same switch
+   looks the same wherever it appears; only the wrapper is new. */
+.lobby-modmenu { position: relative; gap: .08rem; flex: none; }
+.modmenu { display: flex; flex-direction: column; gap: .14rem; }
+.modmenu__note { margin: 0; font-size: calc(.14 * var(--t)); line-height: 1.5; color: var(--line-3); }
+.modmenu__rows { display: flex; flex-direction: column; gap: .2rem; }
+.modmenu__rows .swrow__label { overflow-wrap: anywhere; }
+.sp-coarse .lobby-screen .lobby-modmenu { height: max(.5rem, 36px); font-size: max(calc(.18 * var(--t)), 11px); }

@@ -32,6 +32,12 @@ export const WS_DEFLATE = Object.freeze({
 });
 
 /**
+ * `ws` 自己的 `perMessageDeflate.threshold` 缺省值（1024；工坊 mod 层移植, 2026-10-16）。**只**用在「包没声明
+ * threshold」时的诊断文案里 —— 引擎刻意不把库的缺省值抄成自己的配置，抄一份就是第二个会漂的真相。
+ */
+export const WS_DEFLATE_LIBRARY_THRESHOLD = 1024;
+
+/**
  * Does every permessage-deflate offer of this `Sec-WebSocket-Extensions` header cap the server window below
  * WS_DEFLATE.serverMaxWindowBits? ws cannot accept such an offer and refuses the whole handshake (400), so the upgrade
  * drops the header instead and the connection goes uncompressed. No browser sends `server_max_window_bits`.
@@ -119,4 +125,69 @@ export function attachWebSocket(server, { network, log, traffic = null }) {
     }
   });
   return wss;
+}
+
+/**
+ * 工坊 mod 层移植 (2026-10-16, `pack.json.server.transport`, DESIGN §34.30): a pack's declared transport options →
+ * the `perMessageDeflate` object actually handed to `ws`, plus the effective values for the host-metrics panel.
+ *
+ * With NO pack declaring `server.transport` the answer is exactly the engine's own WS_DEFLATE — the same object the
+ * server has always passed — so a deployment without workshop packs is byte-identical (the `transport` block just
+ * reports what it already was). A pack turns compression off, or retunes it, by declaring the switch; the smaller pack
+ * id wins when two declare it, and the loser is named.
+ *
+ * @param {Map<string, object>|Record<string, object>|null} policies pack id → normalised `server.transport`
+ * @param {{ log?: object|null }} [opts]
+ * @returns {{ perMessageDeflate: false|object, transport: { deflate: boolean|null, params: string|null,
+ *   maxPayload: number, threshold: number|null } }}
+ */
+export function transportPolicy(policies, { log = null } = {}) {
+  const entries = (policies && typeof policies.entries === 'function'
+    ? [...policies.entries()]
+    : Object.entries(policies || {}))
+    .filter(([id, decl]) => id && decl && typeof decl.deflate === 'boolean')
+    .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+  if (!entries.length) {
+    return {
+      perMessageDeflate: { ...WS_DEFLATE },
+      transport: { deflate: true, params: null, maxPayload: WS_MAX_PAYLOAD, threshold: WS_DEFLATE.threshold },
+    };
+  }
+  const [winnerId, winner] = entries[0];
+  for (const [id] of entries.slice(1)) {
+    log?.warn?.(`[workshop] server.transport declared by "${id}" is ignored: "${winnerId}" declares it too and the smaller pack id wins (DESIGN §34.30)`);
+  }
+  if (winner.deflate !== true) {
+    log?.info?.(`[workshop] server.transport: "${winnerId}" declares deflate: false — per-message deflate stays OFF (the engine default is ON, so this declaration is what turns it off; the declaration is named so the choice is visible)`);
+    return {
+      perMessageDeflate: false,
+      transport: { deflate: false, params: null, maxPayload: WS_MAX_PAYLOAD, threshold: null },
+    };
+  }
+  /** 只把**声明过**的键交给 `ws`：省掉的字段用库自己的缺省（引擎不抄第二份）。基线是引擎自己的 WS_DEFLATE，包声明过的键盖在它上面。 */
+  /** @type {Record<string, any>} */
+  const perMessageDeflate = { ...WS_DEFLATE };
+  /** @type {string[]} */
+  const params = [];
+  for (const key of ['threshold', 'concurrencyLimit', 'serverMaxWindowBits', 'clientMaxWindowBits', 'serverNoContextTakeover', 'clientNoContextTakeover']) {
+    if (winner[key] === undefined) continue;
+    perMessageDeflate[key] = winner[key];
+    params.push(`${key}=${winner[key]}`);
+  }
+  if (winner.level !== undefined || winner.memLevel !== undefined) {
+    /** @type {Record<string, number>} */
+    const zlibDeflateOptions = {};
+    if (winner.level !== undefined) { zlibDeflateOptions.level = winner.level; params.push(`level=${winner.level}`); }
+    if (winner.memLevel !== undefined) { zlibDeflateOptions.memLevel = winner.memLevel; params.push(`memLevel=${winner.memLevel}`); }
+    perMessageDeflate.zlibDeflateOptions = zlibDeflateOptions;
+  }
+  const threshold = winner.threshold === undefined ? (perMessageDeflate.threshold ?? WS_DEFLATE_LIBRARY_THRESHOLD) : winner.threshold;
+  const transport = {
+    deflate: true,
+    params: params.length ? params.join(' ') : null,
+    maxPayload: WS_MAX_PAYLOAD,
+    threshold,
+  };
+  log?.info?.(`[workshop] server.transport: per-message deflate ON by "${winnerId}" (${transport.params || 'ws defaults'}; threshold ${transport.threshold}) — this is a process-wide socket option, so it applies to every client and every pack`);
+  return { perMessageDeflate, transport };
 }

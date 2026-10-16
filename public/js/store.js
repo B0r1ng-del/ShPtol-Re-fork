@@ -87,6 +87,8 @@ export const initialState = Object.freeze({
   match: emptyMatch(),
   ticker: [],
   emotes: [],
+  // 在线聊天 (fork): recent `m.chat` lines, `{ seq, playerId, text, at }` (main.js caps it at CHAT_KEEP)
+  chat: [],
   clock: { offset: 0, rtt: null, synced: false },
   ui: { pendingJoin: null, restoring: false, buildStale: false },
 });
@@ -98,13 +100,28 @@ export const store = createStore(initialState);
 installNumberMask(store);
 
 /**
+ * The pack entry gate (工坊 mod 层移植, 2026-10-16): true while a pack-declared preload is still required and not ready.
+ * ONE expression, read by `selectRoute` and by main.js's two deep-link consumers, so "enter anyway before it is ready"
+ * cannot come back through a `?room=` / `?playtest=` link or through the localStorage "already entered" flag.
+ * With no pack declaring a preload, `preloadRequired` is absent — the gate is then equivalent to not existing.
+ * @param {any} s store state
+ * @returns {boolean}
+ */
+export function entryGateBlocked(s) {
+  return !!(s?.session?.preloadRequired && !s.session.preloadReady);
+}
+
+/**
  * Which screen the router shows for a given app state:
- * not entered → title; m.public.phase ≠ LOBBY or room.inMatch → game; in a room → room; else lobby.
+ * not entered → title; the pack entry gate is closed → title; m.public.phase ≠ LOBBY or room.inMatch → game;
+ * in a room → room; else lobby.
  * @param {any} s store state
  * @returns {'title'|'lobby'|'room'|'game'}
  */
 export function selectRoute(s) {
   if (!s?.session?.entered) return 'title';
+  // 入口闸门: only adds a condition when `preloadRequired` is set, so it is absent for every room without such a pack
+  if (entryGateBlocked(s)) return 'title';
   const phase = s.match?.public?.phase;
   if (phase && phase !== PHASE.LOBBY) return 'game';
   if (s.room?.inMatch) return 'game'; // match starting: m.public is on its way

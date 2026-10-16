@@ -46,6 +46,13 @@ export function modsCount(mods) {
  * 图三 (2026-10-14): TWO columns. The first is the game-rule switches (关闭盟约禁用 … 解除叠层上限) and the second the
  * ported 内容包 switches — one per pack, each credited to its author in the ⓘ beside it. The split is data
  * (`MOD_ROWS[].col`), so the layout never has to know a key by name.
+ *
+ * 2026-10-16 (owner): the two columns now go to DIFFERENT panels, so the split is also WHERE each row is shown:
+ *   col 'rule' — the five game-rule switches live in 房主配置 → 「对局选项」, beside the enemy-buff sliders
+ *                (screens/room.js `MatchOptionSection`).
+ *   col 'pack' — the three 内容包 switches have their own 「Mod 菜单」 dialog, opened from a button next to 干员调配 on
+ *                the 选择模拟协议 screen (screens/mods.js `ModMenuDialog`).
+ * `MOD_COLS` and the per-col filter still decide the layout; only WHERE the columns are rendered changed.
  */
 export const MOD_ROWS = Object.freeze([
   { col: 'rule', key: 'noBondBan', label: N_('关闭盟约禁用'), tip: N_('所有模式都不再禁用盟约：既不会有随机禁用，也不会保留模式固有的禁用盟约') },
@@ -59,5 +66,10 @@ export const MOD_ROWS = Object.freeze([
   { col: 'pack', key: 'packRelic', label: N_('收藏品玩法'), tip: N_('开启后游戏内可使用移植内容：收藏品玩法（每回合三选一、护盾与图鉴）。关闭（默认）时不加载任何收藏品。') },
 ]);
 
-/** The two columns of MOD_ROWS, in display order (图三). */
+/** The two columns of MOD_ROWS (图三): the game-rule switches, and the ported 内容包 switches. */
 export const MOD_COLS = Object.freeze(['rule', 'pack']);
+
+/** 对局选项 side of MOD_ROWS: the game-rule switches, shown in the 房主配置 dialog (room.js `MatchOptionSection`). */
+export const MOD_RULE_ROWS = Object.freeze(MOD_ROWS.filter((r) => r.col === 'rule'));
+/** 内容包 side of MOD_ROWS: the ported packs, shown in their own 「Mod 菜单」 dialog (screens/mods.js). */
+export const MOD_PACK_ROWS = Object.freeze(MOD_ROWS.filter((r) => r.col === 'pack'));

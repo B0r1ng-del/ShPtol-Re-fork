@@ -25,6 +25,19 @@
   ],
   "exclude": [
     "shared/protocol.js",
-    "shared/bandBonds.js"
+    "shared/bandBonds.js",
+    // 工坊 mod 层移植 (2026-10-16): these 8 files were copied from Stronghold-Protocol-Forge. They live under
+    // `shared/**`, so the include above sweeps them in, but they were never part of the closed set that passes `tsc`
+    // upstream — and Forge excludes exactly these (its jsconfig.json has the same list). The errors are all of that
+    // batch (no Node types, so Buffer/process are unknown, plus a few union return values tsc infers), never gameplay.
+    // Fix them one at a time as this slice widens per types/README.md.
+    "shared/zip.js",
+    "shared/workshop.js",
+    "shared/chessAuthoring.js",
+    "shared/support.js",
+    "shared/enemyAuthoring.js",
+    "shared/statReference.js",
+    "shared/stageAuthoring.js",
+    "shared/waveAuthoring.js"
   ]
 }

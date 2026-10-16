@@ -17,6 +17,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { forgetOfficialBounds, rememberOfficialBounds } from '../shared/plugins/officialBounds.js';
+// 工坊 mod 层移植 (2026-10-16, DESIGN §34): the workshop/ overlay is merged in before the data is frozen.
+import { loadWorkshop, WORKSHOP_DIR } from './workshop.js';
+import { applyWorkshop, workshopSummary } from '../shared/workshop.js';
 
 /** Repository root (…/Stronghold-Protocol). */
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -60,7 +63,7 @@ export const UNLOADED_DATA = Object.freeze(['local-fx.json']);
  * @param {{ log?: { warn: Function, error: Function, info?: Function }, expected?: readonly string[] }} [opts]
  * @returns {Readonly<Record<string, any>>}
  */
-export function loadData(dir = DATA_DIR, { log = console, expected = DATA_FILES } = {}) {
+export function loadData(dir = DATA_DIR, { log = console, expected = DATA_FILES, workshopDir = WORKSHOP_DIR, excludePacks = null } = {}) {
   /** @type {Record<string, any>} */
   const out = {};
   let names = [];
@@ -82,6 +85,21 @@ export function loadData(dir = DATA_DIR, { log = console, expected = DATA_FILES 
   }
   const missing = expected.filter((k) => !(k in out));
   if (missing.length) log.warn(`[data] missing data files: ${missing.map((k) => k + '.json').join(', ')}`);
+
+  // 创意工坊 overlay (工坊 mod 层移植, 2026-10-16, DESIGN §34): every pack under `workshop/` is merged in **before** the
+  // result is frozen — additive, and an official id is only replaced when the pack declares it in `overrides`. With no
+  // `workshop/` directory (a plain install, every existing test) this is a no-op: `applyWorkshop` receives no packs and
+  // hands back the same object, so the game data is byte-identical to before the feature existed.
+  if (workshopDir) {
+    const loaded = loadWorkshop(workshopDir, { log });
+    const packs = excludePacks ? loaded.packs.filter((p) => !excludePacks.has(p.id)) : loaded.packs;
+    const applied = applyWorkshop(out, packs, { log });
+    Object.assign(out, applied.data);
+    const report = applied.report;
+    if (report.packs.length) log.info?.(`[workshop] applied ${report.packs.length} pack(s): ${workshopSummary(report)}`);
+    for (const e of report.errors) log.warn?.(`[workshop] ${e.pack}: ${e.reason}`);
+    for (const l of loaded.looks || []) log.warn?.(`[workshop] ${l.pack}: ${l.reason}`);
+  }
   return deepFreeze(out);
 }
 
@@ -90,12 +108,12 @@ let singleton = null;
 
 /**
  * Process-wide data singleton; loads on first call (later calls ignore the options).
- * @param {{ dir?: string, log?: object }} [opts]
+ * @param {{ dir?: string, log?: object, workshopDir?: string|null, excludePacks?: Set<string>|null }} [opts]
  * @returns {Readonly<Record<string, any>>}
  */
-export function getData({ dir = DATA_DIR, log = console } = {}) {
+export function getData({ dir = DATA_DIR, log = console, workshopDir = WORKSHOP_DIR, excludePacks = null } = {}) {
   if (!singleton) {
-    singleton = loadData(dir, { log });
+    singleton = loadData(dir, { log, workshopDir, excludePacks });
     rememberOfficialBounds(singleton);
   }
   return singleton;

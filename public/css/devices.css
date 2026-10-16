@@ -134,12 +134,35 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
   .gm__tools .gm__gear .icon { width: max(.28rem, 17px); height: max(.28rem, 17px); }
   .gm__bonds { left: 3.4rem; }
   /* The left-docked detail card now only has to clear the 交流 button left in the corner (.24rem + the sprite's height,
-     55/151 of its width, x .7 since the button shrank - css/emotes.css): at its desktop bottom (1.02rem) it covered that
-     button's hit area. (gameLogic panelSlots keeps the taller desktop slot: conservative.) */
-  .dpanel:not(.dpanel--right) { bottom: calc(.38rem + max(1.51rem, 72px) * 55 / 151 * .7); }
+     55/151 of its width, x .805 since the button grew 15% - css/emotes.css): at its desktop bottom (1.02rem) it covered
+     that button's hit area. (gameLogic panelSlots keeps the taller desktop slot: conservative.) */
+  .dpanel:not(.dpanel--right) { bottom: calc(.38rem + max(1.51rem, 72px) * 55 / 151 * .805); }
 }
 @media (max-width: 767px) and (pointer: coarse), (max-width: 767px) and (any-pointer: coarse) {
-  .dpanel:not(.dpanel--right) { bottom: calc(.38rem + max(1.51rem, 96px) * 55 / 151 * .7); }
+  .dpanel:not(.dpanel--right) { bottom: calc(.38rem + max(1.51rem, 96px) * 55 / 151 * .805); }
+}
+
+/* ---- 在线聊天 on a phone (css/chat.css) ----------------------------------------------------------------------------- */
+/* The window is a corner panel, so on a narrow screen it takes the width it can and a shorter log: portrait phones are
+   narrow and tall (the log may be tall), landscape phones are short (the log shrinks first, the input stays). A folded
+   window is only its title bar, so it never has to shrink at all. */
+@media (max-width: 767px) {
+  .chat { width: calc(100vw - .48rem); max-width: 4.2rem; bottom: .2rem; left: .24rem; }
+  .chat__log { max-height: 2.4rem; }
+  .chat.is-folded { width: 2.05rem; }
+  /* the emote wheel inside the window follows the button's own touch minimum (it is a .tapx target there, css/devices.css) */
+  .chat__body .ewheel { padding-bottom: .1rem; }
+}
+@media (max-height: 460px) {
+  /* a short landscape phone: the log gives way so the wheel and the input stay reachable */
+  .chat__log { max-height: 1.02rem; min-height: .68rem; }
+  .chat__body .ewheel { padding-bottom: .04rem; }
+}
+@media (max-width: 767px) and (pointer: coarse), (max-width: 767px) and (any-pointer: coarse) {
+  /* touch: the input and the send button take the 44 px hit minimum (devices.css §3), so typing is not a lottery */
+  .chat__input, .chat__send { height: max(.32rem, 34px); }
+  .chat__send { width: max(.32rem, 34px); }
+  .chat__title { height: max(.36rem, 34px); }
 }
 
 /* Short landscape phones (≤ 460 CSS px tall, 1rem = 40 px): the lobby's two columns are compressed so the

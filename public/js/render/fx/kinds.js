@@ -119,10 +119,39 @@ const FX_GUESS = [
  */
 const SILENT_PHASES = new Set(['bombed', 'warning']);
 
+/**
+ * 工坊 mod 层移植 (2026-10-16, `pack.json.fx.silentPhases`): the extra 'phase' kinds a pack declares silent. Kept in a
+ * separate set from the first-party two above so a re-install can never eat them, and empty unless a pack declares one
+ * — `silentPhase` is then exactly its old expression.
+ * @type {Set<string>}
+ */
+const PACK_SILENT_PHASES = new Set();
+
+/**
+ * Replace the pack-declared silent 'phase' kinds (`pack.json.fx.silentPhases`).
+ * @param {unknown} list
+ * @returns {{ added: string[] }} the kinds that were NOT already silent first-party (worth naming in a report)
+ */
+export function installSilentPhases(list) {
+  PACK_SILENT_PHASES.clear();
+  const added = [];
+  for (const kind of Array.isArray(list) ? list : []) {
+    if (typeof kind !== 'string' || !kind) continue;
+    PACK_SILENT_PHASES.add(kind);
+    if (!SILENT_PHASES.has(kind)) added.push(kind);
+  }
+  return { added };
+}
+
+/** 一个 'phase' 种类今天是不是静默的（第一方那两个 + 包声明的那些）。`fxSpec` 的唯一判据。 */
+export function silentPhase(kind) {
+  return SILENT_PHASES.has(kind) || PACK_SILENT_PHASES.has(kind);
+}
+
 /** Visual spec of an fx kind (see FX_KINDS); `extra.kind` / `extra.element` may pick a better colour. */
 export function fxSpec(kind, extra = {}) {
   const k = typeof kind === 'string' ? kind : '';
-  if (k === 'phase' && SILENT_PHASES.has(extra && extra.kind)) return { a: 'none', c: 0xffffff };
+  if (k === 'phase' && silentPhase(extra && extra.kind)) return { a: 'none', c: 0xffffff };
   let spec = FX_KINDS[k];
   if (!spec) {
     const g = FX_GUESS.find(([re]) => re.test(k));

@@ -115,7 +115,10 @@ export function hudBands(kind, size, opts) {
  * @param {number} h
  */
 function cornerBand(h) {
-  const btns = document.querySelectorAll('.gm__corner .ewheel__btn');
+  // 在线聊天 (fork): with the option on the 交流 button lives in the chat window (css/chat.css .chat__body .ewheel), not
+  // in the corner — but the band it reserves is the same one the collapsed camera has to clear, so both homes are
+  // queried. Only whichever one is on screen matches: the wheel is rendered into exactly one of them (screens/game.js).
+  const btns = document.querySelectorAll('.gm__corner .ewheel__btn, .chat__body .ewheel__btn');
   if (!btns || !btns.length) return 0;
   const root = document.documentElement;
   const tap = root?.classList?.contains('sp-coarse') ? parseFloat(getComputedStyle(root).getPropertyValue('--tap-min')) || 0 : 0;
@@ -124,7 +127,13 @@ function cornerBand(h) {
     const r = b.getBoundingClientRect();
     if (r && r.height > 0) top = Math.min(top, r.top + r.height / 2 - Math.max(r.height, tap) / 2);
   }
-  return top < Infinity ? Math.max(0, h - top) : 0;
+  if (top < Infinity) return Math.max(0, h - top);
+  // the chat window's own body (the log + the input) sits above the wheel's corner even when the button itself is
+  // scrolled out of view: reserve that surface too, so the collapsed camera never puts the bench under it
+  const win = document.querySelector('.chat');
+  if (!win) return 0;
+  const wr = win.getBoundingClientRect();
+  return wr && wr.height > 0 ? Math.max(0, h - wr.top) : 0;
 }
 
 function renderPref() {

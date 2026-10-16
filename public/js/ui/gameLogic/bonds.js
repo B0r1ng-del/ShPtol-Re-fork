@@ -3,6 +3,45 @@
 import { int, isObj } from './shared.js';
 import { diyPicks } from './diy.js';
 import { t } from '../../../../shared/i18n.js';
+import { memberBonds, morphPairingOf, morphSlotPolicy, OFFICIAL_SLOT_POLICY } from '../../../../shared/morph.js';
+
+
+// ---- 口径轴作用域 (工坊 mod 层移植, 2026-10-16) ------------------------------------------------------
+
+/**
+ * 这一页的 `morphPairing` 档位（房间的包声明里派生的**有效档位**）。`setMorphPairing()` 由 `public/js/roomMods.js`
+ * 在 `welcome.mods` 变化时写一次；没写过（干净安装 / 没声明这一格）⇒ `null`，`morphPairingOf(null)` 给出缺省档
+ * `official` —— 也就是引擎今天的行为，所以客户端在无包时逐字节不变。
+ * @type {string|null}
+ */
+let morphPairing = null;
+/**
+ * 记下这一页的有效档位（由 `roomMods.js` 从 `welcome.mods.packs[].behaviour` 合成后调用）。
+ * @param {string|null|undefined} option
+ */
+export function setMorphPairing(option) {
+  morphPairing = typeof option === 'string' && option ? option : null;
+}
+/** 当前档位（null = 没声明 ⇒ 缺省档）。 */
+export function morphOption() { return morphPairing; }
+
+/**
+ * 这一页的**装备位策略**（`shared/morph.js` 的 `morphSlotPolicy`）：与 `morphPairing` 同一格开关的另外半条。
+ * 没写过 ⇒ `OFFICIAL_SLOT_POLICY`（共享的冻结单例，`slotsUsed` 就是 `items.length`）。
+ *
+ * 客户端两处读它：详情卡的 `EQUIP n/2` 与「不占装备格」标签、拖放替换对话框的判据。缺省档下那两处逐字与从前相同。
+ * @type {import('../../../../shared/morph.js').MorphSlotPolicy}
+ */
+let morphSlots = OFFICIAL_SLOT_POLICY;
+/**
+ * 记下这一页的有效装备位策略（由 `roomMods.js` 在 `welcome.mods` 变化时调用）。
+ * @param {string|Array<{ switch?: string, option?: string }>|null|undefined} option 档位名或归一化声明
+ */
+export function setMorphSlotPolicy(option) {
+  morphSlots = morphSlotPolicy(option);
+}
+/** 当前装备位策略（冻结对象，读它、别改它）。 */
+export function slotPolicy() { return morphSlots; }
 
 
 // ---- bonds -------------------------------------------------------------------------------------------
@@ -60,24 +99,46 @@ export function nextThreshold(count, thresholds) {
  * @returns {string[]}
  */
 export function grantedBonds(items, getItem = () => null) {
+  // 这一处**不再自己配对**：与两端同一条判据（`shared/morph.js` 的 `memberBonds` → `grantedBondsByMorph`）。
+  return memberBonds([], { recs: itemsToRecs(items, getItem), morphed: morphPairing });
+}
+
+/** The item records of a carried list (the pair criterion reads `canGiveBond` / `giveBondId` off the RECORD). */
+function itemsToRecs(items, getItem) {
   const list = Array.isArray(items) ? items : [];
-  if (list.length < 2) return [];
-  const recs = list.map((it) => getItem(typeof it === 'string' ? it : it?.id)).filter(isObj);
-  if (!recs.some((r) => r.canGiveBond)) return [];
-  const out = [];
-  for (const r of recs) if (!r.canGiveBond && typeof r.giveBondId === 'string' && r.giveBondId && !out.includes(r.giveBondId)) out.push(r.giveBondId);
-  return out;
+  return list.map((it) => getItem(typeof it === 'string' ? it : it?.id)).filter(isObj);
 }
 
 /**
- * A chess piece's bonds: its record's + those its 变形同构体 pairing grants (grantedBonds) — the detail card's chips.
- * @param {any} chess chess.json record @param {Array<string|{id:string}>|null|undefined} items @param {(id:string)=>any} [getItem]
+ * 一个干员的盟约集合，**与两端同一份判据**（工坊 mod 层移植, 2026-10-16）：`shared/morph.js` 的 `memberBonds` ——
+ * 自己的 `bonds` ∪ 装备授予（变形同构体）∪ **特质授予**（`trait.grantsBonds`）。预备期
+ * （`server/match/bondsMeta.js pieceBonds`）与战斗（`server/sim/content/support/index.js unitBonds`）调的是同一个
+ * 函数，所以客户端这一处不可能与它们分叉。
+ * @param {string[]} own the record's own bonds
+ * @param {any} trait the chess record's `trait` (its `grantsBonds` is the data form of 特质授予盟约)
+ * @param {Array<string|{id:string}>|null|undefined} items
+ * @param {(id:string)=>any} getItem
+ * @param {(id:string)=>boolean} [hasBond] rejects a granted bond this game does not have
  * @returns {string[]}
  */
-export function pieceBondIds(chess, items, getItem = () => null) {
-  const out = (Array.isArray(chess?.bonds) ? chess.bonds : []).filter((b) => typeof b === 'string');
-  for (const b of grantedBonds(items, getItem)) if (!out.includes(b)) out.push(b);
-  return out;
+export function grantedBondsOf(own, trait, items, getItem = () => null, hasBond = null) {
+  const list = Array.isArray(items) ? items : [];
+  const recs = list.map((it) => getItem(typeof it === 'string' ? it : it?.id)).filter(isObj);
+  // `morphed` 就是这一页的档位（`setMorphPairing` 写的那个）：缺省档下 `grantedBondsByMorph` 给出的集合与
+  // 「没有这一格」时逐字相同，所以这一行在无包时等价于不存在。
+  return memberBonds(own, { trait, recs, morphed: morphPairing, hasBond });
+}
+
+/**
+ * A chess piece's bonds: its record's + those its 变形同构体 pairing and its 特质 grants (grantedBondsOf) — the detail
+ * card's chips. The same criterion the server counts with (server/match/bondsMeta.js pieceBonds).
+ * @param {any} chess chess.json record @param {Array<string|{id:string}>|null|undefined} items @param {(id:string)=>any} [getItem]
+ * @param {(id:string)=>boolean} [hasBond]
+ * @returns {string[]}
+ */
+export function pieceBondIds(chess, items, getItem = () => null, hasBond = null) {
+  const own = (Array.isArray(chess?.bonds) ? chess.bonds : []).filter((b) => typeof b === 'string');
+  return grantedBondsOf(own, chess?.trait, items, getItem, hasBond);
 }
 
 /**

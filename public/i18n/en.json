@@ -2155,5 +2155,16 @@
   "每格 +10%，最高 +100%：本局全部敌人（含首领与联防）的防御力按此提高": "Each step +10 %, up to +100 %: raises the DEF of every enemy of this match (leaders and Unite included)",
   "每格 +10%，最高 +100%：本局全部敌人（含首领与联防）的法术抗性按此提高": "Each step +10 %, up to +100 %: raises the RES of every enemy of this match (leaders and Unite included)",
   "本局敌人已获得强化（合计 {n}%），请谨慎调整": "This match's enemies are already strengthened ({n}% in total) — adjust with care",
-  "这些改动默认全部关闭（原版规则）；开启后会改变本局的玩法，对其他玩家同样生效。": "These changes are all OFF by default (the original rules); turning one on changes how this match plays, for every player in it."
+  "这些改动默认全部关闭（原版规则）；开启后会改变本局的玩法，对其他玩家同样生效。": "These changes are all OFF by default (the original rules); turning one on changes how this match plays, for every player in it.",
+  "在线聊天": "Chat",
+  "Mod 菜单": "Mod menu",
+  "展开": "Expand",
+  "观战者": "Spectator",
+  "发言": "Message",
+  "发送": "Send",
+  "说点什么…": "Say something…",
+  "还没有人发言。": "Nobody has said anything yet.",
+  "这些内容包默认全部关闭（原版内容）。开启后创建的房间会包含它们，房间内的玩家同样生效；房间创建后仍可在房主配置里修改。": "These content packs are all OFF by default (the original content). Turning one on makes the rooms you create include it, for every player in the room; the host can still change them in the host settings once the room exists.",
+  "开启后局内显示可收起的聊天窗口，全房间的博士都能发言，「交流」表情按钮也会收入其中": "Shows a collapsible chat window in a match: every doctor in the room can talk, and the 交流 emote button moves into it",
+  "以下规则默认全部关闭（原版规则）；开启后会改变本局的玩法，对其他玩家同样生效。": "These rules are all OFF by default (the original rules); turning one on changes how this match plays, for every player in it."
 }

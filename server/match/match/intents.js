@@ -6,7 +6,7 @@
 
 import { unitStatsEntry } from '../../../shared/protocol.js';
 import { autoSelectRelic } from '../relics.js';
-import { PHASE, ERR, EMOTES, EMOTE_COOLDOWN_MS, EMOTE_BURST_COUNT, GEO } from '../../../shared/constants.js';
+import { PHASE, ERR, EMOTES, EMOTE_COOLDOWN_MS, EMOTE_BURST_COUNT, GEO, CHAT_MAX_LEN, CHAT_COOLDOWN_MS } from '../../../shared/constants.js';
 import { deriveSeed } from '../../sim/rng.js';
 import { OK, fail } from './common.js';
 import { onHumanEmote } from '../botEmotes.js';
@@ -46,6 +46,8 @@ export class MatchIntents {
       case 'g.cheat': return this.cheat(ps, msg);
       case 'g.emote': return this.emote(ps, msg.id);
       case 'g.emoteBurst': return this.emoteBurst(ps, msg.id);
+      // 在线聊天 (fork, host option `onlineChat`): one message relayed to the room as m.chat
+      case 'g.chat': return this.chat(ps, msg.text);
       // playerId: the player tapped (a shared field names two) — the watch preference (item 56)
       case 'g.watch': return this.watch(ps, msg.fieldId, msg.playerId ?? null);
       case 'g.autoplay': return this.setAutoplay(ps, !!msg.on);
@@ -103,6 +105,29 @@ export class MatchIntents {
     if (now - ps.lastEmoteAt < EMOTE_COOLDOWN_MS) return fail(ERR.RATE);
     ps.lastEmoteAt = now;
     for (let i = 0; i < EMOTE_BURST_COUNT; i++) this.broadcast({ t: 'm.emote', playerId: ps.playerId, id });
+    return OK;
+  }
+
+  /**
+   * 在线聊天 (fork, the host's 房主配置 `onlineChat`): one `g.chat` is relayed to the whole room as `m.chat`, the same
+   * shape emotes take. Refused when the room never turned the option on (`WRONG_PHASE`) — the server is the one that
+   * decides, so a client that shows the window anyway cannot type into a room that has chat off.
+   *
+   * `text` is trimmed here and re-checked against CHAT_MAX_LEN (the protocol already caps it; a programmatic caller —
+   * the stub match, a test — may not have gone through that path). An empty message is BAD_MSG rather than a silent
+   * drop, so a client that trimmed its own input knows why nothing appeared. One message a second per player, the
+   * emote's own cooldown, so chat and emotes share the same "don't flood the room" budget.
+   */
+  chat(ps, text) {
+    if (this.onlineChat !== true) return fail(ERR.WRONG_PHASE, 'chat is off in this room');
+    if (!ps || ps.isBot) return fail(ERR.BAD_MSG, 'bots do not chat');
+    if (typeof text !== 'string') return fail(ERR.BAD_MSG, 'no text');
+    const body = text.trim();
+    if (!body || body.length > CHAT_MAX_LEN) return fail(ERR.BAD_MSG, 'empty or too long');
+    const now = this.sched.now();
+    if (now - ps.lastChatAt < CHAT_COOLDOWN_MS) return fail(ERR.RATE);
+    ps.lastChatAt = now;
+    this.broadcast({ t: 'm.chat', playerId: ps.playerId, text: body, seq: ++this.chatSeq });
     return OK;
   }
 

@@ -70,11 +70,17 @@ describe('内容包开关: the switches themselves', () => {
     assert.match(src, /col: 'rule'/, 'the rule switches carry a column');
     assert.match(src, /col: 'pack'/, 'the pack switches carry a column');
     assert.match(src, /export const MOD_COLS = Object\.freeze\(\['rule', 'pack'\]\)/, 'two columns, in order');
-    // 2026-10-16: the rows moved into 房主配置 (screens/room.js ModSwitchSection), so the author credit is built THERE —
+    // 2026-10-16 AM: the rows moved into 房主配置 (screens/room.js ModSwitchSection), so the author credit is built THERE —
     // ui/mods.js is the catalogue only (MOD_ROWS / MOD_COLS) and renders nothing any more.
+    // 2026-10-16 PM (owner): the pack rows left 房主配置 again for their own 「Mod 菜单」 dialog on the lobby screen, so the
+    // credit moved WITH them (screens/mods.js) — 房主配置 now carries only the five game-rule switches (col 'rule').
+    const packDialog = read('public/js/screens/mods.js');
+    assert.match(packDialog, /PACK_AUTHORS\[r\.key\]/, 'the tip names the pack author');
+    assert.match(packDialog, /原作者：\{author\}/, 'through the credited msgid');
+    assert.match(packDialog, /MOD_PACK_ROWS/, 'and it draws exactly the 内容包 half');
     const room = read('public/js/screens/room.js');
-    assert.match(room, /PACK_AUTHORS\[r\.key\]/, 'the tip names the pack author');
-    assert.match(room, /原作者：\{author\}/, 'through the credited msgid');
+    assert.match(room, /MOD_RULE_ROWS/, 'the 房主配置 panel draws exactly the 对局选项 half');
+    assert.ok(!/PACK_AUTHORS/.test(room), 'and no longer carries the packs\' credit');
     // the layout: two columns on a desktop, one on a phone (the two-device rule; the row grid stayed in lobby.css)
     const css = read('public/css/screens/lobby.css');
     assert.match(css, /\.mods__rows \{ display: grid; grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);

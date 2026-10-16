@@ -18,6 +18,7 @@
 //     `PlayerBattleInput.contentInfo`, written by the `global:contentb_info` meta handler (support/meta.js).
 
 import { getData } from '../../../data.js';
+import { memberBonds } from '../../../../shared/morph.js';
 import { COLS, DIRECT_BONUS_STACKING } from '../../constants.js';
 import { frontOf, offsetTile } from '../../dir.js';
 import { bodyInKeys, bodyDist, bodyInRadius, bodyOnTile, bodyTileReach, bodyInRange } from '../../body.js';
@@ -35,12 +36,87 @@ const own = (o, k) => (o && typeof o === 'object' && typeof k === 'string' && Ob
 const QUIET = Object.freeze({ warn() {}, error() {}, info() {} });
 
 let DATA = null;
-/** Frozen data/*.json (process singleton of server/data.js). Never mutate. */
-export function gameData() {
+/** The default data: the process singleton of server/data.js (browser: the shim over the injected data). */
+function defaultData() {
   if (!DATA) {
     try { DATA = getData({ log: QUIET }) || {}; } catch { DATA = {}; }
   }
   return DATA;
+}
+
+/**
+ * 对局作用域里的那一份数据 (工坊 mod 层移植, 2026-10-16, DESIGN §34.16). A room that declares a subset of the installed
+ * packs runs THAT subset (`server/roomAssets.js`), so every record this module hands out must come from the ROOM's
+ * merged data — not from the process-wide singleton, which carries every installed pack.
+ *
+ * Why a stack and not `setGameData`: two matches run CONCURRENTLY in one process (server/lobby.js holds one Match per
+ * room), so "set the global before the match, restore it afterwards" is wrong. The stack is pushed and popped around a
+ * SYNCHRONOUS region — a Battle's construction and each `step()` — and two matches can only interleave BETWEEN steps,
+ * never inside one. A browser (or a test that calls setGameData) never pushes anything, so nothing changes there.
+ *
+ * ▸ A scoped object is merged OVER the default data per key (`viewOf`): a caller that passes a partial data object —
+ * every test that hands a battle a handful of tables — keeps today's behaviour for every table it does not carry.
+ * @type {Array<object|null>}
+ */
+const SCOPED = [];
+/** Scoped data → the merged view built for it (one per scoped object, invalidated when the default data changes). */
+const VIEWS = new WeakMap();
+
+/**
+ * The scoped data merged over the default one (identity when the scoped object IS the default one).
+ * A FLAT copy, not a prototype chain: every reader here looks a table up with `own()`, so a table that only lived on
+ * the prototype would read as "absent" — a partial data object would silently lose every table it does not carry.
+ */
+function viewOf(scoped) {
+  const base = defaultData();
+  if (!scoped || typeof scoped !== 'object') return base;
+  if (scoped === base) return scoped;
+  const hit = VIEWS.get(scoped);
+  if (hit && hit.base === base) return hit.view;
+  const view = { ...base };
+  for (const k of Object.keys(scoped)) if (scoped[k] !== undefined) view[k] = scoped[k];
+  Object.freeze(view);
+  VIEWS.set(scoped, { base, view });
+  return view;
+}
+
+/**
+ * Run `fn` with `data` as this module's game data (see SCOPED). Re-entrant and exception-safe; `null` means "the
+ * default data", so a battle built without an explicit data object reads exactly what it read before.
+ * @template T @param {object|null|undefined} data @param {() => T} fn @returns {T}
+ */
+export function withGameData(data, fn) {
+  SCOPED.push(data && typeof data === 'object' ? data : null);
+  try { return fn(); } finally { SCOPED.pop(); }
+}
+
+/**
+ * 这一场战斗的行为开关档位（`morphPairing`），与 `withGameData` **同一条作用域纪律**：两个 Match 在一个进程里并发
+ * 跑，而这一段是**同步区**（一场 Battle 的构造与每一次 `step()`），两个 Match 只会在步与步之间交错。所以「进作用
+ * 域前压上、出来弹掉」对并发是安全的。
+ *
+ * 不入栈时是 `null` ⇒ `morphPairingOf(null)` 给出缺省档 `official`，所以没有包声明这一格的战斗读到的还是今天那条
+ * 规则。浏览器端同理：它由 BattleSpec 上的那一个键压进来（`public/js/battle/runner.js`）。
+ * @type {Array<string|null>}
+ */
+const MORPH = [];
+/**
+ * Run `fn` with `option` as this battle's `morphPairing` 档位（见 MORPH）。可重入、异常安全。
+ * @template T @param {string|null|undefined} option @param {() => T} fn @returns {T}
+ */
+export function withMorphPairing(option, fn) {
+  MORPH.push(typeof option === 'string' && option ? option : null);
+  try { return fn(); } finally { MORPH.pop(); }
+}
+/** 当前作用域的档位（没入栈 ⇒ null = 缺省档）；`unitBonds` 与测试读它。 */
+export function currentMorphPairing() {
+  return MORPH.length ? MORPH[MORPH.length - 1] : null;
+}
+
+/** Frozen data/*.json (the scoped view when one is pushed, else the process singleton). Never mutate. */
+export function gameData() {
+  const scoped = SCOPED.length ? SCOPED[SCOPED.length - 1] : null;
+  return scoped ? viewOf(scoped) : defaultData();
 }
 /** Tests only: swap the data object (null → reload the singleton). Also drops derived caches. */
 export function setGameData(d) { DATA = d ?? null; CORE = null; }
@@ -171,25 +247,30 @@ export const goldenItemCount = (u) => itemsOf(u).filter(isGoldenId).length;
 
 const BONDS = new WeakMap();
 /**
- * A unit's own bonds: the chess's data bonds + bonds granted by 变形同构体 (an item with `canGiveBond` worn together
- * with an item that has a `giveBondId`; same rule as server/match/bondsMeta.js pieceBonds). Tokens / enemies: [].
+ * A unit's own bonds: the chess's data bonds ∪ 变形同构体's grants ∪ **特质授予** (`trait.grantsBonds`), and — since the
+ * 工坊 mod 层 (2026-10-16) — whatever this battle's `morphPairing` 档位 adds. The MERGE lives in exactly one place
+ * (`shared/morph.js memberBonds`): the prep side (`server/match/bondsMeta.js pieceBonds`) and the client
+ * (`public/js/ui/gameLogic/bonds.js`) call the same function, so the three reading points cannot drift apart.
+ * Tokens / enemies: [].
  */
 export function unitBonds(u) {
   if (!isOp(u)) return EMPTY;
   const cached = BONDS.get(u);
   const items = itemsOf(u);
-  const key = items.join('|');
+  const morphed = currentMorphPairing();
+  // the cache key carries the 档位: the same unit reads differently in two scopes, so one cache entry cannot serve both
+  const key = `${items.join('|')}#${morphed}`;
   if (cached && cached.key === key) return cached.bonds;
-  const out = [...(Array.isArray(u.def?.bonds) ? u.def.bonds : Array.isArray(u.def?.raw?.bonds) ? u.def.raw.bonds : [])];
-  if (items.length >= 2) {
-    const recs = items.map((id) => itemRecord(id)).filter(Boolean);
-    if (recs.some((r) => r.canGiveBond)) {
-      for (const r of recs) {
-        if (r.canGiveBond) continue;
-        if (typeof r.giveBondId === 'string' && bondRecord(r.giveBondId) && !out.includes(r.giveBondId)) out.push(r.giveBondId);
-      }
-    }
-  }
+  // 特质读的是**记录**那一份 —— `u.def.raw.trait`：`u.def.trait` 是 `simdata.js` 投影出来的 trait **文本字符串**，
+  // 它没有子键，读错了会静默地什么都不授予。
+  const own = Array.isArray(u.def?.bonds) ? u.def.bonds : Array.isArray(u.def?.raw?.bonds) ? u.def.raw.bonds : [];
+  const recs = items.map((id) => itemRecord(id)).filter(Boolean);
+  const out = memberBonds(own, {
+    trait: u.def?.raw?.trait,
+    recs,
+    morphed,
+    hasBond: (id) => !!bondRecord(id),
+  });
   const bonds = Object.freeze(out);
   BONDS.set(u, { key, bonds });
   return bonds;

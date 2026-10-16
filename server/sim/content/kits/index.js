@@ -15,7 +15,7 @@
 // `def.charId` only, never by the chess id (the replaced operator's kit). STANDIN_KITS is merged into KITS after every
 // tier group: the chess keys keep their order, and `char_…` keys never meet `chess_char_…` ones.
 //
-// 自选 operator kits (DATA.md §18, README.md "How to add an operator (自选)"): OPERATOR_KIT_FILES lists
+// 自选 operator kits (DATA.md §18, README.md "How to add an operator (自选)"): the registry below lists
 // `ops/op-<codename>.js`, one per owned-6★ pick of data/backups.json `diy.ownedPool` (codename = its charId without
 // `char_<n>_`: `op-siege.js` = 推进之王, char_112_siege), each registering exactly that charId and writing every skill under
 // `skills`. A 自选 piece keeps its DIY slot's ids, so kitOf finds its kit by `def.charId` — a prototype pick runs its

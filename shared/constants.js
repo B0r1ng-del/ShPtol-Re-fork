@@ -16,6 +16,27 @@ export const DEV_BUILD = /-dev$/.test(APP_VERSION);
  */
 export const PLUGIN_API = Object.freeze({ current: 1, min: 1 });
 
+/**
+ * 工坊 mod 层的 ABI 世代（移植自 Stronghold-Protocol-Forge，2026-10-16；`shared/modSurface.js` 的那张「包能碰的表面」
+ * 清单所属的世代）。包用 `pack.json.api` 声明它要的世代。
+ *
+ * 抬世代的规矩：**只有「删除 / 改名 / 改语义」才抬**；**加一格不抬** —— 加一格对已发布的包是纯增量，抬数字会让所有
+ * 写了 `api: "1.x"` 的老包被判 `MOD_API_INCOMPATIBLE` 而拒绝加载，那是在惩罚老包。
+ */
+export const MOD_API_VERSION = 1;
+
+/**
+ * 配音槽位与语言（工坊 mod 层移植，2026-10-16）：`shared/workshop.js` 读它们来把 Forge 包里的语音挂到正确的槽位。
+ *
+ * `VOICE_LANGS` 与 `public/js/voicePrefs.js` 的同名常量是**同一份事实**的两处说法（那个是浏览器本地偏好用的、
+ * 只在客户端 tree）；这里的是**数据层**的说法，服务端打包/导入时也要读，所以放在 `shared/`。两边都不得私自增删。
+ */
+export const VOICE_SLOTS = Object.freeze(['start', 'faceEnemy', 'select', 'place',
+  'skill1', 'skill2', 'skill3', 'skill4', 'resultFour', 'resultThree', 'resultTwo', 'resultLose']);
+export const VOICE_LANGS = Object.freeze(['cn', 'jp', 'en', 'kr']);
+/** 没有显式选择时的默认配音语言（官方 dump 的主语言）。 */
+export const DEFAULT_VOICE_LANG = 'jp';
+
 export const MAX_SEATS = 4;
 /**
  * Seat cap of the 终极模拟 room — the fork's third room mode. The official 终极模拟 ("与至多6名博士组成同盟，共享干员池，
@@ -42,6 +63,19 @@ export const ROOM_CODE_LEN = 4;
 export const NAME_MAX_LEN = 12;
 
 /**
+ * 一局里一名玩家能同时站在场上的干员数上限（部署位）—— **一个数只许一个真相**（工坊 mod 层移植，2026-10-16）。
+ *
+ * 它从前是 `server/match/effectsMeta.js` 硬编码的 `12`：销毁类装备 / 分队加成把部署位**至少**抬到这么多
+ * （`setDeployCapAtLeast` 里的 `Math.min(v, 12)`，那不是「随手挑的上限」，就是这一条）。工坊的 `deploy: "max"`
+ * 口径（`shared/variants.js`）也读它，于是同一件事有了两处真相 —— 收成一个常量，两边都指过来。
+ *
+ * **它不是官方值**：官方 `maxBattleChessCnt` 是 8（`data/config.json economy.deployCap`，由 `tools/build-data.mjs`
+ * 从 `act.constData.maxBattleChessCnt` 写出），8→12 这一段是这台服务器自己的天花板。所以缺省路径仍然逐字节是
+ * `data/` 里那个 8，这个常量只在口径被**显式**打开时出现。
+ */
+export const DEPLOY_CAP_MAX = 12;
+
+/**
  * 房主配置 — the room options the host sets in the 准备房间 (room.setHostConfig, room.state.hostConfig). Each one is a
  * boolean with a documented default; the room keeps them across its matches and the match reads them when it starts.
  * Only a room with at least two seats can use the ones that share something between players (the panel hides itself
@@ -62,14 +96,21 @@ export const NAME_MAX_LEN = 12;
  *   itemSell      装备可售卖 on  — a loose item (hand / temp) may be sold for ITEM_SELL_PRICE funds: the same gate 销毁
  *                                  has (an equipped one stays locked either way), paying instead of destroying
  *                            off — the official rule and the default: an item can only be 销毁 (PlayerItems.destroy)
+ *   onlineChat    在线聊天   on  — the room shows the in-match 在线聊天 window: everyone may send `g.chat` messages and
+ *                                  the server broadcasts them as `m.chat`. The 交流 emote button is folded into that window.
+ *                            off — the official behaviour and the default: no chat window, no `g.chat` accepted, and the
+ *                                  交流 button sits where it always did.
  */
-export const HOST_CONFIG_KEYS = Object.freeze(['sharedPool', 'sharedBounty', 'aiPicksLast', 'multiAlliance', 'itemSell']);
+export const HOST_CONFIG_KEYS = Object.freeze(['sharedPool', 'sharedBounty', 'aiPicksLast', 'multiAlliance', 'itemSell', 'onlineChat']);
 /** Defaults of HOST_CONFIG_KEYS: the official behaviour of each option. */
-export const HOST_CONFIG_DEFAULTS = Object.freeze({ sharedPool: true, sharedBounty: true, aiPicksLast: false, multiAlliance: false, itemSell: false });
+export const HOST_CONFIG_DEFAULTS = Object.freeze({ sharedPool: true, sharedBounty: true, aiPicksLast: false, multiAlliance: false, itemSell: false, onlineChat: false });
 /**
  * The HOST_CONFIG_KEYS a single-seat room (独立模拟) may still set: the ones that share something between players are
  * meaningless with nobody to share with (the lobby refuses them, the panel hides them), a rule about one's own items is
  * not. The panel shows exactly these rows in a solo room and nothing else.
+ *
+ * 在线聊天 is NOT here: it is a room-wide channel, and a solo room has nobody to talk to (the window would be a text box
+ * talking to itself). A solo host can flip it in a co-op room later; the switch keeps.
  */
 export const HOST_CONFIG_SOLO_KEYS = Object.freeze(['itemSell']);
 
@@ -175,7 +216,6 @@ export const MOD_DEFAULTS = Object.freeze({
   noBondBan: false, untimedSp: false, randomSpVote: false, extraRounds: false, targetedPick: false, uncapLayers: false,
   packRhine: false, packAphris: false, packRelic: false,
 });
-
 /**
  * 内容包开关 — the second column of the Mod submenu: whether a ported content pack may be used IN GAME. One key per
  * pack, all in MOD_KEYS (they travel with `room.create.mods` like every other switch, and a joiner plays the host's).
@@ -548,6 +588,15 @@ export const emoteArtGroup = (id) => { const e = emoteInfo(id); return e ? `emot
 export const emoteArtPath = (id) => { const e = emoteInfo(id); return e ? `/assets/local/emoticon/${e.dir}/${e.picId}.png` : null; };
 export const EMOTE_COOLDOWN_MS = 1000; // activity_table autoChessData.constData.chatCD (s)
 export const EMOTE_BUBBLE_MS = 3000;   // constData.chatTime (s): how long a bubble stays up
+/**
+ * 在线聊天 (fork): the longest message a player may send (`g.chat.text`), and how often. The cooldown is one message a
+ * second — the emote's own rate, so the two share the in-match "don't flood the room" budget — and the cap also bounds
+ * what the server hands every client in `m.chat`, so one player cannot push an unbounded frame at the room.
+ */
+export const CHAT_MAX_LEN = 120;
+export const CHAT_COOLDOWN_MS = 1000;
+/** How many `m.chat` lines a client keeps for the 在线聊天 window (the oldest scroll off). */
+export const CHAT_KEEP = 50;
 /**
  * 一键十连 (fork): the emotes ONE `g.emoteBurst` sends. The burst shares the single-send cooldown — it is one send,
  * not ten — so ten quick taps can never flood a room.

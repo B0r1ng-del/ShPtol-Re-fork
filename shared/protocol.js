@@ -1,7 +1,7 @@
 // Normative message catalogue (DESIGN §8). Used by server (validation) and client (building requests).
 // Every client→server message is `{ t, rid?, ...fields }`. Unknown `t` or invalid fields ⇒ ERR.BAD_MSG.
 
-import { DIFFICULTIES, NAME_MAX_LEN, ROOM_CODE_LEN, ROOM_MODES, ULTIMATE_SEATS, HOST_CONFIG_KEYS, HOST_ENEMY_KEYS, HOST_ENEMY_MAX_STEPS, MOD_KEYS, CHEAT_KEYS, EMOTES, GEO } from './constants.js';
+import { DIFFICULTIES, NAME_MAX_LEN, ROOM_CODE_LEN, ROOM_MODES, ULTIMATE_SEATS, HOST_CONFIG_KEYS, HOST_ENEMY_KEYS, HOST_ENEMY_MAX_STEPS, MOD_KEYS, CHEAT_KEYS, EMOTES, GEO, CHAT_MAX_LEN } from './constants.js';
 import { isDroppableChess } from './standIn.js';
 import { diySlotIds, validateDiyPicks } from './diy.js';
 import { cultivatedStats, isPotential, isCultivate, POTENTIAL_DEFAULT, CULTIVATE_DEFAULT, hasPotentialData } from './potential.js';
@@ -35,6 +35,24 @@ const isMap = (v, max, key, val) => {
 };
 const isList = (v, max, item) => Array.isArray(v) && v.length <= max && v.every(item);
 const isScalar = (v) => isStr(v, 64) || isNum(v) || isBool(v);
+
+/**
+ * 包命名空间消息的**边界**（工坊 mod 层移植, 2026-10-16, DESIGN §34）：一条 `pack.msg` 的限制。
+ *   * `bytes`：`data` 序列化之后的上限（UTF-16 长度，对 ASCII 就是字节数；刻意保守，因为整帧本来还有 64 KB 上限）；
+ *   * `perSec` / `burst`：服务端按**会话**限流（令牌桶），超了回 `ERR.RATE` —— 一个没有限流的通道就是一个刷屏
+ *     通道，而「引擎不解释载荷」不等于「引擎不管频率」。
+ */
+export const PACK_MSG_LIMITS = Object.freeze({ bytes: 4096, perSec: 5, burst: 20 });
+
+/** `JSON.stringify(value)` 的长度；不可序列化（循环引用 / BigInt）时返回 Infinity（= 拒）。 */
+function jsonBytes(value) {
+  try {
+    const text = JSON.stringify(value);
+    return typeof text === 'string' ? text.length : Infinity;
+  } catch {
+    return Infinity;
+  }
+}
 
 // ---- client-side combat (DESIGN §14): b.progress / b.result payloads -------------------------------------------
 
@@ -533,6 +551,9 @@ export const C2S = {
   'g.relicRevive': { relicId: isId, playerId: isId },
   // 一键十连 (fork): one send broadcasts the same emote EMOTE_BURST_COUNT times, on the single-send cooldown
   'g.emoteBurst': { id: (v) => EMOTES.includes(v) },
+  // 在线聊天 (fork, 房主配置 `onlineChat`): one message, broadcast to the room as m.chat. `text` is length-capped here so
+  // the server never relays an unbounded frame; the room must have the switch on (Match/StubMatch refuse it otherwise).
+  'g.chat': { text: (v) => isStr(v, CHAT_MAX_LEN) && v.trim().length > 0 },
   // playerId: the player tapped in the team panel (a 联防 / boss pair field shows two) — what an eliminated viewer or a
   // spectator seat follows from then on (Match.watchPref; community report of 2026-10-06, item 56)
   'g.watch': { fieldId: (v) => isStr(v, 32), playerId: isId, $optional: ['playerId'] },
@@ -583,6 +604,9 @@ export const S2C = [
   'welcome', 'ok', 'error', 'pong',
   'room.state', 'room.closed',
   'm.public', 'm.private', 'm.field', 'm.toast', 'm.ticker', 'm.emote', 'm.result',
+  // 在线聊天 (fork): m.chat { playerId, text, seq } — one g.chat relayed to the room. Ephemeral like m.emote (it is not
+  // replayed on a resync: only the lines sent while a client is connected are shown).
+  'm.chat',
   // m.layer { playerId, bondId, add } — own live prep layer gain; ephemeral, never replayed on resync.
   'm.layer',
   // m.unitStats { seq, round, units: [unitStatsEntry] } — the answer to g.unitStats (the requester only)

@@ -21,6 +21,7 @@ import { openStats } from './stats.js';
 import { SettingsButton } from '../ui/settings.js';
 import { PwaInstallButton } from '../ui/device.js';
 import { LoadoutButton } from './loadout.js';
+import { ModMenuButton } from './mods.js';
 import { modsOn } from '../ui/mods.js';
 import { net, identity } from '../net.js';
 import { store, useStore, shallowEqual, loadPref, savePref } from '../store.js';
@@ -345,6 +346,9 @@ export function LobbyScreen() {
       <div class="topbar__right">
         <${ResumeMatchButton} />
         <${LoadoutButton} from="lobby" class="lobby-loadout" label=${t('干员调配')} />
+        ${/* Mod 菜单 (fork, 需求方 2026-10-16): the 内容包 switches' own dialog, beside 干员调配 as asked. The five
+             game-rule switches are NOT here — they live in 房主配置 → 对局选项. */
+          html`<${ModMenuButton} class="lobby-modmenu" />`}
         <button type="button" class="me-chip me-chip--btn stats-entry" onClick=${openStats} title=${t('统计数据')} aria-label=${t('统计数据')}>
           <${AvatarFrame} size="sm" name=${me.name} seat=${0} self=${true} />
           <span class="me-chip__text">

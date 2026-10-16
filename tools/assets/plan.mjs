@@ -349,6 +349,7 @@ export function collectEnemyIds({ assets07, enemies05, maps05, ops03 }) {
  * @returns {{ template: any, models: Map<string, any>, notes: string[] }}
  */
 export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsData, charword = null, voiceLang = 'cn',
+  voiceLangs = null,
   voiceJp = true, voiceSlots = VOICE_BATTLE_SLOTS, optionalVoice = false,
   extraEnemyIds = [], extraTokenIds = [], extraHandbook = {}, localEnemySpines = {}, localTokenSpines = {}, extraOperators = {},
   moduleTypes = [], statsTemplate = [] }) {
@@ -709,6 +710,23 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
   const voice = voiceTree(voiceLang);
   if (!Object.keys(voice).length) notes.push('battle voice: charword_table.json has no slots (index missing?)');
 
+  // 多语种语音表 (工坊 mod 层移植, 2026-10-16): `audio.voiceLangs[lang][charId][slot]` — 除默认档以外的每一档配音，
+  // 平行于 `audio.voice`。每个语种的文件名与默认档相同，只是目录不同（voiceAlt 换 `audio/voice/<lang>/`），
+  // 所以各档共用同一套叶节点构造 —— 这里用同一个 voiceTree，两条路不可能对同一档给出不同结果。
+  //
+  // 缺省 = 除默认档以外的**全部**语种（`VOICE_DIRS` 的键）：这既是 0.3.0 起「多语种语音」的口径，也让
+  // `audio.voiceLangs` 在任何一台机器上都是**非空对象** —— `resolveTemplate` 会把空容器整格丢掉，一个被悄悄丢掉的
+  // `voiceLangs` 会让读它的客户端（public/js/voiceDubs.js）与工坊的素材面一起失去这一档。某语种在本机一个文件都
+  // 没命中时它的**内容**仍是空的，那一档在客户端回落到默认档，但表的形状还在。
+  const extraLangs = [...new Set((Array.isArray(voiceLangs) ? voiceLangs : Object.keys(VOICE_DIRS))
+    .filter((l) => typeof l === 'string' && l in VOICE_DIRS && l !== voiceLang))].sort();
+  const voiceLangsTable = {};
+  for (const lang of extraLangs) {
+    const t = voiceTree(lang);
+    voiceLangsTable[lang] = t;
+    if (!Object.keys(t).length) notes.push(`battle voice: ${lang} has no slots (index missing?)`);
+  }
+
   // English, Korean and each operator's own-language dub (VOICE_OPTIONAL_TREES; public/js/audio.js VOICE_TREES):
   // `audio.voiceEn` / `audio.voiceKr` / `audio.voiceNative`, the same slots and file names. A line missing upstream
   // stays missing (the client plays the Chinese one), never filled from another dub. `audio.voiceNativeLangType`
@@ -731,6 +749,10 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     audio: {
       bgm,
       bossBgm: Object.fromEntries(Object.entries(bossBgm).sort(([a], [b]) => a.localeCompare(b, 'en', { numeric: true }))),
+      // 默认档的语种声明 + 其它语种表 (工坊 mod 层移植)：`shared/workshop.js` 与素材镜像面读它们，
+      // 社区 mod 的双语语音要落到其中一张（test/modSurface.test.js 的 assets.audio 一组断言钉住这一点）。
+      voiceLang,
+      voiceLangs: voiceLangsTable,
       voice,
       ...(voiceJp ? { voiceJp: voiceTree(VOICE_JP_LANG) } : {}),
       ...optionalTrees,

@@ -60,11 +60,27 @@ import { createAssetIndex } from './http/assetIndex.js';
 import { createManifestViews } from './http/assetViews.js';
 import { answerClientError } from './http/common.js';
 import { lanUrls, displayHost, isProcessEntry, runMain } from './http/boot.js';
+// 工坊 mod 层移植 (2026-10-16, DESIGN §34): the pack-facing HTTP helpers live in ./http/workshop.js but stay part of this
+// module's API, the same way the static / route helpers above do — tests and tools reach them from here.
+import {
+  buildWorkshopDataFiles, workshopKitFilesFor, workshopKitDirsFor, workshopPanelFilesFor, workshopAssetsFor, workshopRoutesFor,
+  workshopResourceFilesFor, workshopModAssetsFrom, buildWorkshopI18nFiles, resourceServerPolicy, WORKSHOP_ASSET_PREFIX, WORKSHOP_ASSET_TYPES,
+  workshopBattleFilesFor,
+} from './http/workshop.js';
+import { buildModCatalog } from './modCatalog.js';
+import { createModsRoute, serveMods, MODS_CATALOG_URL, MOD_FILE_PREFIX } from './http/mods.js';
+import { loadWorkshop, WORKSHOP_DIR } from './workshop.js';
 
 // The public API of this module (tests and tools import it from here); the code lives in ./http/.
 export {
   ROOT, WS_MAX_PAYLOAD, DATA_SHIM_JS, MIME, COMPRESSIBLE, BUILD_INPUTS, computeBuildTag, buildTag, resetBuildTag,
   acceptsGzip, pickEncoding, parseRange, createStaticHandler, lanUrls, parseTrustProxy,
+  // 创意工坊 (DESIGN §34): the workshop data-file builders and asset helpers.
+  buildWorkshopDataFiles, workshopKitFilesFor, workshopKitDirsFor, workshopPanelFilesFor, workshopAssetsFor, workshopRoutesFor,
+  workshopResourceFilesFor, workshopModAssetsFrom, buildWorkshopI18nFiles, resourceServerPolicy, WORKSHOP_ASSET_PREFIX, WORKSHOP_ASSET_TYPES,
+  workshopBattleFilesFor,
+  // 客户端 mod 本地缓存 (W-C): the catalogue builder and the routes a browser downloads from.
+  buildModCatalog, createModsRoute, serveMods, MODS_CATALOG_URL, MOD_FILE_PREFIX,
 };
 
 /**
@@ -99,8 +115,17 @@ export async function startServer(opts = {}) {
   const { publicDir, dataDir, sharedDir, packsDir, pluginsDir } = serveDirs(opts);
   const simDir = path.join(ROOT, 'server', 'sim');
 
-  // The process-wide singleton serves the default data dir; a custom dir (tests) gets its own copy.
-  const data = opts.dataDir ? loadData(dataDir, { log }) : getData({ dir: dataDir, log });
+  // 创意工坊 (工坊 mod 层移植, 2026-10-16, DESIGN §34): `workshopDir` is where the host keeps its packs. `undefined`
+  // means the repository's own `workshop/` (which a plain install does not have — then the data load below is a no-op
+  // and everything is byte-identical); `null` skips the feature entirely, which is what a test that wants the official
+  // numbers passes.
+  const workshopDir = opts.workshopDir === undefined ? WORKSHOP_DIR : opts.workshopDir;
+
+  // The process-wide singleton serves the default data dir; a custom dir (tests) gets its own copy, and a caller that
+  // names a workshop root must get a FRESH load (the singleton is process-wide and its first caller wins).
+  const data = (opts.dataDir || opts.workshopDir !== undefined)
+    ? loadData(dataDir, { log, workshopDir })
+    : getData({ dir: dataDir, log, workshopDir });
   // the vanilla content hash `cs` (DESIGN §32): the bytes of the served sim, shared code and game data, read once now —
   // like the data the matches use and the build tag below
   const content = computeVanillaContent({ simDir, sharedDir, dataDir, shim: DATA_SHIM_JS, log });
@@ -126,7 +151,14 @@ export async function startServer(opts = {}) {
   const transport = String(process.env.SP_MATCH_HOST || '').trim().toLowerCase() === 'worker' ? 'worker' : 'process';
   const hosts = createMatchHosts({ contents, log, options: { transport, maxWorkers: Math.max(1, policy.get().maxSets), ...(opts.matchHost || {}) } });
   const { registry, lobby, network } = createSessionStack(opts, { data, log, content, plugins: roomSets, hosts });
-  const serveStatic = createStaticHandler({ publicDir, dataDir, sharedDir, simDir, packsDir, pluginsDir, packs, content, log, assetIndex, views, visual, contents });
+  // 创意工坊 (DESIGN §34): the /data files a pack TOUCHED, as the merged JSON the browser must be served (a Map of
+  // name → Buffer). Only the files `applyWorkshop` actually changed are in it, so a room with no pack serves every file
+  // from disk byte for byte — the same object the server's own matches use, so the two views cannot disagree.
+  const workshopJson = workshopDir ? buildWorkshopDataFiles(data, loadWorkshop(workshopDir, { log })) : null;
+  // a pack's OWN art (`<pack>/assets/**`, served read-only under WORKSHOP_ASSET_PREFIX) — the one path the client must
+  // be able to fetch for ported content to render at all.
+  const workshopAssets = workshopDir ? workshopAssetsFor(loadWorkshop(workshopDir, { log }), workshopDir) : null;
+  const serveStatic = createStaticHandler({ publicDir, dataDir, sharedDir, simDir, packsDir, pluginsDir, packs, content, log, assetIndex, views, visual, contents, workshopJson, workshopAssets });
   // the plugin studio (DESIGN §32.9): its page and API for this machine and the local network; it watches plugins/ only
   // once it is used (hot reload), and rooms whose host is the author or alone follow a plugin's changes by themselves
   const studio = opts.studio === false ? null : createStudio({ publicDir, pluginsDir, dataDir, registry: packs, lobby, sessions: registry, log, fetch: opts.fetch });

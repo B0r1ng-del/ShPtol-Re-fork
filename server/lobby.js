@@ -1397,6 +1397,8 @@ export class Lobby {
         multiAlliance: room.hostConfig.multiAlliance === true,
         // 装备可售卖 (HOST_CONFIG_KEYS itemSell): the one room option a single-seat room may set too
         itemSell: room.hostConfig.itemSell === true,
+        // 在线聊天 (HOST_CONFIG_KEYS onlineChat, fork): the room accepts g.chat and shows the in-match chat window
+        onlineChat: room.hostConfig.onlineChat === true,
         // 房主配置「对局选项」(room.setEnemyBuff, HOST_ENEMY_KEYS): the four enemy buffs as 10 % step counts. All 0 unless
         // the host turned one up, so a room that never touched them (and every test / tool) is the official numbers.
         enemyBuff: { ...room.enemyBuff },

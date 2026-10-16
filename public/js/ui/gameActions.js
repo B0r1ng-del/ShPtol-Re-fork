@@ -107,6 +107,8 @@ export const actions = {
   emote: (id) => act('g.emote', { id }, { quiet: true }),
   // 一键十连 (fork): one tap sends the same emote ten times
   emoteBurst: (id) => act('g.emoteBurst', { id }, { quiet: true }),
+  // 在线聊天 (fork, 房主配置 `onlineChat`): one message; the server relays it to the room as m.chat
+  chat: (text) => act('g.chat', { text }, { quiet: true }),
   // `playerId`: the player tapped in the team panel (a shared field shows two) — what an eliminated viewer follows
   watch: (fieldId, playerId = null) => act('g.watch', typeof playerId === 'string' && playerId ? { fieldId, playerId } : { fieldId }, { sfx: 'tab' }),
   autoplay: (on) => act('g.autoplay', { on }),

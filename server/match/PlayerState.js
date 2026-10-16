@@ -172,6 +172,8 @@ export class PlayerState {
     this.ready = false;
     this.infoReady = this.isBot;
     this.lastEmoteAt = -Infinity;
+    /** 在线聊天 (fork): the last `g.chat` this player sent, for CHAT_COOLDOWN_MS. */
+    this.lastChatAt = -Infinity;
     /** operator loadout (DESIGN §16): frozen { [baseChessId]: { skill, module } }, {} = every chess on its defaults */
     this.loadout = Object.freeze({});
     // 0.2.2: the per-operator 潜能 / 练度 ({} = every operator 潜能 6, 精英2 Lv.60 — bots always)

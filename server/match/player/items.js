@@ -9,6 +9,18 @@ import { tileKey, inField, parseDir } from '../board.js';
 import { offsetTile } from '../../sim/dir.js';
 import { itemKey } from '../gamedata.js';
 import { OK, fail } from './common.js';
+// 工坊 mod 层移植 (2026-10-16): the behaviour layer's `unequip` switch (a pack may allow taking an equipped item off).
+import { behaviourIsDefault } from '../../../shared/behaviour.js';
+
+/**
+ * 工坊 mod 层 (behaviour `unequip`): whether a pack lets an equipped item be taken off. False for a pack that declares
+ * nothing — the official rule — so a vanilla match behaves exactly as before.
+ * @param {any} decl the match's behaviour declaration
+ * @returns {boolean}
+ */
+export function unequipAllowed(decl) {
+  return !behaviourIsDefault(decl, 'unequip');
+}
 
 export class PlayerItems {
   /**
