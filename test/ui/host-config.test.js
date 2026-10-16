@@ -50,11 +50,14 @@ test('the panel is editable by the host alone; everybody else reads the same val
 
 test('a single-seat room (独立模拟) shows the rows that share nothing between players; no room shows nothing', async () => {
   const { hostConfigPanel, hostConfigOption } = await mod();
-  // 独立模拟 has nobody to share with: only 装备可售卖 (HOST_CONFIG_SOLO_KEYS) survives — it is about one's own items
-  assert.deepEqual(hostConfigPanel(room({ mode: 'solo' }), 'h').map((r) => r.key), ['itemSell']);
+  // 独立模拟 has nobody to share with: only HOST_CONFIG_SOLO_KEYS survives — 装备可售卖 (about one's own items) and
+  // 在线聊天 (需求方 2026-10-17: excluding it made the option unusable in a solo room — the row was hidden AND the lobby
+  // refused the write, which is exactly what the owner hit).
+  assert.deepEqual(hostConfigPanel(room({ mode: 'solo' }), 'h').map((r) => r.key), ['itemSell', 'onlineChat']);
   assert.equal(hostConfigOption(room({ mode: 'solo' }), 'h', 'sharedPool'), null);
   assert.equal(hostConfigOption(room({ mode: 'solo' }), 'h', 'itemSell').on, false);
   assert.equal(hostConfigOption(room({ mode: 'solo' }), 'h', 'itemSell').editable, true, 'the solo host still edits it');
+  assert.equal(hostConfigOption(room({ mode: 'solo' }), 'h', 'onlineChat').editable, true, 'and the chat window is usable there');
   assert.equal(hostConfigPanel(null, 'h'), null);
   // 同盟模拟 (4) and 终极模拟 (6) both show every row
   for (const mode of ['coop', 'ultimate']) assert.equal(hostConfigPanel(room({ mode }), 'h').length, HOST_CONFIG_KEYS.length, mode);
@@ -135,6 +138,10 @@ test('the 对局选项 markup: one slider per row, wired to room.setEnemyBuff, w
   assert.match(CSS, /\.ebuff \{/);
   assert.match(CSS, /\.ebuff__rows \{/);
   assert.match(CSS, /\.ebuff__warn \{/);
+  // 对齐 (需求方 2026-10-17: 「右侧开关未对齐」): only the rule half of MOD_ROWS comes here, so the two-column grid
+  // `.mods__rows` (screens/lobby.css) must be narrowed to ONE full-width column inside this dialog — otherwise the single
+  // column sat in the left half and its switches stopped short of the `.hostcfg__rows` switches right above them.
+  assert.match(CSS, /\.mods--hostcfg \.mods__rows \{ grid-template-columns: minmax\(0, 1fr\); \}/);
 });
 
 test('「AI 队友最后选择」 reads its own pre-existing room.state field, every other row reads hostConfig', async () => {

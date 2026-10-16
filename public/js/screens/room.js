@@ -101,9 +101,10 @@ export const HOST_CONFIG_ROWS = Object.freeze([
   { key: 'aiPicksLast', label: N_('AI 队友最后选择'), tip: N_('策略与机变轮选时，所有博士先于 AI 队友选择'), on: false, solo: false },
   { key: 'multiAlliance', label: N_('多同盟模式'), tip: N_('官方规则：每个策略只能由一位博士选择'), on: false, solo: false },
   { key: 'itemSell', label: N_('装备可售卖'), tip: N_('开启后装备可以出售，售价 1 块钱；关闭时装备只能销毁'), on: false, solo: true },
-  // 在线聊天 (fork, 需求方 2026-10-16): the in-match chat window. Not a `solo` row — a single-seat room has nobody to
-  // talk to (HOST_CONFIG_SOLO_KEYS), and the server refuses it there.
-  { key: 'onlineChat', label: N_('在线聊天'), tip: N_('开启后局内显示可收起的聊天窗口，全房间的博士都能发言，「交流」表情按钮也会收入其中'), on: false, solo: false },
+  // 在线聊天 (fork, 需求方 2026-10-16): the in-match chat window. `solo: true` since 2026-10-17 — the owner reported the
+  // option was unusable (「在线聊天选项无法使用」), and the cause was that a single-seat room both hid this row and had the
+  // lobby refuse the write (HOST_CONFIG_SOLO_KEYS). A solo host may turn the window on; it still carries the 交流 wheel.
+  { key: 'onlineChat', label: N_('在线聊天'), tip: N_('开启后局内显示可收起的聊天窗口，全房间的博士都能发言，「交流」表情按钮也会收入其中'), on: false, solo: true },
 ]);
 
 /**

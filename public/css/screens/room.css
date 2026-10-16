@@ -333,8 +333,15 @@
 
 /* 房主配置「Mod 开关」 (room.setMods, MOD_KEYS; 需求方 2026-10-16 把大厅 Mod 子菜单整块搬进房主配置): the same two-column
    rows the submenu used (`.mods__rows` / `.mods__col`, screens/lobby.css — the switch ROWS keep that file's grid), under
-   this dialog's own header and separated like 对局选项. Only the block frame, the header and the note live here. */
+   this dialog's own header and separated like 对局选项. Only the block frame, the header and the note live here.
+
+   对齐 (需求方 2026-10-17: 「右侧开关未对齐」): the submenu's `.mods__rows` is a TWO-column grid, but only the rule half
+   comes here (`MOD_RULE_ROWS`) — the grid then held one column and pushed every switch to the dialog's centre, while the
+   `.hostcfg__rows` switches right above it sit hard right. One column, full width: both blocks line up on the same x.
+   The submenu keeps its own two columns in `screens/lobby.css`; this override only applies inside `.mods--hostcfg`. */
 .mods--hostcfg { display: flex; flex-direction: column; gap: .12rem; margin-top: .14rem; padding-top: .14rem; border-top: 1px solid var(--line-1); }
+.mods--hostcfg .mods__rows { grid-template-columns: minmax(0, 1fr); }
+.mods--hostcfg .mods__col { gap: .18rem; }
 .mods__head { display: flex; align-items: center; gap: .08rem; }
 .mods__note { margin: 0; font-size: calc(.14 * var(--t)); line-height: 1.5; color: var(--line-3); }
 
