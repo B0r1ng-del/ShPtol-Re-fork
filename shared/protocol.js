@@ -541,6 +541,10 @@ export const C2S = {
   'g.equip': { itemUid: isUid, targetUid: isUid, replaceUid: nullable(isUid), $optional: ['replaceUid'] },
   'g.art': { itemUid: isUid, row: (v) => isInt(v, 0, GEO.ROWS - 1), col: (v) => isInt(v, 0, GEO.COLS - 1), dir: isDir, $optional: ['dir'] },
   'g.destroy': { uid: isUid },
+  // 装备拆卸 (behaviour `unequip`, DESIGN §34.43.2 / 投稿 79de9ff03518): take one EQUIPPED item off its operator during
+  // prep. Same `isUid` child as g.destroy / g.equip.itemUid. No new S2C message (the result rides the existing
+  // `dirty()` / private-view push) and PROTOCOL_VERSION does not move: a new type is not a changed shape.
+  'g.unequip': { itemUid: isUid },
   'g.reward': { idx: (v) => isInt(v, 0, 5) },
   'g.choice': { idx: (v) => isInt(v, 0, 5), choiceId: isId, $optional: ['choiceId'] },
   'g.ready': { ready: isBool },

@@ -95,6 +95,8 @@ export {
  *   heavyPerSec?: number, heavyBurst?: number, trustProxy?: 'auto' | boolean, soloReconnectWindowMs?: number,
  *   assetIndex?: boolean | { cacheFile?: string | null, delayMs?: number }, studio?: boolean,
  *   matchHost?: object,
+ *   workshopDir?: string | null,
+ *   wsLanes?: readonly import('./http/wsLanes.js').WsLane[],
  * }} [opts]
  *   assetIndex: the content-hash index (default on; false or SP_ASSET_INDEX=0: off — config.js assetIndexOptionsFrom);
  *   studio: the plugin studio at /studio/ (default on for this machine and the local network — SP_STUDIO=local|off;
@@ -150,14 +152,35 @@ export async function startServer(opts = {}) {
   // an out-of-memory abort in a worker thread ends the whole server)
   const transport = String(process.env.SP_MATCH_HOST || '').trim().toLowerCase() === 'worker' ? 'worker' : 'process';
   const hosts = createMatchHosts({ contents, log, options: { transport, maxWorkers: Math.max(1, policy.get().maxSets), ...(opts.matchHost || {}) } });
-  const { registry, lobby, network } = createSessionStack(opts, { data, log, content, plugins: roomSets, hosts });
-  // 创意工坊 (DESIGN §34): the /data files a pack TOUCHED, as the merged JSON the browser must be served (a Map of
-  // name → Buffer). Only the files `applyWorkshop` actually changed are in it, so a room with no pack serves every file
-  // from disk byte for byte — the same object the server's own matches use, so the two views cannot disagree.
-  const workshopJson = workshopDir ? buildWorkshopDataFiles(data, loadWorkshop(workshopDir, { log })) : null;
+  // 创意工坊 (DESIGN §34): 装载一次，四处投影共用（工坊 mod 层移植 2026-10-17）。从前这里是 `loadWorkshop` 各调一次
+  // —— 扫描同一棵树两遍、算出两份互不相识的产物，而它们本该是同一份（`loadWorkshop` 是同步的纯函数，给定同一个
+  // 目录两次结果相同；但两次调用意味着两次 IO 与两处可能分叉的失败点）。没有包时 `loaded` 是空壳，下面三处都是
+  // `null` / `[]`，一切与从前逐字节相同。
+  const workshopLoaded = workshopDir ? loadWorkshop(workshopDir, { log }) : null;
+  const workshopJson = workshopLoaded ? buildWorkshopDataFiles(data, workshopLoaded) : null;
   // a pack's OWN art (`<pack>/assets/**`, served read-only under WORKSHOP_ASSET_PREFIX) — the one path the client must
   // be able to fetch for ported content to render at all.
-  const workshopAssets = workshopDir ? workshopAssetsFor(loadWorkshop(workshopDir, { log }), workshopDir) : null;
+  const workshopAssets = workshopLoaded ? workshopAssetsFor(workshopLoaded, workshopDir) : null;
+  // The mod set (DESIGN §34.2): one identity per pack, one digest for the whole set. It travels in `welcome`, in
+  // `/healthz` (lobby.stats) and in every BattleSpec, so the three can never disagree about what is running.
+  // 口径声明（`variants`）与行为开关声明（`behaviour`）**走同一个投影点**：漏掉 `behaviour` = 服务端装载器读到了
+  // 声明、`Match` 却读到 `undefined` ⇒ 开关**静默不生效**（`test/packBehaviour.test.js` 对下面这一行有源码级断言）。
+  // 与 `voiceCdn` / `skins` 同一条纪律：**只在包真的声明过时才存在这个键**，没声明的包这一份与从前逐字节相同。
+  const workshopMods = ((workshopLoaded && workshopLoaded.packs) || []).map((p) => ({
+    id: p.id, hash: p.hash, layer: p.layer, combat: p.combat, api: p.api,
+    ...(Array.isArray(p.variants) && p.variants.length ? { variants: p.variants } : {}),
+    ...(Array.isArray(p.behaviour) && p.behaviour.length ? { behaviour: p.behaviour } : {}),
+  }));
+  // 行为声明的合成只在一个地方（`shared/behaviour.js` 的 `mergeBehaviourDecls`，包 id 字典序小的赢）：这里给的是
+  // **整份 mod 集**（`{ packs: [...] }`），`Match` 与 `Lobby` 读同一份 —— 两处各合一次就会有两份可能分叉的判决。
+  const workshopPackSet = workshopMods.length ? { packs: workshopMods } : null;
+  const { registry, lobby, network } = createSessionStack(opts, { data, log, content, plugins: roomSets, hosts, workshop: workshopPackSet });
+  // mod 目录路由（W-C，DESIGN §34.2 裁决 B）：客户端本地缓存的比对基准。**目录只在进程启动时建一次**（包集在装载
+  // 时就固定了），所以 `serveMods` 每个请求只做两次查表。没有包时是 `null` ⇒ 路由根本不挂，两条 `/mods/` 路径
+  // 落到静态（与从前逐字节相同：那时也没有这两条路径）。
+  const modsCatalog = workshopLoaded
+    ? { serve: serveMods, routes: createModsRoute(workshopLoaded, buildModCatalog(workshopLoaded)) }
+    : null;
   const serveStatic = createStaticHandler({ publicDir, dataDir, sharedDir, simDir, packsDir, pluginsDir, packs, content, log, assetIndex, views, visual, contents, workshopJson, workshopAssets });
   // the plugin studio (DESIGN §32.9): its page and API for this machine and the local network; it watches plugins/ only
   // once it is used (hot reload), and rooms whose host is the author or alone follow a plugin's changes by themselves
@@ -170,9 +193,9 @@ export async function startServer(opts = {}) {
   buildTag();
 
   const traffic = createTrafficCounter();
-  const server = http.createServer(createRequestHandler({ serveStatic, csp: process.env.SP_CSP === 'off' ? null : siteCsp(publicDir), health: { startedAt, network, registry, lobby, content, traffic, assetIndex, views, trusted:trustedRuntime?.health }, log, trustProxy: network.opts.trustProxy, studio, trustedRuntime }));
+  const server = http.createServer(createRequestHandler({ serveStatic, csp: process.env.SP_CSP === 'off' ? null : siteCsp(publicDir), health: { startedAt, network, registry, lobby, content, traffic, assetIndex, views, trusted:trustedRuntime?.health }, log, trustProxy: network.opts.trustProxy, studio, trustedRuntime, modsCatalog }));
   server.on('clientError', answerClientError);
-  const wss = attachWebSocket(server, { network, log, traffic });
+  const wss = attachWebSocket(server, { network, log, lanes: opts.wsLanes, traffic });
 
   // The address actually bound. The default may fall back to IPv4; the returned host and url follow that.
   let boundHost;

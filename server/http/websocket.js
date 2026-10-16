@@ -10,6 +10,9 @@ import { WebSocketServer } from 'ws';
 import { Network, SessionRegistry, NET_DEFAULTS } from '../net.js';
 import { Lobby } from '../lobby.js';
 import { splitUrl } from './common.js';
+// 工坊 mod 层移植 (2026-10-17, DESIGN §34): 包声明的 WS 车道（`server.http.wsLanes`）—— 每条车道在 `/ws` 之外占一个
+// 路径，自己拥有那条 socket。判据（路径合法性 / 保留路径 / 上限）只有 `wsLanes.js` 一份。
+import { validateLanes, resolveLane } from './wsLanes.js';
 import { netOptionsFrom, lobbyOptionsFrom } from './config.js';
 
 /** Inbound WebSocket frame limit (DESIGN §8). */
@@ -64,11 +67,11 @@ export function narrowDeflateOffer(header) {
  *   gameplay plugins plays in (DESIGN §32.6)
  * @returns {{ registry: SessionRegistry, lobby: Lobby, network: Network }}
  */
-export function createSessionStack(opts, { data, log, content = null, plugins = null, hosts = null }) {
+export function createSessionStack(opts, { data, log, content = null, plugins = null, hosts = null, workshop = null }) {
   const netOptions = netOptionsFrom(opts);
   const registry = new SessionRegistry({ reconnectWindowMs: netOptions.reconnectWindowMs ?? NET_DEFAULTS.reconnectWindowMs });
   const lobbyOptions = lobbyOptionsFrom(opts);
-  const lobby = new Lobby({ registry, log, MatchClass: opts.MatchClass, getData: () => data, seedFn: opts.seedFn, content, plugins, hosts, options: lobbyOptions });
+  const lobby = new Lobby({ registry, log, MatchClass: opts.MatchClass, getData: () => data, seedFn: opts.seedFn, content, plugins, hosts, options: lobbyOptions, workshop });
   const network = new Network({ registry, handler: lobby, log, options: netOptions });
   return { registry, lobby, network };
 }
@@ -98,7 +101,12 @@ function meterSocket(ws, req, traffic) {
  * @param {{ network: Network, log: object, traffic?: ReturnType<typeof import('./traffic.js').createTrafficCounter> }} deps
  * @returns {WebSocketServer}
  */
-export function attachWebSocket(server, { network, log, traffic = null }) {
+export function attachWebSocket(server, { network, log, lanes, traffic = null }) {
+  // A bad table is a configuration error, and it fails here — at boot, named — rather than leaving the operator with a
+  // lane that answers 404 forever (the silent-revert shape this family has been burned by before).
+  const table = validateLanes(lanes ?? []);
+  if (table.problems.length) throw new Error(`bad ws lane table: ${table.problems.join('; ')}`);
+  if (table.lanes.length) log.info('[ws] lanes: ' + table.lanes.map((l) => `${l.path} (${l.id})`).join(', '));
   const wss = new WebSocketServer({ noServer: true, maxPayload: WS_MAX_PAYLOAD, perMessageDeflate: { ...WS_DEFLATE }, clientTracking: false });
   wss.on('connection', (ws, req) => {
     if (traffic) meterSocket(ws, req, traffic);
@@ -112,10 +120,21 @@ export function attachWebSocket(server, { network, log, traffic = null }) {
     const reject = (status, text) => {
       try { socket.end(`HTTP/1.1 ${status} ${text}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`); } catch { socket.destroy(); }
     };
-    if (!parts || parts.rawPath !== '/ws') { reject(404, 'Not Found'); return; }
+    if (!parts) { reject(404, 'Not Found'); return; }
+    const lane = parts.rawPath === '/ws' ? null : resolveLane(parts.rawPath, table.lanes);
+    if (!lane && parts.rawPath !== '/ws') { reject(404, 'Not Found'); return; }
     const refused = network.admission(req);
     if (refused === 'per-address') { reject(429, 'Too Many Requests'); return; }
     if (refused) { reject(503, 'Service Unavailable'); return; }
+    if (lane) {
+      // The lane owns the socket from here. Anything it throws closes that socket and says which lane said it —
+      // falling through to /ws would let a client ask for `/duel/lobby` and land in a Stronghold match.
+      try { lane.onUpgrade(req, socket, head, { reject, log, lane }); } catch (e) {
+        log.error(`[ws] lane ${lane.id} failed`, e);
+        socket.destroy();
+      }
+      return;
+    }
     if (narrowDeflateOffer(req.headers['sec-websocket-extensions'])) delete req.headers['sec-websocket-extensions'];
     try {
       wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));

@@ -2168,5 +2168,7 @@
   "以下规则默认全部关闭（原版规则）；开启后会改变本局的玩法，对其他玩家同样生效。": "These rules are all OFF by default (the original rules); turning one on changes how this match plays, for every player in it.",
   "聊天弹幕": "Chat barrage",
   "打开后，房间里的发言会以弹幕形式横穿屏幕，弹幕上带发送者的名字。官方界面没有这个效果。": "Turns on: messages sent in this room also cross the screen as a danmaku strip carrying the sender's name. The official interface has no such effect.",
-  "打开后，对局顶栏可以查看自己干员的伤害、治疗和 DPS / HPS。官方界面没有这个窗口。改变玩法的插件对局在 Worker 里演算，统计不到，按钮不显示。": "Turns on: the match's top bar can show your own operators' damage, healing and DPS / HPS. The official interface has no such panel. A match with gameplay plugins is simulated in a Worker, where it cannot be counted, so the button stays hidden."
+  "打开后，对局顶栏可以查看自己干员的伤害、治疗和 DPS / HPS。官方界面没有这个窗口。改变玩法的插件对局在 Worker 里演算，统计不到，按钮不显示。": "Turns on: the match's top bar can show your own operators' damage, healing and DPS / HPS. The official interface has no such panel. A match with gameplay plugins is simulated in a Worker, where it cannot be counted, so the button stays hidden.",
+  "卸下": "Unequip",
+  "拖拽至干员身上进行配发（每名干员最多 2 件）": "Drag onto an operator to equip (at most 2 per operator)"
 }

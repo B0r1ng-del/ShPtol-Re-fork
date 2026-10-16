@@ -20,9 +20,24 @@
 import { PROTOCOL_VERSION, APP_VERSION } from '../../shared/constants.js';
 import { buildTag } from './buildTag.js';
 import { setSecurityHeaders, sendError, sendJson, splitUrl } from './common.js';
-import { clientAddress, isLocalIp } from '../net.js';
+import { clientAddress, isLocalIp, TokenBucket } from '../net.js';
+// mod 目录的两条路径（server/http/mods.js）：`serveMods` 只认它们，准入（429）也只覆盖它们。
+import { MODS_CATALOG_URL, MOD_FILE_PREFIX } from './mods.js';
 
 const MAX_URL_LENGTH = 4096;
+
+/**
+ * mod 目录路由（`/mods/index.json` 与包文件的清单）的限流：**每客户端地址**一只桶，照本仓既有做法
+ * （`server/net.js` 的 `TokenBucket`，WebSocket 准入与账号认证用的是同一个类）。
+ *
+ * 为什么这条只读路由要限流：它是**唯一**会被客户端在进房前反复拉取的清单（浏览器本地缓存的比对基准），而它背后
+ * 是一次扫描包树的读；不限流的话一个循环重连的客户端就能让宿主一直重新生成清单。超限回 **429 + `Retry-After`**，
+ * 而不是静默降级成空清单 —— 客户端要能分辨「被限流了」与「服务器没有包」，前者该退避重试，后者该走官方数据。
+ */
+const MODS_RATE_PER_SEC = 1;
+const MODS_RATE_BURST = 10;
+/** 空闲桶的回收线：只在放行路径上扫，代价摊在正常请求里（这张表本身也该有界）。 */
+const MODS_BUCKET_IDLE_MS = 10 * 60_000;
 
 /** `{ plugins: n }` when the server has n > 0 unofficial plugins (the lobby's visual sets count them), else nothing. */
 function pluginCount(lobby) {
@@ -79,7 +94,33 @@ const wantsTraffic = (query) => /(?:^|&)traffic(?:=(?:1|true|yes))?(?:&|$)/i.tes
  *   plugin studio (server/studio/index.js), or none
  * @returns {(req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse) => void}
  */
-export function createRequestHandler({ serveStatic, health, log, trustProxy = 'auto', studio = null, csp = null, trustedRuntime = null }) {
+export function createRequestHandler({ serveStatic, health, log, trustProxy = 'auto', studio = null, csp = null, trustedRuntime = null, modsCatalog = null }) {
+  /** @type {Map<string, TokenBucket>} 客户端地址 → mod 目录路由的桶 */
+  const modBuckets = new Map();
+
+  /**
+   * mod 目录路由的准入。true = 放行（桶里有票，或这条路由没接）。超限回 429（带 `Retry-After`）。
+   * @param {import('node:http').IncomingMessage} req
+   * @param {import('node:http').ServerResponse} res
+   * @returns {boolean}
+   */
+  function admitModRead(req, res) {
+    const key = req.socket && req.socket.remoteAddress ? req.socket.remoteAddress : 'unknown';
+    const now = Date.now();
+    let bucket = modBuckets.get(key);
+    if (!bucket) { bucket = new TokenBucket(MODS_RATE_PER_SEC, MODS_RATE_BURST, now); modBuckets.set(key, bucket); }
+    if (bucket.take(now)) {
+      // 顺手回收空闲桶（这张表本身也该有界）；只在放行路径上扫，代价摊在正常请求里。
+      if (modBuckets.size > 1) {
+        for (const [other, b] of modBuckets) if (other !== key && now - b.at > MODS_BUCKET_IDLE_MS) modBuckets.delete(other);
+      }
+      return true;
+    }
+    res.setHeader('Retry-After', '1');
+    sendJson(req, res, 429, { error: 'RATE' });
+    return false;
+  }
+
   async function handleRequest(req, res) {
     const url = req.url || '/';
     if (url.length > MAX_URL_LENGTH) { sendError(req, res, 414, '请求地址过长 · URI too long'); return; }
@@ -91,6 +132,14 @@ export function createRequestHandler({ serveStatic, health, log, trustProxy = 'a
       res.setHeader('Allow', 'GET, HEAD');
       sendError(req, res, 405, '不支持的请求方法 · Method not allowed');
       return;
+    }
+    // mod 目录（`/mods/catalog.json` 与 `/mods/file/<包>/<路径>`，server/http/mods.js）：浏览器拿它比对本地缓存。
+    // 位置与 Forge 相同 —— 在 405 之后、静态之前；`serveMods` 自己判路径，不认得就返回 false 落到静态
+    // （它是**同步**的正是为了让调用方用返回值决定要不要继续路由）。准入（429）只覆盖它认领的这两条路径：
+    // 静态文件的既有策略一个字节都不动。
+    if (modsCatalog && (parts.rawPath === MODS_CATALOG_URL || parts.rawPath.startsWith(MOD_FILE_PREFIX))) {
+      if (!admitModRead(req, res)) return;
+      if (modsCatalog.serve(req, res, parts.rawPath, parts.query, modsCatalog.routes)) return;
     }
     if (parts.rawPath === '/healthz') {
       const withTraffic = wantsTraffic(parts.query) && isLocalIp(clientAddress(req, trustProxy).ip);

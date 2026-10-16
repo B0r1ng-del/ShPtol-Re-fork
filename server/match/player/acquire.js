@@ -105,6 +105,12 @@ export class PlayerAcquire {
     const toTile = (t) => { elite.dir = parseDir(t.dir) || 'RIGHT'; this.board.set(t.key, elite); return 'board'; };
     const tile = mergeTile(deployed, (r, c) => this._legal(elite, r, c));
     const where = tile ? toTile(tile) : this.stow(elite, { allowTemp: true });
+    // 装备位语义（第 7 段 · 工坊 mod 层移植 2026-10-17）：返还装备与精英都只走 `stow(..., { allowTemp: true })` —— 它们
+    // 落**手牌 / 临时队列**，**挂回干员**这一步不在这里，所以本文件没有装备位判定可读：`morphPairing` 的 `plus` 档
+    //（不占位 / 每人最多一件不占位 / 第三件顶掉真正占格的那一件）由 `matchSlotPolicy` 在**其它三处**读取点执行 ——
+    // `player/items.js`（`equip` / `_attach` / `_takeReplaced` 的判定本体）、`bot.js`（AI 的空位读数）、
+    // `invariants.js`（不变量）。临时队列是**无界**的（`pieces.js` "Five visible slots are a window, not a capacity
+    // limit"），所以每件返还装备必然落在手牌或临时队列，**不会丢件** —— 这一点与档位无关。
     for (const it of items) this.stow(it, { allowTemp: true });
     // the returned equipment follows the auto-merge rule like any other gain ("已拥有2件同一初始装备时…自动合并")
     this.checkItemMerges();
