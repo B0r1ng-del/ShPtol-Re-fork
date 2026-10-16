@@ -21,7 +21,7 @@ import { useState, useEffect, useRef } from '../../vendor/hooks.module.js';
 import { html, Icon, AvatarFrame, MicroLabel } from './components.js';
 import { GIcon } from './gameComponents.js';
 import { t } from '../../../shared/i18n.js';
-import { CHAT_MAX_LEN } from '../../../shared/constants.js';
+import { CHAT_MAX_LEN, CHAT_BARRAGE_MS, CHAT_BARRAGE_KEEP, CHAT_BARRAGE_LANES } from '../../../shared/constants.js';
 
 /** The seat whose `playerId` this is (store `room.seats`, `spectators`), or null when the room does not list them. */
 export function speaker(room, playerId, myId) {
@@ -38,6 +38,56 @@ export function speaker(room, playerId, myId) {
 export function stamp(at) {
   const d = new Date(at);
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+/**
+ * Position of one 弹幕 lane: which of the flat horizontal rows a line travels along, and how long it takes. Drawn from
+ * the line's own `seq` (never `Math.random`), so the same message always travels the same lane — a re-render cannot make
+ * a strip that is already crossing the screen jump to another row, and two clients that receive the same lines lay them
+ * out the same way.
+ * @param {number} seq the server's line counter
+ * @returns {{ lane: number, sec: number }} `lane` = index into CHAT_BARRAGE_LANES, `sec` = crossing time
+ */
+export function barrageTrack(seq) {
+  const n = Number.isInteger(seq) ? Math.abs(seq) : 0;
+  return { lane: n % CHAT_BARRAGE_LANES, sec: CHAT_BARRAGE_MS / 1000 * (0.82 + ((n >> 4) % 5) * 0.045) };
+}
+
+/**
+ * 聊天弹幕 (fork, 设置「聊天弹幕」): the room's `m.chat` lines cross the screen as danmaku strips — right to left, each
+ * on its own flat lane, carrying the sender's NAME and the message. Display only: it renders the same `s.chat` the
+ * window shows and changes nothing that is sent, so every client decides for itself whether it wants the layer.
+ *
+ * The name comes from the same `speaker()` the window uses (room seats, else 观战者), so the strip can never credit a
+ * line to somebody the window would name differently. A line is dropped once its own crossing time has run out — the CSS
+ * animation uses `forwards`, which would otherwise park the strip at the left edge for good.
+ *
+ * @param {{ lines?: any[], room: any, myId: string|null, on?: boolean }} props `lines` = store.chat ({ seq, playerId, text, at })
+ */
+export function ChatBarrage({ lines = [], room, myId, on = false }) {
+  const [tick, bump] = useState(0);
+  const now = Date.now();
+  const live = (Array.isArray(lines) ? lines : [])
+    .filter((l) => l && typeof l.text === 'string' && now - (Number.isFinite(l.at) ? l.at : now) < CHAT_BARRAGE_MS)
+    .slice(-CHAT_BARRAGE_KEEP);
+  const oldest = live[0] || null;
+  useEffect(() => {
+    if (!on || !oldest) return undefined;
+    const left = (Number.isFinite(oldest.at) ? oldest.at : Date.now()) + CHAT_BARRAGE_MS - Date.now();
+    const timer = setTimeout(() => bump((v) => v + 1), Math.max(50, left + 30));
+    return () => clearTimeout(timer);
+  }, [on, oldest && oldest.seq, live.length]);
+  if (!on || !live.length) return null;
+  return html`<div class="cbarrage" aria-hidden="true" data-testid="chat-barrage" style=${`--cb-lanes:${CHAT_BARRAGE_LANES}`}>
+    ${live.map((l) => {
+      const who = speaker(room, l.playerId, myId);
+      const tr = barrageTrack(l.seq);
+      return html`<span key=${l.seq} class=${`cbarrage__item ${who.self ? 'is-self' : ''}`}
+        style=${`--cb-lane:${tr.lane}; --cb-sec:${tr.sec.toFixed(2)}s`}>
+        <b class="cbarrage__name">${who.name}</b><span class="cbarrage__text">${l.text}</span>
+      </span>`;
+    })}
+  </div>`;
 }
 
 /**

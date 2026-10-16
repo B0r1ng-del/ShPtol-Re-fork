@@ -89,7 +89,7 @@ import { ChoiceOverlay } from '../ui/choiceOverlay.js';
 import { EnemyDrawer } from '../ui/enemyDrawer.js';
 import { Ticker } from '../ui/ticker.js';
 import { EmoteWheel, EmoteBarrage, emotePrefsStore } from '../ui/emotes.js';
-import { ChatWindow } from '../ui/chat.js';
+import { ChatWindow, ChatBarrage } from '../ui/chat.js';
 import { EffectsList } from '../ui/effectsList.js';
 import { RelicCollection, RelicChoice, ownerRelics, revivalTargets } from '../ui/relicPanel.js';
 import { CombatHud } from '../ui/combatHud.js';
@@ -189,6 +189,9 @@ function MatchScreen() {
   const roomSolo = useStore((s) => s.room?.mode === 'solo');
   const spectator = useStore((s) => isSpectating(s.room, s.me.playerId));
   const metricsSetting = useSettings().combatMetrics === true;
+  // 聊天弹幕 (fork, 设置「聊天弹幕」): every `m.chat` line also crosses the screen as a danmaku strip. Off by default, the
+  // same kind of decision as 作战统计 — the official HUD has no such layer.
+  const chatBarrage = useSettings().chatBarrage === true;
   // gameplay plugins (DESIGN §32.6): the HUD corner's MOD mark — re-rendered only when the room's content changes
   const modRoom = useStore((s) => (s.room?.content?.vanilla === false ? s.room : null), (a, b) => (a?.content ?? null) === (b?.content ?? null));
   // the room's spectator seats for the top bar's 观战席 capsule (ui/hud.js SpectatorPill; GitHub #120): room.state keeps coming
@@ -1620,6 +1623,19 @@ function MatchScreen() {
           <button type="button" class="gm__gear" aria-label=${t('设置')} title=${t('设置')} onClick=${() => setSettingsOpen(true)}><${GIcon} name="gear" /></button>
           <button type="button" class="gm__gear gm__guide" aria-label=${t('玩法说明')} title=${t('玩法说明')} onClick=${() => openGuide(0)}><${Icon} name="book" /></button>
           <${FullscreenButton} class="gm__gear gm__fs" />
+          ${/* 作战统计 (fork, 需求方 2026-10-17): the button moved OUT of the bottom-left corner into this row — it is the
+               same `.gm__gear` square as ⚙ / 📖 / ⛶, so it lines up with them. The PANEL stays in the corner
+               (`.gm__corner`, below): mounted inside `.gtop` an absolutely positioned panel would anchor above the top
+               bar and land off-screen. */
+            showMetrics ? html`<button type="button" class="gm__gear gm__metrics" aria-label=${t('作战统计')} title=${t('作战统计')} aria-expanded=${metricsOpen}
+            aria-controls="combat-metrics-panel" onKeyDown=${(e) => { if (e.key === ' ') e.stopPropagation(); }} onClick=${() => {
+              setMetricsOpen(!metricsOpen);
+              setEmoteOpen(false);
+              setDetail(null);
+              setSel(null);
+              setBondOpen(null);
+            }}><${Icon} name="signal" /></button>` : null}
+          ${showMetrics && metricsOpen ? html`<${CombatMetricsPanel} myId=${myId} onClose=${() => setMetricsOpen(false)} />` : null}
         </div>`} room=${modRoom} />
 
       <div class="gm__bonds">
@@ -1695,19 +1711,12 @@ function MatchScreen() {
       <div class="ui-slot gm__ui-slot" data-ui-slot="hud.right" aria-label=${t('界面插件')} dangerouslySetInnerHTML=${{ __html: '' }}></div>
 
       <div class="gm__corner">
-        ${showMetrics && metricsOpen ? html`<${CombatMetricsPanel} myId=${myId} onClose=${() => setMetricsOpen(false)} />` : null}
-        ${/* 在线聊天 (fork): with the option on, the 交流 wheel lives inside the chat window (ui/chat.js) instead of here,
-             so it is rendered once — either into the window or into the corner, never both. */
-          chatOn ? null : html`<${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen}
-          onSend=${(id, o) => (o && o.burst ? actions.emoteBurst(id) : actions.emote(id))} disabled=${conn.status !== 'online'} />`}
-        ${showMetrics ? html`<button type="button" class="gm__gear gm__metrics" aria-label=${t('作战统计')} title=${t('作战统计')} aria-expanded=${metricsOpen}
-          aria-controls="combat-metrics-panel" onKeyDown=${(e) => { if (e.key === ' ') e.stopPropagation(); }} onClick=${() => {
-            setMetricsOpen(!metricsOpen);
-            setEmoteOpen(false);
-            setDetail(null);
-            setSel(null);
-            setBondOpen(null);
-          }}><${Icon} name="signal" /></button>` : null}
+        ${/* 在线聊天 (fork): with the option on, the 交流 wheel is rendered as the corner's own child too — the window shows
+             it in its body while it is EXPANDED, and this one takes over while the window is folded (需求方 2026-10-17:
+             「聊天窗口缩小/收起时，交流表情菜单仍需在外部正常显示」). Exactly one of the two is on screen: `chatOn` gates
+             the corner copy on the fold state, and ui/chat.js receives `emote` only while it is open. */
+          chatOn && !chatOpen ? html`<${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen}
+          onSend=${(id, o) => (o && o.burst ? actions.emoteBurst(id) : actions.emote(id))} disabled=${conn.status !== 'online'} />` : null}
       </div>
 
       ${/* 在线聊天 (fork): the floating frosted window, and the 交流 wheel's new home while the option is on. A spectator
@@ -1752,6 +1761,9 @@ function MatchScreen() {
       }} />` : null}
 
     ${barrage ? html`<${EmoteBarrage} emotes=${emotes} myId=${myId} />` : null}
+    ${/* 聊天弹幕 (fork, 设置「聊天弹幕」): the room's lines cross the screen. Gated on the ROOM option too — with 在线聊天
+         off there are no `m.chat` lines to show anyway, and the settings row is not offered either. */
+      chatOn ? html`<${ChatBarrage} lines=${chatLines} room=${chatRoom} myId=${myId} on=${chatBarrage} />` : null}
 
     ${banner ? html`<${PhaseBanner} key=${banner.key} mode="overlay" title=${banner.title} sub=${banner.sub} micro=${banner.micro}
       tone=${banner.tone} duration=${banner.duration || 1500} onDone=${() => setBanner(null)} />` : null}

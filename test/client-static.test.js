@@ -1281,6 +1281,22 @@ describe('multi-device & browser compatibility (static)', () => {
     assert.match(index, /class="rotate-hint"/);
   });
 
+  test('game-mock.html links every screen sheet the match screen paints from (emotes, chat, devices)', () => {
+    // 在线聊天 / 聊天弹幕 (fork): the harness renders screens/game.js for real, so a sheet it forgets is a control that
+    // silently renders unstyled — the window came out full-width and pinned to the top-left with no /css/chat.css. This
+    // is the same failure 莱茵.css had; the list is index.html's, minus the pre-match screens the mock never mounts.
+    const mock = readFileSync(path.join(PUBLIC, 'dev/game-mock.html'), 'utf8');
+    const linked = [...mock.matchAll(/<link rel="stylesheet" href="(\/css\/[^"]+)"/g)].map((x) => x[1]);
+    for (const sheet of ['/css/theme.css', '/css/components.css', '/css/screens/game.css', '/css/screens/game-panels.css',
+      '/css/screens/game-shop.css', '/css/emotes.css', '/css/chat.css', '/css/devices.css']) {
+      assert.ok(linked.includes(sheet), `game-mock.html links ${sheet}`);
+    }
+    assert.ok(linked.includes('/css/emotes.css') && linked.includes('/css/devices.css'), 'and the two layers around it');
+    const put = (s) => linked.indexOf(s);
+    assert.ok(put('/css/emotes.css') < put('/css/chat.css') && put('/css/chat.css') < put('/css/devices.css'),
+      'the order is index.html\'s: emotes → chat → devices');
+  });
+
   test('main.js imports the polyfills before anything else and installs the device layer', () => {
     const src = readFileSync(path.join(PUBLIC, 'js/main.js'), 'utf8');
     const first = staticImports(src)[0];

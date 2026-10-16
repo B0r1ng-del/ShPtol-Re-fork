@@ -121,18 +121,21 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
    the confirming tap re-opened the detail instead; user playtest #6 item 10) */
 
 /* Narrow viewports (< 768 CSS px: the root scale is clamped at 40 px, so the top bar is narrower than the 19.2 rem
-   design): the ⚙ / 📖 / ⛶ row cannot sit beside 离开 + ping + 难度 before the centre brackets — a spectator capsule
-   widens that group again — so it wraps onto its own line in the top-left, level with the top bar (user report 图 2:
-   these three moved out of the bottom-left corner). The bond strip starts right of that line, which keeps its own top —
-   and the prep camera's top band — where it was (game.css .gm__bonds top 1.36rem, fieldHost.js HUD_REM.bondStripBottom;
-   the row must therefore stay clear of it instead of lowering the strip onto the bench). */
+   design): the ⚙ / 📖 / ⛶ / 作战统计 row cannot sit beside 离开 + ping + 难度 before the centre brackets — a 观战席
+   capsule widens that group again — so it wraps onto its own line in the top-left, level with the top bar (user report
+   图 2: these three moved out of the bottom-left corner; 作战统计 joined them 2026-10-17). */
 @media (max-width: 767px) {
   .gtop__left { flex-wrap: wrap; }
   /* on its own line it takes 离开's 34 px size with 10 px gaps: the 44 px hit areas are exactly 44 px apart, so a tap
      never lands on a neighbour */
   .gm__tools .gm__gear { width: max(.56rem, 34px); height: max(.56rem, 34px); }
   .gm__tools .gm__gear .icon { width: max(.28rem, 17px); height: max(.28rem, 17px); }
-  .gm__bonds { left: 3.4rem; }
+  /* (需求方 2026-10-17: the `.gm__bonds { left: 3.4rem }` that used to sit here is GONE — it existed to move a
+     LEFT-aligned strip out from under that wrapped row, and the strip is centred now, so it only pulled the centre 94 px
+     off the viewport's middle. Measured in Chrome: the row does NOT wrap at any supported landscape size (1920×1080,
+     844×390 and 756×366 all keep it on one line beside 离开 + ping + 难度), so there is nothing left to clear. Only a
+     portrait phone wraps it — and portrait is not a target of this screen, ui/device.js raises the rotate hint there.
+     The strip is pointer-transparent apart from its discs, so even there it would not swallow a tap on the row.) */
   /* The left-docked detail card now only has to clear the 交流 button left in the corner (.24rem + the sprite's height,
      55/151 of its width, x .805 since the button grew 15% - css/emotes.css): at its desktop bottom (1.02rem) it covered
      that button's hit area. (gameLogic panelSlots keeps the taller desktop slot: conservative.) */

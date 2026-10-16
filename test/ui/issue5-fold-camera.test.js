@@ -113,11 +113,13 @@ describe('hudBands: the folded shop\'s band', () => {
     assert.match(game, /\.gm__corner \{ position: absolute; left: \.24rem; bottom: \.24rem;/);
     assert.match(game, /\.gm__gear \{\n {2}width: \.56rem; height: \.56rem;/);
     assert.ok(Math.abs(HUD_REM.cornerTop - (0.24 + 0.56)) < 1e-9);
-    // narrow phones (< 768 px): the ⚙ / 📖 / ⛶ row wraps into the top-left and the strip starts right of it (user report
-    // 图 2) — the strip's own top, and with it HUD_REM.bondStripBottom and the prep camera's top band, is unchanged
+    // narrow phones (< 768 px): the ⚙ / 📖 / ⛶ / 作战统计 row wraps into the top-left (user report 图 2) — the strip's
+    // own top, and with it HUD_REM.bondStripBottom and the prep camera's top band, is unchanged. 需求方 2026-10-17: the
+    // old `.gm__bonds { left: 3.4rem }` here is GONE with the strip's centring (it only pulled the centre off middle);
+    // measured in Chrome, the row does not wrap at any supported landscape size, so nothing needs clearing.
     const devices = read('public/css/devices.css');
     assert.match(devices, /@media \(max-width: 767px\) \{\n {2}\.gtop__left \{ flex-wrap: wrap; \}/);
-    assert.match(devices, /\.gm__bonds \{ left: 3\.4rem; \}/);
+    assert.doesNotMatch(devices.replace(/\/\*[\s\S]*?\*\//g, ''), /\.gm__bonds \{[^}]*left:/, 'the strip is not offset on narrow screens');
   });
 
   test('prep / Final Assault prep only; open = the bar (unchanged), folded = the higher of the tab and the corner', () => {

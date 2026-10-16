@@ -1738,7 +1738,6 @@
   "开始战斗后实时显示干员数据": "Live operator statistics appear when battle starts",
   "仅统计自己 · 同名干员合并 · 召唤物计入所属干员": "Your units only · Same-name operators combined · Summons count toward their operator",
   "实际扣血 / 有效治疗，DPS / HPS 按自己的战斗秒数计算。刷新后重新累计。": "Actual HP damage and effective healing. DPS/HPS uses your simulated battle time. Reloading resets totals.",
-  "打开后，对局左下角可以查看自己干员的伤害、治疗和 DPS / HPS。官方界面没有这个窗口。改变玩法的插件对局在 Worker 里演算，统计不到，按钮不显示。": "When on, the bottom-left of a match shows your operators' damage, healing and DPS / HPS. The official interface has no such panel. A match whose plugins change the rules is simulated in a Worker and is not counted, so the button stays hidden.",
   "下载完整素材": "Download all assets",
   "素材已下载": "Assets downloaded",
   "继续下载素材": "Resume download",
@@ -2166,5 +2165,8 @@
   "还没有人发言。": "Nobody has said anything yet.",
   "这些内容包默认全部关闭（原版内容）。开启后创建的房间会包含它们，房间内的玩家同样生效；房间创建后仍可在房主配置里修改。": "These content packs are all OFF by default (the original content). Turning one on makes the rooms you create include it, for every player in the room; the host can still change them in the host settings once the room exists.",
   "开启后局内显示可收起的聊天窗口，全房间的博士都能发言，「交流」表情按钮也会收入其中": "Shows a collapsible chat window in a match: every doctor in the room can talk, and the 交流 emote button moves into it",
-  "以下规则默认全部关闭（原版规则）；开启后会改变本局的玩法，对其他玩家同样生效。": "These rules are all OFF by default (the original rules); turning one on changes how this match plays, for every player in it."
+  "以下规则默认全部关闭（原版规则）；开启后会改变本局的玩法，对其他玩家同样生效。": "These rules are all OFF by default (the original rules); turning one on changes how this match plays, for every player in it.",
+  "聊天弹幕": "Chat barrage",
+  "打开后，房间里的发言会以弹幕形式横穿屏幕，弹幕上带发送者的名字。官方界面没有这个效果。": "Turns on: messages sent in this room also cross the screen as a danmaku strip carrying the sender's name. The official interface has no such effect.",
+  "打开后，对局顶栏可以查看自己干员的伤害、治疗和 DPS / HPS。官方界面没有这个窗口。改变玩法的插件对局在 Worker 里演算，统计不到，按钮不显示。": "Turns on: the match's top bar can show your own operators' damage, healing and DPS / HPS. The official interface has no such panel. A match with gameplay plugins is simulated in a Worker, where it cannot be counted, so the button stays hidden."
 }
