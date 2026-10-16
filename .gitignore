@@ -4,6 +4,11 @@ node_modules/
 .npm-cache/
 # copied from node_modules by tools/vendor.mjs (postinstall); never commit third-party builds
 public/vendor/
+# scratch space: merge-helper scripts, captured test output and the merge handoff docs. Never committed
+# (AGENTS.md: only the repo's own sources are tracked), and keeping it out of `git ls-files --others`
+# matters — test/docs-paths.test.js scans every untracked file for "DESIGN §N" citations, so a captured
+# test log under here used to make that suite fail on its own output.
+.work/
 
 # --- game assets: (c) Hypergryph / Yostar, fetched or extracted locally, NEVER committed ----------
 # tools/fetch-assets.mjs → public/assets/** (~270 MB) and public/fonts/** (+ fonts.css)

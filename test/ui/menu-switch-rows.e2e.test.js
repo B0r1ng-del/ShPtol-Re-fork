@@ -34,9 +34,11 @@ describe('图一 switch rows (Mod 开关 / 房主配置)', { skip: !ENABLED && '
   after(async () => { await srv?.close(); });
 
   /**
-   * A page driven to the menu `which` opens, on a given device class. `mobile` implies LANDSCAPE: the game shows
+   * A page driven to the 房主配置 dialog, on a given device class. 2026-10-16: the lobby's Mod submenu moved in here, so
+ * the dialog now holds BOTH switch menus — its own rows and the Mod 开关 section — and this file measures both. `mobile`
+ * implies LANDSCAPE: the game shows
    * 「请将设备横屏」 in portrait, so a portrait viewport never renders the menus at all.
-   * @param {'mod'|'hostcfg'} which
+   * @param {'mod'|'hostcfg'} which  which of the dialog's two switch sections to measure
    */
   async function openMenu(which, { width, height, mobile }) {
     const puppeteer = (await import('puppeteer-core')).default;
@@ -55,14 +57,10 @@ describe('图一 switch rows (Mod 开关 / 房主配置)', { skip: !ENABLED && '
     await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => /开始/.test(b.textContent))?.click());
     await page.waitForSelector('.lobby-screen', { timeout: 20000 });
     await sleep(600);
-    if (which === 'mod') {
-      await page.evaluate(() => document.querySelector('.lobby-screen [data-testid="mod-open"]').click());
-    } else {
-      await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => /创建同盟/.test(b.textContent))?.click());
-      await page.waitForSelector('.room-screen [data-testid="hostcfg-open"]', { timeout: 20000 });
-      await sleep(600);
-      await page.evaluate(() => document.querySelector('[data-testid="hostcfg-open"]').click());
-    }
+    await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => /创建同盟/.test(b.textContent))?.click());
+    await page.waitForSelector('.room-screen [data-testid="hostcfg-open"]', { timeout: 20000 });
+    await sleep(600);
+    await page.evaluate(() => document.querySelector('[data-testid="hostcfg-open"]').click());
     await sleep(600);
     assert.ok(await page.$('.modal .swrow'), `${which}: the menu shows switch rows`);
     return { browser, page, problems };
@@ -84,9 +82,11 @@ describe('图一 switch rows (Mod 开关 / 房主配置)', { skip: !ENABLED && '
     return t ? t.innerText.replace(/\s+/g, ' ').trim() : null;
   });
   const checked = (page, sel) => page.evaluate((s) => document.querySelector(s).getAttribute('aria-checked'), sel);
+  /** The rows of the section `which`: the dialog's own options, or its Mod 开关 block. */
+  const sectionSel = (which) => (which === 'mod' ? '.mods--hostcfg' : '.hostcfg__rows');
   /** The row-level geometry every device class must satisfy, for the menu the page has open. */
-  const layout = (page) => page.evaluate(() => {
-    const rows = [...document.querySelectorAll('.modal .swrow')];
+  const layout = (page, which) => page.evaluate((sel) => {
+    const rows = [...document.querySelectorAll(`${sel} .swrow`)];
     return rows.map((w) => {
       const lab = w.querySelector('.swrow__label');
       const inf = w.querySelector('.swrow__info');
@@ -103,14 +103,16 @@ describe('图一 switch rows (Mod 开关 / 房主配置)', { skip: !ENABLED && '
         role: sw.getAttribute('role'), aria: sw.getAttribute('aria-checked'),
       };
     });
-  });
+  }, sectionSel(which));
 
-  for (const which of ['mod', 'hostcfg']) {
-    describe(which === 'mod' ? 'the 模式界面 Mod submenu' : '房主配置', () => {
+  // 2026-10-16: ONE dialog now holds both switch menus, so the two cases measure its two SECTIONS instead of two
+  // different screens: 房主配置's own options and the Mod 开关 block that moved in from the lobby.
+  for (const which of ['hostcfg', 'mod']) {
+    describe(which === 'mod' ? '房主配置 · Mod 开关 section' : '房主配置 · its own options', () => {
       test('desktop: name left, ⓘ then the switch right, every row in one column, hover shows the tip', async () => {
         const { browser, page, problems } = await openMenu(which, { width: 1400, height: 900 });
         try {
-          const rows = await layout(page);
+          const rows = await layout(page, which);
           assert.ok(rows.length >= 3, `a row per option (${rows.length})`);
           for (const r of rows) {
             assert.ok(r.labelLeftOfSwitch, `${r.label}: the name sits left of the switch`);
@@ -125,7 +127,7 @@ describe('图一 switch rows (Mod 开关 / 房主配置)', { skip: !ENABLED && '
           assert.equal(new Set(rows.map((r) => r.infoL)).size, 1, `every row's ⓘ shares one x (${rows.map((r) => r.infoL)})`);
 
           // hover shows the row's own explanation
-          const key = which === 'mod' ? 'mod-info-untimedSp' : 'hostcfg-info-sharedPool';
+          const key = which === 'mod' ? 'hostcfg-mod-info-untimedSp' : 'hostcfg-info-sharedPool';
           const pt = await centre(page, `.modal [data-testid="${key}"]`);
           await page.mouse.move(pt[0], pt[1]);
           await sleep(500);
@@ -136,7 +138,7 @@ describe('图一 switch rows (Mod 开关 / 房主配置)', { skip: !ENABLED && '
           assert.equal(await tip(page), null, 'and it goes away when the pointer leaves');
 
           // a real click flips the switch (never a synthetic .click(): hit-testing is the point)
-          const swSel = which === 'mod' ? 'mod-untimedSp' : 'hostcfg-sharedPool';
+          const swSel = which === 'mod' ? 'hostcfg-mod-untimedSp' : 'hostcfg-sharedPool';
           const sw = await centre(page, `.modal [data-testid="${swSel}"]`);
           const before = await checked(page, `.modal [data-testid="${swSel}"]`);
           await page.mouse.click(sw[0], sw[1]);
@@ -152,7 +154,7 @@ describe('图一 switch rows (Mod 开关 / 房主配置)', { skip: !ENABLED && '
       test('touch (landscape): a long press on the ⓘ shows the tip without flipping the switch; a tap shows nothing', async () => {
         const { browser, page, problems } = await openMenu(which, { width: 844, height: 390, mobile: true });
         try {
-          const rows = await layout(page);
+          const rows = await layout(page, which);
           for (const r of rows) {
             assert.ok(r.infoW >= MIN_TAP && r.infoH >= MIN_TAP, `${r.label}: the ⓘ button is ≥ ${MIN_TAP} px on a phone (${r.infoW}×${r.infoH})`);
             assert.ok(r.swW >= MIN_SWITCH_W, `${r.label}: the switch is ≥ ${MIN_SWITCH_W} wide on a phone (${r.swW})`);
@@ -160,8 +162,8 @@ describe('图一 switch rows (Mod 开关 / 房主配置)', { skip: !ENABLED && '
           }
           assert.equal(new Set(rows.map((r) => r.swL)).size, 1, 'one switch column on a phone too');
 
-          const key = which === 'mod' ? 'mod-info-untimedSp' : 'hostcfg-info-sharedPool';
-          const swSel = which === 'mod' ? 'mod-untimedSp' : 'hostcfg-sharedPool';
+          const key = which === 'mod' ? 'hostcfg-mod-info-untimedSp' : 'hostcfg-info-sharedPool';
+          const swSel = which === 'mod' ? 'hostcfg-mod-untimedSp' : 'hostcfg-sharedPool';
           const pt = await centre(page, `.modal [data-testid="${key}"]`);
           const before = await checked(page, `.modal [data-testid="${swSel}"]`);
           // long press (≥ the tooltip's 450 ms) — the mobile path the owner asked for

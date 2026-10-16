@@ -442,6 +442,10 @@ export const C2S = {
   // steps (shared/constants.js HOST_ENEMY_MAX_STEPS = 10, i.e. +100 %). An unknown key is BAD_MSG — the key list is
   // normative — and so is an out-of-range step count, so a client cannot ask for a buff the panel cannot show.
   'room.setEnemyBuff': { key: (v) => HOST_ENEMY_KEYS.includes(v), steps: (v) => isInt(v, 0, HOST_ENEMY_MAX_STEPS) },
+  // Mod 开关 (host, before the match): one MOD_KEYS switch at a time, host-only like the rest of 房主配置. The room keeps
+  // the value across its matches and the next match reads it (server/lobby.js setMods / room.state.mods). An unknown key
+  // is BAD_MSG — the key list is normative in shared/constants.js MOD_KEYS.
+  'room.setMods': { key: (v) => MOD_KEYS.includes(v), on: isBool },
   'room.addBot': {},
   // seat indexes are validated against the widest room (终极模拟, ULTIMATE_SEATS); the lobby refuses a seat its own room
   // does not have (server/lobby.js removeBot/kick read room.seats[seat])

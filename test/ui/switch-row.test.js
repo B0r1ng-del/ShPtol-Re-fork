@@ -73,21 +73,22 @@ test('the knob is centred: its offset subtracts the border, or the pill hangs 1p
   assert.match(CSS, /\.sw\.is-on \.sw__knob \{ transform: translateX\(calc\(var\(--sw-w\) - var\(--sw-h\)\)\)/);
 });
 
-test('both menus use it: the Mod submenu and 房主配置 render one SwitchRow per option', () => {
+test('both switch menus use it: 房主配置\'s own options and its Mod 开关 section', () => {
   /** The code with comments stripped: the old class names live on in the comments that explain the change. */
   const code = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-  for (const [name, src, key] of [['ui/mods.js', MODS, 'MOD_ROWS'], ['screens/room.js', ROOM, 'HOST_CONFIG_ROWS']]) {
-    assert.match(src, new RegExp(`<\\$\\{SwitchRow\\} key=\\$\\{r\\.key\\}`), `${name} renders SwitchRow rows`);
+  // 2026-10-16: the lobby's Mod submenu moved into 房主配置, so screens/room.js is now the ONE screen with two switch
+  // menus — its own rows (HOST_CONFIG_ROWS) and the Mod 开关 section (MOD_ROWS). Both render the shared SwitchRow and
+  // both keep driving their rows from their own table.
+  for (const [name, src, key] of [['screens/room.js', ROOM, 'HOST_CONFIG_ROWS'], ['ui/mods.js', MODS, 'MOD_ROWS']]) {
     assert.ok(src.includes(key), `${name} still drives them from ${key}`);
-    // the old rectangular option and its printed explanation are gone from the CODE. (The DIFFICULTY picker in
-    // room.js legitimately still uses `dpick__opt` — it is a segmented chooser, not a switch row — so only the
-    // explanation-under-the-switch pattern is a hard no here.)
-    assert.ok(!/__desc/.test(code(src)), `${name} no longer prints the explanation under the switch`);
   }
+  assert.match(ROOM, /<\$\{SwitchRow\} key=\$\{r\.key\}/, 'room.js renders SwitchRow rows');
+  assert.ok(!/__desc/.test(code(ROOM)), 'screens/room.js no longer prints the explanation under the switch');
   assert.ok(!/dpick__opt/.test(code(MODS)), 'ui/mods.js no longer uses the dpick__opt option style');
-  // every row of both menus carries a testid and an ⓘ testid the e2e suite selects on
-  assert.match(MODS, /testid=\$\{`mod-\$\{r\.key\}`\} infoTestid=\$\{`mod-info-\$\{r\.key\}`\}/);
+  // every row of both menus carries a testid and an ⓘ testid the e2e suite selects on. The Mod rows are the panel's
+  // second menu now, so they are namespaced `hostcfg-mod-…` to keep one selector space per dialog.
   assert.match(ROOM, /testid=\$\{`hostcfg-\$\{r\.key\}`\} infoTestid=\$\{`hostcfg-info-\$\{r\.key\}`\}/);
+  assert.match(ROOM, /testid=\$\{`hostcfg-mod-\$\{r\.key\}`\} infoTestid=\$\{`hostcfg-mod-info-\$\{r\.key\}`\}/);
   // 房主配置 keeps its read-only shape for a non-host: the switch renders disabled
   assert.match(ROOM, /disabled=\$\{!r\.editable \|\| !!busy\}/);
 });

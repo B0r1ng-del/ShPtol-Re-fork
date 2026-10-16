@@ -117,6 +117,71 @@ describe('room.create mods (lobby)', () => {
     assert.deepEqual(st.mods, { ...MOD_DEFAULTS });
   });
 
+  // 2026-10-16 (owner): the switches moved out of the lobby's Mod submenu into 房主配置, so they are room options the
+  // host can change in the room (room.setMods). Everything below is that message's own contract.
+  describe('room.setMods (the switches are 房主配置 room options now)', () => {
+    test('the host flips one switch; everybody sees the same value and the other humans are un-readied', async () => {
+      const host = await pool.player('Host');
+      await ok(host, { t: 'room.create', mode: 'coop', difficulty: 'NORMAL' });
+      const st = await host.waitFor('room.state', (s) => s.hostId === host.id);
+      assert.deepEqual(st.mods, { ...MOD_DEFAULTS }, 'all off at creation when the creator carried none');
+      const guest = await pool.player('Guest');
+      await ok(guest, { t: 'room.join', code: st.code });
+      await guest.waitFor('room.state', (s) => !!seatOf(s, guest.id));
+      await ok(guest, { t: 'room.ready', ready: true });
+      await host.waitFor('room.state', (s) => seatOf(s, guest.id)?.ready);
+      await ok(host, { t: 'room.setMods', key: 'extraRounds', on: true });
+      const both = await guest.waitFor('room.state', (s) => s.mods?.extraRounds === true);
+      assert.deepEqual(both.mods, modsOf({ extraRounds: true }), 'the room keeps exactly that one switch');
+      assert.equal(seatOf(both, guest.id)?.ready, false, 'a gameplay change un-readies the other humans');
+      // the match is handed the room's current switches, not the creator's original ones
+      await ok(host, { t: 'room.addBot' });
+      await ok(guest, { t: 'room.ready', ready: true });
+      await host.waitFor('room.state', (s) => seatOf(s, guest.id)?.ready);
+      const n = started.length;
+      await ok(host, { t: 'room.start' });
+      await guest.waitFor('room.state', (s) => s.inMatch);
+      assert.deepEqual(started[n].mods, modsOf({ extraRounds: true }), 'opts.mods');
+    });
+
+    test('only the host may flip them, and only with a real MOD_KEYS switch', async () => {
+      const host = await pool.player('Host');
+      await ok(host, { t: 'room.create', mode: 'coop', difficulty: 'NORMAL' });
+      const st = await host.waitFor('room.state', (s) => s.hostId === host.id);
+      const guest = await pool.player('Guest');
+      await ok(guest, { t: 'room.join', code: st.code });
+      await guest.waitFor('room.state', (s) => !!seatOf(s, guest.id));
+      await err(guest, { t: 'room.setMods', key: 'noBondBan', on: true }, 'NOT_HOST');
+      await err(host, { t: 'room.setMods', key: 'packExtra6', on: true }, 'BAD_MSG');
+      await err(host, { t: 'room.setMods', key: 'noBondBan', on: 1 }, 'BAD_MSG');
+      // a room with a match running refuses it, like every other room option
+      await ok(host, { t: 'room.addBot' });
+      await ok(guest, { t: 'room.ready', ready: true });
+      await host.waitFor('room.state', (s) => seatOf(s, guest.id)?.ready);
+      await ok(host, { t: 'room.start' });
+      await guest.waitFor('room.state', (s) => s.inMatch);
+      await err(host, { t: 'room.setMods', key: 'noBondBan', on: true }, 'ROOM_STARTED');
+    });
+
+    test('the switches survive host migration: they belong to the room, not to the host', async () => {
+      const host = await pool.player('Host');
+      await ok(host, { t: 'room.create', mode: 'coop', difficulty: 'NORMAL' });
+      const st = await host.waitFor('room.state', (s) => s.hostId === host.id);
+      const guest = await pool.player('Guest');
+      await ok(guest, { t: 'room.join', code: st.code });
+      await guest.waitFor('room.state', (s) => !!seatOf(s, guest.id));
+      await ok(host, { t: 'room.setMods', key: 'uncapLayers', on: true });
+      await guest.waitFor('room.state', (s) => s.mods?.uncapLayers === true);
+      await ok(host, { t: 'room.leave' });
+      const migrated = await guest.waitFor('room.state', (s) => s.hostId === guest.id);
+      assert.deepEqual(migrated.mods, modsOf({ uncapLayers: true }));
+      // and the new host may now flip them
+      await ok(guest, { t: 'room.setMods', key: 'uncapLayers', on: false });
+      const off = await guest.waitFor('room.state', (s) => s.mods?.uncapLayers === false);
+      assert.deepEqual(off.mods, { ...MOD_DEFAULTS });
+    });
+  });
+
   test('the switches are fixed for the room: the match gets them again, and nothing changes them mid-room', async () => {
     const host = await pool.player('Host');
     await ok(host, { t: 'room.create', mode: 'coop', difficulty: 'NORMAL', mods: { untimedSp: true } });

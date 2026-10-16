@@ -17,7 +17,8 @@
 // Texts go through t() (docs/I18N.md).
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SPECTATORS, HOST_CONFIG_DEFAULTS, HOST_ENEMY_MAX_STEPS, HOST_ENEMY_STEP_PCT, normalizeEnemyBuff, roomSeatCap } from '../../../shared/constants.js';
+import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SPECTATORS, HOST_CONFIG_DEFAULTS, HOST_ENEMY_MAX_STEPS, HOST_ENEMY_STEP_PCT, MOD_DEFAULTS, PACK_AUTHORS, normalizeEnemyBuff, roomSeatCap } from '../../../shared/constants.js';
+import { MOD_ROWS, MOD_COLS, modsCount, rememberMods } from '../ui/mods.js';
 import {
   html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyTag, DifficultyIcon, Tooltip, confirmDialog, doctorNo, Modal, SwitchRow,
 } from '../ui/components.js';
@@ -128,7 +129,7 @@ export function hostConfigPanel(room, myId) {
 
 /**
  * The 房主配置 row of one option key, or null in a solo room (no teammates: the server refuses those options there).
- * 「AI 队友最后选择」 (GitHub #338) is one of the four and reads its own pre-existing room.state field.
+ * 「AI 队友最后选择」 (GitHub #338) is one of them and reads its own pre-existing room.state field.
  * @param {any} room room.state payload @param {any} myId @param {string} key
  * @returns {{ key: string, label: string, tip: string, on: boolean, editable: boolean } | null}
  */
@@ -310,12 +311,15 @@ export const enemyBuffTotal = (rows) => (rows || []).reduce((n, r) => n + r.step
  *
  * 「对局选项」 (需求方 2026-10-15) sits under the switches: four sliders that strengthen this match's enemies, with the
  * total shown in a warning line under them. Same editability rule — the host moves them, everybody else reads them.
+ *
+ * 「Mod 开关」 (需求方 2026-10-16) moved in from the lobby's Mod submenu and is a block of its own between the two, so the
+ * dialog now has three sections in this order: the room options, the Mod switches, 对局选项.
  */
-function HostConfigDialog({ rows, enemyRows, open, busy, onClose, onToggle, onEnemy }) {
+function HostConfigDialog({ rows, enemyRows, modRows, open, busy, onClose, onToggle, onEnemy, onMod }) {
   if (!rows || !rows.length) return null;
   const editable = rows.some((r) => r.editable);
   const total = enemyBuffTotal(enemyRows);
-  return html`<${Modal} open=${open} onClose=${onClose} tone="mint" width="min(7.6rem, 96vw)"
+  return html`<${Modal} open=${open} onClose=${onClose} tone="mint" width="min(9rem, 96vw)"
       title=${t('房主配置')} micro="HOST CONFIG"
       actions=${html`<${Button} variant="secondary" onClick=${onClose}>${t('完成')}<//>`}>
     <div class="hostcfg">
@@ -327,9 +331,41 @@ function HostConfigDialog({ rows, enemyRows, open, busy, onClose, onToggle, onEn
           testid=${`hostcfg-${r.key}`} infoTestid=${`hostcfg-info-${r.key}`}
           onChange=${(v) => r.editable && onToggle(r.key, v)} />`)}
       </div>
+      ${modRows && modRows.length ? html`<${ModSwitchSection} rows=${modRows} busy=${busy} onSet=${onMod} />` : null}
       ${enemyRows && enemyRows.length ? html`<${EnemyBuffSection} rows=${enemyRows} onSet=${onEnemy} total=${total} />` : null}
     </div>
   <//>`;
+}
+
+/**
+ * Mod 开关 — the fork's gameplay switches, in the 房主配置 dialog (2026-10-16 owner: they moved here from the lobby's
+ * 「Mod」 button, so they are room options now — room.setMods — and not a per-device preference).
+ *
+ * The rows keep the submenu's own two columns (MOD_COLS: the rule switches left, the ported 内容包 switches right — the
+ * `.mods__rows` / `.mods__col` classes that came with them). Each pack's ⓘ carries its author (PACK_AUTHORS), so the
+ * port's credit travels with the switch that turns the content on. Same editability rule as everything else here: the
+ * host flips them, everybody else reads the same values.
+ */
+function ModSwitchSection({ rows, busy, onSet }) {
+  const editable = rows.some((r) => r.editable);
+  const tipOf = (r) => (r.col === 'pack' ? `${t(r.tip)}\n${t('原作者：{author}', { author: PACK_AUTHORS[r.key] })}` : t(r.tip));
+  return html`<div class="mods mods--hostcfg">
+    <div class="mods__head">
+      <span class="ebuff__title"><${Icon} name="sliders" />${t('Mod 开关')}</span>
+      <${MicroLabel}>MOD SWITCHES<//>
+    </div>
+    <p class="mods__note">${t('这些改动默认全部关闭（原版规则）；开启后会改变本局的玩法，对其他玩家同样生效。')}</p>
+    <div class="mods__rows">
+      ${MOD_COLS.map((col) => html`<div class="mods__col" key=${col} data-col=${col}>
+        ${col === 'pack' ? html`<p class="mods__colhead">${t('额外内容')}</p>` : null}
+        ${rows.filter((r) => r.col === col).map((r) => html`<${SwitchRow} key=${r.key}
+          label=${t(r.label)} tip=${tipOf(r)} on=${r.on}
+          disabled=${!editable || !!busy}
+          testid=${`hostcfg-mod-${r.key}`} infoTestid=${`hostcfg-mod-info-${r.key}`}
+          onChange=${(v) => editable && onSet(r.key, v)} />`)}
+      </div>`)}
+    </div>
+  </div>`;
 }
 
 /**
@@ -359,12 +395,35 @@ function EnemyBuffSection({ rows, onSet, total }) {
   </div>`;
 }
 
+/**
+ * The panel's Mod-开关 rows: one per MOD_ROWS entry, `{ key, col, label, tip, on, editable }`. Shown in EVERY mode — a
+ * Mod 开关 changes the host's own match, so 独立模拟 gets them too (unlike the 共享 房主配置 options, which need
+ * somebody to share with). No room at all ⇒ null.
+ * @param {any} room room.state payload @param {any} myId
+ * @returns {Array<{ key: string, col: string, label: string, tip: string, on: boolean, editable: boolean }> | null}
+ */
+export function modPanel(room, myId) {
+  if (!room) return null;
+  const mods = room.mods;
+  const editable = room.hostId != null && room.hostId === myId;
+  return MOD_ROWS.map((r) => ({
+    key: r.key,
+    col: r.col,
+    label: r.label,
+    tip: r.tip,
+    // the server sends every MOD_KEYS key (room.state.mods); a missing payload is the official all-off
+    on: mods && typeof mods[r.key] === 'boolean' ? mods[r.key] : MOD_DEFAULTS[r.key],
+    editable,
+  }));
+}
+
 /** The ready bar's 房主配置 button (the 干员调配 button's shape), showing how many options differ from their default. */
-function HostConfigButton({ rows, enemyRows, busy, onClick }) {
+function HostConfigButton({ rows, enemyRows, modRows, busy, onClick }) {
   if (!rows || !rows.length) return null;
-  // the switch rows that left their default, plus every enemy slider that is not at 0 (its own default)
+  // the switch rows that left their default, every enemy slider that is not at 0, and every Mod 开关 that is on
   const n = rows.filter((r) => r.on !== HOST_CONFIG_DEFAULTS[r.key]).length
-    + (enemyRows || []).filter((r) => r.steps !== 0).length;
+    + (enemyRows || []).filter((r) => r.steps !== 0).length
+    + modsCount(Object.fromEntries((modRows || []).map((r) => [r.key, r.on])));
   return html`<button type="button" class=${cx('btn', 'btn--secondary', 'btn--lg', 'hostcfg-entry')} data-testid="hostcfg-open"
       disabled=${!!busy} onClick=${onClick} title=${t('房主配置 · 只有房主可以修改')}>
     <${Icon} name="crown" class="btn__icon" />
@@ -396,6 +455,9 @@ export function RoomScreen() {
   // 对局选项 (room.setEnemyBuff): the four enemy-buff sliders, shown in EVERY mode (no solo gate — a buff on one's own
   // enemies shares nothing with teammates). Same rows for everybody; only the host may move them.
   const enemyRows = enemyBuffPanel(room, me.playerId);
+  // Mod 开关 (room.setMods): the fork's gameplay switches, shown in EVERY mode (they change this room's own match, so
+  // 独立模拟 gets them too). Same rows for everybody; only the host may flip them.
+  const modRows = modPanel(room, me.playerId);
 
   const run = async (kind, fn) => {
     if (inFlight.current) return;
@@ -434,6 +496,13 @@ export function RoomScreen() {
   const setEnemyBuff = (key, steps) => {
     if (!online) { toast(t('连接中断，请稍候重试'), 'warn'); return; }
     net.request('room.setEnemyBuff', { key, steps }).catch(toastError);
+  };
+  // Mod 开关 (room.setMods): one switch at a time, the key naming which (shared/constants.js MOD_KEYS). The switches are
+  // room options now, so this mirrors setHostConfig; the local preference is written too, so the next room this device
+  // creates starts from the switches its host last used.
+  const setMods = (key, on) => {
+    rememberMods({ ...room.mods, [key]: on });
+    return run(`mod${key}`, () => net.request('room.setMods', { key, on }));
   };
   // spectator seats: the host frees one; a spectator takes a free player seat with room.join of this room
   const removeSpectator = (playerId) => run(`rs${playerId}`, () => net.request('room.removeSpectator', { playerId }));
@@ -534,7 +603,7 @@ export function RoomScreen() {
         <div class="room-bar__status">${statusLine}</div>
       </div>
       <div class="room-bar__right">
-        <${HostConfigButton} rows=${cfgRows} enemyRows=${enemyRows} busy=${busy} onClick=${() => setCfgOpen(true)} />
+        <${HostConfigButton} rows=${cfgRows} enemyRows=${enemyRows} modRows=${modRows} busy=${busy} onClick=${() => setCfgOpen(true)} />
         <${LoadoutButton} from="room" size="lg" class="room-loadout" label=${t('干员调配')} />
         ${facts.isHost
           ? html`<${Tooltip} text=${facts.canStart ? null : !facts.contentReady ? t('仍有博士未载入房间的插件内容') : t('仍有博士未准备就绪')}>
@@ -548,7 +617,7 @@ export function RoomScreen() {
             <//>`}
       </div>
     </footer>
-    <${HostConfigDialog} rows=${cfgRows} enemyRows=${enemyRows} open=${cfgOpen} busy=${busy} onClose=${() => setCfgOpen(false)} onToggle=${setHostConfig} onEnemy=${setEnemyBuff} />
+    <${HostConfigDialog} rows=${cfgRows} enemyRows=${enemyRows} modRows=${modRows} open=${cfgOpen} busy=${busy} onClose=${() => setCfgOpen(false)} onToggle=${setHostConfig} onEnemy=${setEnemyBuff} onMod=${setMods} />
   </div>`;
 }
 

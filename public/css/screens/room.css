@@ -331,6 +331,13 @@
 .ebuff__row .set-row__label { font-size: calc(.16 * var(--t)); }
 .ebuff__warn { margin: 0; font-size: calc(.15 * var(--t)); line-height: 1.5; color: var(--orange-hi); }
 
+/* 房主配置「Mod 开关」 (room.setMods, MOD_KEYS; 需求方 2026-10-16 把大厅 Mod 子菜单整块搬进房主配置): the same two-column
+   rows the submenu used (`.mods__rows` / `.mods__col`, screens/lobby.css — the switch ROWS keep that file's grid), under
+   this dialog's own header and separated like 对局选项. Only the block frame, the header and the note live here. */
+.mods--hostcfg { display: flex; flex-direction: column; gap: .12rem; margin-top: .14rem; padding-top: .14rem; border-top: 1px solid var(--line-1); }
+.mods__head { display: flex; align-items: center; gap: .08rem; }
+.mods__note { margin: 0; font-size: calc(.14 * var(--t)); line-height: 1.5; color: var(--line-3); }
+
 .ready-count[hidden] { display: none; }
 .ready-count { display: flex; align-items: baseline; gap: .06rem; font-size: calc(.16 * var(--t)); }
 .ready-count b { font-size: calc(.36 * var(--t)); line-height: 1; color: var(--mint-400); text-shadow: 0 0 .14rem rgba(23, 249, 183, .45); }

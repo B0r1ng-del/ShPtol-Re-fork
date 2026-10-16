@@ -65,14 +65,17 @@ describe('内容包开关: the switches themselves', () => {
     assert.equal(packEnabled(OFF, []), true, 'an empty list carries no pack = always available');
   });
 
-  test('the Mod submenu is TWO columns and every pack row carries its author', () => {
+  test('the Mod 开关 panel is TWO columns and every pack row carries its author', () => {
     const src = read('public/js/ui/mods.js');
     assert.match(src, /col: 'rule'/, 'the rule switches carry a column');
     assert.match(src, /col: 'pack'/, 'the pack switches carry a column');
-    assert.match(src, /export const MOD_COLS = Object.freeze\(\['rule', 'pack'\]\)/, 'two columns, in order');
-    assert.match(src, /PACK_AUTHORS\[r\.key\]/, 'the tip names the pack author');
-    assert.match(src, /原作者：\{author\}/, 'through the credited msgid');
-    // the layout: two columns on a desktop, one on a phone (the two-device rule)
+    assert.match(src, /export const MOD_COLS = Object\.freeze\(\['rule', 'pack'\]\)/, 'two columns, in order');
+    // 2026-10-16: the rows moved into 房主配置 (screens/room.js ModSwitchSection), so the author credit is built THERE —
+    // ui/mods.js is the catalogue only (MOD_ROWS / MOD_COLS) and renders nothing any more.
+    const room = read('public/js/screens/room.js');
+    assert.match(room, /PACK_AUTHORS\[r\.key\]/, 'the tip names the pack author');
+    assert.match(room, /原作者：\{author\}/, 'through the credited msgid');
+    // the layout: two columns on a desktop, one on a phone (the two-device rule; the row grid stayed in lobby.css)
     const css = read('public/css/screens/lobby.css');
     assert.match(css, /\.mods__rows \{ display: grid; grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
     assert.match(css, /\.mods__rows \{ grid-template-columns: minmax\(0, 1fr\)/);
