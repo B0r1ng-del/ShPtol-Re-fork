@@ -205,6 +205,9 @@ import { Battle } from '../sim/Battle.js';
 import { DataSource } from '../sim/simdata.js';
 import { createRng, deriveSeed } from '../sim/rng.js';
 import { GameData } from './gamedata.js';
+// 行为开关的合成（工坊 mod 层移植 2026-10-17）：多包同格时**包 id 字典序小的赢** —— 与数据记录 / kit / 图标 / 口径
+// 逐字同一条。`Match.behaviour` 与喂给 `GameData` 的那一份都来自它。
+import { mergeBehaviourDecls } from '../../shared/behaviour.js';
 import { RealScheduler } from './scheduler.js';
 import { SharedPool, SharedItemPool, drawDisabledBonds } from './pool.js';
 import { PlayerState } from './PlayerState.js';
@@ -290,7 +293,13 @@ export class Match {
     this.vs = isContentHash(opts.vs) ? opts.vs : null;
     /** a room with gameplay plugins (opts.requireCs): a client result must name this match's cs (reports.js) */
     this.requireCs = opts.requireCs === true && !!this.cs;
-    this.gd = new GameData(this.data, this.modeId, opts.mods, opts.enemyBuff);
+    // 行为声明先算，`GameData` 与 `this.behaviour` **读同一份结果**（工坊 mod 层移植 2026-10-17）：`morphPairing`
+    // 的两半由 `GameData` 归一化，而 `bondsMeta` 读的是 `gd.morphPairing` —— 两份都来自这里，不可能不一致。
+    // 详见下面 `this.behaviour` 那一段的注释（两个来源与优先级）。
+    const behaviourDecl = Array.isArray(opts.behaviour)
+      ? opts.behaviour
+      : mergeBehaviourDecls(opts.mods && Array.isArray(opts.mods.packs) ? opts.mods.packs : []).decl;
+    this.gd = new GameData(this.data, this.modeId, opts.mods, opts.enemyBuff, behaviourDecl);
     if (!this.difficulty) this.difficulty = this.gd.difficulty;
     this.isSolo = this.mode === 'solo' || this.gd.isSolo;
     /** 「AI 队友最后选择」 (opts.aiPicksLast, GitHub #338): humans draft before AI seats (MatchPhases.humansFirst) */
@@ -334,8 +343,16 @@ export class Match {
      * test) is byte-identical to the official mode. The GameData built above already carries them — it is what reads
      * them (`bans()`, `modeInactiveBonds`, `spDraftRules`) — and this copy is what the match reports back to its
      * clients (`views.js` m.public.mods), so the client can mark what the switch changed.
-     * @type {Record<string, boolean>}
+     *
+     * 工坊 mod 层移植 (2026-10-17)：`opts.mods.packs`（装了包时才有）是**另一件事** —— 它是装载器投影出来的包身份与
+     * 声明，`GameData` 的 Mod 开关对它无意义（`normalizeMods` 只取 `MOD_KEYS` 的布尔键）。两者**同名不同义**，所以
+     * 这里把它单独挂出来，`this.mods` 保持逐字是那张开关表（客户端 `m.public.mods` 一直读的是它）。
+     * @type {{ packs: Array<{ id: string }> } | null}
      */
+    this.modSet = opts.mods && Array.isArray(opts.mods.packs) && opts.mods.packs.length
+      ? { packs: opts.mods.packs }
+      : null;
+    /** @type {Record<string, boolean>} */
     this.mods = this.gd.mods;
     /**
      * 工坊 mod 层移植 (2026-10-16, `shared/behaviour.js`): this match's merged behaviour declaration — the 「行为开关」
@@ -343,11 +360,15 @@ export class Match {
      *
      * An EMPTY array is the neutral declaration: every reading site asks `behaviourIsDefault()` first, which answers
      * true for it, so a match created without any pack is byte-identical to before — the same discipline the Mod 开关
-     * follow. The pack pipeline (`server/workshop.js`) fills this; until a room declares packs it stays empty, which is
-     * exactly the no-pack case the behaviour layer is designed around.
-     * @type {Array<{ switch: string, option: string }>}
+     * follow. **两个来源，优先级明确**（2026-10-17 补齐缺口 2）：
+     *   ① 包声明：`opts.mods.packs[].behaviour` 经 `mergeBehaviourDecls` 合成（**多包同格时包 id 字典序小的赢**，
+     *      与数据记录 / kit / 图标 / 口径逐字同一条）—— 这是 Forge 的原契约，也是真实房间走的那条；
+     *   ② 显式覆盖：`opts.behaviour` 直接给整份声明，测试与工具用它注入，绕过 ①。
+     * 从前这里只读 ②，而**没有任何生产调用方传它** ⇒ 包声明一律读不到、开关**静默不生效**（Forge 把这一处记成
+     * 「这一层最容易做坏的地方」）。
+     * @type {Array<{ switch: string, option: string, by: string }>}
      */
-    this.behaviour = Array.isArray(opts.behaviour) ? opts.behaviour : [];
+    this.behaviour = behaviourDecl;
     /**
      * 本局收藏品 (六.E, `packRelic`): the match-scoped collectibles of the ported DLC. The switch is read once here, like
      * the mods it comes from, and every collectible code path sits behind it — with it off the match never fills a relic

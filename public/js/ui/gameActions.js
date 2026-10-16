@@ -13,7 +13,19 @@ const SUCCESS_SFX = {
   'g.relic': 'pick',
   'g.choiceRandom': 'confirm',
   'g.band': 'confirm', 'g.bandSkip': 'back', 'g.infoReady': 'ready', 'g.emote': 'emote', 'g.emoteBurst': 'emote', 'g.destroy': 'back',
+  'g.unequip': 'back',
 };
+
+/**
+ * 装备拆卸 (behaviour `unequip`, DESIGN §34.43.2): whether this page draws the 「卸下」 button at all. Written by
+ * `public/js/roomMods.js` from `welcome.mods` (`behaviourValue(decl, 'unequip') === 'allow'`); FALSE by default, so a
+ * plain install — and every room whose packs declare nothing — renders exactly the official UI, with no button.
+ */
+let unequipOn = false;
+/** Record whether the behaviour layer allows unequipping (roomMods.js, on every welcome). @param {boolean} on */
+export function setUnequipAllowed(on) { unequipOn = on === true; }
+/** Is 卸下 offered right now? (ui/detailPanel.js ItemRow / ItemDetail read this to decide whether to draw the button) */
+export function unequipAllowed() { return unequipOn; }
 
 let inflight = 0;
 const busyListeners = new Set();
@@ -96,6 +108,8 @@ export const actions = {
   equip: (itemUid, targetUid, replaceUid) => act('g.equip', Number.isInteger(replaceUid) ? { itemUid, targetUid, replaceUid } : { itemUid, targetUid }),
   art: (itemUid, row, col, dir) => act('g.art', dir ? { itemUid, row, col, dir } : { itemUid, row, col }),
   destroy: (uid) => act('g.destroy', { uid }),
+  // 装备拆卸 (behaviour `unequip`): take one equipped item off its operator. Reuses `act` like every other intent.
+  unequip: (itemUid) => act('g.unequip', { itemUid }),
   reward: (idx) => act('g.reward', { idx }),
   choice: (idx, choiceId) => act('g.choice', choiceId === undefined ? { idx } : { idx, choiceId }),
   // 机变 随机分配 vote (fork 二.4): vote for the random allocation instead of picking a card

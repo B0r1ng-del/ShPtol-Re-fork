@@ -18,6 +18,8 @@ import { standInRecord } from '../../shared/standIn.js';
 import { normalizeMods, MOD_RANDOM_SP_FAMILIES, MOD_EXTRA_ROUNDS, layerCapFor, enemyBuffMul } from '../../shared/constants.js';
 import { filterRawData, effectiveBonds } from '../../shared/packData.js';
 import { MAX_OFFER_SLOTS } from './player/common.js';
+// 行为开关 `morphPairing` 的两半（工坊 mod 层移植 2026-10-17）：档位归一化与装备位策略都只有 `shared/morph.js` 一份。
+import { morphPairingOf, morphSlotPolicy } from '../../shared/morph.js';
 
 const own = (map, id) => (map && typeof map === 'object' && typeof id === 'string' && Object.hasOwn(map, id) && map[id] && typeof map[id] === 'object' ? map[id] : null);
 const numOr = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
@@ -98,8 +100,11 @@ export class GameData {
    *   room creator carried in. Normalised here so an unknown / malformed value is the official default, and read by
    *   `modeInactiveBonds`, `bans()` and `spDraftRules` — the three rule seams the switches change. Absent = all off =
    *   the official mode, byte-identical to before (the golden scenarios, the tools and every test pass nothing).
+   * @param {any} [behaviour] 本局合成后的行为声明（`shared/behaviour.js` 的归一化数组，来自 `Match.behaviour`）。工坊
+   *   mod 层移植 (2026-10-17) 新增的**第 5 个可选参数** —— 位置形式，既有调用方（4 参）一个字节都不用改，缺省
+   *   `undefined` ⇒ 每一格都取官方档。只被 `morphPairing` 那两半（`morphPairing` / `morphSlots`）读。
    */
-  constructor(data, modeId, mods, enemyBuff) {
+  constructor(data, modeId, mods, enemyBuff, behaviour) {
     /** Mod 开关 of this match (MOD_KEYS, all off by default). @type {Record<string, boolean>} */
     this.mods = normalizeMods(mods);
     /**
@@ -111,6 +116,27 @@ export class GameData {
      * @type {{ hp: number, atk: number, def: number, res: number } | null}
      */
     this.enemyBuff = enemyBuffMul(enemyBuff);
+    /**
+     * 行为开关 `morphPairing` 的档位（第 7 段 · 工坊 mod 层移植 2026-10-17）。挂在 `GameData` 上是因为 `GameData` 是
+     * **这一局**的读取视图，而它的两个读取方手上只有它：prep 侧的 `bondsMeta.pieceBonds`（`gd.morphPairing`）与
+     * 装备位那几处（`gd.morphSlots`）。
+     *
+     * 缺省（没传 `behaviour`、或那一格没声明）⇒ `official` = **引擎今天的行为**，`bondsMeta` 的 `morphed` 于是取
+     * `official`，与从前逐字相同。
+     * @type {'official'|'plus'}
+     */
+    this.morphPairing = morphPairingOf(behaviour ?? null);
+    /**
+     * 装备位语义的策略（第 7 段，与上面那一行是**同一格开关的另外半条**）：`plus` 档下变形同构体不占装备位、
+     * 每名干员最多一件、第三件顶掉真正占格的那两件；缺省档 ⇒ `OFFICIAL_SLOT_POLICY`（**共享的冻结单例**，每一个
+     * 方法都逐字是引擎今天那条算术）。
+     *
+     * **它不参与 `equipPerChess` 的取值** —— 那两格装备位是官方的；策略只回答「这一行占了几格、能不能再放一件、
+     * 顶替挑哪一件」。服务端四处调用方手上只有 `m` 或 `ps.m`，所以它们走 `matchSlotPolicy(m)` 那一个薄包装，
+     * 而这里这一份是给手里只有 `gd` 的调用方的同一份判据。
+     * @type {import('../../shared/morph.js').MorphSlotPolicy}
+     */
+    this.morphSlots = morphSlotPolicy(behaviour ?? null);
     // 内容包开关: the ported packs' records are dropped HERE, once, so every accessor below — the shop pool, the reels,
     // the 盟约 lists, the detail cards, the client-result bounds — sees only what this room actually contains. With
     // every pack off (the default, every golden scenario, every test) `filterRawData` returns `data` itself and this

@@ -384,10 +384,20 @@ export class Lobby {
    *   plugins", "Gameplay plugins"); hosts: the match hosts a room with gameplay plugins runs its match in
    *   (server/match/host/index.js; none: such a match runs here, unit tests)
    */
-  constructor({ registry, log = noopLog, MatchClass = DefaultMatch, getData = defaultGetData, now = Date.now, seedFn, content = null, plugins = null, hosts = null, options = {} }) {
+  constructor({ registry, log = noopLog, MatchClass = DefaultMatch, getData = defaultGetData, now = Date.now, seedFn, content = null, plugins = null, hosts = null, options = {}, workshop = null }) {
     this.registry = registry;
     /** the vanilla content set every room plays (header "Content identity"), or null */
     this.vanilla = content && isContentHash(content.cs) ? Object.freeze({ cs: content.cs, vanilla: true, plugins: Object.freeze([]) }) : null;
+    /**
+     * 工坊 mod 集（工坊 mod 层移植 2026-10-17，DESIGN §34.2）：`{ packs: [{ id, hash, …, behaviour? }] }`，由
+     * `server/index.js` 从**那一次** `loadWorkshop` 的产物投影出来（loadWorkshop 只调一次，因此 `/data` 的服务版本、
+     * 房间跑的版本、`Match` 读到的行为声明三者不可能不一致）。
+     *
+     * `null`（没装任何包、或测试自己搓的 Lobby）⇒ 送进 `Match` 的 `opts.mods` 就是从前那个纯 Mod 开关对象，
+     * `Match.behaviour` 于是取空表 ⇒ 每一格都走官方档，与包这一层出现之前**逐字节相同**。
+     * @type {{ packs: Array<{ id: string, hash?: string, behaviour?: Array<{ switch: string, option: string }> }> } | null}
+     */
+    this.workshop = workshop && Array.isArray(workshop.packs) && workshop.packs.length ? workshop : null;
     /** the server's room sets — visual and content (header "The room's plugins", "Gameplay plugins"), or null */
     this.plugins = plugins;
     /** the match hosts (header "Gameplay plugins"), or null */
@@ -1404,7 +1414,10 @@ export class Lobby {
         enemyBuff: { ...room.enemyBuff },
         // Mod 开关 (room.create.mods, MOD_KEYS): the room's gameplay switches, fixed for the match. All off unless the
         // creator switched one on, so a room created without them (and every test / tool) is the official mode.
-        mods: { ...room.mods },
+        // 工坊 mod 层移植 (2026-10-17)：装了包时**同一个对象**再带一个 `packs` 键（包身份 + 口径 / 行为声明）。它不参与
+        // `normalizeMods`（那里只取 MOD_KEYS 的布尔键），`Match` 把它收成 `this.modSet`，行为声明由它合成 ——
+        // **没有这一键 ⇒ 包声明的开关静默不生效**，这正是缺口 2。没装包时这一份与从前逐字节相同。
+        mods: this.workshop ? { ...room.mods, packs: this.workshop.packs } : { ...room.mods },
         seats,
         // the spectator seats (header): watched like eliminated players, never players
         spectators: room.spectators.map((s) => s.playerId),
