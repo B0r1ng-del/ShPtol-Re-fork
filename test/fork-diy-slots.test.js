@@ -92,8 +92,11 @@ test('the real match takes all 10 picks, gives each slot its own stock and sells
   const p0 = h.ps('p_0');
   h.toPrep(1);
   assert.deepEqual(Object.keys(p0.diy), SLOTS, 'every slot kept');
-  // per-tier stock: 8 copies at tier 5, 5 at tier 6 (economy.poolCopies), one stock per slot
-  assert.deepEqual(p0.diyStock.snapshot(), Object.fromEntries(SLOTS.map((id) => [id, DATA.backups.diy.slots[id].tier === 5 ? 8 : 5])));
+  // per-tier stock: 8 copies at tier 5 and 5 at tier 6 (economy.poolCopies), one stock per slot — doubled in co-op
+  // like the shared pool (the maintainer's decision of 2026-10-15, GitHub #650, DESIGN §32.14.31; gamedata.poolCopies
+  // no longer exempts a 自选 slot, so this co-op match gets 16 / 10, as test/match/diy-shop.test.js and docs/PLAYING.md
+  // state). This test used to pin the single-player 8 / 5, which the 0.3.0 merge superseded.
+  assert.deepEqual(p0.diyStock.snapshot(), Object.fromEntries(SLOTS.map((id) => [id, DATA.backups.diy.slots[id].tier === 5 ? 16 : 10])));
   for (const id of SLOTS) assert.ok(!m.pool.has(id), `${id}: never in the shared pool`);
   // the shop lists them from the slot's own 调度中心 level
   const seen = (level, n = 400) => {

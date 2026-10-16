@@ -294,7 +294,7 @@ export function install(battle) {
     }
     laserActive(s, true);
     s.laserTime += dt;
-    while (s.laserTime >= B.laserTick - 1e-9 && target.alive && !target.removed && laserSelectable(s, target) && !target.s.flags.invulnerable) {
+    while (s.laserTime >= B.laserTick - 1e-9 && target.alive && !target.removed && laserSelectable(s, target) && !target.s.flags.invulnerable) { // loop-cap: one tick per laserTick (laserTime -= B.laserTick each pass)
       s.laserTime = Math.max(0, s.laserTime - B.laserTick);
       const beforeShield = target.s.shield, beforeProgress = s.laserProgress;
       const ramp = 1 + Math.floor(Math.min(B.laserRampSeconds, beforeProgress) + 1e-9) * B.laserRampPerSecond;
@@ -312,7 +312,7 @@ export function install(battle) {
         }
         if (beforeProgress >= B.laserRampSeconds - 1e-9) {
           s.laserTrue += B.laserTick;
-          while (s.laserTrue >= B.laserTrueInterval - 1e-9 && target.alive && !target.removed) {
+          while (s.laserTrue >= B.laserTrueInterval - 1e-9 && target.alive && !target.removed) { // loop-cap: one true-damage step per interval (laserTrue -= B.laserTrueInterval each pass)
             s.laserTrue = Math.max(0, s.laserTrue - B.laserTrueInterval);
             const maxHp = target.bossPool?.maxHp ?? target.s.maxHp;
             battle.dealDamage(s.unit, target, { type: 'true', amount: maxHp * (B.laserTrueHpRatio + layersOf(s.ps) * B.laserTrueHpRatioPerLayer),

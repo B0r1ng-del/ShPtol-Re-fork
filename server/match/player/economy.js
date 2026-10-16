@@ -214,11 +214,12 @@ export class PlayerEconomy {
     const chess = old.slice(0, layout.chess);
     const items = old.slice(layout.chess);
     const fresh = (s) => { if (s) s.frozen = this.shop.frozen; return s; };
-    // 商店保底 (requirement 4): the level's first 干员槽位 takes a floored card. Reaching level 5 or 6 keeps slot 0 where
-    // it is (the slots already shown stay put), so this only matters when the upgrade opens the shop from nothing —
-    // but the rule is stated for the first slot at that level, so it applies here too.
+    // fork 三.5 (owner's ruling 2026-10-12): the new 干员槽位 a level-up opens is filled at once, not left empty as
+    // upstream 0.3.0's `null` slot has it. 商店保底 (requirement 4) applies on top: the level's FIRST 干员槽位 takes a
+    // floored card. Reaching level 5 or 6 keeps slot 0 where it is (the slots already shown stay put), so the floor only
+    // matters when the upgrade opens the shop from nothing — but the rule is stated for the first slot at that level.
     const floor = this.gd.shopFloor(this.shop.level);
-    while (chess.length < nChess) chess.push(fresh(this._rollChessSlot(chess.length === 0 ? floor : null)));
+    while (chess.length < nChess) chess.push(fresh(this._rollChessSlot(chess.length === 0 ? floor : null))); // loop-cap: shopSlots chess max 8
     while (items.length < nItem) items.push(fresh(this._rollItemSlot()));
     this.shop.slots = [...chess, ...items];
     this.shop.layout = { chess: chess.length, item: items.length };
@@ -259,11 +260,12 @@ export class PlayerEconomy {
       piece = this.acquireChess(slot.id, { source: 'buy' });
     } else {
       if (!this.gd.item(slot.id)) return fail(ERR.BAD_TARGET);
-      if (!this.m.itemPool.canGain(slot.id)) return fail(ERR.SOLD_OUT);
+      // Already displayed equipment stays purchasable after stock runs out (#624, maintainer 2026-10-14).
+      // acquireItem records the debt. Future rolls still exclude empty stock. SOLD_OUT is only this slot, already sold.
       if (handFull) return fail(ERR.HAND_FULL);
       this.spend(price);
       slot.sold = true;
-      piece = this.acquireItem(slot.id, { source: 'buy' });
+      piece = this.acquireItem(slot.id, { source: 'buy', displayed: true });
     }
     this.stats.buys++;
     this.round.buys++;
@@ -280,6 +282,9 @@ export class PlayerEconomy {
     if (!free && this.funds < price) return fail(ERR.NO_FUNDS);
     if (free) this.shop.freeRefreshes--;
     else this.spend(price);
+    // A manual refresh cancels the freeze: the new cards are not frozen (official, the owner's play of 2026-10-14;
+    // GitHub #584, DESIGN §32.14.7). A refresh that fails (funds, phase) returns above and leaves the freeze on.
+    this.shop.frozen = false;
     this.rollShop({ keepFrozen: false });
     this.stats.refreshes++;
     this.round.refreshes++;
@@ -332,16 +337,10 @@ export class PlayerEconomy {
     }
     if (loc.piece.kind !== 'chess') return fail(ERR.BAD_TARGET, 'tokens cannot be sold');
     const piece = loc.piece;
-    // its equipment returns to the hand (overflow temp): refuse rather than destroy it when there is no room
-    // Removing the owner's summon stacks frees one slot per stack, regardless of its summon count.
-    const freed = (x) => x == null || (x.kind === 'token' && x.ownerUid === piece.uid);
-    const room = this.hand.filter(freed).length + this.temp.filter(freed).length + (loc.area === 'hand' || loc.area === 'temp' ? 1 : 0);
-    if ((piece.items || []).length > room) return fail(ERR.HAND_FULL, 'no room for the equipment');
+    // Returned equipment can always wait in the overflow queue, even when all fifteen visible slots are occupied.
     this._detach(loc);
     this.removeTokensOf(piece.uid);
-    for (const it of piece.items || []) {
-      if (!this.stow(it, { allowTemp: true })) this.m.log.warn?.(`[match ${this.m.roomCode}] ${this.playerId}: item ${it.id} lost on sell (no space)`);
-    }
+    for (const it of piece.items || []) this.stow(it, { allowTemp: true });
     piece.items = [];
     this.returnCopies(piece);
     const ev = { piece, gain: this.gd.sellPrice(piece.id) };

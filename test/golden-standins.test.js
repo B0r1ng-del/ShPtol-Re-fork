@@ -54,13 +54,13 @@ test('standins: every active skill a chess names for its stand-in is cast; passi
 test('matches: the 补位 match\'s human seat fields stand-ins (listed per round) and the match ends without errors', () => {
   // The 调度中心 upgrade filling its new slot (三.5) moved this seat's shop stream: seeds 1 and 14 now field a single
   // stand-in each, so the companion seed 11 (tools/golden.mjs) carries the ≥ 2 stand-ins this test is about. All the
-  // scenarios stay in the corpus; this one reads the one that still covers it.
-  const dg = MATCHES.scenarios['coop2-NORMAL-11-coverage-standins'] || MATCHES.scenarios['coop2-NORMAL-1-coverage-standins'];
+  // scenarios stay in the corpus; this one reads the one that still covers it; upstream 0.3.0's own
+  // coop2-NORMAL-1-unowned-roster covers the same path and is kept in the corpus beside them.
+  const dg = MATCHES.scenarios['coop2-NORMAL-1-unowned-roster']
+    || MATCHES.scenarios['coop2-NORMAL-11-coverage-standins'] || MATCHES.scenarios['coop2-NORMAL-1-coverage-standins'];
   assert.ok(dg, 'scenario present');
   assert.deepEqual(dg.errors, { engine: 0, logged: 0, sim: 0, dispatcher: 0 });
   const fielded = dg.standIns.rounds.filter(([, s]) => s).flatMap(([, s]) => s.split(' '));
-  // (≥ 2 since a level-up leaves its new slot empty — GitHub #332, PR #333 by @2321Robin: this match's shop rolls, and with
-  // them which stand-ins the human seat fields, part from the stream in which the upgrade drew a card into the new slot)
   assert.ok(new Set(fielded).size >= 2, `stand-ins fielded: ${[...new Set(fielded)].join(', ')}`);
   for (const f of fielded) {
     const [id, charId] = f.split('→');

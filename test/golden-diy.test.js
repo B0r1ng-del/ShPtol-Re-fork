@@ -17,12 +17,14 @@ const MATCHES = read('./golden/matches.json');
 const BACKUPS = read('../data/backups.json');
 /** The official season's two slots per tier (`…_diy1_a` / `…_diy2_a`) — what the fixture fills. */
 const OFFICIAL_SLOTS = Object.keys(BACKUPS.diy.slots).filter((id) => /_diy[12]_a$/.test(id)).sort();
+const ECONOMY = read('../data/config.json').economy;
 
 test('matches: the 自选 match\'s human seat draws its 自选 pieces in its shop and fields 推进之王 in battle', () => {
-  // The 调度中心 upgrade filling its new slot (三.5) moved this seat's shop stream: seed 5 now draws 6 自选 pieces but
-  // fields none, so the companion seed 20 (tools/golden.mjs) carries the shop → deployment → battle path this test is
-  // about. Both scenarios stay in the corpus; this one reads the one that still covers it.
-  const [id, dg] = Object.entries(MATCHES.scenarios).find(([k]) => /coverage-diy$/.test(k) && k.includes('-20-'))
+  // The 调度中心 upgrade filling its new slot (三.5) moved this seat's shop stream; upstream 0.3.0's own changes moved it
+  // once more, and the 0.3.0 merge leaves seed 20 drawing 3 自选 pieces but fielding none. Seed 5 carries the
+  // shop → deployment → battle path this test is about again (9 draws, 推进之王 fielded); both scenarios stay in the
+  // corpus as outcome regressions (tools/golden.mjs).
+  const [id, dg] = Object.entries(MATCHES.scenarios).find(([k]) => /coverage-diy$/.test(k) && k.includes('-5-'))
     || Object.entries(MATCHES.scenarios).find(([k]) => /coverage-diy$/.test(k)) || [];
   assert.ok(dg, 'scenario present');
   assert.deepEqual(dg.errors, { engine: 0, logged: 0, sim: 0, dispatcher: 0 }, id);
@@ -39,6 +41,12 @@ test('matches: the 自选 match\'s human seat draws its 自选 pieces in its sho
       assert.equal(dg.diy.picks[`chess_char_${slot}`].charId, charId, `round ${r}: ${x} fights as its pick`);
     }
   }
-  // the stock: never above its cap (8 at tier 5, 5 at tier 6)
-  for (const [slot, left] of Object.entries(dg.diy.stock)) assert.ok(left >= 0 && left <= (BACKUPS.diy.slots[slot].tier === 5 ? 8 : 5), slot);
+  // the stock: never above its cap (8 at tier 5, 5 at tier 6 — doubled in co-op like the shared pool, GitHub #650)
+  const factor = dg.mode === 'coop' ? ECONOMY.coopPoolMultiplier : 1;
+  for (const [slot, left] of Object.entries(dg.diy.stock)) {
+    const cap = ECONOMY.poolCopies[BACKUPS.diy.slots[slot].tier] * factor;
+    assert.ok(left >= 0 && left <= cap, `${slot}: ${left} left, cap ${cap}`);
+  }
+  assert.equal(factor, 2, 'the coverage match is co-op');
+  assert.ok(Object.values(dg.diy.stock).some((left) => left > 8), 'a co-op stock above the single-player 8 (#650)');
 });
