@@ -184,6 +184,17 @@ test('real-time co-op over websockets with the real simulation: 2 humans + 2 AI 
     const pub = latest(c, 'm.public');
     assert.ok(pub.round >= 4, `${c.id} reached round ${pub.round} (${pub.phase})`);
   }
+  // `reached()` fires the moment PREP round 4 opens, but the own battles of rounds 1-3 are simulated by the CLIENT's
+  // own timer (simClient `_slice`: a real setTimeout, one battle per frame) — its `b.result` frames can still be in
+  // flight when the drivers stop, so the per-round report assertions below would read `c.sim.log` too early and fail on
+  // a loaded machine (measured: one failure in four full-suite runs). Wait for every authoritative own battle to be
+  // reported; bounded, so a real regression still fails instead of hanging.
+  const allReported = (c) => {
+    const own = c.log.filter((x) => x.t === 'b.start' && x.fieldId === `n:${c.id}` && x.authoritative);
+    return own.every((st) => c.sim.log.some((x) => x.t === 'b.result' && x.battleId === st.battleId));
+  };
+  const settleAt = Date.now() + 5000;
+  while (Date.now() < settleAt && !(allReported(a) && allReported(b))) await delay(20);
   assert.deepEqual(collectViolations(m), [], 'engine invariants hold in the live match');
   assert.equal(m.errorCount, 0, `match errors: ${JSON.stringify(m.errors.slice(0, 3))}`);
   assert.equal(m.dispatcher.errors, 0, 'meta handler errors');
