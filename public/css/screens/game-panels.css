@@ -52,12 +52,24 @@
 .sprite { object-fit: contain; }
 
 /* ---- detail panel ---- */
+/* ACRYLIC (需求方 2026-10-17, 图四): the detail card of a 干员 / 道具 / 地形装置 / 敌方入口 / 保护目标 is the frosted-glass
+   recipe the 在线聊天 window and the 表情面板 already use (css/chat.css) — a translucent plate plus backdrop blur and
+   saturation — instead of the near-opaque plate it shipped with. `@supports` keeps a browser without backdrop-filter on
+   the colour the plate composites to anyway. The blur makes this element a containing block for `position: fixed`
+   descendants, which is safe here: every tooltip renders through the app-level `<TooltipLayer/>` (ui/components.js), not
+   inside the card. */
 .dpanel {
   --bk-c: var(--mint-500);
   position: absolute; left: 2.3rem; top: 2.1rem; bottom: 1.02rem; width: 4.9rem; max-height: 8.4rem; z-index: 9;
   display: flex; flex-direction: column;
-  background: rgba(11, 15, 13, .97); border: 1px solid var(--line-2); box-shadow: 0 .14rem .4rem rgba(0, 0, 0, .65);
+  background: rgba(14, 19, 17, .62);
+  -webkit-backdrop-filter: blur(.12rem) saturate(1.6);
+  backdrop-filter: blur(.12rem) saturate(1.6);
+  border: 1px solid var(--line-2); box-shadow: 0 .14rem .4rem rgba(0, 0, 0, .65);
   animation: panel-in var(--t-slow) var(--ease-out);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .dpanel { background: rgba(14, 19, 17, .94); }
 }
 @keyframes panel-in { from { opacity: 0; transform: translateX(-.3rem); } }
 /* docked right (the selected unit's underframe is on the left: gameLogic panelSide / panelSlots — keep the insets in
@@ -739,8 +751,16 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
   /* content-sized: the longest label decides, so no text can ever need a second line (fix 3 above) */
   width: max-content; min-width: max(1.5rem, 150px); max-width: min(78vw, 6rem);
   padding: .12rem .14rem;
-  background: rgba(10, 16, 14, .95); border: 1px solid var(--mint-800); border-radius: .08rem;
+  /* ACRYLIC (需求方 2026-10-17, 图四): the cheat menu is the same frosted material as the detail card above — a
+     translucent plate plus backdrop blur and saturation, with the mint frame kept (it is the panel's own identity). */
+  background: rgba(10, 16, 14, .62);
+  -webkit-backdrop-filter: blur(.12rem) saturate(1.6);
+  backdrop-filter: blur(.12rem) saturate(1.6);
+  border: 1px solid var(--mint-800); border-radius: .08rem;
   box-shadow: 0 .06rem .2rem rgba(0, 0, 0, .5);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .cheatball__panel { background: rgba(10, 16, 14, .95); }
 }
 /* The panel opens toward the roomier half of the screen, both ways (the two sides are chosen in ui/cheats.js from the
    ball's own stored position), so it never runs off a phone's 844×390 landscape screen. */
