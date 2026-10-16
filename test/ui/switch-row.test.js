@@ -105,6 +105,19 @@ test('the labels, tips and the ⓘ\'s accessible name all have four-language ent
   assert.match(SRC, /aria-label=\$\{label\}/);
 });
 
+test('the ⓘ is never the INITIAL focus of a dialog: opening a panel must not show the first tip', () => {
+  // 需求方 2026-10-17: 「无论打开 mod 菜单还是房主配置，都会莫名显示第一项选择的解释」. The ⓘ is the first tabbable element of
+  // every settings-style dialog, and `<Modal>` focused it on open — a PROGRAMMATIC focus is indistinguishable from a
+  // keyboard focus, so `Tooltip.onFocusIn` showed that row's tip immediately. Modal's own focusFirst must skip the
+  // explanation anchors (`.tt-anchor`, what `<Tooltip>` renders); the ⓘ stays Tab-reachable.
+  const MODAL = COMPONENTS.slice(COMPONENTS.indexOf('export function Modal('), COMPONENTS.indexOf('let dialogSeq'));
+  assert.match(MODAL, /const focusFirst = \(\) => \{/, 'focusFirst picks a target, it does not blindly take tabbable()[0]');
+  assert.match(MODAL, /!el\.closest\('\.tt-anchor'\)/, 'and it skips the explanation anchor');
+  // the ⓘ itself is still a real tab stop — only the INITIAL focus changed
+  assert.match(SRC, /class="swrow__info"/);
+  assert.ok(!/tabIndex=\$\{-1\}/.test(SRC), 'the ⓘ stays in the tab order');
+});
+
 test('the switch row is documented where the client design lives', () => {
   const DESIGN = read('docs/design/client.md');
   assert.match(DESIGN, /SwitchRow/, 'docs/design/client.md names the shared component');

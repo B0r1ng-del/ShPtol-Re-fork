@@ -109,10 +109,13 @@ export const HOST_CONFIG_DEFAULTS = Object.freeze({ sharedPool: true, sharedBoun
  * meaningless with nobody to share with (the lobby refuses them, the panel hides them), a rule about one's own items is
  * not. The panel shows exactly these rows in a solo room and nothing else.
  *
- * 在线聊天 is NOT here: it is a room-wide channel, and a solo room has nobody to talk to (the window would be a text box
- * talking to itself). A solo host can flip it in a co-op room later; the switch keeps.
+ * 在线聊天 IS here (需求方 2026-10-17): a single-seat room must be able to turn the window on. It shipped excluded, on the
+ * reasoning that a solo player has nobody to talk to — but the option then did not exist in 独立模拟 at all: the panel
+ * filtered the row out and the lobby refused the write, so the switch the owner asked for was simply unusable there
+ * (「在线聊天选项无法使用」). The window is still useful alone (it carries the 交流 wheel and shows one's own lines), and
+ * a solo host is the one who decides; excluding it only removed a control without protecting anything.
  */
-export const HOST_CONFIG_SOLO_KEYS = Object.freeze(['itemSell']);
+export const HOST_CONFIG_SOLO_KEYS = Object.freeze(['itemSell', 'onlineChat']);
 
 /**
  * 房主配置 装备可售卖 (`itemSell`): what one sold item pays. The one definition — the server pays it

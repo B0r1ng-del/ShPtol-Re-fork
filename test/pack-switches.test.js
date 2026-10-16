@@ -78,6 +78,16 @@ describe('内容包开关: the switches themselves', () => {
     assert.match(packDialog, /PACK_AUTHORS\[r\.key\]/, 'the tip names the pack author');
     assert.match(packDialog, /原作者：\{author\}/, 'through the credited msgid');
     assert.match(packDialog, /MOD_PACK_ROWS/, 'and it draws exactly the 内容包 half');
+    // ⚠️ 需求方 2026-10-17: 「mod 菜单打开后无法按完成退出，会反复弹出」. The cause was structural — the dialog was rendered
+    // inside `<Button>`'s children, and a `<button>` may not contain another `<button>` (the dialog's own 完成 button and
+    // every switch are buttons): the parser force-closes the outer one, the dialog gets reparented and 完成 re-opened it.
+    // It must stay a SIBLING of the entry button (inside a Fragment), like ui/resumeMatch.js's ResumeMatchButton.
+    const frag = packDialog.slice(packDialog.indexOf('export function ModMenuButton'));
+    assert.match(frag, /<span class="btn__label">/, 'the entry button is the one with the label');
+    const btnEnd = frag.indexOf('<//>', frag.indexOf('data-testid="mod-menu-open"'));
+    const dlg = frag.indexOf('<${ModMenuDialog}');
+    assert.ok(dlg > btnEnd, 'ModMenuDialog must come AFTER the button closes, never inside its children');
+    assert.match(packDialog, /\$\{Fragment\}/, 'the two are siblings under a Fragment');
     const room = read('public/js/screens/room.js');
     assert.match(room, /MOD_RULE_ROWS/, 'the 房主配置 panel draws exactly the 对局选项 half');
     assert.ok(!/PACK_AUTHORS/.test(room), 'and no longer carries the packs\' credit');

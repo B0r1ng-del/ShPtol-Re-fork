@@ -12,7 +12,7 @@
 // A host who wants to change them once the room exists uses 房主配置, which writes the room itself (room.setMods); the
 // two surfaces edit the same MOD_KEYS, so neither can disagree with the other about what a switch means.
 
-import { html, Modal, Button, SwitchRow } from '../ui/components.js';
+import { html, Fragment, Modal, Button, SwitchRow } from '../ui/components.js';
 import { useState } from '../../vendor/hooks.module.js';
 import { t } from '../../../shared/i18n.js';
 import { PACK_AUTHORS } from '../../../shared/constants.js';
@@ -58,16 +58,24 @@ export const modPackCount = (mods) => MOD_PACK_ROWS.reduce((k, r) => k + ((mods 
  * The 选择模拟协议 screen's 「Mod 菜单」 button — 干员调配's own shape, sitting beside it in the top bar. The badge counts
  * the 内容包 switches that are on, so a player can see at a glance that the room they are about to make is not vanilla.
  *
+ * ⚠️ The dialog is a **SIBLING** of the button, never a child. It shipped nested inside `<Button>`'s children, and a
+ * `<button>` cannot contain another `<button>` (`Modal`'s own 完成 button and every switch): the HTML parser force-closes
+ * the outer one, so the dialog was reparented, the close handler and the DOM structure disagreed, and 完成 re-opened the
+ * dialog instead of dismissing it (需求方 2026-10-17: 「无法按完成退出，会反复弹出」). `ResumeMatchButton` (ui/resumeMatch.js)
+ * is the same shape — button and `<Modal>` as siblings.
+ *
  * @param {{ class?: string, variant?: string }} props
  */
 export function ModMenuButton({ class: cls, variant = 'secondary' }) {
   const [open, setOpen] = useState(false);
   // re-read on open: another tab (or the room's own 房主配置) may have changed the preference since this button rendered
   const [n, setN] = useState(() => modPackCount());
-  return html`<${Button} variant=${variant} size="md" icon="sliders" class=${cls} data-testid="mod-menu-open"
-      onClick=${() => { setN(modPackCount()); setOpen(true); }}>
-    <span class="btn__label">${t('Mod 菜单')}</span>
-    ${n ? html`<span class="lo-entry__n num" aria-label=${t('{n} 项已开启', { n })}>${n}</span>` : null}
+  return html`<${Fragment}>
+    <${Button} variant=${variant} size="md" icon="sliders" class=${cls} data-testid="mod-menu-open"
+        onClick=${() => { setN(modPackCount()); setOpen(true); }}>
+      <span class="btn__label">${t('Mod 菜单')}</span>
+      ${n ? html`<span class="lo-entry__n num" aria-label=${t('{n} 项已开启', { n })}>${n}</span>` : null}
+    <//>
     <${ModMenuDialog} open=${open} onClose=${() => setOpen(false)} />
   <//>`;
 }

@@ -424,7 +424,17 @@ export function Modal({ open, title, micro, tone = 'mint', onClose, actions, wid
       && getComputedStyle(el).visibility !== 'hidden';
     const tabbable = () => [...box.querySelectorAll('button, [href], input, select, textarea, [tabindex], summary')]
       .filter((el) => el.tabIndex >= 0 && available(el));
-    const focusFirst = () => (tabbable()[0] || box).focus();
+    /**
+     * Where focus goes when the dialog opens (and when focus escapes it): the first real control, never an explanation
+     * button. The ⓘ of a `<SwitchRow>` is the first tabbable element of every settings-style dialog, and a PROGRAMMATIC
+     * focus on it is indistinguishable from a keyboard focus — `Tooltip.onFocusIn` therefore showed that row's tip the
+     * moment the dialog appeared (需求方 2026-10-17: 「打开 mod 菜单或房主配置都会莫名显示第一项的解释」). The ⓘ stays
+     * Tab-reachable; it is only never the INITIAL focus.
+     */
+    const focusFirst = () => {
+      const els = tabbable();
+      (els.find((el) => !el.closest('.tt-anchor')) || els[0] || box).focus();
+    };
     const onKey = (e) => {
       if (!topmost()) return;
       if (e.key === 'Escape' && closeRef.current) {
