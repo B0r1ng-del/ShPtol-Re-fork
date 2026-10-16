@@ -720,12 +720,28 @@
   justify-content: center;
   gap: .5rem;
   padding: .24rem 0 .26rem;
+  /* ACRYLIC (需求方 2026-10-17): the phase banner is the same frosted material as the 在线聊天 window and the 表情面板.
+     The plate fades out at both ends, and `backdrop-filter` would otherwise blur a full-width stripe across the whole
+     screen — even where the plate is invisible — so the mask repeats the gradient's own stops and the blur fades with
+     it. The busier `rgba(7, 10, 9, .93)` of the near-opaque plate drops to .62 so the board reads through the glass. */
   background:
     repeating-linear-gradient(0deg, rgba(255, 255, 255, .025) 0 1px, transparent 1px 3px),
-    linear-gradient(90deg, transparent, rgba(7, 10, 9, .93) 16%, rgba(7, 10, 9, .93) 84%, transparent);
+    linear-gradient(90deg, transparent, rgba(7, 10, 9, .62) 16%, rgba(7, 10, 9, .62) 84%, transparent);
+  -webkit-backdrop-filter: blur(.12rem) saturate(1.6);
+  backdrop-filter: blur(.12rem) saturate(1.6);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent);
   overflow: hidden;
   transform-origin: center;
   animation: pb-open var(--t-med) var(--ease-out) backwards;
+}
+/* no backdrop-filter: the plate composites to this colour anyway — back to the near-opaque band it shipped with */
+@supports not (backdrop-filter: blur(1px)) {
+  .pbanner__band {
+    background:
+      repeating-linear-gradient(0deg, rgba(255, 255, 255, .025) 0 1px, transparent 1px 3px),
+      linear-gradient(90deg, transparent, rgba(7, 10, 9, .93) 16%, rgba(7, 10, 9, .93) 84%, transparent);
+  }
 }
 .pbanner__band::before, .pbanner__band::after {
   content: '';
@@ -806,13 +822,20 @@
   min-width: 5.6rem;
   max-width: 88vw;
   padding: .34rem .5rem .3rem;
+  /* ACRYLIC (需求方 2026-10-17): the 作战结束 result plate is the same frosted material as the phase banner above it
+     and the 在线聊天 window — a translucent plate plus blur/saturation, with the tone's frame and glow kept. */
   background:
     repeating-linear-gradient(0deg, rgba(255, 255, 255, .022) 0 1px, transparent 1px 3px),
-    linear-gradient(180deg, rgba(9, 13, 12, .96), rgba(6, 9, 8, .97));
+    linear-gradient(180deg, rgba(9, 13, 12, .62), rgba(6, 9, 8, .66));
+  -webkit-backdrop-filter: blur(.12rem) saturate(1.6);
+  backdrop-filter: blur(.12rem) saturate(1.6);
   border: 1px solid var(--rd);
   box-shadow: 0 0 .5rem var(--rd-glow), inset 0 0 .7rem rgba(0, 0, 0, .8), 0 .1rem .5rem rgba(0, 0, 0, .6);
   overflow: hidden;
   animation: rd-open 320ms var(--ease-out) backwards;
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .rdialog__box { background: linear-gradient(180deg, rgba(9, 13, 12, .96), rgba(6, 9, 8, .97)); }
 }
 .rdialog__box::before, .rdialog__box::after {
   /* hairlines inside the frame, so the plate reads as a plate and not a card */
