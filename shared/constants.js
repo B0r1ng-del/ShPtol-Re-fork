@@ -98,12 +98,18 @@ export const DEPLOY_CAP_MAX = 12;
  *                            off — the official rule and the default: an item can only be 销毁 (PlayerItems.destroy)
  *   onlineChat    在线聊天   on  — the room shows the in-match 在线聊天 window: everyone may send `g.chat` messages and
  *                                  the server broadcasts them as `m.chat`. The 交流 emote button is folded into that window.
- *                            off — the official behaviour and the default: no chat window, no `g.chat` accepted, and the
- *                                  交流 button sits where it always did.
+ *                                  ★ THE DEFAULT since 2026-10-17 (需求方「其中的『在线聊天』改为默认开启」) — see
+ *                                  HOST_CONFIG_DEFAULTS below; turning it off restores the official HUD exactly.
+ *                            off — no chat window, no `g.chat` accepted, and the 交流 button sits where it always did.
  */
 export const HOST_CONFIG_KEYS = Object.freeze(['sharedPool', 'sharedBounty', 'aiPicksLast', 'multiAlliance', 'itemSell', 'onlineChat']);
-/** Defaults of HOST_CONFIG_KEYS: the official behaviour of each option. */
-export const HOST_CONFIG_DEFAULTS = Object.freeze({ sharedPool: true, sharedBounty: true, aiPicksLast: false, multiAlliance: false, itemSell: false, onlineChat: false });
+/**
+ * Defaults of HOST_CONFIG_KEYS: the official behaviour of each option — EXCEPT 在线聊天, which the owner switched ON by
+ * default on 2026-10-17 (需求方: 「将『房主配置』改名为『房间配置』，其中的『在线聊天』改为默认开启」). It is the one fork
+ * default that is not the official behaviour; every other key keeps the official value, and setting this one back to
+ * false reproduces the upstream HUD byte for byte (the window, `g.chat` and the folded 交流 wheel all disappear).
+ */
+export const HOST_CONFIG_DEFAULTS = Object.freeze({ sharedPool: true, sharedBounty: true, aiPicksLast: false, multiAlliance: false, itemSell: false, onlineChat: true });
 /**
  * The HOST_CONFIG_KEYS a single-seat room (独立模拟) may still set: the ones that share something between players are
  * meaningless with nobody to share with (the lobby refuses them, the panel hides them), a rule about one's own items is

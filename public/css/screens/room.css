@@ -321,6 +321,9 @@
    warning line below them (the owner's screenshot). Each slider reuses 设置's `.set-row` / `.set-range` grid from
    screens/game.css (loaded globally), so it looks and drags the same; only the block frame and the header are here. */
 .ebuff { display: flex; flex-direction: column; gap: .1rem; padding-top: .14rem; border-top: 1px solid var(--line-1); }
+/* 需求方 2026-10-17 (图三): the block opens the dialog now, so its top separator (the line that used to divide it from the
+   switch rows above it) would draw a stray rule under the title. `.hostcfg`'s own gap still separates it from the rows. */
+.hostcfg > .ebuff:first-child { padding-top: 0; border-top: 0; }
 .ebuff__head { display: flex; align-items: center; gap: .08rem; }
 .ebuff__title { display: flex; align-items: center; gap: .06rem; font-size: calc(.18 * var(--t)); color: var(--orange-hi); }
 .ebuff__title .icon { width: .2rem; height: .2rem; color: var(--orange-hi); }

@@ -33,7 +33,9 @@ export const EMOTE_CSS_HREF = '/css/emotes.css';
 const PREF_THEME = 'emoteTheme';
 // the two fork switches (per-device choices, so they live in the local prefs):
 //   一键十连 — one tap on an emote sends it ten times (`g.emoteBurst`);
-//   弹幕     — emotes also fall across the screen like snowflakes instead of only popping the avatar bubbles.
+//   弹幕     — emotes also fall across the screen like snowflakes instead of only popping the avatar bubbles. Since
+//              2026-10-17 it ALSO turns on the 聊天弹幕 layer (ui/chat.js ChatBarrage, mounted by screens/game.js):
+//              需求方 asked for one 弹幕 control, and it is this one — the 设置 row that used to duplicate it is gone.
 export const PREF_TEN_PULL = 'emoteTenPull';
 export const PREF_BARRAGE = 'emoteBarrage';
 /** 一键十连 on? (per device; the server's `g.emoteBurst` is what actually sends the ten) */
@@ -414,7 +416,7 @@ export function EmoteWheel({ onSend, open, onToggle, disabled = false, cooldownM
           title=${t('一键十连：开启后点一次表情会连发 {n} 条', { n: EMOTE_BURST_COUNT })}
           onClick=${() => setTen((v) => { const n = !v; setEmotePref(PREF_TEN_PULL, n); return n; })}>${t('一键十连')}</button>
         <button type="button" class=${cx('ewheel__opt', barrage && 'is-on')} aria-pressed=${barrage ? 'true' : 'false'} data-testid="emote-barrage"
-          title=${t('弹幕：表情像雪花一样从屏幕上方飘落，房间内所有人可见')}
+          title=${t('弹幕：表情像雪花一样从屏幕上方飘落，房间内所有人可见；聊天窗口的发言也会以弹幕横穿屏幕')}
           onClick=${() => setBarrage((v) => { const n = !v; setEmotePref(PREF_BARRAGE, n); return n; })}>${t('弹幕')}</button>
       </div>
     </div>` : null}

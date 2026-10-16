@@ -211,6 +211,11 @@ function buildState() {
     phase: PHASE.PREP, round: 6, lastRound: 14, bossRound: 14, hiddenRound: 15, deadline: Date.now() + 74000, serverNow: Date.now(), modeId: 'mode_multi_hard', difficulty: 'HARD',
     stageId: STAGE_ID, factions: ['FLY', 'TIMES', 'SPECIAL'], disabledBonds: [...disabled], bannedChess: banned, bossId: 'boss_5',
     hiddenBossId: 'boss_8', teamLp: null, bossHp: null, draft: null, sp: null, players, fields: [],
+    // 房间配置 (主机选项, m.public.hostConfig): 在线聊天 is ON by default since 2026-10-17 (需求方), so the mock renders the
+    // chat window — and with it the corner layout the window shares with the 交流 wheel. `&variant=chatOff` restores the
+    // official HUD (no window, the wheel alone in the corner), which is what a deployment that never touched the option
+    // still looks like.
+    hostConfig: { sharedPool: true, sharedBounty: true, aiPicksLast: false, multiAlliance: false, itemSell: false, onlineChat: !VARIANTS.has('chatOff') },
   };
   if (VARIANTS.has('boss') || VARIANTS.has('bossR')) pub.round = pub.bossRound;
   S = { stage, pub, priv, layers: {}, battle: null, pool, requests: [] };

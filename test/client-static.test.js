@@ -1111,8 +1111,8 @@ describe('screen helpers', () => {
     const { MODE_CARDS } = await mod('screens/lobby.js');
     assert.deepEqual(MODE_CARDS.map((c) => c.id), ['solo', 'coop', 'ultimate']);
     const ult = MODE_CARDS.find((c) => c.id === 'ultimate');
-    assert.equal(ult.name, '终极模拟');
-    assert.equal(ult.en, 'ULTIMATE SIMULATION');
+    assert.equal(ult.name, '扩展模拟');
+    assert.equal(ult.en, 'EXTENDED SIMULATION');
     assert.equal(ult.icon, 'crown');
     // 0.2.0 i18n: both fork cards are TEMPLATES (`… {n} 名博士 …`) carrying `params` / `pointParams`, so the
     // assertions resolve the placeholders instead of matching the literal text the fork once used.

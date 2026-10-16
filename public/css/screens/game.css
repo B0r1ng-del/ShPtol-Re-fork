@@ -243,9 +243,18 @@
    because the centring must be about the VIEWPORT's middle, which is what 「居中」 means on every window width; the row
    it sits under is pointer-transparent except its own controls, so it still never swallows a tap (the `right: 5.2rem`
    the old value carried made room for a left-aligned strip, not for the effects column: see `.gm__effects` on the right
-   edge below, which the centred strip does not reach at any size the layout ships). */
+   edge below, which the centred strip does not reach at any size the layout ships).
+
+   需求方 2026-10-17 (图五, 「盟约居中优化未到位」): centring the ROW was not enough, because the row's own children were
+   [折叠箭头 + 盟约条] and flex centres the GROUP — the strip's centre therefore sat 22 px (half the arrow's 44 px touch
+   floor) right of the viewport's middle. `.gm__bond-box` is the row's single flex item, so the centred box IS the strip,
+   and the arrow hangs outside the box (`right: 100%`) without taking part in the centring. */
 .gm__bonds { position: absolute; left: 0; top: 1.36rem; right: 0; pointer-events: none;
   display: flex; align-items: flex-start; justify-content: center; gap: max(.1rem, 8px); }
+.gm__bond-box { position: relative; display: flex; align-items: flex-start; min-width: 0; }
+/* Collapsed, the box is 0-wide, so the arrow hanging at `right: 100%` would sit entirely LEFT of the centre — it is the
+   only visible control then, so it takes the centre itself (measured 938 against the viewport's 960 before this rule). */
+.gm__bond-box.is-collapsed .bonds-toggle { right: auto; left: 50%; transform: translateX(-50%); }
 /* Only the bond discs (and the +N chip) take the pointer: the strip's box spans the width under the top bar, where the
    top board row's units stand (row 12 at 16:9 / 21:9 / 720p / phones, the boss field's row 5 in a boss prep) — it used
    to swallow the taps and drags on them (review of user playtest #2 item 8: every own unit reachable). */
@@ -254,8 +263,13 @@
 .gm__bond-list { min-width: 0; }
 /* The hidden list leaves no hit area over the board; only this compact tab can reopen it (GitHub #142). */
 /* A bare arrow (the owner's request after 0.2.0: the boxed 「收起」 tab looked heavy): transparent, half-visible until
-   hovered or focused; the 44 × 44 touch target stays (an invisible hit area), the name is the aria-label. */
-.gm__bonds .bonds-toggle { pointer-events: auto; flex: none; display: inline-flex; align-items: center; justify-content: center;
+   hovered or focused; the 44 × 44 touch target stays (an invisible hit area), the name is the aria-label.
+   `right: 100%` (需求方 2026-10-17): the arrow hangs OUTSIDE `.gm__bond-box`, immediately left of the strip, so it is not
+   part of what `justify-content: center` centres — that half-toggle offset was what kept the strip off the viewport's
+   middle. Out of flow it also keeps the SAME x when the strip is collapsed (the box is then 0-wide and still centred),
+   so folding no longer makes the arrow jump sideways. */
+.gm__bonds .bonds-toggle { position: absolute; right: 100%; top: 0; pointer-events: auto; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
   min-width: 44px; min-height: 44px; padding: 0; color: var(--text-hi); background: transparent; border: 0; cursor: pointer;
   opacity: .55; transition: opacity var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out); line-height: 1; }
 .bonds-toggle .icon { width: max(.22rem, 18px); height: max(.22rem, 18px); filter: drop-shadow(0 0 2px rgba(0, 0, 0, .85)); }

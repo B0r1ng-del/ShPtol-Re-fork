@@ -87,7 +87,7 @@ describe('room.setHostConfig (lobby)', () => {
   test('room.state carries every option at its official default, and the panel is host-only editable', async () => {
     const host = await pool.player('Host');
     const st = await createRoom(host);
-    assert.deepEqual(st.hostConfig, { ...HOST_CONFIG_DEFAULTS }, '共享卡池/共享悬赏 on, AI 队友最后选择/多同盟模式/装备可售卖 off');
+    assert.deepEqual(st.hostConfig, { ...HOST_CONFIG_DEFAULTS }, '共享卡池/共享悬赏/在线聊天 on, AI 队友最后选择/多同盟模式/装备可售卖 off');
     assert.equal(st.hostConfig.sharedPool, true);
     assert.equal(st.hostConfig.sharedBounty, true);
     assert.equal(st.hostConfig.aiPicksLast, false);
@@ -181,7 +181,8 @@ describe('room.setHostConfig (lobby)', () => {
     await ok(host, { t: 'g.infoReady' });
     await ok(guest, { t: 'g.infoReady' });
     const back = await guest.waitFor('room.state', (s) => !s.inMatch);
-    assert.deepEqual(back.hostConfig, { sharedPool: false, sharedBounty: true, aiPicksLast: true, multiAlliance: true, itemSell: false });
+    // onlineChat is the one default the fork turned ON (2026-10-17, 需求方), so it rides along untouched
+    assert.deepEqual(back.hostConfig, { sharedPool: false, sharedBounty: true, aiPicksLast: true, multiAlliance: true, itemSell: false, onlineChat: true });
     // host migration keeps the room's settings
     await ok(host, { t: 'room.leave' });
     const migrated = await guest.waitFor('room.state', (s) => s.hostId === guest.id);
