@@ -576,7 +576,14 @@
 .dpbox {
   position: absolute; right: .3rem; top: 50%; transform: translateY(-50%);
   display: flex; flex-direction: column; align-items: center; gap: .02rem; padding: .1rem .12rem;
-  background: rgba(8, 11, 10, .85); border: 1px solid var(--line-2); border-right: 3px solid var(--mint-500);
+  /* ACRYLIC (需求方 2026-10-17): the HUD plates join the frosted material the 在线聊天 window and the detail card use. */
+  background: rgba(8, 11, 10, .55);
+  -webkit-backdrop-filter: blur(.12rem) saturate(1.6);
+  backdrop-filter: blur(.12rem) saturate(1.6);
+  border: 1px solid var(--line-2); border-right: 3px solid var(--mint-500);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .dpbox { background: rgba(8, 11, 10, .88); }
 }
 .dpbox__icon { width: .26rem; height: .26rem; color: var(--mint-500); }
 .dpbox b { font-size: .34rem; line-height: 1; color: #fff; }
@@ -584,14 +591,30 @@
 .chud__bottom > * { pointer-events: auto; }
 .chud__msg {
   display: flex; align-items: center; gap: .1rem; padding: .1rem .3rem; font-size: .19rem; color: var(--text-hi);
-  background: rgba(8, 11, 10, .9); border: 1px solid var(--line-2); border-radius: .3rem; white-space: nowrap;
+  /* ACRYLIC (需求方 2026-10-17): 「作战结束，等待队友完成作战」 is a HUD plate like the rest — frosted, with its pill kept. */
+  background: rgba(8, 11, 10, .55);
+  -webkit-backdrop-filter: blur(.12rem) saturate(1.6);
+  backdrop-filter: blur(.12rem) saturate(1.6);
+  border: 1px solid var(--line-2); border-radius: .3rem; white-space: nowrap;
   animation: pop-in var(--t-slow) var(--ease-out);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .chud__msg { background: rgba(8, 11, 10, .9); }
 }
 /* a still hourglass: a rotating one next to the text read as a loading spinner (user playtest #3 item 9) */
 .chud__msg .icon { width: .22rem; height: .22rem; color: var(--gold); }
 .chud__msg--dead { border-color: rgba(255, 84, 84, .5); color: var(--red-premium); }
 .chud__msg--dead .icon { color: var(--red-premium); }
-.vswitch { display: flex; align-items: center; gap: .1rem; height: .5rem; padding: 0 .06rem; background: rgba(8, 11, 10, .9); border: 1px solid var(--line-2); }
+.vswitch {
+  display: flex; align-items: center; gap: .1rem; height: .5rem; padding: 0 .06rem;
+  background: rgba(8, 11, 10, .55);
+  -webkit-backdrop-filter: blur(.12rem) saturate(1.6);
+  backdrop-filter: blur(.12rem) saturate(1.6);
+  border: 1px solid var(--line-2);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .vswitch { background: rgba(8, 11, 10, .9); }
+}
 .vswitch__arrow { width: .4rem; height: .4rem; display: grid; place-items: center; background: none; border: 0; color: var(--mint-500); }
 .vswitch__arrow .icon { width: .3rem; height: .3rem; }
 .vswitch__arrow:hover:not(:disabled) { color: var(--mint-400); background: var(--mint-a10); }
@@ -602,8 +625,15 @@
 .chud__wait { border-color: rgba(255, 198, 0, .45); }
 .chud__progress { display: flex; flex-wrap: wrap; justify-content: center; gap: .1rem .18rem; max-width: 9rem; font-size: .15rem; color: var(--text-md); }
 .chud__prog {
-  display: inline-flex; align-items: center; gap: .08rem; padding: .03rem .12rem; background: rgba(8, 11, 10, .82);
+  display: inline-flex; align-items: center; gap: .08rem; padding: .03rem .12rem;
+  /* ACRYLIC (需求方 2026-10-17): the teammate progress badges sit under the same waiting pill, so they share its plate. */
+  background: rgba(8, 11, 10, .55);
+  -webkit-backdrop-filter: blur(.12rem) saturate(1.6);
+  backdrop-filter: blur(.12rem) saturate(1.6);
   border: 1px solid rgba(78, 216, 175, .25); border-left: 3px solid var(--gold);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .chud__prog { background: rgba(8, 11, 10, .82); }
 }
 .chud__prog b { font-weight: 500; max-width: 1.4rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chud__prog .num { color: var(--gold); font-size: .16rem; }

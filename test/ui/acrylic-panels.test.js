@@ -13,6 +13,11 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const PANELS = readFileSync(path.join(ROOT, 'public/css/screens/game-panels.css'), 'utf8');
 const CHAT = readFileSync(path.join(ROOT, 'public/css/chat.css'), 'utf8');
+const COMPONENTS = readFileSync(path.join(ROOT, 'public/css/components.css'), 'utf8');
+const GAME = readFileSync(path.join(ROOT, 'public/css/screens/game.css'), 'utf8');
+
+/** The acrylic declaration pair, as the recipe spells it. */
+const FILTER = /-webkit-backdrop-filter: blur\(\.12rem\) saturate\(1\.6\);\n {2}backdrop-filter: blur\(\.12rem\) saturate\(1\.6\);/;
 
 /** The declaration block of one selector (first match). */
 function block(css, sel) {
@@ -60,4 +65,57 @@ test('no opaque plate is left behind on either surface', () => {
     const cheat = block(PANELS, '.cheatball__panel {');
     if (gone === '.95') assert.ok(!/background: rgba\(10, 16, 14, \.95\)/.test(cheat), 'the old .95 plate is gone from the panel');
   }
+});
+
+// 需求方 2026-10-17（追加）：「给这些 UI 最底层的背景改为 Acrylic」—— 截图里的相位横幅（休整期 / 作战开始 / 第 N 回合）、
+// 作战结束结果框，以及 HUD 的三块底板（等待胶囊 / 队友进度 / 费用框 / ‹ › 切换条）。
+//
+// 这四处都在 `.dpanel` 之外，所以它们此前还是各自的不透明底板；配方与上面两块**同一条**（css/chat.css 的
+// blur(.12rem) saturate(1.6)），回退色同样走 `@supports`。
+
+test('the phase banner is acrylic, and its blur fades with the plate', () => {
+  const band = block(COMPONENTS, '.pbanner__band {');
+  assert.match(band, /background:\n {4}repeating-linear-gradient\(0deg, rgba\(255, 255, 255, \.025\) 0 1px, transparent 1px 3px\),\n {4}linear-gradient\(90deg, transparent, rgba\(7, 10, 9, \.62\) 16%, rgba\(7, 10, 9, \.62\) 84%, transparent\)/, 'translucent band');
+  assert.match(band, FILTER);
+  // the blur must be masked to the same stops as the fill: unmasked it fogs a full-width stripe of the board, including
+  // the two ends where the plate is invisible
+  assert.match(band, /-webkit-mask-image: linear-gradient\(90deg, transparent, #000 16%, #000 84%, transparent\)/);
+  assert.match(band, /mask-image: linear-gradient\(90deg, transparent, #000 16%, #000 84%, transparent\)/);
+  // the opaque band is the fallback, not the default
+  assert.match(COMPONENTS, /@supports not \(backdrop-filter: blur\(1px\)\) \{\n {2}\.pbanner__band \{/, 'a fallback exists');
+  const fallback = COMPONENTS.slice(COMPONENTS.indexOf('@supports not (backdrop-filter: blur(1px)) {\n  .pbanner__band'));
+  assert.match(fallback, /rgba\(7, 10, 9, \.93\) 16%/, 'and it is the near-opaque band it shipped with');
+  // the frame, the glow and the animation are untouched — only the plate's material moved
+  assert.match(COMPONENTS, /\.pbanner__band::before \{ top: 0; \}/);
+  assert.match(COMPONENTS, /animation: pb-open var\(--t-med\) var\(--ease-out\) backwards;/);
+});
+
+test('the 作战结束 result box is the same material, keeping the tone frame and glow', () => {
+  const box = block(COMPONENTS, '.rdialog__box {');
+  assert.match(box, /linear-gradient\(180deg, rgba\(9, 13, 12, \.62\), rgba\(6, 9, 8, \.66\)\)/, 'translucent plate');
+  assert.match(box, FILTER);
+  assert.match(box, /border: 1px solid var\(--rd\)/, 'the tone frame is kept');
+  assert.match(box, /box-shadow: 0 0 \.5rem var\(--rd-glow\), inset 0 0 \.7rem rgba\(0, 0, 0, \.8\)/, 'and so is its glow');
+  assert.match(COMPONENTS, /@supports not \(backdrop-filter: blur\(1px\)\) \{\n {2}\.rdialog__box \{ background: linear-gradient\(180deg, rgba\(9, 13, 12, \.96\), rgba\(6, 9, 8, \.97\)\); \}/);
+  // a plate is not a banner: the corner ticks and the tone variants stay exactly as they were
+  assert.match(COMPONENTS, /\.rdialog__tick--tl \{ top: 8px; left: 8px; border-right: 0; border-bottom: 0; \}/);
+  assert.match(COMPONENTS, /\.rdialog--red \{ --rd: var\(--red-premium\); --rd-glow: rgba\(255, 84, 84, \.38\); \}/);
+});
+
+test('the HUD plates (等待胶囊 / 队友进度 / 费用框 / ‹ › 切换条) share the material', () => {
+  for (const [css, sel, fallback] of [
+    [GAME, '.dpbox {', /\.dpbox \{ background: rgba\(8, 11, 10, \.88\); \}/],
+    [GAME, '.chud__msg {', /\.chud__msg \{ background: rgba\(8, 11, 10, \.9\); \}/],
+    [GAME, '.chud__prog {', /\.chud__prog \{ background: rgba\(8, 11, 10, \.82\); \}/],
+    [GAME, '.vswitch {', /\.vswitch \{ background: rgba\(8, 11, 10, \.9\); \}/],
+  ]) {
+    assert.match(block(css, sel), FILTER, `${sel} is the acrylic recipe`);
+    assert.match(css, fallback, `${sel} has the opaque fallback`);
+    // and no near-opaque plate is left on the default rule
+    assert.ok(!/background: rgba\(8, 11, 10, \.(8[0-9]|9[0-9])\)/.test(block(css, sel)), `${sel} is no longer near-opaque`);
+  }
+  // the borders/borders-left the HUD carries as identity are untouched
+  assert.match(block(GAME, '.dpbox {'), /border-right: 3px solid var\(--mint-500\)/);
+  assert.match(block(GAME, '.chud__msg {'), /border-radius: \.3rem/);
+  assert.match(block(GAME, '.chud__prog {'), /border-left: 3px solid var\(--gold\)/);
 });

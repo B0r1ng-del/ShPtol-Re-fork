@@ -43,7 +43,7 @@ import { useEffect, useReducer } from '../vendor/hooks.module.js';
 import { applyFileOverlay } from '../../shared/i18nData.js';
 import { canonicalLang } from '../../shared/i18nPacks.js';
 import { filterFile } from '../../shared/packData.js';
-import { PACK_KEYS } from '../../shared/constants.js';
+import { PACK_KEYS, normalizeMods } from '../../shared/constants.js';
 
 /** Known data files (name → URL basename). Unknown names are allowed too (`/data/<name>.json`). */
 export const DATA_FILES = Object.freeze({
@@ -177,10 +177,14 @@ export function createDataStore(opts = {}) {
   let chainSource = '';
   /**
    * 内容包开关 of the room this client shows (shared/packData.js): the ported packs whose records may be used. `sig` is
-   * what the cached, filtered copies below were built from; `null` (the lobby, and every match whose host turned
-   * nothing on) means the original content, so the files are used exactly as downloaded.
+   * what the cached, filtered copies below were built from.
+   *
+   * ⚠️ The switches are ALWAYS an object, never `null`. `data/*.json` is committed with every pack ON (the strip
+   * semantics — see `shared/packData.js`), so an all-off set has to be FILTERED like any other; treating it as "no
+   * filtering" handed the client 12 莱茵生命 cards and their 盟约 while the server had already stripped them (a room
+   * with 莱茵生命 switched off still showed the 盟约 — 需求方 2026-10-17). `{...}` = all off, the official content.
    */
-  let packs = null;
+  let packs = {};
   let packsSig = '';
   /** @type {Map<string, { base: any, value: any, index?: Map<string, any> }>} pack-filtered copies of a ready file */
   const packed = new Map();
@@ -305,10 +309,13 @@ export function createDataStore(opts = {}) {
 
   /**
    * A ready file with the content of every pack this client does NOT run removed (shared/packData.js), cached per pack
-   * set and per value. `null` packs ⇒ the value itself, untouched.
+   * set and per value.
+   *
+   * The all-off set is a normal, real filter — NOT a short-circuit: `data/*.json` ships with the ported packs present
+   * (the strip semantics), so returning the raw value for an all-off room would list content the server already
+   * removed. `filterFile` returns the very same object when nothing is dropped, so an all-off file is still shared.
    */
   function packFiltered(name, value) {
-    if (!packs) return value;
     const key = `${name}\u0000${packsSig}`;
     let l = packed.get(key);
     if (!l || l.base !== value) {
@@ -420,9 +427,16 @@ export function createDataStore(opts = {}) {
     contentId: () => content?.id ?? null,
     /** Load several files; resolves when all settled. */
     loadAll: (...names) => Promise.all(names.flat().map(load)),
-    /** JSON of a loaded file in the current locale, through its view (setView); null when missing / not loaded yet. */
+    /**
+     * JSON of a loaded file in the current locale, through its view (setView); null when missing / not loaded yet.
+     *
+     * The pack filter applies here too. `data/*.json` ships with the ported packs present, so a screen that reads the
+     * WHOLE file — 干员调配's roster, the DIY tables, the briefing's `diyData`, the detail cards — would otherwise list
+     * a switched-off pack's operators that the server never sent (需求方 2026-10-17: 「关闭莱茵生命后仍出现莱茵内容」).
+     */
     get: (name) => {
-      const v = localizedEntry(name)?.value ?? entries.get(name)?.value ?? null;
+      const stored = localizedEntry(name)?.value ?? entries.get(name)?.value;
+      const v = stored == null ? null : packFiltered(name, stored);
       const view = views.get(name);
       return view && v != null ? view(v) : v;
     },
@@ -529,8 +543,8 @@ export function createDataStore(opts = {}) {
       const sig = on.join(',');
       if (sig === packsSig) return;
       packsSig = sig;
-      packs = on.length ? { ...mods } : null;
-      if (packs) for (const k of on) packs[k] = true;
+      // every key PACK_KEYS names, so the filter always has a real answer; all-off is a normal set, not "no filter"
+      packs = normalizeMods(mods);
       packed.clear();
       for (const name of [...entries.keys()]) notify(name);
     },
