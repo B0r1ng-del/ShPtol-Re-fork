@@ -65,7 +65,7 @@ describe('fork data layer (tools/fork-overrides.mjs ⇄ data/)', () => {
     assert.ok(m, `${FORK_MODE_ID} missing from data/config.json`);
     assert.ok(base, `${FORK_BASE_MODE_ID} missing`);
     assert.equal(m.modeId, FORK_MODE_ID);
-    assert.equal(m.name, '终极模拟');
+    assert.equal(m.name, '扩展模拟');
     assert.equal(m.code, 'AC-4');
     assert.equal(m.difficulty, 'ABYSS');
     assert.equal(m.type, 'MULTI', 'a multiplayer room: every `type` reader must treat it like 同盟模拟');

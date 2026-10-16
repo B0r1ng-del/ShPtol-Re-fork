@@ -105,6 +105,20 @@
 .chat.is-folded { width: 2.05rem; }
 .chat.is-folded .chat__title { height: .34rem; }
 
+/* ---- 上下并列 (需求方 2026-10-17 任务 6) --------------------------------------------------------------------- */
+/* With 在线聊天 on, the folded window and the 交流 wheel BOTH live in the bottom-left corner (`.chat` at bottom .24rem
+   and `.gm__corner` with the same inset, css/screens/game.css) — they used to land on the very same pixels, so the wheel
+   covered the chat window's 展开 title bar and the two read as one broken control. The corner row is lifted above the
+   folded window instead: `.is-chat-folded` is set by screens/game.js exactly when the corner copy of the wheel is
+   rendered (chatOn && !chatOpen), so the two are stacked with a gap — 交流 on top, the window's title bar under it.
+   The corner row never moves while the window is OPEN (the wheel is a block of the window's body then), so this rule
+   only ever applies to the folded state. `calc()` on the same .24rem inset keeps both aligned on the left edge. */
+.gm__corner.is-chat-folded { bottom: calc(.24rem + .34rem + .06rem); }
+@media (max-width: 767px) {
+  /* a phone keeps the window's own bottom (.2rem, below) and its touch-taller title bar (34 px) */
+  .gm__corner.is-chat-folded { bottom: calc(.2rem + max(.34rem, 34px) + .06rem); }
+}
+
 /* ---- 聊天弹幕 (设置「聊天弹幕」) — the room's lines cross the screen --------------------------------------------- */
 /* A flat layer under the HUD chrome (below the corner window at z 6 and the emote barrage at z 40 is fine: this one is
    text, so it must stay readable UNDER the panels rather than over them). `pointer-events: none` keeps every control

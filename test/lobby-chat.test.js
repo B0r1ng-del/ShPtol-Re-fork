@@ -2,8 +2,9 @@
 // relay it gates.
 //
 // WHAT THIS SUITE PINS
-//   1. the option is a normal 房主配置 room option (HOST_CONFIG_KEYS): OFF by default, host-only, and the match is handed
-//      the same value — a room that never touches it behaves exactly as before (nothing is relayed at all);
+//   1. the option is a normal 房间配置 room option (HOST_CONFIG_KEYS): ON by default since 2026-10-17 (需求方), host-only,
+//      and the match is handed the same value — a room that never touches it behaves exactly as before (nothing is
+//      relayed at all);
 //   2. the SERVER decides whether chat exists: a `g.chat` into a room with the option off is refused, so a client that
 //      draws the window anyway cannot type into a room that has chat off;
 //   3. the payload rules the protocol caps (CHAT_MAX_LEN, non-empty) and the one-a-second cooldown;
@@ -73,34 +74,37 @@ describe('在线聊天 (lobby option + g.chat relay)', () => {
     return host.waitFor('room.state', (s) => s.hostId === host.id);
   };
 
-  test('the option is a HOST_CONFIG_KEYS row, OFF by default', () => {
+  test('the option is a HOST_CONFIG_KEYS row, ON by default (owner 2026-10-17)', () => {
     assert.ok(HOST_CONFIG_KEYS.includes('onlineChat'), 'onlineChat is a room option');
-    assert.equal(HOST_CONFIG_DEFAULTS.onlineChat, false, 'and the official default is off');
+    // 需求方 2026-10-17: 「其中的『在线聊天』改为默认开启」 — the one fork default that is NOT the official behaviour
+    assert.equal(HOST_CONFIG_DEFAULTS.onlineChat, true, 'on by default since 2026-10-17 (owner)');
   });
 
-  test('a room that never touches it: room.state says off, and the match is handed off', async () => {
+  test('a room that never touches it: room.state says ON, and the match is handed it', async () => {
     const host = await pool.player('chatHostA');
     const st = await roomOf(host);
-    assert.equal(st.hostConfig.onlineChat, false, 'off by default');
+    assert.equal(st.hostConfig.onlineChat, true, 'the room starts with the window on');
     await ok(host, { t: 'room.start' });
-    assert.equal(started.at(-1).onlineChat, false, 'the match is handed the official value');
+    assert.equal(started.at(-1).onlineChat, true, 'the match is handed the room default');
   });
 
-  test('the host turns it on: everybody sees it, and the match gets it', async () => {
+  test('the host turns it OFF: everybody sees it, and the match gets it', async () => {
     const host = await pool.player('chatHostB');
     const st = await roomOf(host);
     const guest = await pool.player('chatGuestB');
     await ok(guest, { t: 'room.join', code: st.code });
     await guest.waitFor('room.state', (s) => !!seatOf(s, guest.id));
 
-    const next = guest.waitFor('room.state', (m) => m.hostConfig?.onlineChat === true);
-    await ok(host, { t: 'room.setHostConfig', key: 'onlineChat', on: true });
+    // the default is ON since 2026-10-17, so the round trip that matters is turning it back OFF
+    assert.equal(st.hostConfig.onlineChat, true, 'a fresh room starts with the window on');
+    const next = guest.waitFor('room.state', (m) => m.hostConfig?.onlineChat === false);
+    await ok(host, { t: 'room.setHostConfig', key: 'onlineChat', on: false });
     await next;   // the joiner sees the same value as the host
 
     await ok(guest, { t: 'room.ready', ready: true });   // every other human must be ready before 开始模拟
     await host.waitFor('room.state', (s) => seatOf(s, guest.id)?.ready);
     await ok(host, { t: 'room.start' });
-    assert.equal(started.at(-1).onlineChat, true, 'and the match is handed it');
+    assert.equal(started.at(-1).onlineChat, false, 'and the match is handed it');
   });
 
   test('chat OFF: g.chat is refused, nothing is relayed', async () => {
@@ -109,6 +113,8 @@ describe('在线聊天 (lobby option + g.chat relay)', () => {
     const guest = await pool.player('chatGuestC');
     await ok(guest, { t: 'room.join', code: st.code });
     await guest.waitFor('room.state', (s) => !!seatOf(s, guest.id));
+    // the default is ON, so this case has to be asked for explicitly (the official behaviour, one message away)
+    await ok(host, { t: 'room.setHostConfig', key: 'onlineChat', on: false });
     await ok(guest, { t: 'room.ready', ready: true });   // every other human must be ready before 开始模拟
     await host.waitFor('room.state', (s) => seatOf(s, guest.id)?.ready);
     await ok(host, { t: 'room.start' });

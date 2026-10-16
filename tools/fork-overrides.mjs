@@ -55,7 +55,9 @@ export function forkUltimateMode(modes) {
   return {
     ...cloneJson(base),
     modeId: FORK_MODE_ID,
-    name: '终极模拟',
+    // 2026-10-17 (需求方): the mode is called 扩展模拟, not 终极模拟. The official AC-4 DIFFICULTY keeps its own name
+    // (DIFFICULTY_NAMES.ABYSS = 终极模拟, the official 险境/绝境/终极 scale), so only this room's own name changes.
+    name: '扩展模拟',
     code: 'AC-4',
     sortId: 6,
     type: 'MULTI',

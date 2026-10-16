@@ -104,7 +104,8 @@ export const HOST_CONFIG_ROWS = Object.freeze([
   // 在线聊天 (fork, 需求方 2026-10-16): the in-match chat window. `solo: true` since 2026-10-17 — the owner reported the
   // option was unusable (「在线聊天选项无法使用」), and the cause was that a single-seat room both hid this row and had the
   // lobby refuse the write (HOST_CONFIG_SOLO_KEYS). A solo host may turn the window on; it still carries the 交流 wheel.
-  { key: 'onlineChat', label: N_('在线聊天'), tip: N_('开启后局内显示可收起的聊天窗口，全房间的博士都能发言，「交流」表情按钮也会收入其中'), on: false, solo: true },
+  // ★ `on: true` since 2026-10-17 (需求方: 「其中的『在线聊天』改为默认开启」), matching HOST_CONFIG_DEFAULTS.onlineChat.
+  { key: 'onlineChat', label: N_('在线聊天'), tip: N_('开启后局内显示可收起的聊天窗口，全房间的博士都能发言，「交流」表情按钮也会收入其中'), on: true, solo: true },
 ]);
 
 /**
@@ -252,11 +253,11 @@ function InviteBox({ code, name, difficulty }) {
 }
 
 function DifficultyPicker({ room, isHost, busy, onPick }) {
-  // 终极模拟 has a single difficulty (AC-4): no radiogroup, just the mode's own tag
+  // 扩展模拟 has a single difficulty (AC-4): no radiogroup, just the mode's own tag
   if (room.mode === 'ultimate') {
     return html`<div class="dpick dpick--ro">
       <${DifficultyTag} difficulty=${room.difficulty} size="lg" code=${difficultyInfo(room.mode, room.difficulty).code} />
-      <span class="t-dim">${t('终极模拟固定难度')}</span>
+      <span class="t-dim">${t('扩展模拟固定难度')}</span>
     </div>`;
   }
   if (!isHost) {
@@ -322,10 +323,15 @@ function HostConfigDialog({ rows, enemyRows, modRows, open, busy, onClose, onTog
   if (!rows || !rows.length) return null;
   const editable = rows.some((r) => r.editable);
   return html`<${Modal} open=${open} onClose=${onClose} tone="mint" width="min(9rem, 96vw)"
-      title=${t('房主配置')} micro="HOST CONFIG"
+      title=${t('房间配置')} micro="HOST CONFIG"
       actions=${html`<${Button} variant="secondary" onClick=${onClose}>${t('完成')}<//>`}>
     <div class="hostcfg">
       ${editable ? null : html`<p class="hostcfg__note">${t('由创建者设置：只有房主可以修改这些选项。')}</p>`}
+      ${/* 需求方 2026-10-17 (图三): the 「对局选项」 block moved to the TOP of the dialog — its header and note are what the
+           owner pointed at with the upper line, while the switch rows keep their own order below it. */
+        (enemyRows && enemyRows.length) || (modRows && modRows.length)
+        ? html`<${MatchOptionSection} rows=${modRows} enemyRows=${enemyRows} busy=${busy} onMod=${onMod} onEnemy=${onEnemy} />`
+        : null}
       <div class="hostcfg__rows">
         ${rows.map((r) => html`<${SwitchRow} key=${r.key}
           label=${t(r.label)} tip=${t(r.tip)} on=${r.on}
@@ -333,9 +339,6 @@ function HostConfigDialog({ rows, enemyRows, modRows, open, busy, onClose, onTog
           testid=${`hostcfg-${r.key}`} infoTestid=${`hostcfg-info-${r.key}`}
           onChange=${(v) => r.editable && onToggle(r.key, v)} />`)}
       </div>
-      ${(enemyRows && enemyRows.length) || (modRows && modRows.length)
-        ? html`<${MatchOptionSection} rows=${modRows} enemyRows=${enemyRows} busy=${busy} onMod=${onMod} onEnemy=${onEnemy} />`
-        : null}
     </div>
   <//>`;
 }
@@ -418,9 +421,9 @@ function HostConfigButton({ rows, enemyRows, modRows, busy, onClick }) {
     + (enemyRows || []).filter((r) => r.steps !== 0).length
     + modsCount(Object.fromEntries((modRows || []).map((r) => [r.key, r.on])));
   return html`<button type="button" class=${cx('btn', 'btn--secondary', 'btn--lg', 'hostcfg-entry')} data-testid="hostcfg-open"
-      disabled=${!!busy} onClick=${onClick} title=${t('房主配置 · 只有房主可以修改')}>
+      disabled=${!!busy} onClick=${onClick} title=${t('房间配置 · 只有房主可以修改')}>
     <${Icon} name="crown" class="btn__icon" />
-    <span class="btn__label">${t('房主配置')}</span>
+    <span class="btn__label">${t('房间配置')}</span>
     ${n ? html`<span class="lo-entry__n num" aria-label=${t('{n} 项已调整', { n })}>${n}</span>` : null}
   </button>`;
 }
@@ -440,6 +443,7 @@ export function RoomScreen() {
   if (!room) return null;
   const online = conn.status === 'online';
   const coop = room.mode !== 'solo';
+  const ultimate = room.mode === 'ultimate';
   const facts = roomFacts(room, me.playerId);
   const myReady = !!facts.mine?.ready;
   const info = difficultyInfo(room.mode, room.difficulty);
@@ -555,8 +559,10 @@ export function RoomScreen() {
         <${GuideButton} class="room-guide" variant="secondary" label=${t('玩法说明')} />
       </div>
       <div class="topbar__center">
-        <${MicroLabel} tone="mint">${coop ? 'ALLIANCE LOBBY' : 'SOLO SIMULATION'}<//>
-        <h1 class="topbar__title">${coop ? t('同盟模拟') : t('独立模拟')}<span class="topbar__sep"></span><${DifficultyTag} difficulty=${room.difficulty} size="lg" />
+        <${MicroLabel} tone="mint">${ultimate ? 'EXTENDED LOBBY' : coop ? 'ALLIANCE LOBBY' : 'SOLO SIMULATION'}<//>
+        <h1 class="topbar__title">${/* 扩展模拟 (需求方 2026-10-17): the title is the mode's own name, plain white — the red
+              difficulty tag is dropped there (its single difficulty is fixed, AC-4, and the mode's name says it). */
+            ultimate ? t('扩展模拟') : html`${coop ? t('同盟模拟') : t('独立模拟')}<span class="topbar__sep"></span><${DifficultyTag} difficulty=${room.difficulty} size="lg" />`}
           ${room.content?.modeId ? html`<span class="room-mode" data-testid="room-mode">${(room.content.modes || []).find((m) => m.id === room.content.modeId)?.name || room.content.modeId}</span>` : null}</h1>
         <${PluginTag} room=${room} myId=${me.playerId} />
       </div>

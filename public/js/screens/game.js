@@ -189,9 +189,10 @@ function MatchScreen() {
   const roomSolo = useStore((s) => s.room?.mode === 'solo');
   const spectator = useStore((s) => isSpectating(s.room, s.me.playerId));
   const metricsSetting = useSettings().combatMetrics === true;
-  // 聊天弹幕 (fork, 设置「聊天弹幕」): every `m.chat` line also crosses the screen as a danmaku strip. Off by default, the
-  // same kind of decision as 作战统计 — the official HUD has no such layer.
-  const chatBarrage = useSettings().chatBarrage === true;
+  // 聊天弹幕 (fork, 需求方 2026-10-17): there is NO switch of its own — it follows the emote panel's 「弹幕」 switch
+  // (`emotePrefsStore`, the same store the falling emote layer reads), so one control turns on both layers. `barrage`
+  // above is already that store's value.
+  const chatBarrage = barrage;
   // gameplay plugins (DESIGN §32.6): the HUD corner's MOD mark — re-rendered only when the room's content changes
   const modRoom = useStore((s) => (s.room?.content?.vanilla === false ? s.room : null), (a, b) => (a?.content ?? null) === (b?.content ?? null));
   // the room's spectator seats for the top bar's 观战席 capsule (ui/hud.js SpectatorPill; GitHub #120): room.state keeps coming
@@ -1639,20 +1640,27 @@ function MatchScreen() {
         </div>`} room=${modRoom} />
 
       <div class="gm__bonds">
-        <button type="button" class="bonds-toggle" aria-expanded=${!bondsCollapsed} aria-controls="match-bond-strip"
-          aria-label=${bondsCollapsed ? t('展开盟约') : t('收起盟约')} title=${bondsCollapsed ? t('展开盟约') : t('收起盟约')}
-          onKeyDown=${(e) => {
-            // Keep native Space activation here without also firing the global ready / pause shortcut.
-            if (e.key === ' ') e.stopPropagation();
-          }}
-          onClick=${() => {
-            if (!bondsCollapsed && bondOpen?.from === 'strip') setBondOpen(null);
-            setBondsCollapsed(!bondsCollapsed);
-          }}><${Icon} name=${bondsCollapsed ? 'chevronRight' : 'chevronLeft'} /></button>
-        <div id="match-bond-strip" class="gm__bond-list" hidden=${bondsCollapsed}>
-          <${BondStrip} bonds=${stripBonds} layersDisabled=${layersDisabled} openId=${bondPop && bondPop.ownerId === strip.ownerId ? bondPop.bondId : null}
-            owner=${strip.name} onOpen=${(id) => openBond(id, strip.ownerId, 'strip')} />
-        </div>
+        ${/* 需求方 2026-10-17 (图五: 「盟约居中优化未到位」). ROOT CAUSE, measured in Chrome: the flex row centred
+             [折叠箭头 + 盟约条] as ONE group, so the strip's own centre sat half a toggle further right than the viewport's
+             middle (44 px floor ÷ 2 = 22 px; the earlier measurement read 987 against 960). `.gm__bond-box` is now the only
+             flex item, so what gets centred IS the strip; the arrow is absolutely positioned just outside its left edge
+             (css/screens/game.css) and takes no part in the centring. */
+          html`<div class=${`gm__bond-box${bondsCollapsed ? ' is-collapsed' : ''}`}>
+          <button type="button" class="bonds-toggle" aria-expanded=${!bondsCollapsed} aria-controls="match-bond-strip"
+            aria-label=${bondsCollapsed ? t('展开盟约') : t('收起盟约')} title=${bondsCollapsed ? t('展开盟约') : t('收起盟约')}
+            onKeyDown=${(e) => {
+              // Keep native Space activation here without also firing the global ready / pause shortcut.
+              if (e.key === ' ') e.stopPropagation();
+            }}
+            onClick=${() => {
+              if (!bondsCollapsed && bondOpen?.from === 'strip') setBondOpen(null);
+              setBondsCollapsed(!bondsCollapsed);
+            }}><${Icon} name=${bondsCollapsed ? 'chevronRight' : 'chevronLeft'} /></button>
+          <div id="match-bond-strip" class="gm__bond-list" hidden=${bondsCollapsed}>
+            <${BondStrip} bonds=${stripBonds} layersDisabled=${layersDisabled} openId=${bondPop && bondPop.ownerId === strip.ownerId ? bondPop.bondId : null}
+              owner=${strip.name} onOpen=${(id) => openBond(id, strip.ownerId, 'strip')} />
+          </div>
+        </div>`}
       </div>
 
       <${TeamPanel} pub=${pub} myId=${myId} watching=${watchingNow} bubbles=${bubbles} onWatch=${watchPlayer} cap=${gd.config?.lpCapPerRound ?? 10} uniteLocal=${uniteLocal}
@@ -1710,11 +1718,13 @@ function MatchScreen() {
 
       <div class="ui-slot gm__ui-slot" data-ui-slot="hud.right" aria-label=${t('界面插件')} dangerouslySetInnerHTML=${{ __html: '' }}></div>
 
-      <div class="gm__corner">
+      <div class=${`gm__corner${chatOn && !chatOpen ? ' is-chat-folded' : ''}`}>
         ${/* 在线聊天 (fork): with the option on, the 交流 wheel is rendered as the corner's own child too — the window shows
              it in its body while it is EXPANDED, and this one takes over while the window is folded (需求方 2026-10-17:
              「聊天窗口缩小/收起时，交流表情菜单仍需在外部正常显示」). Exactly one of the two is on screen: `chatOn` gates
-             the corner copy on the fold state, and ui/chat.js receives `emote` only while it is open. */
+             the corner copy on the fold state, and ui/chat.js receives `emote` only while it is open.
+             需求方 2026-10-17 (任务 6): while the window is folded the two used to sit on the SAME corner spot and overlap;
+             `.is-chat-folded` lifts this row above the folded window instead (css/screens/game.css). */
           chatOn && !chatOpen ? html`<${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen}
           onSend=${(id, o) => (o && o.burst ? actions.emoteBurst(id) : actions.emote(id))} disabled=${conn.status !== 'online'} />` : null}
       </div>

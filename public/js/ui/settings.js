@@ -384,8 +384,6 @@ export function SettingsModal({ open, onClose }) {
       <p class="set-hint">${t('在秘术师的血条下方显示储存的攻击能量 / 上限（如 2/3）。官方用干员身上的特效表示，没有这个数字。')}</p>
       <${Toggle} label=${t('作战统计')} micro="COMBAT STATS" value=${s.combatMetrics} onChange=${(v) => updateSettings({ combatMetrics: v })} />
       <p class="set-hint">${t('打开后，对局顶栏可以查看自己干员的伤害、治疗和 DPS / HPS。官方界面没有这个窗口。改变玩法的插件对局在 Worker 里演算，统计不到，按钮不显示。')}</p>
-      <${Toggle} label=${t('聊天弹幕')} micro="CHAT BARRAGE" value=${s.chatBarrage} onChange=${(v) => updateSettings({ chatBarrage: v })} />
-      <p class="set-hint">${t('打开后，房间里的发言会以弹幕形式横穿屏幕，弹幕上带发送者的名字。官方界面没有这个效果。')}</p>
       <${Toggle} label=${t('显示作弊菜单')} micro="CHEAT MENU" value=${cheatBall}
                  onChange=${(v) => setCheatBall(v)} />
       <p class="set-hint">${t('在备战阶段显示一个可拖动的悬浮球，用来开启仅对自己生效的作弊开关。默认关闭。')}</p>

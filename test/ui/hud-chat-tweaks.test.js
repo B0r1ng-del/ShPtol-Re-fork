@@ -6,7 +6,11 @@
 //   3. 聊天窗里的表情面板不再被窗口裁掉、改为向上展开
 //   4. 表情面板背景改 Acrylic
 //   5. 聊天窗收起时「交流」按钮回到左下角
-//   6. 聊天弹幕层（设置「聊天弹幕」）
+//   6. 聊天弹幕层（跟随表情菜单的「弹幕」开关）
+//   7. 房间配置（原房主配置）+ 在线聊天默认开启
+//   8. 对局选项上移到对话框顶部
+//   9. 折叠的聊天窗与「交流」上下并列
+//  10. 盟约居中：折叠箭头移出居中流
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -121,22 +125,74 @@ test('6: 聊天弹幕 — deterministic lanes, the sender\'s name, and a line is
   assert.match(CHAT_CSS, /\.cbarrage \{ position: absolute; left: 0; right: 0;[^}]*pointer-events: none; \}/);
 });
 
-test('6b: the 设置「聊天弹幕」 row exists, defaults off, and sanitizes like its neighbours', async () => {
-  const { DEFAULT_SETTINGS, sanitizeSettings } = await mod('public/js/ui/gameLogic/settings.js');
-  assert.equal(DEFAULT_SETTINGS.chatBarrage, false, 'off by default: the official HUD has no such layer');
-  assert.equal(sanitizeSettings({}).chatBarrage, false);
-  assert.equal(sanitizeSettings({ chatBarrage: true }).chatBarrage, true);
-  assert.equal(sanitizeSettings({ chatBarrage: 'yes' }).chatBarrage, false, 'a non-boolean stays off');
+test('6b: 聊天弹幕 has NO switch of its own — it follows the emote panel\'s 「弹幕」 switch', async () => {
+  const { DEFAULT_SETTINGS } = await mod('public/js/ui/gameLogic/settings.js');
+  assert.equal('chatBarrage' in DEFAULT_SETTINGS, false, 'the 设置 row that duplicated the control is gone');
   const settings = read('public/js/ui/settings.js');
-  assert.ok(settings.includes("<${Toggle} label=${t('聊天弹幕')} micro=\"CHAT BARRAGE\" value=${s.chatBarrage} onChange=${(v) => updateSettings({ chatBarrage: v })} />"));
-  // the 作战统计 hint names the top bar now that the button moved there
-  assert.match(settings, /打开后，对局顶栏可以查看自己干员的伤害、治疗和 DPS \/ HPS。/);
+  assert.doesNotMatch(settings, /聊天弹幕/, 'and no orphaned Toggle/set-hint is left behind');
+  // the layer reads the emote pref store, the same value the falling emote layer uses
+  assert.ok(GAME.includes('const chatBarrage = barrage;'), 'the layer follows emotePrefsStore');
+  assert.ok(GAME.includes('const barrage = useStore((s) => s.barrage, Object.is, emotePrefsStore)'));
+  // the 弹幕 switch's own tooltip now names both layers
+  const emotes = read('public/js/ui/emotes.js');
+  assert.match(emotes, /t\('弹幕：表情像雪花一样从屏幕上方飘落，房间内所有人可见；聊天窗口的发言也会以弹幕横穿屏幕'\)/);
+});
+
+test('7: 房间配置 (was 房主配置), 在线聊天 on by default', async () => {
+  const { HOST_CONFIG_DEFAULTS } = await mod('shared/constants.js');
+  assert.equal(HOST_CONFIG_DEFAULTS.onlineChat, true, 'the owner turned the default on (2026-10-17)');
+  const room = read('public/js/screens/room.js');
+  assert.match(room, /title=\$\{t\('房间配置'\)\} micro="HOST CONFIG"/);
+  assert.match(room, /title=\$\{t\('房间配置 · 只有房主可以修改'\)\}/);
+  assert.ok(!room.includes("t('房主配置')"), 'no panel label still says 房主配置');
+  // the row's own `on` mirrors the constant, so an absent hostConfig still shows it on
+  assert.match(room, /\{ key: 'onlineChat', label: N_\('在线聊天'\)[\s\S]{0,200}?on: true, solo: true \}/);
+  for (const lang of ['en', 'ja', 'ko', 'zh-TW']) {
+    const pack = JSON.parse(read(`public/i18n/${lang}.json`));
+    for (const id of ['房间配置', '房间配置 · 只有房主可以修改', '扩展模拟', '扩展模拟固定难度']) {
+      assert.equal(typeof pack[id], 'string', `${lang}: ${id}`);
+      assert.ok(pack[id].length > 0, `${lang}: ${id} is not empty`);
+    }
+  }
+});
+
+test('8: 对局选项 opens the 房间配置 dialog, above the switch rows', () => {
+  const src = read('public/js/screens/room.js');
+  const body = src.slice(src.indexOf('function HostConfigDialog('), src.indexOf('/** The ready bar'));
+  assert.ok(body.includes('MatchOptionSection'), 'the section is still rendered by its own component');
+  assert.ok(body.indexOf('MatchOptionSection') < body.indexOf('hostcfg__rows'), 'and now comes FIRST');
+  // the block's top separator would draw a stray rule under the dialog title
+  assert.match(read('public/css/screens/room.css'), /\.hostcfg > \.ebuff:first-child \{ padding-top: 0; border-top: 0; \}/);
+});
+
+test('9: 上下并列 — the corner 交流 wheel clears the folded chat window', () => {
+  assert.match(GAME, /class=\$\{`gm__corner\$\{chatOn && !chatOpen \? ' is-chat-folded' : ''\}`\}/,
+    'the corner flags the folded state the wheel is rendered in');
+  const chat = read('public/css/chat.css');
+  assert.match(chat, /\.gm__corner\.is-chat-folded \{ bottom: calc\(\.24rem \+ \.34rem \+ \.06rem\); \}/);
+  assert.match(chat, /\.gm__corner\.is-chat-folded \{ bottom: calc\(\.2rem \+ max\(\.34rem, 34px\) \+ \.06rem\); \}/);
+});
+
+test('10: 盟约居中 — the toggle hangs outside the centred box', () => {
+  // the strip's own centre is what `justify-content: center` centres, so the 44 px arrow must not be a flex sibling
+  assert.match(GAME, /<div class=\$\{`gm__bond-box\$\{bondsCollapsed \? ' is-collapsed' : ''\}`\}>/);
+  const box = GAME.slice(GAME.indexOf('gm__bond-box'), GAME.indexOf('id="match-bond-strip"'));
+  assert.ok(box.includes('class="bonds-toggle"'), 'the arrow lives inside the box (which is position: relative)');
+  const css = read('public/css/screens/game.css');
+  assert.match(css, /\.gm__bond-box \{ position: relative; display: flex; align-items: flex-start; min-width: 0; \}/);
+  const toggle = css.slice(css.indexOf('.gm__bonds .bonds-toggle {'), css.indexOf('.bonds-toggle .icon'));
+  assert.match(toggle, /position: absolute; right: 100%; top: 0;/, 'and is taken out of the centring');
+  assert.match(toggle, /min-width: 44px; min-height: 44px;/, 'the touch target stays');
+  // 折叠时盒子宽度归零，此时箭头是唯一可见控件，改成自己居中（实测 938 vs 960 就是漏了这条）
+  assert.match(css, /\.gm__bond-box\.is-collapsed \.bonds-toggle \{ right: auto; left: 50%; transform: translateX\(-50%\); \}/);
 });
 
 test('the new strings are in every language pack (docs/I18N.md: no bare Chinese in the UI)', () => {
   for (const lang of ['en', 'ja', 'ko', 'zh-TW']) {
     const pack = JSON.parse(read(`public/i18n/${lang}.json`));
-    for (const id of ['聊天弹幕', '打开后，房间里的发言会以弹幕形式横穿屏幕，弹幕上带发送者的名字。官方界面没有这个效果。']) {
+    // 需求方 2026-10-17: the mode's own name, the renamed panel and the 弹幕 tooltip that now covers both layers
+    for (const id of ['扩展模拟', '扩展模拟固定难度', '房间配置', '房间配置 · 只有房主可以修改',
+      '弹幕：表情像雪花一样从屏幕上方飘落，房间内所有人可见；聊天窗口的发言也会以弹幕横穿屏幕']) {
       assert.equal(typeof pack[id], 'string', `${lang}: ${id}`);
       assert.ok(pack[id].length > 0, `${lang}: ${id} is not empty`);
     }
