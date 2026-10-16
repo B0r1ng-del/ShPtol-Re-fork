@@ -31,29 +31,29 @@ export function CombatMetricsPanel({ myId, onClose, runner = battleRunner }) {
   }, []);
   useLayoutEffect(() => {
     const panel = panelRef.current;
-    const corner = panel?.parentElement;
+    // 作战统计 (需求方 2026-10-17): the button is in the top bar's `.gm__tools`, so `parentElement` is the row the panel
+    // hangs BELOW (css/screens/game.css `.combat-metrics` anchors to the row's bottom edge). Measure that row's bottom.
+    const anchor = panel?.parentElement;
     const viewport = window.visualViewport;
     const measure = () => {
-      if (!panel || !corner) return;
-      const rect = corner.getBoundingClientRect();
+      if (!panel || !anchor) return;
+      const rect = anchor.getBoundingClientRect();
       const rootStyle = getComputedStyle(document.documentElement);
       const layout = combatMetricsLayout({
-        cornerTop: rect.top, cornerBottom: rect.bottom,
+        cornerBottom: rect.bottom,
         viewportHeight: viewport?.height || window.innerHeight,
         viewportTop: viewport?.offsetTop || 0,
         rem: parseFloat(rootStyle.fontSize) || 40,
         safeTop: parseFloat(rootStyle.getPropertyValue('--sa-t')) || 0,
         safeBottom: parseFloat(rootStyle.getPropertyValue('--sa-b')) || 0,
       });
-      panel.style.setProperty('--combat-corner-height', `${rect.height || 44}px`);
+      panel.style.setProperty('--combat-anchor-bottom', `${rect.bottom || 0}px`);
       panel.style.setProperty('--combat-available-height', `${layout.availableHeight}px`);
       panel.style.setProperty('--combat-viewport-height', `${layout.viewportSpace}px`);
-      panel.style.setProperty('--combat-viewport-top', `${layout.viewportPanelTop}px`);
-      panel.dataset.viewportDocked = String(layout.viewportDocked);
     };
     measure();
     const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
-    if (corner) observer?.observe(corner);
+    if (anchor) observer?.observe(anchor);
     window.addEventListener('resize', measure);
     viewport?.addEventListener('resize', measure);
     viewport?.addEventListener('scroll', measure);

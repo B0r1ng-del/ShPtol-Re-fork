@@ -64,19 +64,28 @@
   animation: emo-panel-in 160ms var(--ease-out);
   touch-action: pan-y; user-select: none; -webkit-user-select: none;
 }
-.ewheel__panel::before { /* CSS look-alike of the emoji_bkg plate */
+/* ACRYLIC (需求方 2026-10-17): the plate is the same frosted-glass recipe the 在线聊天 window uses (css/chat.css) —
+   a translucent fill plus backdrop blur and saturation — instead of the opaque emoji_bkg plate. That sprite is therefore
+   no longer painted as the panel's background at all; the CELLS keep their own sprite (.has-cell, below), so the emotes
+   themselves are unchanged. `@supports` keeps a browser without backdrop-filter on the opaque colour the plate
+   composites to anyway. */
+.ewheel__panel::before {
   content: ''; position: absolute; left: .15rem; top: .13rem; width: 2.82rem; height: 1.99rem; border-radius: .06rem;
-  background: rgba(19, 19, 19, .92); box-shadow: 0 .04rem .16rem rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(255, 255, 255, .07);
+  background: rgba(14, 19, 17, .62);
+  -webkit-backdrop-filter: blur(.12rem) saturate(1.6);
+  backdrop-filter: blur(.12rem) saturate(1.6);
+  box-shadow: 0 .04rem .16rem rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(255, 255, 255, .07);
 }
-/* the sprite is pinned to the plate's own 3.13 × 2.31rem instead of being stretched over the taller box */
-.ewheel__panel.has-sprite { background: var(--ewheel-bg) left top / 3.13rem 2.31rem no-repeat; }
-.ewheel__panel.has-sprite::before { content: none; }
+.ewheel__panel.has-sprite { background: none; }
 /* the extension band that makes the panel read as ONE taller plate: same colour and 1px inner hairline as `::before`,
    starting exactly at the plate's own 2.12rem bottom edge, with rounded bottom corners. Generated content paints after
    the panel's real children, so the switches carry a `z-index` to stay above it. */
 .ewheel__panel::after {
   content: ''; position: absolute; left: .15rem; top: 2.11rem; width: 2.82rem; height: .49rem;
-  background: rgba(19, 19, 19, .92);
+  /* the same acrylic fill as the plate above, so the two still read as ONE sheet (需求方 2026-10-17) */
+  background: rgba(14, 19, 17, .62);
+  -webkit-backdrop-filter: blur(.12rem) saturate(1.6);
+  backdrop-filter: blur(.12rem) saturate(1.6);
   /* hairlines on the two SIDES and the bottom only. A full 1px ring (inset 0 0 0 1px) also drew a bright line across the
      panel exactly where the emote grid ends and this band starts — that is the "cut" the panel showed. */
   box-shadow: inset 1px 0 0 rgba(255, 255, 255, .07), inset -1px 0 0 rgba(255, 255, 255, .07), inset 0 -1px 0 rgba(255, 255, 255, .07);
@@ -160,6 +169,11 @@
 @keyframes emo-page-from-left { from { opacity: .2; transform: translateX(-45%); } }
 @keyframes emo-bubble-pop { 0% { opacity: 0; scale: .35; } 60% { opacity: 1; scale: 1.1; } 100% { opacity: 1; scale: 1; } }
 @keyframes emo-bubble-out { to { opacity: 0; scale: .92; } }
+
+/* no backdrop-filter: both halves of the plate fall back to the colour they composite to (css/chat.css does the same) */
+@supports not (backdrop-filter: blur(1px)) {
+  .ewheel__panel::before, .ewheel__panel::after { background: rgba(14, 19, 17, .94); }
+}
 
 @media (pointer: coarse) {
   .ewheel__btn.has-sprite { --ewb-w: calc(max(1.51rem, 96px) * .7); }

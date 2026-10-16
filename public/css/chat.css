@@ -17,7 +17,11 @@
   backdrop-filter: blur(.12rem) saturate(1.6);
   border: 1px solid var(--line-2); border-radius: .04rem;
   box-shadow: 0 .08rem .3rem rgba(0, 0, 0, .45);
-  overflow: hidden;
+  /* 需求方 2026-10-17: NOT hidden — the 交流 emote panel is a popover that hangs above the window (see
+     `.chat__body .ewheel__panel` below), and clipping turned it into a sliver of its first row. The window's own
+     background still honours the border radius (it is the element's own background), the log scrolls inside
+     `.chat__log`'s own `overflow-y`, and no child paints into a corner. */
+  overflow: visible;
 }
 @supports not (backdrop-filter: blur(1px)) {
   .chat { background: rgba(14, 19, 17, .94); }
@@ -69,9 +73,13 @@
 
 /* ---- 交流 wheel, re-parented into the body ------------------------------------------------------------------ */
 /* The wheel's own button is absolutely placed in the HUD corner (css/emotes.css .ewheel is `position: relative` with an
-   absolutely positioned panel); inside the window it is a left-aligned row of the body instead. */
+   absolutely positioned panel); inside the window it is a left-aligned row of the body instead.
+   需求方 2026-10-17 (「聊天中表情菜单显示错误」): the panel used to be flipped to open DOWNWARDS (`top: 100%`) while the
+   window clipped its overflow, so only the top sliver of the first emote row was ever visible. It now opens UPWARDS like
+   it does in the corner (the base rule), and the window no longer clips it (`.chat { overflow: visible }` above) — the
+   panel is a popover over the log, exactly as it is over the board. */
 .chat__body .ewheel { display: flex; align-items: center; padding: 0 .12rem .07rem; }
-.chat__body .ewheel__panel { bottom: auto; top: 100%; left: 0; }
+.chat__body .ewheel__panel { left: 0; }
 
 /* ---- the input row ------------------------------------------------------------------------------------------- */
 .chat__form { display: flex; align-items: center; gap: .07rem; padding: .08rem .12rem; border-top: 1px solid var(--line); }
@@ -96,3 +104,37 @@
 /* ---- folded: the title bar only ------------------------------------------------------------------------------ */
 .chat.is-folded { width: 2.05rem; }
 .chat.is-folded .chat__title { height: .34rem; }
+
+/* ---- 聊天弹幕 (设置「聊天弹幕」) — the room's lines cross the screen --------------------------------------------- */
+/* A flat layer under the HUD chrome (below the corner window at z 6 and the emote barrage at z 40 is fine: this one is
+   text, so it must stay readable UNDER the panels rather than over them). `pointer-events: none` keeps every control
+   underneath clickable; a lane is one of CHAT_BARRAGE_LANES rows spread over the top half of the screen, so a strip
+   never crosses the shop bar or the team rows. */
+.cbarrage { position: absolute; left: 0; right: 0; top: 3.3rem; height: 34%;
+  z-index: 5; overflow: hidden; pointer-events: none; }
+.cbarrage__item {
+  position: absolute; left: 100%; top: calc(var(--cb-lane, 0) * 100% / var(--cb-lanes, 6));
+  display: flex; align-items: center; gap: .07rem; white-space: nowrap;
+  padding: .03rem .12rem .03rem .1rem;
+  background: rgba(8, 11, 10, .55); border-left: 2px solid var(--mint-600);
+  color: var(--text-hi); font-size: .15rem; line-height: 1.5;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .9);
+  animation: chat-cross var(--cb-sec, 11s) linear forwards;
+}
+.cbarrage__item.is-self { border-left-color: var(--gold); }
+.cbarrage__name { color: var(--mint-400); font-weight: 700; }
+.cbarrage__item.is-self .cbarrage__name { color: var(--gold); }
+.cbarrage__text { color: var(--text-hi); max-width: 5.6rem; overflow: hidden; text-overflow: ellipsis; }
+/* right to left: starts just off the right edge, ends fully past the left one, fading at both ends so a strip does not
+   pop in / out at a hard cut. `--cb-sec` is drawn per line (ui/chat.js barrageTrack). */
+@keyframes chat-cross {
+  0% { transform: translateX(0); opacity: 0; }
+  4% { opacity: 1; }
+  94% { opacity: 1; }
+  100% { transform: translateX(calc(-100vw - 100%)); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* pure motion: with motion reduced, park the recent lines in the top-left instead of disabling the feature */
+  .cbarrage { display: flex; flex-wrap: wrap; gap: .06rem; height: auto; padding: .1rem; justify-content: flex-end; }
+  .cbarrage__item { position: static; left: auto; top: auto; animation: none; opacity: .9; }
+}

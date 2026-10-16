@@ -607,3 +607,12 @@ export const CHAT_KEEP = 50;
 export const EMOTE_BURST_COUNT = 10;
 /** How long one 弹幕 item takes to fall from the top edge to below the bottom one (a client-side display choice). */
 export const EMOTE_BARRAGE_MS = 9000;
+/**
+ * 聊天弹幕 (fork): how long one `m.chat` line takes to cross the screen, and how many lines the layer animates at once.
+ * A display choice like the emote barrage above — it changes nothing that is sent, and the line it shows is the same
+ * broadcast every client already has.
+ */
+export const CHAT_BARRAGE_MS = 11000;
+export const CHAT_BARRAGE_KEEP = 12;
+/** How many flat lanes a 聊天弹幕 line may travel along (ui/chat.js barrageTrack picks one from the line's `seq`). */
+export const CHAT_BARRAGE_LANES = 6;
