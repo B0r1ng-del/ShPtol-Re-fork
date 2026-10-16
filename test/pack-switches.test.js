@@ -250,10 +250,17 @@ describe('内容包开关: the server sees only what the room contains', () => {
   test('the client filter follows the host (public/js/data.js setPacks)', () => {
     const src = read('public/js/data.js');
     assert.match(src, /import \{ filterFile \} from '\.\.\/\.\.\/shared\/packData\.js'/, 'one shared rule');
-    assert.match(src, /import \{ PACK_KEYS \} from '\.\.\/\.\.\/shared\/constants\.js'/);
+    assert.match(src, /import \{ PACK_KEYS, normalizeMods \} from '\.\.\/\.\.\/shared\/constants\.js'/);
     assert.match(src, /setPacks\(mods\) \{/, 'the store offers setPacks');
-    assert.match(src, /const on = PACK_KEYS\.filter\(\(k\) => mods\?\.\[k\] === true\)/, 'only PACK_KEYS matter');
-    assert.match(src, /packs = on\.length \? \{ \.\.\.mods \} : null/, 'nothing on ⇒ no filtering at all');
+    // ⚠️ 需求方 2026-10-17: `data/*.json` ships with every pack ON (the strip semantics), so an all-off room must be
+    // FILTERED like any other — the old `on.length ? {...mods} : null` made `packFiltered` short-circuit on `!packs`
+    // and return the raw file, so a room with 莱茵生命 switched off still listed its 12 cards and its 盟约. Guard both
+    // halves: the set is always a real object, and nothing short-circuits the filter.
+    assert.match(src, /packs = normalizeMods\(mods\)/, 'every key resolves — all-off is a real set, not "no filter"');
+    assert.ok(!/packs = on\.length \?/.test(src), 'the all-off ⇒ null shortcut is gone');
+    assert.ok(!/if \(!packs\) return value/.test(src), 'packFiltered never returns the unfiltered file');
+    // `get` reads a WHOLE file (干员调配's roster, diyData, the detail cards), so it filters too
+    assert.match(src, /const v = stored == null \? null : packFiltered\(name, stored\)/, 'data.get applies the filter');
     // and the app drives it from the room / match it is showing
     const main = read('public/js/main.js');
     assert.match(main, /data\.setPacks\(packs\)/);
