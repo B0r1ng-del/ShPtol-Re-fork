@@ -61,7 +61,7 @@
 // 'g.emote' is relayed as m.emote (1 s cooldown) so clients can test broadcast plumbing.
 
 import { C2S } from '../../shared/protocol.js';
-import { PHASE, ERR, EMOTE_COOLDOWN_MS, GEO, ULTIMATE_DIFFICULTY, modeIdFor } from '../../shared/constants.js';
+import { PHASE, ERR, EMOTE_COOLDOWN_MS, GEO, ULTIMATE_DIFFICULTY, modeIdFor, CHAT_MAX_LEN, CHAT_COOLDOWN_MS } from '../../shared/constants.js';
 import { getConfig, getMode } from '../data.js';
 
 const GAME_TYPES = new Set(Object.keys(C2S).filter((t) => Object.hasOwn(C2S, t) && t.startsWith('g.')));
@@ -99,11 +99,14 @@ export class StubMatch {
       ? modeCfg.lastRound
       : (this.modeId === 'mode_single_funny' ? 9 : 14);
     this.infoCheckMs = Math.min(MAX_TIMER_MS, posNum(config.timers && config.timers.infoCheck, DEFAULT_INFO_CHECK_S) * 1000);
-    /** @type {Map<string, {seat:number, playerId:string, name:string, isBot:boolean, connected:boolean, left:boolean, ready:boolean, lastEmoteAt:number}>} */
+    /** @type {Map<string, {seat:number, playerId:string, name:string, isBot:boolean, connected:boolean, left:boolean, ready:boolean, lastEmoteAt:number, lastChatAt:number}>} */
     this.players = new Map();
     for (const s of opts.seats) {
-      this.players.set(s.playerId, { ...s, left: false, ready: !!s.isBot, lastEmoteAt: -Infinity });
+      this.players.set(s.playerId, { ...s, left: false, ready: !!s.isBot, lastEmoteAt: -Infinity, lastChatAt: -Infinity });
     }
+    /** 在线聊天 (fork): the stub relays g.chat too, so a client can test the window without a full match. */
+    this.onlineChat = opts.onlineChat === true;
+    this.chatSeq = 0;
     this.phase = PHASE.LOBBY;
     this.deadline = 0;
     this.timer = null;
@@ -142,6 +145,17 @@ export class StubMatch {
       if (now - p.lastEmoteAt >= EMOTE_COOLDOWN_MS) {
         p.lastEmoteAt = now;
         this.broadcastFn({ t: 'm.emote', playerId, id: msg.id });
+      }
+    } else if (msg.t === 'g.chat') {
+      // 在线聊天 (fork): the same one-a-second relay the real match runs (MatchIntents.chat)
+      if (this.onlineChat !== true) return { error: ERR.WRONG_PHASE };
+      const now = this.now();
+      if (now - p.lastChatAt >= CHAT_COOLDOWN_MS) {
+        const body = typeof msg.text === 'string' ? msg.text.trim() : '';
+        if (body && body.length <= CHAT_MAX_LEN) {
+          p.lastChatAt = now;
+          this.broadcastFn({ t: 'm.chat', playerId, text: body, seq: ++this.chatSeq });
+        }
       }
     }
     return { ok: true };

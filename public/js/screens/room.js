@@ -17,8 +17,8 @@
 // Texts go through t() (docs/I18N.md).
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SPECTATORS, HOST_CONFIG_DEFAULTS, HOST_ENEMY_MAX_STEPS, HOST_ENEMY_STEP_PCT, MOD_DEFAULTS, PACK_AUTHORS, normalizeEnemyBuff, roomSeatCap } from '../../../shared/constants.js';
-import { MOD_ROWS, MOD_COLS, modsCount, rememberMods } from '../ui/mods.js';
+import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SPECTATORS, HOST_CONFIG_DEFAULTS, HOST_ENEMY_MAX_STEPS, HOST_ENEMY_STEP_PCT, MOD_DEFAULTS, normalizeEnemyBuff, roomSeatCap } from '../../../shared/constants.js';
+import { MOD_ROWS, MOD_RULE_ROWS, modsCount, rememberMods } from '../ui/mods.js';
 import {
   html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyTag, DifficultyIcon, Tooltip, confirmDialog, doctorNo, Modal, SwitchRow,
 } from '../ui/components.js';
@@ -101,6 +101,9 @@ export const HOST_CONFIG_ROWS = Object.freeze([
   { key: 'aiPicksLast', label: N_('AI 队友最后选择'), tip: N_('策略与机变轮选时，所有博士先于 AI 队友选择'), on: false, solo: false },
   { key: 'multiAlliance', label: N_('多同盟模式'), tip: N_('官方规则：每个策略只能由一位博士选择'), on: false, solo: false },
   { key: 'itemSell', label: N_('装备可售卖'), tip: N_('开启后装备可以出售，售价 1 块钱；关闭时装备只能销毁'), on: false, solo: true },
+  // 在线聊天 (fork, 需求方 2026-10-16): the in-match chat window. Not a `solo` row — a single-seat room has nobody to
+  // talk to (HOST_CONFIG_SOLO_KEYS), and the server refuses it there.
+  { key: 'onlineChat', label: N_('在线聊天'), tip: N_('开启后局内显示可收起的聊天窗口，全房间的博士都能发言，「交流」表情按钮也会收入其中'), on: false, solo: false },
 ]);
 
 /**
@@ -309,16 +312,14 @@ export const enemyBuffTotal = (rows) => (rows || []).reduce((n, r) => n + r.step
  * everybody else sees the same state read-only (the switches render disabled), with a dim 「由创建者设置」 in the header
  * saying who owns them. Nothing is rendered in a single-seat room (null rows).
  *
- * 「对局选项」 (需求方 2026-10-15) sits under the switches: four sliders that strengthen this match's enemies, with the
- * total shown in a warning line under them. Same editability rule — the host moves them, everybody else reads them.
- *
- * 「Mod 开关」 (需求方 2026-10-16) moved in from the lobby's Mod submenu and is a block of its own between the two, so the
- * dialog now has three sections in this order: the room options, the Mod switches, 对局选项.
+ * 「对局选项」 sits under the switches: the four enemy-buff sliders (需求方 2026-10-15) and — since 2026-10-16 (owner) —
+ * the five game-rule Mod switches (关闭盟约禁用 … 解除叠层上限), which moved here out of the 模式界面's Mod submenu. Same
+ * editability rule — the host moves them, everybody else reads them. The 内容包 switches did NOT come along: they have
+ * their own 「Mod 菜单」 dialog on the lobby screen (screens/mods.js), so this dialog has two sections, not three.
  */
 function HostConfigDialog({ rows, enemyRows, modRows, open, busy, onClose, onToggle, onEnemy, onMod }) {
   if (!rows || !rows.length) return null;
   const editable = rows.some((r) => r.editable);
-  const total = enemyBuffTotal(enemyRows);
   return html`<${Modal} open=${open} onClose=${onClose} tone="mint" width="min(9rem, 96vw)"
       title=${t('房主配置')} micro="HOST CONFIG"
       actions=${html`<${Button} variant="secondary" onClick=${onClose}>${t('完成')}<//>`}>
@@ -331,66 +332,53 @@ function HostConfigDialog({ rows, enemyRows, modRows, open, busy, onClose, onTog
           testid=${`hostcfg-${r.key}`} infoTestid=${`hostcfg-info-${r.key}`}
           onChange=${(v) => r.editable && onToggle(r.key, v)} />`)}
       </div>
-      ${modRows && modRows.length ? html`<${ModSwitchSection} rows=${modRows} busy=${busy} onSet=${onMod} />` : null}
-      ${enemyRows && enemyRows.length ? html`<${EnemyBuffSection} rows=${enemyRows} onSet=${onEnemy} total=${total} />` : null}
+      ${(enemyRows && enemyRows.length) || (modRows && modRows.length)
+        ? html`<${MatchOptionSection} rows=${modRows} enemyRows=${enemyRows} busy=${busy} onMod=${onMod} onEnemy=${onEnemy} />`
+        : null}
     </div>
   <//>`;
 }
 
 /**
- * Mod 开关 — the fork's gameplay switches, in the 房主配置 dialog (2026-10-16 owner: they moved here from the lobby's
- * 「Mod」 button, so they are room options now — room.setMods — and not a per-device preference).
- *
- * The rows keep the submenu's own two columns (MOD_COLS: the rule switches left, the ported 内容包 switches right — the
- * `.mods__rows` / `.mods__col` classes that came with them). Each pack's ⓘ carries its author (PACK_AUTHORS), so the
- * port's credit travels with the switch that turns the content on. Same editability rule as everything else here: the
- * host flips them, everybody else reads the same values.
+ * 对局选项 — everything that changes THIS match's rules: the five game-rule Mod switches on top, then the four
+ * enemy-buff sliders under them (需求方 2026-10-15: 「对局选项」 was the sliders' own heading, and 2026-10-16 the owner
+ * moved the rule switches in under the same heading). Both halves keep their own data and their own message
+ * (room.setMods / room.setEnemyBuff); this component only draws them together, so neither needed changing.
  */
-function ModSwitchSection({ rows, busy, onSet }) {
-  const editable = rows.some((r) => r.editable);
-  const tipOf = (r) => (r.col === 'pack' ? `${t(r.tip)}\n${t('原作者：{author}', { author: PACK_AUTHORS[r.key] })}` : t(r.tip));
-  return html`<div class="mods mods--hostcfg">
-    <div class="mods__head">
-      <span class="ebuff__title"><${Icon} name="sliders" />${t('Mod 开关')}</span>
-      <${MicroLabel}>MOD SWITCHES<//>
-    </div>
-    <p class="mods__note">${t('这些改动默认全部关闭（原版规则）；开启后会改变本局的玩法，对其他玩家同样生效。')}</p>
-    <div class="mods__rows">
-      ${MOD_COLS.map((col) => html`<div class="mods__col" key=${col} data-col=${col}>
-        ${col === 'pack' ? html`<p class="mods__colhead">${t('额外内容')}</p>` : null}
-        ${rows.filter((r) => r.col === col).map((r) => html`<${SwitchRow} key=${r.key}
-          label=${t(r.label)} tip=${tipOf(r)} on=${r.on}
-          disabled=${!editable || !!busy}
-          testid=${`hostcfg-mod-${r.key}`} infoTestid=${`hostcfg-mod-info-${r.key}`}
-          onChange=${(v) => editable && onSet(r.key, v)} />`)}
-      </div>`)}
-    </div>
-  </div>`;
-}
-
-/**
- * 对局选项 — the four enemy-buff sliders. Each row is the settings dialog's own `.set-row` / `.set-range` control (the
- * shared slider, so it looks and drags the same as 设置's), with the current +N % printed on the right. The line under
- * them states the total and warns that it is already in effect — the owner's screenshot carries exactly that.
- */
-function EnemyBuffSection({ rows, onSet, total }) {
+function MatchOptionSection({ rows, enemyRows, busy, onMod, onEnemy }) {
+  const switchRows = rows || [];
+  const editable = switchRows.some((r) => r.editable);
+  const total = enemyBuffTotal(enemyRows);
+  const tipOf = (r) => t(r.tip);
   return html`<div class="ebuff">
     <div class="ebuff__head">
       <span class="ebuff__title"><${Icon} name="sliders" />${t('对局选项')}</span>
       <${MicroLabel}>MATCH OPTIONS<//>
     </div>
-    <p class="ebuff__hint">${t('每格 +10%，最高 +100% · 加强本局全部敌人（含首领与联防）')}</p>
-    <div class="ebuff__rows">
-      ${rows.map((r) => html`<label class="set-row ebuff__row" key=${r.key}>
+    ${switchRows.length ? html`<div class="mods mods--hostcfg">
+      <p class="mods__note">${t('以下规则默认全部关闭（原版规则）；开启后会改变本局的玩法，对其他玩家同样生效。')}</p>
+      <div class="mods__rows">
+        <div class="mods__col" data-col="rule">
+          ${switchRows.map((r) => html`<${SwitchRow} key=${r.key}
+            label=${t(r.label)} tip=${tipOf(r)} on=${r.on}
+            disabled=${!editable || !!busy}
+            testid=${`hostcfg-mod-${r.key}`} infoTestid=${`hostcfg-mod-info-${r.key}`}
+            onChange=${(v) => editable && onMod(r.key, v)} />`)}
+        </div>
+      </div>
+    </div>` : null}
+    ${enemyRows && enemyRows.length ? html`<div class="ebuff__rows">
+      ${enemyRows.map((r) => html`<label class="set-row ebuff__row" key=${r.key}>
         <span class="set-row__label"><${Icon} name=${r.icon} />${t(r.label)}</span>
         <input class="set-range" type="range" min="0" max=${HOST_ENEMY_MAX_STEPS} step="1"
           value=${r.steps} style=${`--pct:${(r.steps / HOST_ENEMY_MAX_STEPS) * 100}%`}
           disabled=${!r.editable}
           data-testid=${`ebuff-${r.key}`} aria-label=${t(r.label)}
-          onInput=${(e) => r.editable && onSet(r.key, Number(e.currentTarget.value))} />
+          onInput=${(e) => r.editable && onEnemy(r.key, Number(e.currentTarget.value))} />
         <span class="set-row__val num">+${r.steps * HOST_ENEMY_STEP_PCT}%</span>
       </label>`)}
-    </div>
+    </div>` : null}
+    ${enemyRows && enemyRows.length ? html`<p class="ebuff__hint">${t('每格 +10%，最高 +100% · 加强本局全部敌人（含首领与联防）')}</p>` : null}
     ${total > 0 ? html`<p class="ebuff__warn">${t('本局敌人已获得强化（合计 {n}%），请谨慎调整', { n: total })}</p>` : null}
   </div>`;
 }
@@ -399,6 +387,10 @@ function EnemyBuffSection({ rows, onSet, total }) {
  * The panel's Mod-开关 rows: one per MOD_ROWS entry, `{ key, col, label, tip, on, editable }`. Shown in EVERY mode — a
  * Mod 开关 changes the host's own match, so 独立模拟 gets them too (unlike the 共享 房主配置 options, which need
  * somebody to share with). No room at all ⇒ null.
+ *
+ * 2026-10-16 (owner): `modRows` is now only the 对局选项 half (MOD_RULE_ROWS) — the 内容包 switches left for the lobby's
+ * 「Mod 菜单」 dialog (screens/mods.js), which reads the room's own state. `modPanel` still returns every MOD_ROWS entry
+ * (it is the fork's record of what the switches ARE, and the pack switches are still room state); the caller filters.
  * @param {any} room room.state payload @param {any} myId
  * @returns {Array<{ key: string, col: string, label: string, tip: string, on: boolean, editable: boolean }> | null}
  */
@@ -457,7 +449,10 @@ export function RoomScreen() {
   const enemyRows = enemyBuffPanel(room, me.playerId);
   // Mod 开关 (room.setMods): the fork's gameplay switches, shown in EVERY mode (they change this room's own match, so
   // 独立模拟 gets them too). Same rows for everybody; only the host may flip them.
-  const modRows = modPanel(room, me.playerId);
+  // 2026-10-16 (owner): only the 对局选项 half (MOD_RULE_ROWS) is in this dialog now — the 内容包 switches moved to the
+  // lobby's 「Mod 菜单」 dialog (screens/mods.js). The badge count follows the same split, so the two buttons never both
+  // claim the same switch.
+  const modRows = (modPanel(room, me.playerId) || []).filter((r) => MOD_RULE_ROWS.some((k) => k.key === r.key));
 
   const run = async (kind, fn) => {
     if (inFlight.current) return;

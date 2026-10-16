@@ -74,6 +74,8 @@ import { PLUGINS_URL, PLUGIN_INDEX_VERSION, buildPluginIndex, extOf, isPackPath,
 import { csUrlPart } from '../../shared/plugins/identity.js';
 import { FILE_URL_DIGITS, PLUGIN_AUDIO_EXTS, PLUGIN_FILES_URL, VISUAL_DOC_FILE, VISUAL_SETS_URL, VS_URL_DIGITS } from '../../shared/plugins/visual.js';
 import { SIM_WORKER_CSP } from './csp.js';
+// 工坊素材路由 (工坊 mod 层移植, 2026-10-16): the prefix and extension allowlist a pack's own art is served under.
+import { WORKSHOP_ASSET_PREFIX, WORKSHOP_ASSET_TYPES } from './workshop.js';
 import { UI_FRAME_CSP } from '../../shared/plugins/ui.js';
 
 /** Browser stand-in of server/data.js, served at /data.js (see the header). Served byte for byte: its first line names the entry, server/index.js. */
@@ -124,7 +126,7 @@ const CS_FILE = /^\/cs\/([0-9a-f]{16})\/([A-Za-z0-9._\/-]{1,200})$/;
  */
 export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = path.join(ROOT, 'server', 'sim'), packsDir = path.join(ROOT, 'packs'),
   pluginsDir = path.join(path.dirname(path.resolve(packsDir)), 'plugins'), packs = null, content = null, log = noopLog,
-  assetIndex = null, views = null, visual = null, contents = null }) {
+  assetIndex = null, views = null, visual = null, contents = null, workshopJson = null, workshopAssets = null }) {
   const registry = packs || createPluginRegistry({ publicDir, dataDir, packsDir, pluginsDir }, { log: /** @type {any} */ (log) });
   const sets = visual || (typeof registry.pluginFile === 'function' ? createVisualSets({ registry, log }) : null);
   let vanilla = content;
@@ -257,6 +259,48 @@ export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = pa
         await serveBuffer(req, res, { body: view.body, hash: view.hash, type: MIME['.json'], cacheControl: 'no-cache', key: `view:${decoded}`, cache: gzipCache });
         return;
       }
+    }
+    // 创意工坊 (工坊 mod 层移植, 2026-10-16, DESIGN §34): a data file a pack TOUCHED is served merged, not as the
+    // on-disk original — the browser must see the same view the server's matches use, or a pack's operator would play
+    // server-side and be invisible client-side. `workshopJson` maps only the files `applyWorkshop` actually changed
+    // (`buildWorkshopDataFiles`), so an untouched file keeps the plain static path below byte for byte.
+    if (workshopJson && workshopJson.size && decoded.startsWith('/data/')) {
+      const body = workshopJson.get(decoded.slice('/data/'.length, -'.json'.length));
+      if (body) {
+        await serveBuffer(req, res, { body, hash: null, type: MIME['.json'], cacheControl: 'no-cache', key: `wsjson:${decoded}`, cache: gzipCache });
+        return;
+      }
+    }
+    // 工坊素材 (工坊 mod 层移植, 2026-10-16, DESIGN §34): a pack's OWN art, served read-only from `<pack>/assets/**`.
+    // This is the one hole in "the repo ships no game assets": a pack may carry its own (a licence-cleared sprite, a
+    // custom icon, a voice line) and the CLIENT has to be able to fetch it or the content cannot render. Deliberately
+    // narrow: only the registered packs, only their `assets/` subtree (never the pack's data, kits or manifest), an
+    // extension allowlist so the folder can never serve a script the page would execute, and no directory listing.
+    if (workshopAssets && workshopAssets.size && decoded.startsWith(WORKSHOP_ASSET_PREFIX)) {
+      const rel = decoded.slice(WORKSHOP_ASSET_PREFIX.length);
+      const segments = rel.split('/').filter((s) => s.length > 0);
+      const pack = segments.shift();
+      const bad = !pack || !workshopAssets.has(pack) || !segments.length
+        || segments.some((s) => s === '..' || s === '.' || s.startsWith('.'));
+      const ext = bad ? '' : path.extname(segments[segments.length - 1]).toLowerCase();
+      if (bad || !WORKSHOP_ASSET_TYPES.has(ext)) { sendError(req, res, 404, '页面不存在 · Not found'); return; }
+      const dir = path.join(workshopAssets.get(pack), 'assets');
+      const abs = path.join(dir, ...segments);
+      if (abs !== dir && !abs.startsWith(dir + path.sep)) { sendError(req, res, 403, '禁止访问 · Forbidden'); return; }
+      let body;
+      try {
+        const st = await fsp.stat(abs);
+        if (!st.isFile()) throw new Error('not a file');
+        body = await fsp.readFile(abs);
+      } catch { sendError(req, res, 404, '页面不存在 · Not found'); return; }
+      // a pack's art is immutable in practice (a repack ships a new version) and can be large: cache it like /assets/
+      res.writeHead(200, {
+        'Content-Type': WORKSHOP_ASSET_TYPES.get(ext) || 'application/octet-stream',
+        'Content-Length': body.length,
+        'Cache-Control': 'public, max-age=86400',
+      });
+      res.end(req.method === 'HEAD' ? undefined : body);
+      return;
     }
     // Bare mount paths (e.g. "/data") → treat as the mount directory.
     const mount = mounts.find((m) => decoded.startsWith(m.prefix) || decoded === m.prefix.slice(0, -1)) || mounts[mounts.length - 1];

@@ -363,6 +363,31 @@ export function voiceLine(audio, charId, slot, lang = 'cn', random = Math.random
 }
 
 /**
+ * 工坊 mod 层移植 (2026-10-16): the lines of one slot for one operator, read from the **multi-dub** tables the manifest
+ * carries (`audio.voiceLangs[lang]` — this repo's model, filled by tools/assets/plan.mjs — and upstream 0.2.2's
+ * `audio.voiceJp` for jp). A dub that was never downloaded is simply absent, so the caller falls back to the default
+ * voice instead of going silent (the owner's rule: never silently drop a sound).
+ *
+ * This is the reader a WORKSHOP PACK's voice entries go through (`shared/workshop.js` plans them into `voiceLangs`), so
+ * it takes `lang` explicitly and never draws: the caller picks one line out of an array. Pure.
+ * @param {any} manifest data/assets.json
+ * @param {string} charId e.g. 'char_263_skadi'
+ * @param {string} slot one of VOICE_SLOTS
+ * @param {'cn'|'jp'|'en'|'kr'|null} [lang] the unit's dub (null/absent = the manifest's default `audio.voice`)
+ * @returns {string|string[]|null} a URL, the slot's lines, or null when no table has the slot
+ */
+export function voiceLinesFor(manifest, charId, slot, lang = null) {
+  const a = manifest?.audio;
+  if (!a || typeof charId !== 'string' || typeof slot !== 'string') return null;
+  const own = lang
+    ? (a.voiceLangs?.[lang]?.[charId]?.[slot] ?? (lang === 'jp' ? a.voiceJp?.[charId]?.[slot] : undefined))
+    : undefined;
+  const line = own !== undefined ? own : a.voice?.[charId]?.[slot];
+  if (typeof line === 'string' && line) return line;
+  return Array.isArray(line) && line.length ? line : null;
+}
+
+/**
  * The settlement slot of a finished 作战: 完美作战 ⇒ 3星结束行动 (绝境 / 终极 ⇒ 完成高难行动 instead), a leaked enemy
  * ⇒ 非3星结束行动, nothing killed at all ⇒ 行动失败.
  * @param {{perfect?:boolean, leaked?:number, killed?:number, total?:number, hard?:boolean}} [o]

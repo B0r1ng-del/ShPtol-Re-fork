@@ -104,6 +104,41 @@ export function diySlotIds(data) {
 }
 
 /**
+ * The unit forms (`statusKey` of `backups.units[charId].forms`) a character must HAVE to be a legal 自选 pick of the
+ * slots it can reach — **derived from the slots themselves**, never hardcoded.
+ *
+ * Why it exists (工坊 mod 层移植, 2026-10-16): `checkDiyPick` resolves BOTH a slot's records against the character
+ * (`unitForm(backups, charId, slot.normal.status)` and `slot.golden.status`) and refuses the pick when either is
+ * missing. A character with two elite forms instead of three (an elite record at `equipLevel` 3 against a character
+ * holding only 0 and 1) is therefore a 自选 pick that cannot be made — and the failure is not in the 自选 screen:
+ * `tools/golden.mjs` builds a corpus scenario for every pool member through a tier-6 elite slot, so one such character
+ * in `ownedPool` makes the corpus generation throw and takes `golden` / `ci` down with it. The pack loader refuses it
+ * at install time instead (shared/workshop.js `OPERATOR_FORM_MISSING`).
+ *
+ * The required set is the union over every 自选 slot of the two records' statuses, so a data change that adds a slot
+ * (or moves an `equipLevel`) moves this check with it — no second copy of `2/60/7/3`.
+ *
+ * **The caller must pass `chess` as well as `backups`.** `diy.slots` names the slots; each form key comes from the
+ * `status` of those slots' records in `chess.json` (`diySlot` → `chessOf`). With `backups` alone this returns an EMPTY
+ * list, which turns the caller's check into "nothing is required" — the silent failure the rule exists to prevent.
+ *
+ * @param {DiyData} data `{ chess, backups }` — chess is required for a non-empty answer
+ * @param {{ tier?: number|null }} [opts] restrict to one tier's slots
+ * @returns {string[]} sorted status keys, e.g. `['2/1/4/0', '2/60/7/1', '2/60/7/3']`
+ */
+export function requiredUnitForms(data, { tier = null } = {}) {
+  const statuses = new Set();
+  for (const slotId of diySlotIds(data)) {
+    const slot = diySlot(slotId, data);
+    if (!slot || (tier !== null && slot.tier !== tier)) continue;
+    for (const rec of [slot.normal, slot.golden]) {
+      if (rec && rec.status) statuses.add(statusKey(rec.status));
+    }
+  }
+  return [...statuses].sort();
+}
+
+/**
  * The key of a DIY owner's summon variants in data/backups.json `tokens[id].variants`: the operator and the slot form.
  * @param {string} charId
  * @param {object} status the slot record's `status`

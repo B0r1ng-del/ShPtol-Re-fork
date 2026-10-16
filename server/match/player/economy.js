@@ -7,6 +7,21 @@
 import { ERR, PHASE, layerGainRoom, CHEAT_KEYS, CHEAT_FREE_REFRESH_STEP, CHEAT_BOND_LAYER_STEP, CHEAT_GOLD_FLOOR, ITEM_SELL_PRICE } from '../../../shared/constants.js';
 import { freeSlot } from '../board.js';
 import { OK, fail } from './common.js';
+// 工坊 mod 层移植 (2026-10-16): the behaviour layer's shop bias. A pack declares `behaviour.shopBias`; with no such
+// declaration `behaviourIsDefault` is true and this returns null, so a vanilla match is byte-identical.
+import { behaviourIsDefault } from '../../../shared/behaviour.js';
+
+/**
+ * 工坊 mod 层 (behaviour `shopBias`): the bonds whose items the shop should favour, or null for the official roll.
+ * A pack that declares no `shopBias` gets null — the shop's own pool.ts decides as before.
+ * @param {any} ps
+ * @returns {Set<string>|null}
+ */
+export function bondBiasBonds(ps) {
+  if (behaviourIsDefault(ps.m.behaviour, 'shopBias')) return null;
+  const active = ps._activeBondIds();
+  return active.size ? active : null;
+}
 
 export class PlayerEconomy {
   /**

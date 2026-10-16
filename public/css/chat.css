@@ -1,0 +1,98 @@
+/* 在线聊天 (fork) — public/js/ui/chat.js. The in-match chat window, shown when the room option `onlineChat` is on.
+   Loaded after the screen sheets so it also overrides the emote rules that used to place 交流 in the HUD corner
+   (css/emotes.css): inside the window the wheel is a block of the body, not an absolutely placed button.
+
+   ACRYLIC: the window is the one surface in a match that is meant to read as material rather than as another HUD panel,
+   so it is the frosted-glass recipe the rest of the UI uses (a translucent plate plus backdrop-filter blur and
+   saturation) — NOT an opaque plate. `@supports` keeps a browser without backdrop-filter on the opaque fallback, which
+   is the same colour the plate composites to anyway. */
+
+.chat {
+  position: absolute; left: .24rem; bottom: .24rem; z-index: 6;
+  width: 3.6rem; max-width: calc(100vw - .48rem);
+  display: flex; flex-direction: column;
+  /* the frosted plate: translucent fill + blur + saturation */
+  background: rgba(14, 19, 17, .62);
+  -webkit-backdrop-filter: blur(.12rem) saturate(1.6);
+  backdrop-filter: blur(.12rem) saturate(1.6);
+  border: 1px solid var(--line-2); border-radius: .04rem;
+  box-shadow: 0 .08rem .3rem rgba(0, 0, 0, .45);
+  overflow: hidden;
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .chat { background: rgba(14, 19, 17, .94); }
+}
+/* the frosted top edge: a hairline highlight, the way a lit acrylic sheet catches its rim */
+.chat::before {
+  content: ''; position: absolute; inset: 0 0 auto 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .16), transparent);
+  pointer-events: none;
+}
+
+/* ---- title bar (always visible: the fold handle) ------------------------------------------------------------ */
+.chat__head { display: flex; align-items: center; border-bottom: 1px solid var(--line); }
+.chat__title {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: .07rem;
+  height: .36rem; padding: 0 .12rem;
+  background: transparent; border: 0; color: var(--text-md);
+  font-size: .126rem; font-weight: 700; letter-spacing: .04em;
+  cursor: pointer; text-align: left;
+}
+.chat__title:hover { color: var(--mint-400); }
+.chat__icon { width: .18rem; height: .18rem; color: var(--mint-500); flex: none; }
+.chat__titletext { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat__chev { width: .15rem; height: .15rem; margin-left: auto; flex: none; color: var(--text-lo); }
+
+/* ---- body (the log + the wheel + the input) ----------------------------------------------------------------- */
+.chat__body { display: flex; flex-direction: column; min-height: 0; }
+.chat__log {
+  /* the log is what grows: it is capped so a phone in landscape keeps the input on screen */
+  max-height: 1.75rem; min-height: .72rem; overflow-y: auto; overscroll-behavior: contain;
+  padding: .09rem .12rem; display: flex; flex-direction: column; gap: .08rem;
+}
+.chat__empty { margin: 0; padding: .18rem 0; color: var(--text-dim); font-size: .115rem; text-align: center; }
+
+.chat__line { display: flex; align-items: flex-start; gap: .08rem; }
+.chat__line .avatar { flex: none; margin-top: .01rem; }
+.chat__speech { min-width: 0; flex: 1; }
+.chat__meta { display: flex; align-items: baseline; gap: .06rem; }
+.chat__name {
+  color: var(--mint-400); font-size: .115rem; font-weight: 700; letter-spacing: .02em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%;
+}
+.chat__line.is-self .chat__name { color: var(--gold); }
+.chat__stamp { color: var(--text-dim); font-size: .1rem; flex: none; }
+.chat__text {
+  margin: 0; color: var(--text-hi); font-size: .122rem; line-height: 1.45;
+  word-break: break-word; white-space: pre-wrap;
+}
+
+/* ---- 交流 wheel, re-parented into the body ------------------------------------------------------------------ */
+/* The wheel's own button is absolutely placed in the HUD corner (css/emotes.css .ewheel is `position: relative` with an
+   absolutely positioned panel); inside the window it is a left-aligned row of the body instead. */
+.chat__body .ewheel { display: flex; align-items: center; padding: 0 .12rem .07rem; }
+.chat__body .ewheel__panel { bottom: auto; top: 100%; left: 0; }
+
+/* ---- the input row ------------------------------------------------------------------------------------------- */
+.chat__form { display: flex; align-items: center; gap: .07rem; padding: .08rem .12rem; border-top: 1px solid var(--line); }
+.chat__input {
+  flex: 1; min-width: 0; height: .32rem; padding: 0 .1rem;
+  background: rgba(8, 11, 10, .75); border: 1px solid var(--line-2); border-radius: .03rem;
+  color: var(--text-hi); font-family: var(--font-cjk); font-size: .122rem; line-height: 1;
+}
+.chat__input::placeholder { color: var(--text-dim); }
+.chat__input:focus { outline: none; border-color: var(--mint-700); box-shadow: 0 0 0 1px var(--mint-a20); }
+.chat__input:disabled { opacity: .5; cursor: not-allowed; }
+.chat__send {
+  flex: none; width: .32rem; height: .32rem; display: grid; place-items: center;
+  background: var(--mint-800); border: 1px solid var(--mint-700); border-radius: .03rem;
+  color: var(--mint-400); cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.chat__send .icon { width: .17rem; height: .17rem; }
+.chat__send:hover:not(:disabled) { background: var(--mint-700); color: var(--text-hi); }
+.chat__send:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ---- folded: the title bar only ------------------------------------------------------------------------------ */
+.chat.is-folded { width: 2.05rem; }
+.chat.is-folded .chat__title { height: .34rem; }

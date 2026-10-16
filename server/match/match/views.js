@@ -82,7 +82,7 @@ export class MatchViews {
       difficulty: this.difficulty,
       // 房主配置 (room.setHostConfig): the rules this match runs under, so the client can mark what they change (the
       // strategy draft's 队友已选 lock and the shared 悬赏 cards). Sent on every frame: they never change mid-match.
-      hostConfig: { sharedPool: !!this.sharedPool, sharedBounty: !!this.sharedBounty, aiPicksLast: !!this.aiPicksLast, multiAlliance: !!this.multiAlliance, itemSell: !!this.itemSell },
+      hostConfig: { sharedPool: !!this.sharedPool, sharedBounty: !!this.sharedBounty, aiPicksLast: !!this.aiPicksLast, multiAlliance: !!this.multiAlliance, itemSell: !!this.itemSell, onlineChat: !!this.onlineChat },
       // 房主配置「对局选项」(HOST_ENEMY_KEYS, room.setEnemyBuff): the four enemy buffs as 10 % step counts, so the in-match
       // 本局信息 can say what the room turned up. Sent on every frame like hostConfig: they never change mid-match.
       enemyBuff: { ...this.enemyBuff },

@@ -10,8 +10,44 @@ import { PHASE, ERR } from '../../../shared/constants.js';
 import { syntheticResult } from '../fields.js';
 import { FLOW_TICKER_PRIORITY, OK, fail } from './common.js';
 import { msg } from '../../../shared/i18n.js';
+// 工坊 mod 层移植 (2026-10-16): the behaviour layer's `prepLoadout` switch decides which phases accept room.loadout.
+import { behaviourIsDefault } from '../../../shared/behaviour.js';
 
 const GAME_TYPES = new Set(Object.keys(C2S).filter((t) => Object.hasOwn(C2S, t) && (t.startsWith('g.') || t.startsWith('b.'))));
+
+/**
+ * 工坊 mod 层 (behaviour `prepLoadout`): the phase sets `room.loadout` is accepted in. `locked` is the official rule
+ * (INFO_CHECK only — what this file used to spell out inline); `prep` additionally accepts the 休整期.
+ */
+export const LOADOUT_PHASES = Object.freeze({ locked: Object.freeze([PHASE.INFO_CHECK]), prep: Object.freeze([PHASE.INFO_CHECK, PHASE.PREP]) });
+
+/**
+ * The phases THIS match accepts `room.loadout` in. No declaration (or `locked`) ⇒ the official gate; a pack declaring
+ * `prepLoadout: "prep"` ⇒ PREP as well. Read-only: it only answers which set applies.
+ * @param {Array<{ switch: string, option: string }>|null|undefined} decl the match's behaviour declaration
+ * @returns {readonly string[]}
+ */
+export function loadoutPhasesFor(decl) {
+  return behaviourIsDefault(decl, 'prepLoadout') ? LOADOUT_PHASES.locked : LOADOUT_PHASES.prep;
+}
+
+/**
+ * 工坊 mod 层 (behaviour `prepLoadout: "prep"`): a PREP-phase `room.loadout` OVERLAYS this round's issue instead of
+ * replacing it — the player re-equips some operators, the rest keep what the round handed them. Only the pack path
+ * reaches this (the default gate stops at INFO_CHECK), so the official flow never merges anything.
+ * @param {Record<string, any>|null|undefined} current the loadout the round issued
+ * @param {Record<string, any>|null|undefined} incoming the entries this submit names
+ * @returns {Record<string, any>}
+ */
+export function mergeLoadoutEntries(current, incoming) {
+  const out = { ...(current && typeof current === 'object' ? current : {}) };
+  if (incoming && typeof incoming === 'object' && !Array.isArray(incoming)) {
+    for (const [id, entry] of Object.entries(incoming)) {
+      if (entry && typeof entry === 'object' && !Array.isArray(entry)) out[id] = entry;
+    }
+  }
+  return out;
+}
 
 export class MatchPlatform {
   start() {
@@ -70,10 +106,20 @@ export class MatchPlatform {
   setLoadout(playerId, loadout, ops = undefined) {
     const ps = this.players.get(playerId);
     if (!ps || ps.isBot || ps.left) return fail(ERR.NOT_IN_ROOM);
-    if (this.disposed || this.ended || this.phase !== PHASE.INFO_CHECK) return fail(ERR.WRONG_PHASE, 'loadout locked for this match');
+    // 工坊 mod 层移植 (2026-10-16, behaviour `prepLoadout`): the phases this match accepts room.loadout in. With no
+    // such declaration `loadoutPhasesFor` returns LOADOUT_PHASES.locked = [INFO_CHECK], which is exactly the gate
+    // this line used to spell out — a vanilla match is byte-identical, and a pack may additionally open PREP.
+    const phases = loadoutPhasesFor(this.behaviour);
+    if (this.disposed || this.ended || !phases.includes(this.phase)) return fail(ERR.WRONG_PHASE, 'loadout locked for this match');
+    // 工坊 mod 层 (behaviour `prepLoadout: "prep"`): in 休整期 the submit OVERLAYS this round's issue, and a seat that
+    // has already readied up has locked its issue in. Neither branch is reachable on the default gate (which stops at
+    // INFO_CHECK), so the official flow takes the plain path below unchanged.
+    const inPrep = this.phase === PHASE.PREP && phases.includes(PHASE.PREP);
+    if (inPrep && ps.ready) return fail(ERR.WRONG_PHASE, 'loadout locked for this match (this seat has readied up)');
+    const entries = inPrep ? mergeLoadoutEntries(ps.loadout, loadout) : loadout;
     let res = OK;
     this.guard(() => {
-      if (!ps.setLoadout(loadout, ops)) { res = fail(ERR.BAD_TARGET, 'loadout does not match the game data'); return; }
+      if (!ps.setLoadout(entries, ops)) { res = fail(ERR.BAD_TARGET, 'loadout does not match the game data'); return; }
       this.markPrivate(ps);
     });
     return res;

@@ -47,6 +47,8 @@ import { registerExtensionMeta, extensionMetaOwner } from '../sim/content/extens
 import { registerAllMeta } from '../sim/content/index.js';
 import { registerBuiltins } from './builtinMeta.js';
 import { msg, dn } from '../../shared/i18n.js';
+// 部署位天花板（工坊 mod 层移植，2026-10-16）：从前这里硬编码 12，与工坊 `deploy: "max"` 口径各写一份 —— 收成一个常量
+import { DEPLOY_CAP_MAX } from '../../shared/constants.js';
 import { onGiftTicker } from './botEmotes.js';
 import { previewContext } from './preview.js';
 
@@ -711,7 +713,7 @@ export function makeCtx(m, ps, source, hook, ev = null, preview = null) {
       return true;
     },
     addDeployCap: (n) => { const v = finiteInt(n); ps.deployCapBonus += v; ps.dirty(); return ps.deployCap; },
-    setDeployCapAtLeast: (n) => { const v = finiteInt(n); if (v > ps.deployCapMin) { ps.deployCapMin = Math.min(v, 12); ps.dirty(); } return ps.deployCap; },
+    setDeployCapAtLeast: (n) => { const v = finiteInt(n); if (v > ps.deployCapMin) { ps.deployCapMin = Math.min(v, DEPLOY_CAP_MAX); ps.dirty(); } return ps.deployCap; },
     setBondCountBonus: (bondId, n) => { if (gd.bond(bondId) && Number.isInteger(n)) { ps.bondCountBonus[bondId] = n; ps.recompute(); } },
     setDeviceActive: (alias, on) => { if (typeof alias === 'string') { ps.deviceOverrides[alias] = !!on; ps.invalidateDeployMap(); ps.dirty(); } },
     setTileOverride: (r, c, cls) => { if (Number.isInteger(r) && Number.isInteger(c) && ['melee', 'ranged', 'none'].includes(cls)) { ps.tileOverrides[`${r},${c}`] = cls; ps.invalidateDeployMap(); ps.dirty(); } },

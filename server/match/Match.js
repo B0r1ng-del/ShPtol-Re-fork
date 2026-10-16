@@ -312,6 +312,15 @@ export class Match {
      */
     this.itemSell = opts.itemSell === true;
     /**
+     * 房主配置 在线聊天 (opts.onlineChat, HOST_CONFIG_KEYS `onlineChat`): whether the room accepts `g.chat` and shows the
+     * in-match 在线聊天 window. Default OFF — a caller that passes nothing (the golden scenarios, the rehearsal tools,
+     * every test) is byte-identical, and nothing about a match's simulation depends on it (it is a channel, not a rule).
+     * Like `itemSell` it is a room option the server enforces, so a client cannot chat into a room that never turned it on.
+     */
+    this.onlineChat = opts.onlineChat === true;
+    /** 在线聊天: the running `m.chat.seq`, so a client can order two lines that arrived in the same millisecond. */
+    this.chatSeq = 0;
+    /**
      * 房主配置「对局选项」(opts.enemyBuff, HOST_ENEMY_KEYS `room.setEnemyBuff`): the four enemy buffs the host turned up,
      * as 10 % step counts. `this.gd` already carries the multipliers it implies (`GameData.enemyScale` folds HP / ATK in,
      * `waves.js` adds DEF / RES), so the match itself only keeps the raw counts for its own reporting. All 0 by default,
@@ -328,6 +337,17 @@ export class Match {
      * @type {Record<string, boolean>}
      */
     this.mods = this.gd.mods;
+    /**
+     * 工坊 mod 层移植 (2026-10-16, `shared/behaviour.js`): this match's merged behaviour declaration — the 「行为开关」
+     * a workshop pack declares (`pack.json.behaviour`), merged across the room's packs in pack-id order.
+     *
+     * An EMPTY array is the neutral declaration: every reading site asks `behaviourIsDefault()` first, which answers
+     * true for it, so a match created without any pack is byte-identical to before — the same discipline the Mod 开关
+     * follow. The pack pipeline (`server/workshop.js`) fills this; until a room declares packs it stays empty, which is
+     * exactly the no-pack case the behaviour layer is designed around.
+     * @type {Array<{ switch: string, option: string }>}
+     */
+    this.behaviour = Array.isArray(opts.behaviour) ? opts.behaviour : [];
     /**
      * 本局收藏品 (六.E, `packRelic`): the match-scoped collectibles of the ported DLC. The switch is read once here, like
      * the mods it comes from, and every collectible code path sits behind it — with it off the match never fills a relic

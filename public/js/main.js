@@ -63,6 +63,7 @@ import { t, N_, translateWire } from '../../shared/i18n.js';
 import { recordError, installTrafficMeter } from './diag.js';
 import { installContent, installContentSet } from './content.js';
 import { cosmetics } from './cosmetics.js';
+import { CHAT_KEEP } from '../../shared/constants.js';
 
 const RESTORE_GRACE_MS = 1500;
 const JOIN_DELAY_MS = 350;
@@ -149,7 +150,7 @@ function backToLobby() {
   clearTimeout(restoreTimer);
   const s = store.get();
   if (s.room || s.match.public) closeAllDialogs();
-  store.set({ room: null, match: emptyMatch(), ticker: [], emotes: [] });
+  store.set({ room: null, match: emptyMatch(), ticker: [], emotes: [], chat: [] });
   store.patch('ui', { restoring: false });
 }
 
@@ -279,6 +280,13 @@ function wireNet() {
   });
   net.on('m.emote', (msg) => {
     store.set((s) => ({ emotes: [...s.emotes.slice(-(EMOTE_KEEP - 1)), { seq: ++seq, playerId: msg.playerId, id: msg.id, at: Date.now() }] }));
+  });
+  // 在线聊天 (fork): one line of the room's chat. `seq` is the server's own counter when it sends one (the real match
+  // does), so two lines are ordered by the sender's clock rather than by arrival; keep the server's value and fall back
+  // to our own counter for a frame that carries none.
+  net.on('m.chat', (msg) => {
+    if (typeof msg.text !== 'string') return;
+    store.set((s) => ({ chat: [...s.chat.slice(-(CHAT_KEEP - 1)), { seq: Number.isInteger(msg.seq) ? msg.seq : ++seq, playerId: msg.playerId, text: msg.text, at: Date.now() }] }));
   });
 
   // Entering (title → lobby) while already online also needs the deep-link join.

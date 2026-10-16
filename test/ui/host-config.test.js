@@ -29,21 +29,21 @@ test('the panel lists exactly the four HOST_CONFIG_KEYS, in order, with their de
   const rows = hostConfigPanel(room(), 'h');
   assert.deepEqual(rows.map((r) => r.key), [...HOST_CONFIG_KEYS]);
   for (const r of rows) assert.equal(r.on, HOST_CONFIG_DEFAULTS[r.key], `${r.key} default`);
-  // the mock of the request: 共享卡池 / 共享悬赏 on, AI 队友最后选择 / 多同盟模式 / 装备可售卖 off
-  assert.deepEqual(rows.map((r) => r.on), [true, true, false, false, false]);
-  assert.deepEqual(rows.map((r) => r.label), ['共享卡池', '共享悬赏', 'AI 队友最后选择', '多同盟模式', '装备可售卖']);
+  // the mock of the request: 共享卡池 / 共享悬赏 on, then the five off (AI 队友最后选择 / 多同盟模式 / 装备可售卖 / 在线聊天)
+  assert.deepEqual(rows.map((r) => r.on), [true, true, false, false, false, false]);
+  assert.deepEqual(rows.map((r) => r.label), ['共享卡池', '共享悬赏', 'AI 队友最后选择', '多同盟模式', '装备可售卖', '在线聊天']);
   for (const r of rows) assert.ok(r.tip && r.tip.length > 0, `${r.key} has an explanation`);
 });
 
 test('the panel is editable by the host alone; everybody else reads the same values', async () => {
   const { hostConfigPanel } = await mod();
-  const cfg = { sharedPool: false, sharedBounty: true, aiPicksLast: true, multiAlliance: true, itemSell: true };
+  const cfg = { sharedPool: false, sharedBounty: true, aiPicksLast: true, multiAlliance: true, itemSell: true, onlineChat: true };
   const hostRows = hostConfigPanel(room({ hostConfig: cfg, aiPicksLast: true }), 'h');
   const guestRows = hostConfigPanel(room({ hostConfig: cfg, aiPicksLast: true }), 'g');
   assert.ok(hostRows.every((r) => r.editable), 'the host edits');
   assert.ok(guestRows.every((r) => !r.editable), 'the guest reads');
-  assert.deepEqual(hostRows.map((r) => r.on), [false, true, true, true, true], 'both see the same values');
-  assert.deepEqual(guestRows.map((r) => r.on), [false, true, true, true, true]);
+  assert.deepEqual(hostRows.map((r) => r.on), [false, true, true, true, true, true], 'both see the same values');
+  assert.deepEqual(guestRows.map((r) => r.on), [false, true, true, true, true, true]);
   // no host yet (the room is closing): nobody edits
   assert.ok(hostConfigPanel(room({ hostId: null }), 'h').every((r) => !r.editable));
 });
@@ -97,12 +97,13 @@ test('the 对局选项 markup: one slider per row, wired to room.setEnemyBuff, w
   assert.match(SRC, /class="set-row ebuff__row" key=\$\{r\.key\}/, 'the settings slider row');
   assert.match(SRC, /class="set-range" type="range" min="0" max=\$\{HOST_ENEMY_MAX_STEPS\} step="1"/);
   assert.match(SRC, /data-testid=\$\{`ebuff-\$\{r\.key\}`\}/, 'every slider has a testid the e2e suite can select');
-  assert.match(SRC, /onInput=\$\{\(e\) => r\.editable && onSet\(r\.key, Number\(e\.currentTarget\.value\)\)\}/, 'only the host writes');
+  assert.match(SRC, /onInput=\$\{\(e\) => r\.editable && onEnemy\(r\.key, Number\(e\.currentTarget\.value\)\)\}/, 'only the host writes');
   // a slider is a CONTINUOUS control: it is NOT disabled while a round trip is in flight (that would freeze all four
-  // for every step of a drag), so `busy` must not appear in this block — only the host's own editability gates it
-  const section = SRC.slice(SRC.indexOf('function EnemyBuffSection('), SRC.indexOf('/** The ready bar'));
+  // for every step of a drag), so the SLIDER's own disabled attribute is `!r.editable` and never `busy`
+  const section = SRC.slice(SRC.indexOf('function MatchOptionSection('), SRC.indexOf("/** The panel's Mod-开关 rows"));
   assert.match(section, /disabled=\$\{!r\.editable\}/, 'a non-host gets a disabled slider');
-  assert.ok(!/busy/.test(section), 'and a drag is never blocked by an in-flight request');
+  assert.match(section, /class="set-range"/, 'the sliders are in this section');
+  assert.ok(!/set-range[\s\S]{0,200}busy/.test(section), 'and a drag is never blocked by an in-flight request');
   // it goes through its own one-shot request, not run() (whose inFlight guard would drop every step after the first)
   assert.match(SRC, /net\.request\('room\.setEnemyBuff', \{ key, steps \}\)\.catch\(toastError\)/);
   // the header, the rule above the sliders and the total's warning line (the owner's screenshot)
@@ -117,7 +118,11 @@ test('the 对局选项 markup: one slider per row, wired to room.setEnemyBuff, w
   const dialog = SRC.slice(SRC.indexOf('function HostConfigDialog('), SRC.indexOf('/** The ready bar'));
   assert.ok(dialog.includes('hostcfg__rows'), 'the switch rows');
   assert.ok(dialog.indexOf('ebuff') > dialog.indexOf('hostcfg__rows'), 'and the sliders after them');
-  assert.ok(dialog.includes('EnemyBuffSection'), 'rendered by its own component');
+  assert.ok(dialog.includes('MatchOptionSection'), 'rendered by its own component');
+  // 2026-10-16 (owner): the five game-rule Mod 开关 join the sliders under 「对局选项」, so one component draws both.
+  // SwitchRow renders the attribute itself, so the prop here is `testid` (not `data-testid`).
+  assert.match(SRC, /testid=\$\{`hostcfg-mod-\$\{r\.key\}`\}/, 'the rule switches keep their testid');
+  assert.match(SRC, /switchRows\.map\(/, 'and are drawn by the same section as the sliders');
   // every label and explanation is a msgid with a real English translation
   for (const zh of ['对局选项', '怪物血量', '怪物攻击', '怪物防御', '怪物魔抗', '每格 +10%，最高 +100% · 加强本局全部敌人（含首领与联防）', '本局敌人已获得强化（合计 {n}%），请谨慎调整']) {
     // the warning's msgid carries a {n} param, so match the literal alone
@@ -148,8 +153,10 @@ test('room.js sends room.setHostConfig { key, on } and opens the dialog from the
   assert.match(SRC, /net\.request\('room\.setHostConfig', \{ key, on \}\)/);
   // the panel is a dialog opened by a button in the ready bar (the 干员调配 pattern), not a band under the seats
   assert.match(SRC, /<[$]\{HostConfigDialog\} rows=[$]\{cfgRows\} enemyRows=[$]\{enemyRows\} modRows=[$]\{modRows\} open=[$]\{cfgOpen\}/, 'the dialog is rendered');
-  // 2026-10-16: the dialog carries the Mod 开关 block too (the lobby's submenu moved in), so its rows are passed along
-  assert.match(SRC, /const modRows = modPanel\(room, me\.playerId\)/, 'the Mod rows come from the panel');
+  // 2026-10-16: the dialog carries the Mod 开关 block too (the lobby's submenu moved in), so its rows are passed along.
+  // LATER THE SAME DAY (owner): only the 对局选项 half (col 'rule') stays here — the 内容包 switches left for the lobby's
+  // own 「Mod 菜单」 dialog (screens/mods.js), so this panel filters them out and its badge counts only what it shows.
+  assert.match(SRC, /const modRows = \(modPanel\(room, me\.playerId\) \|\| \[\]\)\.filter\(\(r\) => MOD_RULE_ROWS\.some\(\(k\) => k\.key === r\.key\)\)/, 'the Mod rows come from the panel, minus the 内容包 half');
   assert.match(SRC, /<[$]\{HostConfigButton\} rows=[$]\{cfgRows\}/, 'the entry button is in the ready bar');
   assert.match(SRC, /const \[cfgOpen, setCfgOpen\] = useState\(false\)/);
   assert.match(SRC, /const cfgRows = hostConfigPanel\(room, me\.playerId\)/);

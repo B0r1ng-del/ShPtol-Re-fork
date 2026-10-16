@@ -259,3 +259,21 @@ export class SharedItemPool {
     return pairs.at(-1)?.[0] || null;
   }
 }
+
+/**
+ * 工坊 mod 层移植 (2026-10-16, behaviour `shopBias`): the predicate that tells the shop whether an item belongs to a
+ * bond the player is already invested in. `bonds` is the set of active bond ids; an item counts when its own
+ * `giveBondId` is in it. An empty set answers false for everything, which is the official roll's own answer — so a
+ * match with no behaviour declaration is byte-identical (its caller passes null and never builds a bias at all).
+ * @param {import('./gamedata.js').GameData} gd
+ * @param {Iterable<string>|null|undefined} bonds
+ * @returns {(id: string) => boolean}
+ */
+export function bondBiasPreference(gd, bonds) {
+  const wanted = bonds instanceof Set ? bonds : new Set(bonds || []);
+  return (id) => {
+    if (!wanted.size) return false;
+    const rec = gd.item(id);
+    return !!(rec && typeof rec.giveBondId === 'string' && wanted.has(rec.giveBondId));
+  };
+}

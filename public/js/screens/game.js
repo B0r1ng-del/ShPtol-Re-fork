@@ -89,6 +89,7 @@ import { ChoiceOverlay } from '../ui/choiceOverlay.js';
 import { EnemyDrawer } from '../ui/enemyDrawer.js';
 import { Ticker } from '../ui/ticker.js';
 import { EmoteWheel, EmoteBarrage, emotePrefsStore } from '../ui/emotes.js';
+import { ChatWindow } from '../ui/chat.js';
 import { EffectsList } from '../ui/effectsList.js';
 import { RelicCollection, RelicChoice, ownerRelics, revivalTargets } from '../ui/relicPanel.js';
 import { CombatHud } from '../ui/combatHud.js';
@@ -228,6 +229,12 @@ function MatchScreen() {
   const showMetrics = metricsSetting && !modRoom && !spectator;
   useEffect(() => { if (!showMetrics) setMetricsOpen(false); }, [showMetrics]);
   const [emoteOpen, setEmoteOpen] = useState(false);
+  // 在线聊天 (fork, 房主配置 `onlineChat`): the window's own state. `chatOn` is the room's option (m.public.hostConfig),
+  // so every client of the room agrees on whether the window exists; `chatOpen` is this device's fold state.
+  const chatOn = useStore((s) => s.match.public?.hostConfig?.onlineChat === true);
+  const chatLines = useStore((s) => s.chat, shallowEqual);
+  const chatRoom = useStore((s) => s.room, shallowEqual);
+  const [chatOpen, setChatOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
   const [drag, setDrag] = useState(null);                // { uid, kind, id } while dragging a piece
@@ -1689,7 +1696,9 @@ function MatchScreen() {
 
       <div class="gm__corner">
         ${showMetrics && metricsOpen ? html`<${CombatMetricsPanel} myId=${myId} onClose=${() => setMetricsOpen(false)} />` : null}
-        ${spectator ? null : html`<${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen}
+        ${/* 在线聊天 (fork): with the option on, the 交流 wheel lives inside the chat window (ui/chat.js) instead of here,
+             so it is rendered once — either into the window or into the corner, never both. */
+          chatOn ? null : html`<${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen}
           onSend=${(id, o) => (o && o.burst ? actions.emoteBurst(id) : actions.emote(id))} disabled=${conn.status !== 'online'} />`}
         ${showMetrics ? html`<button type="button" class="gm__gear gm__metrics" aria-label=${t('作战统计')} title=${t('作战统计')} aria-expanded=${metricsOpen}
           aria-controls="combat-metrics-panel" onKeyDown=${(e) => { if (e.key === ' ') e.stopPropagation(); }} onClick=${() => {
@@ -1700,6 +1709,15 @@ function MatchScreen() {
             setBondOpen(null);
           }}><${Icon} name="signal" /></button>` : null}
       </div>
+
+      ${/* 在线聊天 (fork): the floating frosted window, and the 交流 wheel's new home while the option is on. A spectator
+           gets the window read-only (no wheel: the official rule keeps emotes off for spectators — game.js already
+           hides the wheel for them), so the room can be watched with the chat side by side. */
+        chatOn ? html`<${ChatWindow} lines=${chatLines} room=${chatRoom} myId=${myId}
+          open=${chatOpen} onToggle=${setChatOpen} onSend=${(text) => actions.chat(text)}
+          disabled=${conn.status !== 'online'}
+          emote=${spectator ? null : html`<${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen}
+            onSend=${(id, o) => (o && o.burst ? actions.emoteBurst(id) : actions.emote(id))} disabled=${conn.status !== 'online'} />`} />` : null}
 
       ${drawer ? html`<${EnemyDrawer} tab=${drawer} onTab=${setDrawer} pub=${pub} priv=${priv} onClose=${() => setDrawer(null)}
         bandId=${scoutBandId} bandOwner=${scoutBandOwner}
