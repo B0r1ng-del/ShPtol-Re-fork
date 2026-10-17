@@ -52,7 +52,7 @@ export function moduleStateDir(stateRoot, packId) {
  * 在扫描范围**之外**读的 `SP_*` 因此是刻意的，不是漏网：`server/accountConfig.js` 的 `SP_ACCOUNTS` /
  * `SP_RECORDS_FILE` 就是例子 —— 「这台服务器开不开账号」正是**不该**让包看见并据此分叉的那种开关。
  */
-export const BOOT_CONFIG_ENV_KEYS = Object.freeze(['SP_BOT_EMOTES', 'SP_STAGE', 'SP_STATE_DIR', 'SP_WORKSHOP']);
+export const BOOT_CONFIG_ENV_KEYS = Object.freeze(['SP_BOT_EMOTES', 'SP_CSP', 'SP_MATCH_HOST', 'SP_PLUGIN_SCRIPTS', 'SP_STATE_DIR']);
 
 /**
  * `onBoot` 拿到的**只读配置快照**。

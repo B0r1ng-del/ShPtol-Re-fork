@@ -104,6 +104,21 @@ export class MetaRegistry {
   has(key) { return this._h.has(key); }
   keys() { return [...this._h.keys()]; }
 
+  /**
+   * 一份**独立**的副本（DESIGN §34.17）：处理器对象共享（内容相同、身份相同），但注册表本身各是各的 ——
+   * 往副本里注册不影响原件，原件后来注册的也不出现在副本里，`warnings` 更是各记各的账。
+   *
+   * 为什么需要它：房间的元处理器要在一个房间的包之上再叠一层，而**不能**用「全局 set / restore」——两个房间
+   * 在一个进程里并发，restore 的时机一到就把另一个房间的注册抹掉了。`fork()` 是那条禁令的落点。
+   * @returns {MetaRegistry}
+   */
+  fork() {
+    const copy = new MetaRegistry();
+    for (const [k, v] of this._h) copy._h.set(k, v);
+    copy.warnings = [...this.warnings];
+    return copy;
+  }
+
   // sugar
   garrison(effectKey, h) { return this.register(`garrison:${effectKey}`, h); }
   band(bandId, h) { return this.register(`band:${bandId}`, h); }

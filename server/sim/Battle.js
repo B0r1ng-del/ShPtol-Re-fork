@@ -52,6 +52,7 @@ import { ProjectileSystem } from './projectiles.js';
 import { remainingDistance } from './ai.js';
 import { toDataSource, normalizeRoute, normalizeStage } from './simdata.js';
 import { installContent } from './content/index.js';
+import { withGameData } from './content/support/index.js';
 import { BattlePlayers } from './battle/players.js';
 import { BattleLifecycle } from './battle/lifecycle.js';
 import { BattleHooks } from './battle/hooks.js';
@@ -85,6 +86,12 @@ export class Battle {
     /** When false the battle only ends by time limit / boss pool / forceEnd (tests, sandboxes). */
     this.autoFinish = opts.autoFinish !== false;
     this.data = toDataSource(opts.data);
+    /**
+     * 这一场交给 `@battle/index.js` 的记录视图（`withGameData` 的作用域对象，DESIGN §34.16）：`this.data` 是引擎自己的
+     * `DataSource`（只留 7 张表、形状也不同），而包读的是 `bonds` / `items` / `chess` 这些**原始记录**，所以单独留一份。
+     * `opts.data` 本身就是那份原始对象时直接用它（`viewOf` 会与默认数据按表合并，部分表也能照常回落）。
+     */
+    this.gameData = opts.data && typeof opts.data === 'object' ? opts.data : this.data.raw;
     let stage = opts.stage ?? (opts.stageId ? this.data.getStage(opts.stageId) : null);
     if (stage && !stage._norm) stage = normalizeStage(stage.id ?? opts.stageId, stage);
     this.stage = stage || { id: 'empty', rows: [], devices: [] };
@@ -176,7 +183,9 @@ export class Battle {
     // ---- content
     this.contentMode = opts.content ?? 'full';
     try {
-      installContent(this, { mode: this.contentMode, extra: opts.extraContent });
+      // 包声明的 `install(battle)` 就在这里跑，而它读的是 `@battle/index.js` 的记录查询 —— 所以整段必须在**这一场
+      // 的数据作用域**里（DESIGN §34.16）：不包住的话包里 buffParams / bondRecord 一律读到进程级空表。
+      withGameData(this.gameData, () => installContent(this, { mode: this.contentMode, extra: opts.extraContent }));
     } catch (e) {
       if (!this.contentFault) this._handlerError('installContent', null, e);
     }

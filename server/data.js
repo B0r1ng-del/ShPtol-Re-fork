@@ -63,7 +63,7 @@ export const UNLOADED_DATA = Object.freeze(['local-fx.json']);
  * @param {{ log?: { warn: Function, error: Function, info?: Function }, expected?: readonly string[] }} [opts]
  * @returns {Readonly<Record<string, any>>}
  */
-export function loadData(dir = DATA_DIR, { log = console, expected = DATA_FILES, workshopDir = WORKSHOP_DIR, excludePacks = null } = {}) {
+export function loadData(dir = DATA_DIR, { log = console, expected = DATA_FILES, workshopDir = WORKSHOP_DIR, excludePacks = null, packs: loadedPacks = null } = {}) {
   /** @type {Record<string, any>} */
   const out = {};
   let names = [];
@@ -90,8 +90,10 @@ export function loadData(dir = DATA_DIR, { log = console, expected = DATA_FILES,
   // result is frozen — additive, and an official id is only replaced when the pack declares it in `overrides`. With no
   // `workshop/` directory (a plain install, every existing test) this is a no-op: `applyWorkshop` receives no packs and
   // hands back the same object, so the game data is byte-identical to before the feature existed.
-  if (workshopDir) {
-    const loaded = loadWorkshop(workshopDir, { log });
+  if (workshopDir || loadedPacks) {
+    // `packs` = the caller's own load-time decision (the assembly path drops packs whose declared payload cannot be
+    // installed, DESIGN §34.13.3): re-reading `workshopDir` here would re-admit exactly the packs it just dropped.
+    const loaded = loadedPacks ? { packs: loadedPacks, looks: [] } : loadWorkshop(workshopDir, { log });
     const packs = excludePacks ? loaded.packs.filter((p) => !excludePacks.has(p.id)) : loaded.packs;
     const applied = applyWorkshop(out, packs, { log });
     Object.assign(out, applied.data);
@@ -108,12 +110,12 @@ let singleton = null;
 
 /**
  * Process-wide data singleton; loads on first call (later calls ignore the options).
- * @param {{ dir?: string, log?: object, workshopDir?: string|null, excludePacks?: Set<string>|null }} [opts]
+ * @param {{ dir?: string, log?: object, workshopDir?: string|null, excludePacks?: Set<string>|null, packs?: any[]|null }} [opts]
  * @returns {Readonly<Record<string, any>>}
  */
-export function getData({ dir = DATA_DIR, log = console, workshopDir = WORKSHOP_DIR, excludePacks = null } = {}) {
+export function getData({ dir = DATA_DIR, log = console, workshopDir = WORKSHOP_DIR, excludePacks = null, packs = null } = {}) {
   if (!singleton) {
-    singleton = loadData(dir, { log, workshopDir, excludePacks });
+    singleton = loadData(dir, { log, workshopDir, excludePacks, packs });
     rememberOfficialBounds(singleton);
   }
   return singleton;

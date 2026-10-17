@@ -7,7 +7,7 @@ import { diySlotIds, validateDiyPicks } from './diy.js';
 import { cultivatedStats, isPotential, isCultivate, POTENTIAL_DEFAULT, CULTIVATE_DEFAULT, hasPotentialData } from './potential.js';
 import { isContentHash } from './plugins/identity.js';
 import { isPluginId } from './plugins/manifest.js';
-import { isModDigest, isModId } from './modIdentity.js';
+import { isModDigest, isModId, MOD_LIMITS } from './modIdentity.js';
 
 // The mod-identity shapes are declared in `shared/modIdentity.js` (inside the typecheck slice; this file is excluded
 // by jsconfig.json) and re-exported here, because THIS file is the normative protocol contract — one implementation,
@@ -31,6 +31,33 @@ const nullable = (check) => (v) => v === null || v === undefined || check(v);
  * run a match the player did not ask for. Every key is optional (a switch the player left alone is simply absent).
  */
 const isMods = (v) => isPlain(v) && Object.keys(v).every((k) => MOD_KEYS.includes(k) && isBool(v[k]));
+/**
+ * `room.mods.modIds`（面板请房主改本房间装载的工坊包集合）：包 id 的数组，长度有界。`[]` 合法 —— 那是「一个包都不装」。
+ * 一个包 id 的形状由 `shared/modIdentity.js` 的 `isModId` 说了算（它同时管清单与摘要，两边同一判据）。
+ */
+export const MAX_ROOM_MODS = MOD_LIMITS.packs;
+const isModIds = (v) => Array.isArray(v) && v.length <= MAX_ROOM_MODS && v.every((id) => isModId(id));
+/** `room.appearance.picks`：棋手 id → `{ skinId?, avatar? }`（两者至少一个），只改别人看到的样子。 */
+/** `room.appearance.picks`：棋手 id → `{ skinId }` 或 `{ avatar }`（**恰好一个**：两格并存要发两条，不合并一条）。 */
+const isAppearancePicks = (v) => isMap(v, APPEARANCE_LIMITS.picks, isId, (p) => isPlain(p)
+  && Object.keys(p).length === 1 && (('skinId' in p && isId(p.skinId)) || ('avatar' in p && isId(p.avatar))));
+/** `room.appearance.avatar`：`{ avatar }`，头像 id 一个。 */
+const isAppearanceAvatar = (v) => isPlain(v) && Object.keys(v).length === 1 && isId(v.avatar);
+/**
+ * Whether `msg` is a well-formed `room.appearance` body — `picks` and/or `avatar`, at least one, both shaped as above.
+ * The lobby and the C2S table both read this one function: two doors, one verdict.
+ * @param {any} msg
+ */
+export function isAppearanceMsg(msg) {
+  if (!isPlain(msg)) return false;
+  if (typeof msg.t === 'string' && msg.t !== 'room.appearance') return false;
+  // 只认这三个键（`t` / `rid` 是信封）：多一个就是作者写错了字段名，静默忽略只会让他以为生效了。
+  if (Object.keys(msg).some((k) => !['t', 'rid', 'picks', 'avatar'].includes(k))) return false;
+  const hasPicks = msg.picks !== undefined;
+  const hasAvatar = msg.avatar !== undefined;
+  if (!hasPicks && !hasAvatar) return false;
+  return (!hasPicks || isAppearancePicks(msg.picks)) && (!hasAvatar || isAppearanceAvatar(msg.avatar));
+}
 /** A plain object with at most `max` own keys, every key passing `key` and every value passing `val`. */
 const isMap = (v, max, key, val) => {
   if (!isPlain(v)) return false;
@@ -49,6 +76,9 @@ const isScalar = (v) => isStr(v, 64) || isNum(v) || isBool(v);
  *     通道，而「引擎不解释载荷」不等于「引擎不管频率」。
  */
 export const PACK_MSG_LIMITS = Object.freeze({ bytes: 4096, perSec: 5, burst: 20 });
+
+/** `room.appearance` (皮肤 / 头像): at most this many operator picks in one message. */
+export const APPEARANCE_LIMITS = Object.freeze({ picks: 400 });
 
 /** `JSON.stringify(value)` 的长度；不可序列化（循环引用 / BigInt）时返回 Infinity（= 拒）。 */
 function jsonBytes(value) {
@@ -486,6 +516,13 @@ export const C2S = {
   // the value across its matches and the next match reads it (server/lobby.js setMods / room.state.mods). An unknown key
   // is BAD_MSG — the key list is normative in shared/constants.js MOD_KEYS.
   'room.setMods': { key: (v) => MOD_KEYS.includes(v), on: isBool },
+  // 面板可发起的两条展示类消息（DESIGN §34.34 `PANEL_SEND_TYPES`，闭枚举在 public/js/ui/extensions.js）：
+  //   * `room.mods` —— 房主改本房间装载的工坊包集合（改的是装载面，不是战果；服务端另有三道闸门：非房主 / 已开局 /
+  //     任一真人 ready ⇒ MOD_SET_LOCKED）；
+  //   * `room.appearance` —— 只改别人看到的皮肤与头像。
+  // 两条都只改展示，加一条要同时改白名单表、这里的形状与一条测试（有意的摩擦）。
+  'room.mods': { modIds: isModIds },
+  'room.appearance': { picks: isAppearancePicks, avatar: isAppearanceAvatar, $optional: ['picks', 'avatar'], $atLeastOne: ['picks', 'avatar'] },
   'room.addBot': {},
   // seat indexes are validated against the widest room (终极模拟, ULTIMATE_SEATS); the lobby refuses a seat its own room
   // does not have (server/lobby.js removeBot/kick read room.seats[seat])
@@ -691,8 +728,10 @@ export function validateC2S(msg) {
   if (!spec) return `unknown type ${String(msg.t).slice(0, 32)}`;
   if (msg.rid != null && !isInt(msg.rid, 0, 2 ** 31)) return 'bad rid';
   const optional = spec.$optional || [];
+  const atLeastOne = spec.$atLeastOne || null;
+  if (atLeastOne && !atLeastOne.some((k) => msg[k] !== undefined)) return `one of ${atLeastOne.join(', ')} is required`;
   for (const [k, check] of Object.entries(spec)) {
-    if (k === '$optional') continue;
+    if (k === '$optional' || k === '$atLeastOne') continue;
     const v = msg[k];
     if (v === undefined && optional.includes(k)) continue;
     if (!check(v)) return `bad field ${k}`;

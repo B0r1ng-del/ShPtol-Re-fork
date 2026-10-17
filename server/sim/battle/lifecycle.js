@@ -5,6 +5,7 @@
 
 import { FORCED_EXIT, MAX_BATTLE_TIME } from '../constants.js';
 import { noteAttackCommit, updateAlly, updateEnemy } from '../ai.js';
+import { withGameData } from '../content/support/index.js';
 
 export class BattleLifecycle {
   start() {
@@ -69,6 +70,14 @@ export class BattleLifecycle {
 
   step() {
     if (this.finished || this._stepping) return; // re-entrant step() from a hook is a no-op
+    // 这一场的数据作用域（`withGameData`，DESIGN §34.16）：`@battle/index.js` 的读取类辅助函数（bondRecord /
+    // buffParams / isMember …）读的是这个作用域里的那一份，而不是进程级全局 —— 两个 Match 在一个进程里并发，
+    // 而 `step()` 是一个同步区，两份数据不可能在一份 step 里交错。不推入的结局是包里所有读记录的代码都读到空表。
+    withGameData(this.gameData, () => this._stepScoped());
+  }
+
+  /** `step()` 的主体（见上：整段跑在 `this.data` 的作用域里）。 */
+  _stepScoped() {
     // forceEnd() requested while stepping (content hook, repeated engine errors) is deferred to the end of the
     // current phase: the remaining phases are skipped and the result is built once, so nothing mutates it later.
     this._stepping = true;

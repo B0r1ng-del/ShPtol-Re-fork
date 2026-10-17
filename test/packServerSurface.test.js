@@ -104,7 +104,7 @@ describe('§34.14 补账：`server.modules` 的源码静态扫描在 import 之�
 // ---------------------------------------------------------------------------------------------------------------
 describe('§34.14 boot(config)：冻结的只读配置快照', () => {
   test('白名单就是引擎真读的那几个 SP_*，多余的看不见', () => {
-    assert.deepEqual([...BOOT_CONFIG_ENV_KEYS], ['SP_BOT_EMOTES', 'SP_STAGE', 'SP_STATE_DIR', 'SP_WORKSHOP']);
+    assert.deepEqual([...BOOT_CONFIG_ENV_KEYS], ['SP_BOT_EMOTES', 'SP_CSP', 'SP_MATCH_HOST', 'SP_PLUGIN_SCRIPTS', 'SP_STATE_DIR']);
     // 反射源码：引擎里读过的 `process.env.SP_*` 必须全在名单里（新读一个而名单没跟上就红）。
     const src = [path.join(ROOT, 'server/index.js'), path.join(ROOT, 'server/modModules.js'),
       path.join(ROOT, 'server/match/Match.js'), path.join(ROOT, 'server/match/botEmotes.js')]
@@ -114,11 +114,11 @@ describe('§34.14 boot(config)：冻结的只读配置快照', () => {
   });
 
   test('深冻结、值不是句柄、env 只带白名单里的', () => {
-    const cfg = bootConfigSnapshot({ port: 8080, host: '127.0.0.1', stateRoot: '/var', env: { SP_STATE_DIR: '/var', SP_STAGE: 'x', SECRET_TOKEN: 'nope' } });
-    assert.deepEqual(cfg, { port: 8080, host: '127.0.0.1', stateDir: '/var', env: { SP_STAGE: 'x', SP_STATE_DIR: '/var' } });
+    const cfg = bootConfigSnapshot({ port: 8080, host: '127.0.0.1', stateRoot: '/var', env: { SP_STATE_DIR: '/var', SP_CSP: 'off', SECRET_TOKEN: 'nope' } });
+    assert.deepEqual(cfg, { port: 8080, host: '127.0.0.1', stateDir: '/var', env: { SP_CSP: 'off', SP_STATE_DIR: '/var' } });
     assert.ok(Object.isFrozen(cfg) && Object.isFrozen(cfg.env));
     assert.throws(() => { cfg.port = 1; }, TypeError, '冻结对象在严格模式（ESM）下写入即抛 —— 包只能观察');
-    assert.throws(() => { cfg.env.SP_STAGE = 'y'; }, TypeError);
+    assert.throws(() => { cfg.env.SP_CSP = 'on'; }, TypeError);
     assert.equal('process' in cfg, false);
   });
 

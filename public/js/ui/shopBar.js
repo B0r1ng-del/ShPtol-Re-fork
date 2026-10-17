@@ -35,6 +35,7 @@ import { chessPortraitUrl, itemIconUrl, profIconUrl, uiUrl, skillIconUrl, skillR
 import { data } from '../data.js';
 import { hotkeyLabelOf } from './settings.js';
 import { t } from '../../../shared/i18n.js';
+import { modComponent } from './modComponents.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -79,7 +80,7 @@ function ArmedTag({ reason, free }) {
  * @param {{ slot:any, idx:number, priv:any, frozen?:boolean, reason?:string|null, free?:boolean, armed?:boolean,
  *   onTap?:(idx:number)=>void, onBuy:Function, onDetail:Function }} props
  */
-export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free = false, armed = false, onTap = null, onBuy, onDetail, offBonds = null }) {
+function ChessCardImpl({ slot, idx, priv, frozen = false, reason = null, free = false, armed = false, onTap = null, onBuy, onDetail, offBonds = null }) {
   const c0 = data.lookup('chess', slot.id);
   // 0.2.0 自选编队: a DIY slot the player filled is its operator (shared/diy.js, the pick of m.private.diy)
   const diyData = { chess: data.get('chess'), backups: data.get('backups') };
@@ -133,6 +134,7 @@ export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free
     ${willMerge ? html`<span class="scard__mergetag" title=${hint}>${t('可晋升')}</span>` : null}
     ${frozen ? html`<span class="scard__ice" aria-hidden="true"><${Icon} name="snow" /></span>` : null}
     ${armed ? html`<${ArmedTag} reason=${reason} free=${free} />` : null}
+    ${html`<div class="modslot" data-mod-slot="screen.game.shopCard" data-mod-slot-key=${String(slot.id)}></div>`}
   </button>`;
   return reason && reason !== t('已售出') && !armed ? html`<${Tooltip} text=${reason} block=${true} class="scard-wrap">${card}<//>` : card;
 }
@@ -180,6 +182,7 @@ export function ItemCard({ slot, idx, frozen = false, reason = null, free = fals
     </span>
     ${frozen ? html`<span class="scard__ice" aria-hidden="true"><${Icon} name="snow" /></span>` : null}
     ${armed ? html`<${ArmedTag} reason=${reason} free=${free} />` : null}
+    ${html`<div class="modslot" data-mod-slot="screen.game.shopCard" data-mod-slot-key=${"item-" + String(slot.id)}></div>`}
   </button>`;
   return reason && reason !== t('已售出') && !armed ? html`<${Tooltip} text=${reason} block=${true} class="scard-wrap">${card}<//>` : card;
 }
@@ -418,3 +421,5 @@ export function ShopBar({ priv, editable, collapsed, refreshBusy = false, onColl
     ${rhineDock}
   </section>`;
 }
+
+export const ChessCard = modComponent('game.shopCard', ChessCardImpl);

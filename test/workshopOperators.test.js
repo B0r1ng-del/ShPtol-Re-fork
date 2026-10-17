@@ -589,19 +589,32 @@ describe('干员包: 端到端（社区 mod「克莱门莎」当夹具）', () =
     for (const k of ['skchr_clemnt_1', 'skchr_clemnt_2', 'skchr_clemnt_3']) {
       assert.equal(data.assets.skills[k], `/workshop-assets/clementia/skill/${k}.png`, k);
     }
-    // ⑥ 双语语音：默认档 = 日语（清单的 voiceLang），cn 在 voiceLangs
-    const jp = data.assets.audio.voice[HER];
-    assert.ok(jp, 'data.assets.audio.voice[char_ws_clemnt] 在（默认档 = 日语）');
-    assert.equal(data.assets.audio.voiceLang, 'jp', '默认档就是日语（所以她的日语台词写在 voices 里）');
-    const cn = data.assets.audio.voiceLangs.cn[HER];
-    assert.ok(cn, 'data.assets.audio.voiceLangs.cn[char_ws_clemnt] 在');
-    for (const slot of Object.keys(jp)) {
-      for (const url of jp[slot]) assert.match(url, /^\/workshop-assets\/clementia\/audio\/voice\/jp\//);
+    // ⑥ 双语语音：默认档 = 清单的 `audio.voiceLang`（本仓 `cn`，上游 `jp` —— 断言跟着**清单**走，不写死某一种）。
+    //    包声明 `voices` 就是「默认档」；`voiceLangs` 是**其余**语种，而其余语种有哪些由包自己说了算（这份夹具
+    //    只带 `cn`，而本仓默认档也正是 `cn` ⇒ 没有「另一种」可断言，就只钉默认档那一半 + 逐条 URL 前缀）。
+    const DEFAULT = data.assets.audio.voiceLang;
+    assert.ok(['cn', 'jp'].includes(DEFAULT), `默认档是 cn 或 jp，实际 ${DEFAULT}`);
+    const defDub = data.assets.audio.voice[HER];
+    assert.ok(defDub, 'data.assets.audio.voice[char_ws_clemnt] 在（默认档）');
+    // 逐条 URL 必须**逐字对应包声明**（`pack.json.voices` 里的相对路径）——这是这一层唯一的承诺：把作者的路径
+    // 换上前缀，不改写、不纠正语种目录。语种目录名由作者写，清单的 `audio.voiceLang` 是另一件事。
+    const declaredVoices = (JSON.parse(fs.readFileSync(new URL('../docs/examples/clementia/pack.json', import.meta.url), 'utf8')).voices || {})[HER] || {};
+    for (const slot of Object.keys(defDub)) {
+      for (const url of defDub[slot]) assert.match(url, /^\/workshop-assets\/clementia\/audio\/voice\//);
     }
-    for (const slot of Object.keys(cn)) {
-      for (const url of cn[slot]) assert.match(url, /^\/workshop-assets\/clementia\/audio\/voice\/cn\//);
+    for (const [slot, rels] of Object.entries(declaredVoices)) {
+      assert.deepEqual(defDub[slot], rels.map((r) => `/workshop-assets/clementia/${r}`), `${slot}: 与包声明逐字相同`);
     }
-    assert.ok(Object.keys(jp).length >= 4 && Object.keys(cn).length >= 4, '两种语种都真的带上了台词');
+    assert.ok(Object.keys(defDub).length >= 4, '默认档真的带上了台词');
+    // 包里声明过的其余语种：有就逐条核对（URL 语种目录 == 那个语种），没有就一个都不该出现
+    const declared = (JSON.parse(fs.readFileSync(new URL('../docs/examples/clementia/pack.json', import.meta.url), 'utf8')).voiceLangs) || {};
+    for (const lang of Object.keys(declared)) {
+      const dubs = data.assets.audio.voiceLangs[lang]?.[HER];
+      if (!dubs) continue;
+      for (const slot of Object.keys(dubs)) {
+        for (const url of dubs[slot]) assert.match(url, new RegExp(`^/workshop-assets/clementia/audio/voice/${lang}/`));
+      }
+    }
     // ⑦ 外观（头像 / 立绘 / spine）
     assert.equal(data.assets.chars[HER].avatar, '/workshop-assets/clementia/char/avatar/char_ws_clemnt.png');
     assert.equal(data.assets.chars[HER].spine.front.skel, '/workshop-assets/clementia/spine/op/char_ws_clemnt/front/char_ws_clemnt.skel');

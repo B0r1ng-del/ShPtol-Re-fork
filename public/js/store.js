@@ -82,7 +82,7 @@ export const initialState = Object.freeze({
   content: null,
   // how many unofficial plugins the server has (DESIGN §32 P1a: /healthz or welcome `content.plugins`; content.js)
   installedPlugins: 0,
-  session: { entered: false },
+  session: { entered: false, preloadRequired: false, preloadReady: false },
   room: null,
   match: emptyMatch(),
   ticker: [],

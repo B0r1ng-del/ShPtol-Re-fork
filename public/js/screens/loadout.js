@@ -29,6 +29,7 @@ import { html, Icon, MicroLabel, Button, TierChip, TextField, Countdown, Spinner
 import { Img, RichText, UnitThumb } from '../ui/gameComponents.js';
 import { chessAvatarUrl, chessPortraitUrl, subProfIconUrl, bondIconUrl, moduleTypeIconUrl } from '../ui/assetUrls.js';
 import { GarrisonBlock } from '../ui/detailPanel.js';
+import { modComponent } from '../ui/modComponents.js';
 import { data, useData, localAsset, DATA_FILES } from '../data.js';
 import { useStore } from '../store.js';
 import { PHASE } from '../../../shared/constants.js';
@@ -308,7 +309,7 @@ export function ModuleInfo({ m, golden, opt, potential = null }) {
 const standInName = (chess) => data.get('backups')?.units?.[chess?.backup?.charId]?.name ?? null;
 
 
-function Detail({ m, chess, golden, entries, ops = {}, onChange, onOps, onReset, locked, level = 'normal', onLevel, notOwned = false }) {
+function DetailImpl({ m, chess, golden, entries, ops = {}, onChange, onOps, onReset, locked, level = 'normal', onLevel, notOwned = false }) {
   const [statLevel, setStatLevel] = useState('elite'); // 局内数值: the 精锐 shows the chosen module's effect
   const setLevel = onLevel;
   const bodyRef = useRef(null);
@@ -380,6 +381,7 @@ function Detail({ m, chess, golden, entries, ops = {}, onChange, onOps, onReset,
         : t('干员持有中标记为未持有：此棋子由替补干员上场，技能与模组固定（补位干员技能不可更改）；这里的调配在改回「持有」后生效')}</p>` : null}
       ${locked ? html`<p class="lo-locknote"><${Icon} name="info" />${t('本局的调配已锁定，修改将在下一局生效')}</p>` : null}
     </div>
+    ${html`<div class="modslot" data-mod-slot="screen.loadout.detail"></div>`}
   </aside>`;
 }
 
@@ -851,3 +853,6 @@ export function LoadoutButton({ from, size = 'md', variant = 'secondary', class:
     ${nDiy ? html`<span class="lo-entry__own lo-entry__diy" aria-label=${t('{n} 个自选名额已选择', { n: nDiy })} title=${t('{n} 个自选名额已选择', { n: nDiy })}>${t('自选')} <b class="num">${nDiy}</b></span>` : null}
   </button>`;
 }
+
+/** 干员详情：一个具名引擎组件（`MOD_COMPONENT_IDS`），包可以包它一层或整段换掉（DESIGN §34.19）。 */
+export const Detail = modComponent('loadout.detail', DetailImpl);
