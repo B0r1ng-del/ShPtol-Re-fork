@@ -158,7 +158,9 @@ export const PANEL_SEND_TYPES = Object.freeze(['room.appearance', 'room.mods']);
  * ——否则一个形状不对的 id 会被那个清洗器**静默丢掉**，而面板会以为写成功了。两处判据由
  * `test/modClientSettings.test.js` 钉在一起（这个文件与别处同形：`THEME_VAR_RE` 也是这么钉的）。
  */
-export const VOICE_CHAR_ID_RE = /^char_[A-Za-z0-9_]{1,64}$/;
+// 一条判据两处用：形状的真源在设置库那一份（本文件要用它，所以 import 之后再导出，而不是纯 re-export）
+import { VOICE_CHAR_ID_RE } from '../voicePrefs.js';
+export { VOICE_CHAR_ID_RE };
 
 /**
  * 面板偏好表（模块级、内存里）。
@@ -938,7 +940,10 @@ export function createPanelRegistry(deps) {
       if (!s || typeof s !== 'object') return null;
       /** @type {Record<string, string>} */
       const byChar = {};
-      const raw = s.voiceLangByChar;
+      // ★ 字段名是 `voiceOverrides`（`ui/gameLogic/settings.js` 的 DEFAULT_SETTINGS 就是它）：这里从前读的是
+      // `voiceLangByChar` —— 一个本 fork 不存在的键，于是面板读到的逐干员配音**永远是空**（静默失效）。
+      // 两个名字都认（本 fork 的真名在前）：注入面只要求「设置库把逐干员覆盖交出来」，读哪一格是它的私事。
+      const raw = s.voiceOverrides ?? s.voiceLangByChar;
       if (raw && typeof raw === 'object') {
         for (const [k, v] of Object.entries(raw)) if (VOICE_CHAR_ID_RE.test(k) && VOICE_LANGS.includes(v)) byChar[k] = v;
       }

@@ -141,9 +141,9 @@ export async function startServer(opts = {}) {
 
   // The process-wide singleton serves the default data dir; a custom dir (tests) gets its own copy, and a caller that
   // names a workshop root must get a FRESH load (the singleton is process-wide and its first caller wins).
-  const data = (opts.dataDir || opts.workshopDir !== undefined)
-    ? loadData(dataDir, { log, workshopDir })
-    : getData({ dir: dataDir, log, workshopDir });
+  // ★ 叠加层用的包必须是**裁剪之后**那一份（DESIGN §34.13.3）：被装配路径裁掉的包连数据都不许进游戏 —— 所以
+  // `loadData` 挪到 `pruned` 之后（下一步），这里只留一个 `let`。
+  let data = null;
   // the vanilla content hash `cs` (DESIGN §32): the bytes of the served sim, shared code and game data, read once now —
   // like the data the matches use and the build tag below
   const content = computeVanillaContent({ simDir, sharedDir, dataDir, shim: DATA_SHIM_JS, log });
@@ -162,12 +162,6 @@ export async function startServer(opts = {}) {
   // the server owner's policy (plugins/config.json), the content sets of the gameplay plugins (served at /cs/<cs16>/…),
   // what a room's plugins make of both, and the match hosts a room with gameplay plugins plays in (DESIGN §32.6)
   const policy = createPluginPolicy({ pluginsDir, log });
-  const contents = createContentSets({ registry: packs, vanillaData: data, log, maxSets: () => policy.get().maxSets });
-  const roomSets = createRoomSets({ registry: packs, visual, contents, policy });
-  // a child process per content set; SP_MATCH_HOST=worker asks for a worker thread instead (match/host/index.js header:
-  // an out-of-memory abort in a worker thread ends the whole server)
-  const transport = String(process.env.SP_MATCH_HOST || '').trim().toLowerCase() === 'worker' ? 'worker' : 'process';
-  const hosts = createMatchHosts({ contents, log, options: { transport, maxWorkers: Math.max(1, policy.get().maxSets), ...(opts.matchHost || {}) } });
   // 创意工坊 (DESIGN §34): 装载一次，四处投影共用（工坊 mod 层移植 2026-10-17）。从前这里是 `loadWorkshop` 各调一次
   // —— 扫描同一棵树两遍、算出两份互不相识的产物，而它们本该是同一份（`loadWorkshop` 是同步的纯函数，给定同一个
   // 目录两次结果相同；但两次调用意味着两次 IO 与两处可能分叉的失败点）。没有包时 `loaded` 是空壳，下面几处都是
@@ -211,6 +205,17 @@ export async function startServer(opts = {}) {
   const metaModules = workshopMeta.modules.filter((m) => survivors.has(m.id));
   const serverModulesLive = serverModules.modules.filter((m) => survivors.has(m.pack));
   const workshopLoaded = { ...loadedForPayloads, packs: pruned.packs, errors: pruned.errors };
+  // ★ 数据叠加层在这之后才加载，而且喂给它的是**裁剪之后**那一份包（`packs: pruned.packs`）。`loadData` 从前自己
+  // 又调一次 `loadWorkshop`，于是刚被裁掉的包的数据照样并进游戏数据 —— 那道闸门对它等于不存在。
+  data = (opts.dataDir || opts.workshopDir !== undefined)
+    ? loadData(dataDir, { log, workshopDir: null, packs: pruned.packs })
+    : getData({ dir: dataDir, log, workshopDir: null, packs: pruned.packs });
+  const contents = createContentSets({ registry: packs, vanillaData: data, log, maxSets: () => policy.get().maxSets });
+  const roomSets = createRoomSets({ registry: packs, visual, contents, policy });
+  // a child process per content set; SP_MATCH_HOST=worker asks for a worker thread instead (match/host/index.js header:
+  // an out-of-memory abort in a worker thread ends the whole server)
+  const transport = String(process.env.SP_MATCH_HOST || '').trim().toLowerCase() === 'worker' ? 'worker' : 'process';
+  const hosts = createMatchHosts({ contents, log, options: { transport, maxWorkers: Math.max(1, policy.get().maxSets), ...(opts.matchHost || {}) } });
   // 作者自备 CDN 的语音素材（`pack.json.voices` 的 `{ url, sha256, file }` 条目，DESIGN §34.33）：在**合并语音表
   // 之前**把字节取到本地缓存并按作者声明的 sha256 核对。一条外部 CDN 不该让服务器起不来，所以失败只影响那一条
   // 素材：取不到的从语音表里摘掉（宁可回落到默认配音，也不要留一条永远 404 的静音台词）。
@@ -388,7 +393,7 @@ export async function startServer(opts = {}) {
   const serveStatic = createStaticHandler({
     publicDir, dataDir, sharedDir, simDir, packsDir, pluginsDir, packs, content, log, assetIndex, views, visual, contents,
     workshopJson, workshopAssets, workshopKitFiles, workshopKitDirs, workshopPanelFiles, workshopBattleFiles,
-    workshopResourceFiles, workshopI18n, resourcePolicy: resourcePolicy.policy, workshopRoutes, modRoutes,
+    workshopResourceFiles, workshopI18n, resourcePolicy, workshopRoutes, modRoutes,
   });
   // the plugin studio (DESIGN §32.9): its page and API for this machine and the local network; it watches plugins/ only
   // once it is used (hot reload), and rooms whose host is the author or alone follow a plugin's changes by themselves

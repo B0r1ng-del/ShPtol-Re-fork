@@ -85,6 +85,29 @@ function rewardFor(gd, roundsPassed) {
 }
 
 /**
+ * 本局这一席的 MVP：**由服务端内部的 `ps.stats.unitStats` 选出来的那一个 `defId`**（不是把整份逐单位账发出去）。
+ *
+ * 为什么是 id 而不是整份表：结算帧只带每人合计（`dmgDealt` / `bossDamage`）+ 这一个名字。逐单位的 dmg/kills/heal
+ * 留在服务端（`ps.stats.unitStats`），面板因此算不出逐单位 DPS —— 那是「面板可以画错、但不能算错」的边界。
+ * 只在**本局真的上过场**的干员里选（`lineup` 是那一局的棋盘）：一只这场没上过场的单位不该拿 MVP。
+ * 平手按 uid 升序取靠前的那个（同一份数据两次跑出同一个 MVP，不靠遍历次序）。
+ * @param {{ stats?: { unitStats?: Array<{ defId?: string, dmg?: number, uid?: number|null }> } }} ps
+ * @param {Array<{ id: string }>} lineup 这一席本局的棋盘（`boardOrder` 的结果）
+ * @returns {string|null} 那位干员的 id；一个能选的都没有时 null
+ */
+function mvpOf(ps, lineup) {
+  const fielded = new Set((Array.isArray(lineup) ? lineup : []).map((x) => x && x.id).filter((id) => typeof id === 'string'));
+  let best = null;
+  for (const u of Array.isArray(ps?.stats?.unitStats) ? ps.stats.unitStats : []) {
+    if (!u || typeof u.defId !== 'string' || !fielded.has(u.defId)) continue;
+    const dmg = Number(u.dmg) || 0;
+    if (dmg <= 0) continue;
+    if (!best || dmg > best.dmg || (dmg === best.dmg && (u.uid ?? Infinity) < (best.uid ?? Infinity))) best = { defId: u.defId, dmg, uid: u.uid ?? null };
+  }
+  return best ? best.defId : null;
+}
+
+/**
  * @param {import('./Match.js').Match} m
  * @param {{ victory: boolean, hiddenReached: boolean, hiddenCleared: boolean, reason: string }} outcome
  */
@@ -125,6 +148,8 @@ export function buildResult(m, outcome) {
       // 六.E: the collectibles the player ended the match with (the result screen's 本局收藏品 list); [] with the switch off
       relics: relicsView(ps),
       lineup,
+      // 本局 MVP：一个**选出来的 id**（见 `mvpOf`）。逐单位那本账不发出去，面板算不了逐单位 DPS。
+      mvp: mvpOf(ps, lineup),
       // the settlement record keeps what the player ended the match with: a bond it accumulated layers in but whose
       // members are all off the field is still shown here (`keepLayerOnly`) — the in-game strip is the one that drops it
       // (bondsMeta.bondList, the owner's report of 2026-10-12)

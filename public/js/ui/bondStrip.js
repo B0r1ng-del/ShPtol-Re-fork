@@ -36,6 +36,7 @@ import { formatBondEffect } from './richText.js';
 import { bondIconUrl } from './assetUrls.js';
 import { data } from '../data.js';
 import { t, tc, tParts, tName } from '../../../shared/i18n.js';
+import { modComponent } from './modComponents.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -50,7 +51,7 @@ function OwnerTag({ owner }) {
  * @param {{ bonds: any[], layersDisabled?: boolean, onOpen:(bondId:string)=>void, openId?: string|null, max?: number,
  *   owner?: string|null }} props — owner: the watched teammate's name (null = your own bonds)
  */
-export function BondStrip({ bonds, layersDisabled = false, onOpen, openId = null, max = 14, owner = null }) {
+function BondStripImpl({ bonds, layersDisabled = false, onOpen, openId = null, max = 14, owner = null }) {
   const sorted = sortBonds(bonds, (id) => data.lookup('bonds', id));
   if (!sorted.length) {
     return html`<div class=${cx('bstrip', 'bstrip--empty', owner && 'is-other')} data-owner=${owner || null}>
@@ -186,5 +187,9 @@ export function BondPopup({ bondId, entry, priv, banned = [], onClose, onMember,
         })}
       </div>
     </section>
+    ${html`<div class="modslot" data-mod-slot="screen.game.bondStrip"></div>`}
   </div>`;
 }
+
+/** 盟约条：一个具名引擎组件（`MOD_COMPONENT_IDS`），包可以包它一层或整段换掉（DESIGN §34.19）。 */
+export const BondStrip = modComponent('game.bondStrip', BondStripImpl);

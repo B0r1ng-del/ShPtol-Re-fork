@@ -205,7 +205,8 @@ describe('四组声明: 形状合法 ⇒ 接受，并如实出现在解析结果
     // 挂载点是**闭枚举**：前四个是 0.11.0 的浮层，后六个是业主 2026-10-10 裁决里「插进已存在的组件」那一半
     //（`screen.game.shopCard` 是可重复宿主，每张商店卡一个容器）。
     assert.deepEqual(CLIENT_PANEL_SLOTS, ['root.overlays', 'root.guide', 'screen.game.aside', 'screen.result.footer',
-      'screen.game.shopCard', 'screen.game.bondStrip', 'screen.game.hud', 'screen.game.overlay', 'screen.loadout.detail']);
+      'screen.game.shopCard', 'screen.game.bondStrip', 'screen.game.hud', 'screen.game.overlay', 'screen.loadout.detail',
+      'screen.room.aside']);
     assert.deepEqual(CLIENT_PANEL_REPEATABLE, ['screen.game.shopCard']);
     assert.deepEqual(CLIENT_REQUIRES, ['serviceWorker', 'cacheStorage', 'webCrypto']);
     // 可选字段不写就不出现（不然「没声明」与「声明成 undefined」会是两种字节）

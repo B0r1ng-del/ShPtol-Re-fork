@@ -145,6 +145,19 @@ export async function alignRoom({ catalog, mods, store: st, onProgress = null, f
  * @param {{ packs?: Array<{ id: string, ok: boolean }> }|null} plan
  * @returns {string[]}
  */
+/**
+ * 「这道门现在挡不挡人」的**唯一实现**（房间界面与对局界面读同一条）：没问过结论（`checking`）、问出缺件、
+ * 或本机手上的那份与房间声明的不一致 —— 三种都算挡住。房间没有声明包集合时 `needed` 为 false，门不挡。
+ * @param {{ needed?: boolean, ok?: boolean, checking?: boolean }|null|undefined} plan `planAlignment` 的结论
+ * @returns {boolean}
+ */
+export function isAlignBlocked(plan) {
+  if (!plan) return false;            // 从来没问过：这一格不存在（干净安装）
+  if (plan.checking) return true;     // 正在问：结论未知时不许放行
+  if (!plan.needed) return false;     // 房间没声明集合：没有要对齐的东西
+  return plan.ok !== true;
+}
+
 export function missingPackIds(plan) {
   return (plan && Array.isArray(plan.packs) ? plan.packs : []).filter((p) => p && p.ok === false).map((p) => p.id);
 }

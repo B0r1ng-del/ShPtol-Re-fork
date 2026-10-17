@@ -60,6 +60,9 @@ export const DATA_FILES = Object.freeze({
   assets: 'assets.json',
   // 补位 stand-ins (DATA.md §18): the bodies the 干员持有 screen, the cards and the detail card compose (shared/standIn.js)
   backups: 'backups.json',
+  // 公告 / 鸣谢 (DESIGN §34.15)：引擎那一半从 CHANGELOG.md 生成，包那一半按包 id 追加（`server/notices.js`），
+  // 走**既有的**合并数据通道送出 —— 所以它也是一张客户端读得到的表。
+  notices: 'notices.json',
   // Optional art extracted from a local game client (DESIGN §13): { groups: { '<subdir>': { name: { path, w, h } } } }.
   // The emotes and the 玩法说明 pages are in data/assets.json too (downloaded from the mirror): artUrls().
   local: 'local-assets.json',

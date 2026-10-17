@@ -360,6 +360,9 @@ export class Room {
       inMatch: !!this.match,
       seats: this.seats.map((s) => (s
         ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left,
+          // 皮肤 / 头像 (DESIGN §34.35): only when this player set something — the key is absent otherwise, so the
+          // seat bytes of a room where nobody changed anything stay exactly as they were
+          ...(s.appearance ? { appearance: s.appearance } : {}),
           // a room with gameplay plugins (header "Gameplay plugins"): has this player's page loaded and checked its content?
           ...(this.modded && !s.isBot ? { content: s.content || 'loading' } : {}) }
         : null)),
@@ -410,7 +413,11 @@ export class Lobby {
     // 那份 `workshop` 投影里只有 `mods` / `panels` / `assets` / `kits` … 这些**服务端要用的形状**，没有 `packs`
     // 这个键。从前这里判 `workshop.packs`，于是哪怕装了一堆包，`this.workshop` 也是 `null` —— `welcome` 没有
     // `mods` 字段、行为声明全走官方档，而那正是最坏的静默失效（`test/modIdentityWire.test.js` 抓的就是这条）。
-    this.workshop = workshop && Array.isArray(workshop.mods) && workshop.mods.length ? workshop : null;
+    // ★ 判据是「有没有传进来那份投影」（`workshop.mods` 是数组就算有），**不是**「装了至少一个包」：一个
+    // 声明了服务端载荷、却被装配路径裁掉的包**也要**让 `lobby.workshop` 存在的 —— 否则 `workshop.meta` 那类清单
+    // 退化成 `null`，读者分不清「没有包」与「包都被裁了」，而 `test/packMetaWiring.test.js` 要的正是「裁光了 ⇒
+    // `meta` 是 `[]`」。清单为空时这里仍然是一个**空投影**，`modSet` 为 `null`，行为与干净安装一致。
+    this.workshop = workshop && Array.isArray(workshop.mods) ? workshop : null;
     /**
      * 本进程的 mod 集身份（DESIGN §34.2）：`{ digest, packs: [{ id, hash, layer, combat, api? }] }`，摘要由
      * `shared/modIdentity.js modSetOf` 算 —— 它在 `shared/` 里而不是这里，因为**浏览器必须能自己重算**同一个值：
@@ -705,6 +712,8 @@ export class Lobby {
       case 'room.loadout': return this.loadout(session, msg);
       case 'room.ownership': return this.ownership(session, msg);
       case 'room.diy': return this.diy(session, msg);
+      case 'room.mods': return this.setRoomMods(session, msg);
+      case 'room.appearance': return this.appearance(session, msg);
       case 'room.spectate': return this.spectate(session, msg);
       case 'room.removeSpectator': return this.removeSpectator(session, msg);
       case 'room.setPlugins': return this.setPlugins(session, msg);
@@ -1483,6 +1492,42 @@ export class Lobby {
     if (seat) { seat.diy = kept; seat.diyCs = cs; }
     if (room.match && seat) return fail(ERR.ROOM_STARTED, 'stored for the next match');
     return OK;
+  }
+
+  /**
+   * room.appearance (DESIGN §34.35, 皮肤 / 头像): 别人看到的你长什么样. Kept on the session (a preference that survives
+   * leaving the room) and on the seat (so the room state carries it), then broadcast — the whole reason this message
+   * exists is that the other players see it. **Deliberately not gated on a running match** (a skin is a display fact,
+   * not a rule) and **never interpreted**: the server cannot see pack content, so an unknown `skinId` is forwarded as
+   * written and the painting side falls back to the original — judging the value does not belong to this layer.
+   * `picks` and `avatar` shallow-merge, independently: changing the avatar does not clear the skins, and vice versa.
+   */
+  appearance(session, { picks, avatar }) {
+    const next = { ...(session.appearance || {}) };
+    if (picks !== undefined) next.picks = { ...(next.picks || {}) };
+    for (const [charId, one] of Object.entries(picks || {})) next.picks[charId] = Object.freeze({ ...one });
+    if (avatar !== undefined) next.avatar = Object.freeze({ ...avatar });
+    session.appearance = Object.freeze(next);
+    const room = this.roomOf(session);
+    if (!room) return OK;
+    const seat = room.seatOf(session.playerId);
+    if (!seat) return OK;
+    seat.appearance = session.appearance;
+    this.broadcastState(room);
+    return OK;
+  }
+
+  /**
+   * room.mods (DESIGN §34.34, `PANEL_SEND_TYPES` 的第二条): the host swapping the pack set this room loads would need
+   * `room.create.modIds` — the per-room subset channel, which this fork has not ported (`Room.modSet` is documented as
+   * permanently `null` above). So the message is **refused by name** rather than answered `ok` and ignored: a panel that
+   * silently believes it changed the room is worse than one that is told it cannot.
+   */
+  setRoomMods(session, { modIds }) {
+    const room = this.roomOf(session);
+    if (!room) return fail(ERR.NOT_IN_ROOM);
+    if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
+    return fail(ERR.BAD_MSG, 'this server has no per-room pack subset (room.create.modIds is not ported)'); // i18n-ignore (developer diagnostic)
   }
 
   /** The game data of a room's content (header "Gameplay plugins"): its content set's, else the server's. @param {Room | null} room */

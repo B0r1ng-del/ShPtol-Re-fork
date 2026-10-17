@@ -27,6 +27,7 @@ import { GIcon } from './gameComponents.js';
 import { createStore, useStore, loadPref, savePref, store } from '../store.js';
 import { sanitizeSettings, HOTKEY_ACTIONS, DEFAULT_HOTKEYS, hotkeyLabel, rebindHotkey, isDefaultHotkeys, captureHotkey, VOICE_LANGS, TEXT_SIZES } from './gameLogic.js';
 import { audio } from '../audio.js';
+import { VOICE_CHAR_ID_RE, VOICE_OVERRIDE_MAX, VOICE_PICKS } from '../voicePrefs.js';
 import { openGuide } from './guide.js';
 import { detectFeatures } from './device.js';
 import { LangToggle, machineTranslationNote } from './lang.js';
@@ -79,6 +80,32 @@ export function updateSettings(patch) {
 
 /** Preact hook: current settings. */
 export const useSettings = () => useStore((s) => s, Object.is, settingsStore);
+
+/**
+ * 某个干员的配音覆盖（`settings.voiceOverrides`）的**唯一写口**：面板注入面（C 层 `ctx.session.setVoiceLang`）与干员
+ * 详情里那个切换都调它。三条边界：
+ *   * 只写 `voiceOverrides` 的**这一格**，其它设置一个字节都不动（落盘走既有那条订阅）；
+ *   * `lang` 只收 `VOICE_PICKS` 的成员，或 `''` / `null` = 清掉这一格（回到跟随全局）；
+ *   * 键的形状与上限（`VOICE_OVERRIDE_MAX`）由 `voicePrefs.js` 那一份判据说，这里只是用它。
+ * **被拒 = 一个字节都不写**，并返回 `false`（让调用方点名，而不是让作者以为写成功了）。
+ * @param {string} charId @param {'cn'|'jp'|'en'|'kr'|'native'|''|null} lang
+ * @returns {boolean} 是否写入了
+ */
+export function setVoiceLangByChar(charId, lang) {
+  if (typeof charId !== 'string' || !VOICE_CHAR_ID_RE.test(charId)) return false;
+  const cur = { ...(settingsStore.get().voiceOverrides || {}) };
+  if (lang === '' || lang === null) {
+    if (!(charId in cur)) return true; // 清一个本来就没有的：没有要写的东西，但也谈不上失败
+    delete cur[charId];
+    updateSettings({ voiceOverrides: cur });
+    return true;
+  }
+  if (!VOICE_PICKS.includes(lang)) return false;
+  if (!(charId in cur) && Object.keys(cur).length >= VOICE_OVERRIDE_MAX) return false;
+  cur[charId] = lang;
+  updateSettings({ voiceOverrides: cur });
+  return true;
+}
 
 /**
  * The label of the key a rebindable shortcut has right now ('R', 'Space' …) — the HUD's key hints (shop bar, ready /

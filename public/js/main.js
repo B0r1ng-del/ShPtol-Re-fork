@@ -40,7 +40,7 @@ import { html, UiHosts, Button, MicroLabel, closeAllDialogs } from './ui/compone
 import { ConnectionBanner } from './ui/connBanner.js';
 import { ToastHost, toast, toastError, describeError } from './ui/toasts.js';
 import { net, identity, NetError } from './net.js';
-import { store, useStore, emptyMatch, selectRoute, sessionResetNotice, isSpectating } from './store.js';
+import { store, useStore, emptyMatch, selectRoute, sessionResetNotice, isSpectating, entryGateBlocked } from './store.js';
 import { data } from './data.js';
 import { GAME_FILES } from './ui/gameComponents.js';
 import { TitleScreen, sanitizeName } from './screens/title.js';
@@ -64,6 +64,7 @@ import { recordError, installTrafficMeter } from './diag.js';
 import { installContent, installContentSet } from './content.js';
 import { cosmetics } from './cosmetics.js';
 import { CHAT_KEEP } from '../../shared/constants.js';
+import { createPanelRegistry } from './ui/extensions.js';
 
 const RESTORE_GRACE_MS = 1500;
 const JOIN_DELAY_MS = 350;
@@ -91,6 +92,10 @@ function clearRoomParam() {
 
 let seq = 0;
 let welcomeAt = 0;
+/** The element the app is rendered into (boot renders once; a pack's component wraps redraw the same <App/> in place). */
+let appRoot = null;
+/** The pack client registry (`welcome.modPanels`): panels, screens and component wraps (DESIGN §34.3 / §34.19). */
+let modPanels = null;
 let roomStateAt = 0;
 let matchAt = 0;
 let restoreTimer = null;
@@ -111,6 +116,7 @@ function schedulePendingJoin() {
     const s = store.get();
     const code = s.ui.pendingJoin;
     if (!code || joinInFlight || !s.session.entered || net.status !== 'online') return;
+    if (entryGateBlocked(s)) return;
     if (s.room) {
       if (s.room.code !== code) toast(t('你已在其他同盟中，请先离开当前同盟'), 'warn');
       clearPendingJoin();
@@ -173,6 +179,19 @@ function onWelcome(msg) {
   });
   welcomeAt = Date.now();
 
+  // Mod resource assets (DESIGN §34.30): a pack declaring `assets` puts `modAssets` in `welcome` — register the engine's
+  // own worker for them. No declaration, yet a worker controls this page (an earlier deployment had one): the valve
+  // releases it, or this page keeps being served from a cache this server no longer fills. Both imports are dynamic, so
+  // a clean install fetches neither.
+  if (Array.isArray(msg && msg.modAssets) && msg.modAssets.length) {
+    import('./resources/host.js').then((m) => m.installModAssets(msg.modAssets), (err) => console.warn('[mod-assets] host did not load', err));
+  } else if (navigator.serviceWorker?.controller) {
+    import('./resources/release.js').then((m) => m.releaseResourceWorker(), (err) => console.warn('[mod-assets] valve did not load', err));
+  }
+  // Packs' client halves (DESIGN §34.3): the same `welcome` frame carries the list, and it is the only channel — a
+  // second one could disagree with what the server says it loaded.
+  if (Array.isArray(msg && msg.modPanels) && msg.modPanels.length) modPanels.apply(msg.modPanels);
+
   if (prevId != null && prevId !== msg.playerId) {
     // A brand-new server session (the server restarted — crashed / killed, so no room.closed arrived — or this session
     // expired on it): whatever we showed before is gone — back to the lobby cleanly and say why.
@@ -185,6 +204,7 @@ function onWelcome(msg) {
     clearTimeout(restoreTimer);
     restoreTimer = setTimeout(() => {
       const s = store.get();
+      if (entryGateBlocked(s)) return;
       const patch = {};
       if (s.room && roomStateAt < welcomeAt) patch.room = null;
       if (s.match.public && matchAt < welcomeAt) patch.match = emptyMatch();
@@ -400,7 +420,7 @@ async function boot() {
   const entered = identity.wasEntered() && !!savedName;
   store.set((s) => ({
     me: { ...s.me, name: savedName },
-    session: { entered },
+    session: { ...s.session, entered },
     ui: { ...s.ui, pendingJoin },
   }));
 
@@ -431,6 +451,13 @@ async function boot() {
   // Optional local-client art manifest (emotes, tutorial pages, official UI sprites; DESIGN §13).
   data.load('local').catch(() => {});
 
+  // Mod panel registry (DESIGN §34.3 / §34.19): a `welcome.modPanels` list is all a pack's client half needs. It is
+  // created before the first connect, because `onWelcome` applies the list and a component wrap redraws the same <App/>.
+  modPanels = createPanelRegistry({
+    store,
+    notify: () => {},
+    onWrapsChanged: () => { if (appRoot) render(html`<${App} />`, appRoot); },
+  });
   const connectWhenReady = identityReady.then(() => {
     if (entered) net.setName(savedName);
     else net.connect();
@@ -439,6 +466,7 @@ async function boot() {
   const langReady = initLang().catch((err) => console.warn('[app] language setup failed', err));
   await Promise.all([waitForFonts(1200), connectWhenReady, langReady]);
   const root = document.getElementById('app');
+  appRoot = root;
   render(html`<${App} />`, root);
 
   const splash = document.getElementById('boot');

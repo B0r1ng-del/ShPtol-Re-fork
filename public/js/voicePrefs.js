@@ -10,11 +10,19 @@ export const VOICE_TREES = Object.freeze({ jp: 'voiceJp', en: 'voiceEn', kr: 'vo
 
 const TREE = Object.freeze({ cn: 'voice', ...VOICE_TREES });
 
+/**
+ * 一个**干员 id 能不能当配音覆盖表的键**——这句话只有一处真相：设置库（本文件）、C 层面板注入面
+ * （`ui/extensions.js` 的 `VOICE_CHAR_ID_RE`）与落盘清洗都读这一条。`char_` + 1..64 位 A-Za-z0-9_。
+ */
+export const VOICE_CHAR_ID_RE = /^char_[A-Za-z0-9_]{1,64}$/;
+/** 覆盖表最多记多少条（键是干员 id）：**只有引擎知道**的这一条上限，写到第 N+1 条要**具名拒绝**，不静默吞掉。 */
+export const VOICE_OVERRIDE_MAX = 400;
+
 export function sanitizeVoiceOverrides(raw) {
   const out = {};
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
-  for (const [id, lang] of Object.entries(raw).slice(0, 512)) {
-    if (/^char_[0-9]+_[a-z0-9]+$/.test(id) && id.length <= 80 && VOICE_PICKS.includes(lang)) out[id] = lang;
+  for (const [id, lang] of Object.entries(raw).slice(0, VOICE_OVERRIDE_MAX)) {
+    if (VOICE_CHAR_ID_RE.test(id) && VOICE_PICKS.includes(lang)) out[id] = lang;
   }
   return out;
 }

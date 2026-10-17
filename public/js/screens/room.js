@@ -19,6 +19,7 @@
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SPECTATORS, HOST_CONFIG_DEFAULTS, HOST_ENEMY_MAX_STEPS, HOST_ENEMY_STEP_PCT, MOD_DEFAULTS, normalizeEnemyBuff, roomSeatCap } from '../../../shared/constants.js';
 import { MOD_ROWS, MOD_RULE_ROWS, modsCount, rememberMods, splitByLength } from '../ui/mods.js';
+import { isAlignBlocked } from '../mods/align.js';
 import {
   html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyTag, DifficultyIcon, Tooltip, confirmDialog, doctorNo, Modal, SwitchRow,
 } from '../ui/components.js';
@@ -439,8 +440,65 @@ export function modPanel(room, myId) {
   }));
 }
 
-/** The ready bar's 房主配置 button (the 干员调配 button's shape), showing how many options differ from their default. */
-function HostConfigButton({ rows, enemyRows, modRows, busy, onClick }) {
+/**
+ * 对齐到房间那套包 (W-D, DESIGN §34.16)：本机到底有没有这个房间声明的包。房间声明了集合（`room.mods`）时才做任何事
+ * ——干净安装上这个组件渲染 `null`，一次 fetch 都不发（`useEffect` 在组件里，不渲染就没有它）。
+ *
+ * 结论通过 `onAlignment` **交回房间界面**（准备就绪按钮的门读的是它），所以门只有一份实现：`isAlignBlocked`。
+ */
+export function RoomModsPanel({ room, myId, onAlignment }) {
+  const mods = room && room.mods && Array.isArray(room.mods.packs) && room.mods.packs.length ? room.mods : null;
+  const [plan, setPlan] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const alive = useRef(true);
+  useEffect(() => () => { alive.current = false; }, []);
+
+  // 进房间问一次「本机有没有这个房间的包」；房间集合变了（房主改了）再问一次。
+  useEffect(() => {
+    if (!mods) { setPlan(null); return; }
+    let cancelled = false;
+    setPlan({ needed: true, checking: true, ok: false });
+    (async () => {
+      try {
+        const { loadCatalog, planAlignment, storeFor } = await import('../mods/align.js');
+        const catalog = await loadCatalog();
+        const next = await planAlignment({ catalog, mods, store: storeFor() });
+        if (!cancelled && alive.current) setPlan(next);
+      } catch {
+        if (!cancelled && alive.current) setPlan({ needed: true, ok: false, unknown: [], packs: [], missingFiles: 0 });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [mods && mods.digest]);
+
+  // 结论交回房间：交给 `setAlign`（就是房间界面自己那一格）。
+  useEffect(() => { onAlignment(plan); }, [plan]);
+
+  if (!mods || !plan) return null;
+  const blocked = isAlignBlocked(plan);
+  if (!blocked && plan.needed === false) return null;
+
+  const fill = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const { loadCatalog, alignRoom, storeFor } = await import('../mods/align.js');
+      const catalog = await loadCatalog();
+      const next = await alignRoom({ catalog, mods, store: storeFor() });
+      if (alive.current) setPlan(next);
+    } catch (err) { toastError(err); } finally { if (alive.current) setBusy(false); }
+  };
+
+  return html`<div class="roomalign" data-testid="room-align">
+    <${MicroLabel}>WORKSHOP</${MicroLabel}>
+    <span class="roomalign__text">${plan.checking ? t('正在核对本机的内容包…') : blocked ? t('本机缺少这个房间的内容包') : t('本机内容包与房间一致')}</span>
+    ${blocked && !plan.checking
+      ? html`<${Button} variant="secondary" size="sm" loading=${busy} onClick=${fill}>${t('补齐内容包')}<//>`
+      : null}
+  </div>`;
+}
+
+/** The ready bar's 房主配置 button (the 干员调配 button's shape), showing how many options differ from their default. */function HostConfigButton({ rows, enemyRows, modRows, busy, onClick }) {
   if (!rows || !rows.length) return null;
   // the switch rows that left their default, every enemy slider that is not at 0, and every Mod 开关 that is on
   const n = rows.filter((r) => r.on !== HOST_CONFIG_DEFAULTS[r.key]).length
@@ -462,6 +520,8 @@ export function RoomScreen() {
   const [busy, setBusy] = useState(null);
   // 房主配置 opens as a dialog over the room (the 干员调配 button's pattern), not as a band under the seats
   const [cfgOpen, setCfgOpen] = useState(false);
+  // 对齐到房间那套包 (W-D)：`RoomModsPanel` 把结论交回这里，`alignBlocked` 是唯一的门（准备就绪与开始模拟都读它）
+  const [align, setAlign] = useState(null);
   const alive = useRef(true);
   const inFlight = useRef(false); // synchronous guard against double clicks (state updates are async)
   useEffect(() => () => { alive.current = false; }, []);
@@ -484,6 +544,8 @@ export function RoomScreen() {
   // lobby's 「Mod 菜单」 dialog (screens/mods.js). The badge count follows the same split, so the two buttons never both
   // claim the same switch.
   const modRows = (modPanel(room, me.playerId) || []).filter((r) => MOD_RULE_ROWS.some((k) => k.key === r.key));
+  // 对齐到房间那套包 (W-D)：门只有一份实现（`isAlignBlocked`），非房主的「准备就绪」与 solo 房主的「开始模拟」读同一条
+  const alignBlocked = isAlignBlocked(align);
 
   const run = async (kind, fn) => {
     if (inFlight.current) return;
@@ -610,8 +672,10 @@ export function RoomScreen() {
           <li>${t('独立模拟中休整期与机变阶段不限时')}</li>
         </ul>
       </aside>`}
+      ${html`<div class="modslot" data-mod-slot="screen.room.aside"></div>`}
     </main>
     <${SpectatorBar} facts=${facts} myId=${me.playerId} busy=${busy} onRemove=${removeSpectator} onSit=${sit} />
+    <${RoomModsPanel} room=${room} myId=${me.playerId} onAlignment=${setAlign} />
 
     <footer class="room-bar">
       <div class="room-bar__left">
@@ -635,13 +699,13 @@ export function RoomScreen() {
         <${LoadoutButton} from="room" size="lg" class="room-loadout" label=${t('干员调配')} />
         ${facts.isHost
           ? html`<${Tooltip} text=${facts.canStart ? null : !facts.contentReady ? t('仍有博士未载入房间的插件内容') : t('仍有博士未准备就绪')}>
-              <${Button} variant="primary" size="xl" icon="play" loading=${busy === 'start'} disabled=${!facts.canStart || !online} onClick=${start}>${t('开始模拟')}<//>
+              <${Button} variant="primary" size="xl" icon="play" loading=${busy === 'start'} disabled=${!facts.canStart || !online || alignBlocked} onClick=${start}>${t('开始模拟')}<//>
             <//>`
           : facts.spectating
             ? html`<${Button} variant="secondary" size="xl" icon="eye" disabled=${true}>${t('观战中')}<//>`
           : html`<${Tooltip} text=${!myReady && facts.myContent !== 'ready' ? t('房间的插件内容载入并通过校验后才能准备') : null}>
               <${Button} variant=${myReady ? 'primary' : 'secondary'} size="xl" icon=${myReady ? 'check' : 'hourglass'} active=${myReady}
-              loading=${busy === 'ready'} disabled=${!online || !facts.mine || (!myReady && facts.myContent !== 'ready')} onClick=${toggleReady}>${myReady ? t('已就绪') : t('准备就绪')}<//>
+              loading=${busy === 'ready'} disabled=${!online || !facts.mine || (!myReady && facts.myContent !== 'ready') || alignBlocked} onClick=${toggleReady}>${myReady ? t('已就绪') : t('准备就绪')}<//>
             <//>`}
       </div>
     </footer>

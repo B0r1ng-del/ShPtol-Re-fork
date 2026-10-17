@@ -276,25 +276,27 @@ describe('§34.31 真设置库：setVoiceLangByChar 的边界与落盘（真实 
   test('只改 voiceLangByChar 一格；别的设置在 store 与落盘里逐字节不变', async () => {
     const { mod, mem } = await realSettings();
     const { settingsStore, updateSettings, setVoiceLangByChar } = mod;
-    updateSettings({ voiceLangByChar: {}, bgm: 0.42, muted: true, quality: 'low' });
+    updateSettings({ voiceOverrides: {}, bgm: 0.42, muted: true, quality: 'low' });
     const before = settingsStore.get();
-    const othersBefore = JSON.stringify(Object.fromEntries(Object.entries(before).filter(([k]) => k !== 'voiceLangByChar')));
+    const othersBefore = JSON.stringify(Object.fromEntries(Object.entries(before).filter(([k]) => k !== 'voiceOverrides')));
 
     assert.equal(setVoiceLangByChar('char_a', 'jp'), true);
-    assert.deepEqual({ ...settingsStore.get().voiceLangByChar }, { char_a: 'jp' });
+    // 本 fork 的字段名是 `voiceOverrides`（`ui/gameLogic/settings.js` DEFAULT_SETTINGS 就是它）——
+    // 上游这一格叫 `voiceLangByChar`，同一个东西，判据一条没少。
+    assert.deepEqual({ ...settingsStore.get().voiceOverrides }, { char_a: 'jp' });
     assert.deepEqual(settingsStore.get().voiceLang, before.voiceLang, '全局配音不动');
-    assert.equal(JSON.stringify(Object.fromEntries(Object.entries(settingsStore.get()).filter(([k]) => k !== 'voiceLangByChar'))), othersBefore, '别的设置逐字节不变');
+    assert.equal(JSON.stringify(Object.fromEntries(Object.entries(settingsStore.get()).filter(([k]) => k !== 'voiceOverrides'))), othersBefore, '别的设置逐字节不变');
 
     // 落盘：同一条既有订阅（`settingsStore.subscribe` → `savePref('settings', …)`）
     const saved = JSON.parse(mem.get('sp.pref.settings'));
-    assert.deepEqual(saved.voiceLangByChar, { char_a: 'jp' });
+    assert.deepEqual(saved.voiceOverrides, { char_a: 'jp' });
     assert.equal(saved.bgm, 0.42);
     assert.equal(saved.muted, true);
 
     // 清空也走同一条路
     assert.equal(setVoiceLangByChar('char_a', ''), true);
-    assert.deepEqual({ ...settingsStore.get().voiceLangByChar }, {});
-    assert.deepEqual(JSON.parse(mem.get('sp.pref.settings')).voiceLangByChar, {});
+    assert.deepEqual({ ...settingsStore.get().voiceOverrides }, {});
+    assert.deepEqual(JSON.parse(mem.get('sp.pref.settings')).voiceOverrides, {});
 
     // 边界：形状不对的 id / 不在词表里的语言 —— 函数自己拒绝，store 一个字节不变
     const afterClear = JSON.stringify(settingsStore.get());
@@ -306,16 +308,16 @@ describe('§34.31 真设置库：setVoiceLangByChar 的边界与落盘（真实 
     // 覆盖表满（`VOICE_OVERRIDE_MAX` = 400）时第 401 个被拒 —— 这一条只有引擎知道，所以 C 层那格要点名
     const full = {};
     for (let i = 0; i < 400; i++) full[`char_f${i}`] = 'cn';
-    updateSettings({ voiceLangByChar: full });
+    updateSettings({ voiceOverrides: full });
     assert.equal(setVoiceLangByChar('char_overflow', 'jp'), false, '第 401 个被拒');
-    assert.equal(Object.keys(settingsStore.get().voiceLangByChar).length, 400);
+    assert.equal(Object.keys(settingsStore.get().voiceOverrides).length, 400);
   });
 
   test('钉住：`VOICE_CHAR_ID_RE`（C 层）与 `sanitizeVoiceLangByChar`（设置库）对同一个 id 说同一句话', async () => {
     const { mod } = await realSettings();
     const { settingsStore, updateSettings, setVoiceLangByChar } = mod;
     // 设置库是**模块级单例**（上一个用例把覆盖表填满过）：先清干净，否则这条钉子的失败原因会是「表满了」
-    updateSettings({ voiceLangByChar: {} });
+    updateSettings({ voiceOverrides: {} });
     const ids = ['char_a', 'char_1_01_a', 'char_' + 'a'.repeat(64), 'char_', 'char', 'Char_a', 'char_a-b', 'char_a b', 'char_a/b', `char_${'a'.repeat(65)}`, '', 'x/y'];
     for (const id of ids) {
       const mine = VOICE_CHAR_ID_RE.test(id);
@@ -325,7 +327,7 @@ describe('§34.31 真设置库：setVoiceLangByChar 的边界与落盘（真实 
       // 收尾：写进去的清掉，别把状态留给下一个 id
       if (ok) setVoiceLangByChar(id, '');
     }
-    assert.deepEqual({ ...settingsStore.get().voiceLangByChar }, {}, '收尾干净');
+    assert.deepEqual({ ...settingsStore.get().voiceOverrides }, {}, '收尾干净');
   });
 });
 

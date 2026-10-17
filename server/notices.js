@@ -71,6 +71,11 @@ export function engineAnnouncements({ changelogPath, limit = NOTICE_LIMITS.annou
     // 缺一就不画）。**不要求「至少一个小节」** —— 0.15.0–0.15.3 那几节通篇没有 `###`（`##` + 正文 + `*` 条目），
     // 原来因为 `sections` 是空的被整条丢掉。这类节的条目直接挂在 `##` 下，不属于任何小节，所以
     // `sections` 留空、公告只展示那一段摘要 —— 不替它编一个小节名（那是猜）。
+    //
+    // ★ 第 ④ 处漏（2026-10-17）：一节可以**通篇没有正文**，只有 `###` 与条目（本仓库的 0.3.0 就是这样：`##` 紧跟
+    // `###`，正文全在条目里）。原来这种节 `summary` 为空 ⇒ 整条丢掉 ⇒ 公告最新一条停在 0.2.2，而发的就是 0.3.0。
+    // 取**第一条条目**当摘要：那是作者自己写的第一句话，不是我们编的。
+    if (!cur.summary) cur.summary = cur.sections[0]?.items[0] ?? '';
     if (cur.summary && out.length < limit) out.push(cur);
     cur = null;
   };

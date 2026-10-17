@@ -200,6 +200,13 @@ export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = pa
       sendError(req, res, 400, '请求地址无效 · Bad request');
       return;
     }
+    // a pack declared `serverPolicy: "cache-only"` (DESIGN §34.30): the whole server stops serving /assets/ and /fonts/
+    // — 412 before the filesystem is ever touched, so the client falls back to its own cache instead of re-fetching
+    if (resourcePolicy === 'cache-only' && isCacheOnlyPath(decoded)) {
+      res.writeHead(412, { 'Cache-Control': 'no-store' });
+      res.end(req.method === 'HEAD' ? undefined : '资源不回源 · Cache only');
+      return;
+    }
     // the plugin studio's page is never a static file (server/studio/index.js isStudioPath: any spelling of /studio/)
     if (isStudioPath(decoded)) { sendError(req, res, 404, '页面不存在 · Not found', decoded.length <= 200 ? decoded : ''); return; }
     // /assets/~<hash>/x → /assets/x (the hash decides the cache policy below)

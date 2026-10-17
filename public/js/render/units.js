@@ -88,6 +88,7 @@ import { ResearchDeviceActor } from './rhineDevices.js';
 import { diamondTexture, unitSpriteTexture, shadowTexture, fxAtlas, tierChip, statusTexture, itemTexture, hudRings, ringArc, downLabel, HUD_DISC, ELEMENT_RING } from './textures.js';
 import { COLORS, TIER_COLORS, ENEMY_FRAME, UNIT, PROJ, statusIconKey, statusIconSuppressed } from './style.js';
 import { drawCrate, rowDepthKey, ROW_KEY, deviceBoxOf, DEVICE_BOX } from './tiles.js';
+import { formsFor } from '../../../shared/packForms.js';
 
 /** 八 卡兹戴尔: a donor model with no temporary transformation clips — its silhouette remains until the sim removes
  *  the soul. */
@@ -636,6 +637,11 @@ export function bonePose(sp, bone, anim, time) {
   } catch { return null; }
 }
 
+
+/** 这一个 spine（或 defId）的形态表：**第一方 FORMS + 包声明的形态**（shared/packForms.js formsFor 是唯一入口）。 */
+function formTableOf(spineId) {
+  return formsFor(FORMS, spineId);
+}
 export class UnitView {
   /**
    * @param {ViewCtx} ctx
@@ -1011,7 +1017,7 @@ export class UnitView {
 
   _formSpec() {
     if (this.info.kazdelSoul === true && this.form === 'kazdelSoul') return KAZDEL_SOUL_LOOK;
-    return this.form ? FORMS[this.info.spine || this.info.defId]?.[this.form] || null : null;
+    return this.form ? formTableOf(this.info.spine || this.info.defId)?.[this.form] || null : null;
   }
 
   /**
@@ -1025,14 +1031,14 @@ export class UnitView {
   setForm(kind, fx = null) {
     const k = typeof kind === 'string' ? kind : null;
     if (k === this.form) return;
-    if (k && !(k === 'kazdelSoul' && this.info.kazdelSoul === true) && !FORMS[this.info.spine || this.info.defId]?.[k]) return;
+    if (k && !(k === 'kazdelSoul' && this.info.kazdelSoul === true) && !formTableOf(this.info.spine || this.info.defId)?.[k]) return;
     const prev = this._formSpec();
     this.form = k;
     this.info.form = k;
     const f = this._formSpec();
     if (!this.actor) return;
     const dur = fx && Number(fx.dur);
-    let next = f && f.next ? FORMS[this.info.spine || this.info.defId]?.[f.next]?.roles || null : null;
+    let next = f && f.next ? formTableOf(this.info.spine || this.info.defId)?.[f.next]?.roles || null : null;
     if (next && typeof f.roles.die === 'string') next = { ...next, die: f.roles.die };
     // an fx handed out late (render/app.js: a stall, a hidden tab) skips a change clip that would already have ended
     const late = fx && Number(fx.late) > 0 ? Number(fx.late) : 0;
@@ -2139,7 +2145,7 @@ export class UnitView {
     const out = new Map();
     if (idle) out.set(idle, false);
     if (!this.lodIdle) {
-      for (const [name, once] of playedClips(anims, FORMS[this.info.spine || this.info.defId] || null)) {
+      for (const [name, once] of playedClips(anims, formTableOf(this.info.spine || this.info.defId) || null)) {
         if (a.has(name)) out.set(name, out.has(name) ? out.get(name) && once : once);
       }
       if (!anims.die && a.has('Die')) out.set('Die', false);

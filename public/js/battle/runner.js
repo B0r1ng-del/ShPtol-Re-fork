@@ -89,6 +89,18 @@ import { loadBrowserSim } from './simLoader.js';
 import { InPageSimHost, WorkerSimHost } from './simHost.js';
 import { trackCombat, combineCombat } from './metrics.js';
 import { t } from '../../../shared/i18n.js';
+import { roomDataBase } from '../mods/align.js';
+import { currentModSet } from '../roomMods.js';
+
+/**
+ * 没有房间集合时用的数据面 key（`roomDataBase` 会给 `/data/`；这里只是「默认那一份」在缓存表里的名字）。
+ * 它同时是 `dataBaseForBattle` 的缺省实现：房间声明的集合与自己不同 ⇒ 房间那一份，否则进程那一份。
+ */
+const DATA_FACE_DEFAULT = '/data/';
+/** 一场战斗该在哪个数据面上模拟（W-D）：`roomDataBase` 是唯一判据，这一层只负责把它接到 store 上。 */
+function dataBaseForBattle(mods) {
+  return roomDataBase(mods, currentModSet());
+}
 export { loadBrowserSim, SIM_DATA_FILES } from './simLoader.js';
 
 const TICK = 1 / 30;
@@ -173,6 +185,8 @@ export function createBattleRunner(deps) {
   // `content` (DESIGN §32.6): `{ cs, data }` of a room's content set → the sim on it; null → the original content
   const loadSim = deps.loadSim || ((content) => (content ? loadBrowserSim({ data: content.data, cs: content.cs, bounds: content.bounds ?? null, scripts:content.scripts || [], hashInput:content.hashInput, nativeVerified:content.nativeVerified }) : loadBrowserSim()));
   const logger = deps.logger || SIM_LOGGER;
+  // 数据面判据（W-D）：调用方可以换一份（测试替身），缺省是 `roomDataBase` × `currentModSet()`
+  const dataBaseFor = typeof deps.dataBaseFor === 'function' ? deps.dataBaseFor : dataBaseForBattle;
   // the content sets (DESIGN §32.6): the room's set the page holds (content.js) and the server's original one
   const contentFor = deps.contentFor || appContentFor;
   const heldContent = deps.simContent || appSimContent;
@@ -226,6 +240,8 @@ export function createBattleRunner(deps) {
   let simP = null;
   /** the content set simP was loaded for (null: the original content) */
   let simCs = null;
+  /** 数据面 key → 那一面的 sim Promise（W-D：两个面各一份；`ensureSim` 的缓存就是它） */
+  const sims = new Map();
   let startSeq = 0;            // counts the b.starts: the latest one is the view asked for
   let loading = null;          // the pending entry of the latest b.start (shown when prepared)
   let rafH = null;
@@ -263,18 +279,26 @@ export function createBattleRunner(deps) {
 
   /**
    * The simulation for a spec's content `cs` (see the header): the original content's (loaded from /data/) or a room's
-   * content set (its checked data, content.js contentFor); one at a time — another content loads it again.
+   * content set (its checked data, content.js contentFor).
+   *
+   * **按数据面缓存**（W-D）：`sims` 是 `数据面 key → Promise`，两面各一份、互不覆盖。从前是一个槽（`simP`/`simCs`），
+   * 于是「先看 `/data/` 那一场、再看 `/room-data/<摘要>/` 那一场」会把前一份丢掉重下 —— 而两个面本来就该同时活着。
+   * 失败的那一格从 `sims` 里删掉（下一次重试），成功的留着。
    */
   function ensureSim(cs = null) {
     const vanilla = vanillaCs();
     const want = typeof cs === 'string' && vanilla != null && cs !== vanilla ? cs : null;
-    if (simP && simCs === want) return simP;
-    simCs = want;
+    // 数据面：房间声明的集合走自己的那一份，其余（没有声明 / 就是进程那份）走 `/data/`
+    const key = dataBaseFor(want) || (want || DATA_FACE_DEFAULT);
+    const hit = sims.get(key);
+    if (hit) return hit;
     const p = (want ? contentFor(want).then((content) => {
       if (!content || content.cs !== want) throw new Error(`the content set ${want.slice(0, 8)} is not loaded on this page`);
       return deps.loadSim ? loadSim(content) : { content, cs: want, remote: true };
-    }) : loadSim(null)).catch((err) => { if (simP === p) { simP = null; simCs = null; } throw err; });
-    simP = p;
+    }) : loadSim(null)).catch((err) => { if (sims.get(key) === p) sims.delete(key); throw err; });
+    sims.set(key, p);
+    // 兼容既有读者：最后建好的那一份仍是 `simP`（`stats().loadingSim` 与旧调用方读它）
+    simP = p; simCs = want;
     return p;
   }
 
@@ -1009,6 +1033,29 @@ export function createBattleRunner(deps) {
       try { return e.host.unitStats(unitId); } catch { return null; }
     },
     /**
+     * The damage books of the battle on screen, as `ctx.battle.damage()` hands them to a panel (DESIGN §34.38). Reads
+     * what the sim already computed (`unit.stats.dmg` and the `_perPlayer` ledger `_buildResult()` uses), never computes
+     * anything: a fresh deep copy every call, so a caller can neither mutate the battle nor see later damage appear in a
+     * snapshot it already holds. null without a battle on screen (`e.battle` is null while loading).
+     * @returns {{ battleId: string, fieldId: string|null, kind: string, authoritative: boolean, own: boolean,
+     *   gt: number, t0: number, units: object[], players: object[] }|null}
+     */
+    damage() {
+      const e = cur;
+      const b = e && e.battle;
+      if (!b) return null;
+      const num = (v) => Math.round(Number(v) || 0);
+      const units = (Array.isArray(b.allyUnits) ? b.allyUnits : []).map((u) => ({
+        id: u.id, uid: u.uid, defId: u.defId, ownerId: u.ownerId, kind: u.kind,
+        dmg: num(u.stats && u.stats.dmg), kills: Math.trunc(Number(u.stats && u.stats.kills) || 0), heal: num(u.stats && u.stats.heal),
+      }));
+      const players = (Array.isArray(b.players) ? b.players : []).map((p) => {
+        const pp = b._pp(p.playerId) || {};
+        return { playerId: p.playerId, dmg: num(pp.damageDealt), bossDmg: num(pp.bossDamage), kills: Math.trunc(Number(pp.killed) || 0), heal: num(pp.healingDone) };
+      });
+      return { battleId: e.battleId, fieldId: e.fieldId, kind: e.kind, authoritative: !!e.authoritative, own: !!e.own, gt: Number(b.time) || 0, t0: 0, units, players };
+    },
+    /**
      * The unit id of the board piece `uid` owned by `ownerId` in the battle on screen (an own operator's card opened in
      * prep and left open into the battle turns live); null when that battle has no such unit.
      * @param {number} uid @param {string} ownerId @param {string|null} [fieldId]
@@ -1045,7 +1092,7 @@ export function createBattleRunner(deps) {
 
 /** The browser runner, wired to the app's socket and store (null outside a browser). */
 export const battleRunner = typeof window !== 'undefined' && typeof document !== 'undefined'
-  ? createBattleRunner({ net: appNet, store: appStore })
+  ? createBattleRunner({ net: appNet, store: appStore, dataBaseFor: dataBaseForBattle })
   : null;
 if (battleRunner) globalThis.__SP_RUNNER__ = battleRunner; // dev / E2E introspection
 if (battleRunner) setBattleSource(() => battleRunner.currentBattle());
