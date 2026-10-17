@@ -43,6 +43,9 @@ function urlPathToFile(urlPath) {
   const clean = decodeURIComponent(urlPath.split(/[?#]/)[0]);
   if (clean.startsWith('/shared/')) return path.join(ROOT, clean);
   if (clean.startsWith('/data/')) return path.join(ROOT, clean);
+  // `/sim/` is mounted on server/sim/ by server/http/static.js (the sim's modules are served from there, not from
+  // public/) — the import map's `@sim/`, `@kit/`, `@ops/` and `@battle/` prefixes all resolve under it.
+  if (clean.startsWith('/sim/')) return path.join(ROOT, 'server', clean);
   return path.join(PUBLIC, clean);
 }
 
@@ -179,7 +182,17 @@ describe('HTML pages reference existing files', () => {
       const pageUrl = new URL(`http://host/${page}`);
       const imports = parseImportMap(src);
       assert.ok(imports.preact && imports['preact/hooks'] && imports.htm, 'import map has preact, preact/hooks, htm');
-      const refs = [...htmlRefs(src), ...Object.values(imports)];
+      // An import-map key ending in "/" is a PREFIX mapping (`"@kit/": "/sim/content/kits/shared/"`): its value is a
+      // directory, not a file — the specifier's own tail is appended at resolve time. Checking a prefix base as if it
+      // were a file would demand a file literally named "shared"; the specifiers it serves are covered instead by
+      // test/kitImports.test.js, which resolves every one of them through this map and stats the result.
+      const entries = Object.entries(imports);
+      const refs = [...htmlRefs(src), ...entries.filter(([k]) => !k.endsWith('/')).map(([, v]) => v)];
+      for (const [key, value] of entries) {
+        if (!key.endsWith('/')) continue;
+        const dirPath = new URL(value, pageUrl).pathname;
+        assert.ok(existsSync(urlPathToFile(dirPath)), `${page} import-map prefix "${key}" points at missing directory ${dirPath}`);
+      }
       for (const ref of refs) {
         const urlPath = new URL(ref, pageUrl).pathname;
         const file = urlPathToFile(urlPath);

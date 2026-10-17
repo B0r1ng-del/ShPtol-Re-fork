@@ -749,12 +749,14 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     audio: {
       bgm,
       bossBgm: Object.fromEntries(Object.entries(bossBgm).sort(([a], [b]) => a.localeCompare(b, 'en', { numeric: true }))),
-      // 默认档的语种声明 + 其它语种表 (工坊 mod 层移植)：`shared/workshop.js` 与素材镜像面读它们，
-      // 社区 mod 的双语语音要落到其中一张（test/modSurface.test.js 的 assets.audio 一组断言钉住这一点）。
-      voiceLang,
-      voiceLangs: voiceLangsTable,
       voice,
       ...(voiceJp ? { voiceJp: voiceTree(VOICE_JP_LANG) } : {}),
+      // 默认档的语种声明 + 其它语种表 (工坊 mod 层移植)：`shared/workshop.js` 与素材镜像面读它们，
+      // 社区 mod 的双语语音要落到其中一张（test/modSurface.test.js 的 assets.audio 一组断言钉住这一点）。
+      // ★ 追加在 `voiceJp` 之后：上游那几个键（bgm / bossBgm / voice / voiceJp / sfx）的相对顺序是既有约定
+      //   （test/feedback7-voices.test.js 按它断言），fork 新增的键只许**追加**，不许插到它们中间。
+      voiceLang,
+      voiceLangs: voiceLangsTable,
       ...optionalTrees,
       sfx: { ui: sfxUi, battle: sfxBattle, units: unitsSfx },
     },

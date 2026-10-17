@@ -16,6 +16,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BEHAVIOUR_SWITCHES, parseBehaviourDecl, behaviourActions, behaviourIsDefault, behaviourValue } from '../shared/behaviour.js';
 import { SharedPool, SharedItemPool, bondBiasPreference } from '../server/match/pool.js';
+import { bondBiasBonds } from '../server/match/player/economy.js';
 import { GameData } from '../server/match/gamedata.js';
 import { makeMatch, DATA, give, legalTileFor } from './match/harness.js';
 
@@ -124,14 +125,15 @@ function prep(o = {}) {
 }
 const declOf = (option) => parseBehaviourDecl([{ switch: SW, option }]).decl;
 
-test('执行点 1：没声明 / `official` ⇒ `shopBiasBonds()` 是 null（今天的行为）；声明了但没有已激活盟约 ⇒ 也是 null', () => {
+test('执行点 1：没声明 / `official` ⇒ `bondBiasBonds()` 是 null（今天的行为）；声明了但没有已激活盟约 ⇒ 也是 null', () => {
   const h = prep();
   const ps = h.ps('p_0');
-  assert.equal(ps.shopBiasBonds(), null, '（无包）没声明这一格');
+  // `bondBiasBonds(ps)` 是一个自由函数（server/match/player/economy.js），不是 PlayerState 的方法。
+  assert.equal(bondBiasBonds(ps), null, '（无包）没声明这一格');
   h.m.behaviour = declOf('official');
-  assert.equal(ps.shopBiasBonds(), null, '声明成缺省档 = 今天的行为');
+  assert.equal(bondBiasBonds(ps), null, '声明成缺省档 = 今天的行为');
   h.m.behaviour = declOf('bondBias');
-  assert.equal(ps.shopBiasBonds(), null, '声明了但一个盟约都没激活 ⇒ 不偏（否则商店会被抽空）');
+  assert.equal(bondBiasBonds(ps), null, '声明了但一个盟约都没激活 ⇒ 不偏（否则商店会被抽空）');
 });
 
 test('执行点 1 + 2：声明 `bondBias` 且盟约已激活 ⇒ 装备槽只出那些盟约的装备，且**不授予**任何盟约', () => {
@@ -155,7 +157,7 @@ test('执行点 1 + 2：声明 `bondBias` 且盟约已激活 ⇒ 装备槽只出
   assert.ok(countAfter > before);
 
   m.behaviour = declOf('bondBias');
-  assert.deepEqual([...ps.shopBiasBonds()], [bond], '偏向集合就是已激活盟约');
+  assert.deepEqual([...bondBiasBonds(ps)], [bond], '偏向集合就是已激活盟约');
 
   // 装备槽的每一次抽签都在「这些盟约的装备」里；棋子槽一位都不动。
   const grants = Object.values(DATA.items).filter((r) => r.giveBondId === bond).map((r) => r.id).sort();
@@ -212,9 +214,16 @@ test('未实现的两条 + 未读取的两个字段：源码级断言（缺源�
   // 但**这件数据不是我们读的那个字段**：偏向只认 `giveBondId`（`bondBiasPreference` 的源码级断言在上面）。
   // 而原件带来的 `giveBondBiasOnly` 在我们数据里**一处都没有**（`JSON.stringify` 连键名都找不到）。
   assert.equal(JSON.stringify(DATA.items).includes('giveBondBiasOnly'), false);
-  assert.equal(Object.values(DATA.items).filter((r) => r && 'canGiveBond' in r).length, 115,
+  // 只数**官方**记录：内容包（packRhine / packKazdel）自己也带装备，它们同样有 `canGiveBond`，而 `data/items.json`
+  // 是「全包都在」的真相（开关负责剥掉）—— 写成总数就每加一件包内装备变红一次，而这条断言要钉的是「官方那 115 条
+  // 本来就有这个键，它不是原件新增的字段」。包内装备的数量由 test/data.test.js 与各包的测试负责。
+  const official = Object.values(DATA.items).filter((r) => r && 'canGiveBond' in r && !r.packId);
+  const packed = Object.values(DATA.items).filter((r) => r && 'canGiveBond' in r && r.packId);
+  assert.equal(official.length, 115,
     'canGiveBond 是官方记录本来就有的键（变形同构体自己的标记），不是原件新增的那一个');
-  assert.equal(Object.values(DATA.items).filter((r) => r && r.giveBondId).length, 36);
+  assert.ok(packed.length > 0, '内容包带来的装备也带这个键，但它们有自己的 packId（上面那一行把它们排除在外）');
+  // 同上：`giveBondId` 也只数官方记录（包内装备可以带自己的 `giveBondId`，那不是「官方那 36 件」的一部分）。
+  assert.equal(Object.values(DATA.items).filter((r) => r && r.giveBondId && !r.packId).length, 36);
 });
 
 test('`SharedItemPool` 仍然是那一份库存闸门（偏向不许绕过它）', () => {

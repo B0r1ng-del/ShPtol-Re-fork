@@ -260,6 +260,10 @@ export function makeBattle(opts = {}) {
     // `battleInstallers`（`pack.json.server.battle` 的 `install(battle)` 清单）与 `extraContent` 走**同一条**装载
     // 通道（`installContent` 的 `extra`）：前者是包的载荷、后者是测试的载荷，两者可以同时存在，所以拼在一起。
     autoFinish: opts.autoFinish ?? spawns.length > 0, kits: opts.kits,
+    // 调用预算（`pack.json.callBudget`, DESIGN §34.52）：包的 kit 归属表与「包 → 生效 max」表，`setupUnitKit` 用它
+    // 给装好的 kit 盖包章（然后 `kit.install` 才能跑在包作用域里记账）。没传 ⇒ 两个键都不出现，行为与从前一样。
+    ...(opts.kitOwners ? { kitOwners: opts.kitOwners } : {}),
+    ...(opts.kitBudgets ? { kitBudgets: opts.kitBudgets } : {}),
     extraContent: [...(opts.extraContent ?? []), ...(opts.battleInstallers ?? [])],
     setup: (b) => {
       for (const name of hookNames) {

@@ -10,6 +10,7 @@ import { OK, fail } from './common.js';
 // 工坊 mod 层移植 (2026-10-16): the behaviour layer's shop bias. A pack declares `behaviour.shopBias`; with no such
 // declaration `behaviourIsDefault` is true and this returns null, so a vanilla match is byte-identical.
 import { behaviourIsDefault } from '../../../shared/behaviour.js';
+import { bondBiasPreference } from '../pool.js';
 
 /**
  * 工坊 mod 层 (behaviour `shopBias`): the bonds whose items the shop should favour, or null for the official roll.
@@ -19,8 +20,24 @@ import { behaviourIsDefault } from '../../../shared/behaviour.js';
  */
 export function bondBiasBonds(ps) {
   if (behaviourIsDefault(ps.m.behaviour, 'shopBias')) return null;
-  const active = ps._activeBondIds();
+  const active = activeBondIdsOf(ps);
   return active.size ? active : null;
+}
+
+/**
+ * 这个玩家**已激活**的盟约 id（`ps.bonds[bondId].active`，由 `computeBonds` 每轮算出来），或空集。
+ *
+ * 为什么它单独一个函数而不是 `ps` 上的方法：`bondBiasBonds` 是本模块的自由函数，而玩家身上的盟约表就是
+ * `ps.bonds` —— 读它不需要往 `PlayerState` 再挂一个方法（那会让「谁算盟约」变成两个入口）。
+ * @param {any} ps
+ * @returns {Set<string>}
+ */
+export function activeBondIdsOf(ps) {
+  const out = new Set();
+  const bonds = ps && ps.bonds;
+  if (!bonds || typeof bonds !== 'object') return out;
+  for (const [id, b] of Object.entries(bonds)) if (b && b.active) out.add(id);
+  return out;
 }
 
 export class PlayerEconomy {
@@ -181,7 +198,12 @@ export class PlayerEconomy {
   }
 
   _rollItemSlot() {
-    const id = this.m.pool.rollItem(this.m.rngShop, this.shop.level, this.m.itemPool);
+    // 工坊 mod 层移植 (behaviour `shopBias: bondBias`): 包里声明了这一格且玩家有已激活盟约时，装备槽在**同阶**里
+    // 优先抽「属于这些盟约」的装备（`bondBiasPreference` 是那条判据的唯一实现）。没声明 / 没激活盟约 ⇒ bias 为 null
+    // ⇒ 官方抽法，一次 rng 都不多花（golden 与从前逐字节相同）。
+    const bonds = bondBiasBonds(this);
+    const bias = bonds ? bondBiasPreference(this.gd, bonds) : null;
+    const id = this.m.pool.rollItem(this.m.rngShop, this.shop.level, this.m.itemPool, bias);
     return id ? { kind: 'item', id, basePrice: this.gd.itemPrice(id), frozen: false, sold: false } : null;
   }
 

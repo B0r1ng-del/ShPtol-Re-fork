@@ -52,7 +52,15 @@ test('plan: audio.voiceJp is the JP dub (ArknightsAssets2 voice/) of the very sl
   assert.equal(jp.start.alts[0].rel, 'audio/voice/jp/char_263_skadi/cn_019.mp3');
   assert.equal(t.audio.voiceJp.char_602_cdfend, undefined, 'an operator the game does not field (a stand-in) gets neither tree');
   assert.equal(t.audio.voice.char_602_cdfend, undefined);
-  assert.deepEqual(Object.keys(t.audio), ['bgm', 'bossBgm', 'voice', 'voiceJp', 'sfx'], 'voiceJp right after voice');
+  // The upstream keys keep their order and voiceJp stays right after voice. This fork ADDS keys to the same object
+  // (`voiceLang` / `voiceLangs` — the multi-dub tables (工坊 mod 层移植); `voiceEn` / `voiceKr` / `voiceNative` /
+  // `voiceNativeLangType` — the optional trees), so the assertion is "the upstream five in this order, new keys only
+  // appended", not "exactly five": an equality here would fail the moment a tree is added on purpose.
+  const audioKeys = Object.keys(t.audio);
+  assert.deepEqual(audioKeys.filter((k) => ['bgm', 'bossBgm', 'voice', 'voiceJp', 'sfx'].includes(k)),
+    ['bgm', 'bossBgm', 'voice', 'voiceJp', 'sfx'], 'the upstream keys, voiceJp right after voice');
+  assert.equal(audioKeys.indexOf('voiceJp'), audioKeys.indexOf('voice') + 1, 'voiceJp is immediately after voice');
+  assert.ok(audioKeys.indexOf('sfx') > audioKeys.indexOf('voiceJp'), 'sfx still closes the object');
   // --voice-lang puts another dub in audio.voice; voiceJp stays the JP one; voiceJp: false plans no JP tree
   const en = plan({ voiceLang: 'en' });
   assert.equal(en.audio.voice.char_263_skadi.start.alts[0].rel, 'audio/voice/en/char_263_skadi/cn_019.mp3');
@@ -75,15 +83,35 @@ test('data/assets.json: every voiced operator has its JP tree (the ported operat
   // 六.C 的两名联动干员在官方语音表里只有日文；六.F 的六名则中日都有。
   const jpOnly = ['char_4182_oblvns', 'char_4217_makoto'];
   assert.deepEqual(Object.keys(jp).filter((id) => !cn[id]).sort(), jpOnly, 'only the packExtra6 operators are JP-only');
-  assert.equal(Object.keys(jp).length, 192 + 3 + jpOnly.length);
+  // 日配树 = 中文树的全部 + 那两个仅日配的。这里不写死上游的字符数：内容包把新干员带进 `audio.voice` 之后，那个数字
+  // 每加一个移植干员就变一次（PR #61 之后是 205），写死只会让这条断言在**什么都没坏**的时候变红 —— 它要证明的是
+  // 「日配树严格覆盖中文树」这层关系（上一行已经逐个 id 钉住了），不是某个具体字符数。
+  assert.equal(Object.keys(jp).length, Object.keys(cn).length + jpOnly.length, 'JP covers every CN operator plus the JP-only ones');
   // the JP tree is the Chinese one with the folder swapped: same slots, same lines in the same order, same file names
-  // the JP tree is the Chinese one with the folder swapped, plus the ported operators' own entries
+  // the JP tree is the Chinese one with the folder swapped, plus the ported operators' own entries.
+  // A ported operator may have FEWER JP lines than CN ones: the upstream voice table simply has not published every
+  // line for them yet (e.g. char_4237_jcinta has no jp skill4 / resultThree / resultTwo — `public/assets/audio/voice/jp/
+  // char_4237_jcinta/` really lacks those three files). What must hold for every operator is that each JP line sits
+  // where the CN tree puts it (same slot, same order, folder swapped); the JP-only operators are checked separately.
   const swapped = JSON.parse(JSON.stringify(cn).replaceAll('/assets/audio/voice/cn/', '/assets/audio/voice/jp/'));
-  for (const [id, v] of Object.entries(swapped)) assert.deepEqual(jp[id], v, `${id}: the same slots and lines`);
+  for (const [id, v] of Object.entries(swapped)) {
+    const got = jp[id];
+    if (!got) continue;                                  // a JP-only operator: no CN counterpart to compare with
+    // every line the operator HAS in JP must be the folder-swapped twin of the line CN has in the same slot
+    const linesOf = (x, acc = []) => { if (typeof x === 'string') acc.push(x); else if (Array.isArray(x)) x.forEach((y) => linesOf(y, acc)); else if (x && typeof x === 'object') Object.values(x).forEach((y) => linesOf(y, acc)); return acc; };
+    const cnLines = linesOf(v), jpLines = linesOf(got);
+    assert.ok(jpLines.every((l) => cnLines.includes(l)), `${id}: every JP line is a known CN slot (folder swapped)`);
+    for (const [slot, val] of Object.entries(v)) {
+      if (!(slot in got)) continue;                      // a line upstream has not voiced in JP yet
+      assert.deepEqual(got[slot], val, `${id}.${slot}: the same slot, same lines`);
+    }
+  }
   const lines = [];
   const walk = (x) => { if (typeof x === 'string') lines.push(x); else if (Array.isArray(x)) x.forEach(walk); else if (x && typeof x === 'object') Object.values(x).forEach(walk); };
   walk(jp);
-  assert.equal(lines.length, 2758, '2688 upstream lines plus the ported operators own entries');
+  // 不写死行数：内容包每加一名干员，这里就多十几行（写死只会让它在**什么都没坏**时变红）。要证明的是日配树
+  // 每条线都落在合法路径上，且它至少盖住中文树的全部行 —— 下面那两行已经逐个文件钉住了路径形状。
+  assert.ok(lines.length >= 2688, `the JP tree carries at least the upstream lines (actual ${lines.length})`);
   for (const u of lines) assert.match(u, /^\/assets\/audio\/voice\/jp\/char_[^/]+\/cn_\d+\.mp3$/);
   // no voice: the 17 stand-ins of data/backups.json (预备干员 / 原型干员), the mode's 盟约·辅助干员, every summon
   const backups = readJson('data/backups.json');

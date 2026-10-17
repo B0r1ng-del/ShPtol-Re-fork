@@ -74,6 +74,33 @@ export function isStandInDef(def) {
 }
 
 /**
+ * 给一个装好的 kit 盖上**归属包**与**预算**（`pack.json.callBudget`, DESIGN §34.52）。
+ *
+ * 为什么要在这一步：kit 是**逐单位**装的（`battle/players.js` 的 `kit.install(this, u)`），而预算要按插件记账。
+ * 归属表由装载器给出（`Battle opts.kitOwners`：chess id / kit 键 → 包 id；`Battle opts.kitBudgets`：包 id → 生效
+ * max），这里把它们贴到 kit 对象上，装的时候 `players.js` 才能把 install 包进那个包的作用域。
+ *
+ * 干净安装 / 没声明预算 / 没有归属表 ⇒ 一个键都不加，kit 对象与从前逐字节相同。
+ * @template T @param {T} kit @param {any} battle @param {Function} f the kit builder (its `.pack` when the loader stamped it) @param {any} injected Battle opts.kits
+ * @returns {T}
+ */
+function withKitAttribution(kit, battle, f, injected, def = null) {
+  if (!kit || typeof kit !== 'object') return kit;
+  const stampId = typeof f?.pack === 'string' && f.pack ? f.pack : null;
+  const owners = battle.opts && battle.opts.kitOwners;
+  const budgets = battle.opts && battle.opts.kitBudgets;
+  let pack = stampId;
+  if (!pack && owners && typeof owners.get === 'function') {
+    // 归属表按 kit **键**登记（`setupUnitKit` 查 kit 时用的那一个）：先试 def 的几种身份，再退回 kit 自己的字段。
+    const keys = [def?.baseId, def?.chessId, def?.id, def?.charId, kit.charId, kit.baseId, kit.id, kit.chessId];
+    for (const k of keys) { if (!k) continue; const v = owners.get(k); if (typeof v === 'string' && v) { pack = v; break; } }
+  }
+  if (!pack) return kit;
+  const max = budgets && typeof budgets.get === 'function' ? budgets.get(pack) : null;
+  return { ...kit, pack, ...(Number.isInteger(max) ? { packCallBudget: max } : {}) };
+}
+
+/**
  * Whether `def` is a 自选 piece: a DIY slot fielded with a picked operator's body (simdata getDiy — `diyFor` = the slot's
  * base id, `charId` = the operator's).
  */
@@ -180,7 +207,7 @@ export function setupUnitKit(battle, unit, mode = 'full') {
     if (typeof f === 'function') {
       try {
         const k = f(bb, raw, def);
-        if (k) return selectSkillSpec(k, bb, raw, def);
+        if (k) return withKitAttribution(selectSkillSpec(k, bb, raw, def), battle, f, injected, def);
       } catch (e) {
         const dslCode = typeof e?.code === 'string' && /^PLUGIN_DSL_[A-Z0-9_]+$/.test(e.code);
         // A record that carries DSL, or a throw whose code is a DSL problem, is a corrupt content set.
@@ -350,7 +377,14 @@ export function installContent(battle, { mode = 'full', extra = null } = {}) {
     }
   }
   for (const m of extra || []) {
-    try { (typeof m === 'function' ? m : m.install)?.(battle); } catch (e) { battle._handlerError('content:extra', null, e); }
+    // 调用预算（`pack.json.callBudget`, DESIGN §34.52）：包的 install 跑在它自己的作用域里 —— 这期间它注册的
+    // 每个 hook / 计时器 / buff 都烙上包身份，运行时按那句 `callBudget` 记账。没声明预算的包只烙身份、不记账，
+    // 行为与从前逐字节相同（`_withPackScope` 对 `callBudget == null` 就是那个意思）。
+    const installer = typeof m === 'function' ? { id: null, install: m } : m;
+    try {
+      if (installer && typeof installer.id === 'string') battle._withPackScope(installer, () => (installer.install ?? m)?.(battle));
+      else (installer?.install ?? m)?.(battle);
+    } catch (e) { battle._handlerError('content:extra', null, e); }
   }
 }
 
