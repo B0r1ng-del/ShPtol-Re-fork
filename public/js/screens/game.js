@@ -1723,9 +1723,15 @@ function MatchScreen() {
              it in its body while it is EXPANDED, and this one takes over while the window is folded (需求方 2026-10-17:
              「聊天窗口缩小/收起时，交流表情菜单仍需在外部正常显示」). Exactly one of the two is on screen: `chatOn` gates
              the corner copy on the fold state, and ui/chat.js receives `emote` only while it is open.
-             需求方 2026-10-17 (任务 6): while the window is folded the two used to sit on the SAME corner spot and overlap;
-             `.is-chat-folded` lifts this row above the folded window instead (css/screens/game.css). */
-          chatOn && !chatOpen ? html`<${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen}
+             需求方 2026-10-17 (任务 6): while the window was folded the two used to sit on the SAME corner spot and overlap;
+             `.is-chat-folded` lifts this row above the folded window instead (css/screens/game.css).
+             ★ `!chatOn` is NOT the same as "the chat is folded": with the room option OFF there is no window at all, so this
+             corner copy is the wheel's ONLY home — it has to render unconditionally then. Gating it on `chatOn` alone made
+             the 交流 button vanish for every room that turned 在线聊天 off (需求方 2026-10-17: 「关闭『在线聊天』后，局内的
+             『交流』表情键会消失」), which is the original game's behaviour minus the button.
+             A spectator still gets no wheel: the official rule keeps emotes off for spectators, and the chat window's own
+             copy carries the same guard (`emote=${spectator ? null : …}` above). */
+          !spectator && (!chatOn || !chatOpen) ? html`<${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen}
           onSend=${(id, o) => (o && o.burst ? actions.emoteBurst(id) : actions.emote(id))} disabled=${conn.status !== 'online'} />` : null}
       </div>
 
