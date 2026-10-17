@@ -65,7 +65,8 @@ import { Downloader } from './assets/downloader.mjs';
 import { prepareCustomRelicIcons } from './assets/relics.mjs';
 import { rhineArtInput, addRhineArt } from './assets/rhine-plan.mjs';
 import { kazdelArtInput, addKazdelArt } from './assets/kazdel-plan.mjs';
-import { remArtInput, addRemArtPlan, REM_ENEMY_ART } from './assets/rem-plan.mjs';
+import { remArtInput, addRemArtPlan, REM_ENEMY_ART, REM_BOND_ICON, localBondArt } from './assets/rem-plan.mjs';
+import { isCompletePng } from './assets/formats.mjs';
 import { restartForEnvProxy } from './assets/env-proxy.mjs';
 import { MirrorPolicy, selectDownloadSource, validateSource } from './assets/network.mjs';
 import { normalizeProxyPrefix } from './assets/sources.mjs';
@@ -533,9 +534,16 @@ async function main() {
   // 六.F: the pack's own art is LOCAL (public/art/rhine/, like the relic icons) — the bond icon, the three device
   // sprites and the two equipment icons have no remote URL (assets/rhine-plan.mjs addRhineArt).
   // 内容包 卡兹戴尔: the same for its bond icon and the two equipment icons (assets/kazdel-plan.mjs addKazdelArt).
-  // 内容包 雷姆必拓: its bond icon (assets/rem-plan.mjs addRemArtPlan). The reinforcement models are ENEMY models the
-  // renderer resolves directly, so they come in through `extraEnemyIds` above, not through this manifest.
+  // 内容包 雷姆必拓: its bond icon is LOCAL art the user supplied (public/art/rem/, like 卡兹戴尔's) —
+  // `addRemArtPlan` maps it instead of planning a leaf. The reinforcement models are ENEMY models the renderer
+  // resolves directly, so they come in through `extraEnemyIds` above, not through this manifest.
   const body = addRemArtPlan(addKazdelArt(addRhineArt(resolved.value)));
+  // A local art path is not downloadable, so a checkout missing it would otherwise get a manifest entry pointing at
+  // nothing: fail here instead (public/art/** is in git; the case is someone's partial copy).
+  {
+    const logo = await readFile(localBondArt(ROOT)).catch(() => null);
+    if (!logo || !isCompletePng(logo)) throw new Error(`内容包 雷姆必拓: ${REM_BOND_ICON} is missing or not a complete PNG`);
+  }
   tidyManifest(body);
   tidyVoiceTrees(body);
   const fontFaces = {};

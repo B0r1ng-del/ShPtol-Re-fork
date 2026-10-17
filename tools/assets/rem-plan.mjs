@@ -1,10 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { RAW } from './sources.mjs';
-// Maintainer-supplied original, pinned to the verified handoff commit. Art stays in ignored public/assets.
-export const REM_LOGO_URL = 'https://raw.githubusercontent.com/YUYUYUYUYUYUYUTOUA/Stronghold-Protocol-Rhine/13df9cfd5f607a07ce4b1fa766439c3b012657cb/public/assets/bond/rem.png';
+// The bond icon is LOCAL art, like 卡兹戴尔's: a path the manifest carries, not a leaf with URLs to download
+// (`addRemArtPlan`). `localBondArt` is what `tools/fetch-assets.mjs` checks before writing that entry.
+export const REM_BOND_ICON = '/art/rem/bond.png';
+/** `public/art/rem/bond.png` under a checkout root — the file the manifest path points at. */
+export const localBondArt = (root) => `${root}/public${REM_BOND_ICON}`;
 export function addRemArtPlan(template) {
   template.bonds ||= {};
-  template.bonds.remShip = { alts: [{ rel: 'bond/rem.png', urls: [REM_LOGO_URL], kind: 'png' }] };
+  template.bonds.remShip = REM_BOND_ICON;
   return template;
 }
 

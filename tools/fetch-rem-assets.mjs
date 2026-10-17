@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Download the user-selected original logo, then regenerate its manifest entry. No art is committed.
+// Regenerate the Rem pack's manifest entries. The bond icon is LOCAL art (public/art/rem/bond.png, in git) like
+// 卡兹戴尔's, so `--manifest-only` writes its entry with no download; `--units` fetches the operators / reinforcements.
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -8,7 +9,7 @@ import { indexAudio } from './assets/audio.mjs';
 import { processModels } from './assets/spine.mjs';
 import { cachedJson } from './assets/cache.mjs';
 import { RAW } from './assets/sources.mjs';
-import { remArtInput, REM_ENEMY_ART, addRemArtPlan } from './assets/rem-plan.mjs';
+import { remArtInput, REM_ENEMY_ART, addRemArtPlan, localBondArt } from './assets/rem-plan.mjs';
 import { collectLeaves, downloadLeaves, resolveTemplate, contentHash } from './assets/manifest.mjs';
 import { isCompletePng } from './assets/formats.mjs';
 import { Downloader } from './assets/downloader.mjs';
@@ -32,7 +33,7 @@ async function main() {
     await downloadLeaves(collectLeaves(template), dl, assetRoot, 'Rem art');
   }
   if (!units) {
-    const logo = await readFile(join(assetRoot, 'bond/rem.png'));
+    const logo = await readFile(localBondArt(root));
     if (!isCompletePng(logo)) throw new Error('Original Rem logo is not a complete PNG');
   }
   const spine = units ? await processModels(plan.models,{root:assetRoot,dl,cachePath:join(cache,'rem-spine-cache.json'),writable:rel=>dl.written.has(rel)}) : {entries:{},problems:[]};
