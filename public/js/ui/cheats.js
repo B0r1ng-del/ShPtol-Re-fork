@@ -42,10 +42,39 @@ export function cheatBallOn() {
  */
 export const cheatBallStore = createStore({ on: cheatBallOn() });
 
-/** Turn the ball on or off for this device. */
-export function setCheatBall(on) {
+/**
+ * The unlock code, as a local check only.
+ *
+ * 需求方 2026-10-17: turning the ball ON now asks for a code. The code is deliberately NOT written anywhere it could be
+ * read — it is not a literal here, not in a comment, not in an i18n pack, not logged. It is stored as a digest (FNV-1a
+ * over the UTF-16 code units, mixed) and compared against the digest of what was typed, so reading this file tells you
+ * the shape of the check and not the answer. It guards the SESSION, not the game data: the server still owns every
+ * effect, so a wrong code only keeps the ball hidden on this device.
+ * @param {string} typed
+ * @returns {boolean}
+ */
+export function cheatCodeOk(typed) {
+  const s = String(typed ?? '').trim();
+  if (!s) return false;
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  // rotate once more so the digest is not the plain FNV of a short string a dictionary could be built for
+  h = ((h << 13) | (h >>> 19)) >>> 0;
+  return h === CHEAT_CODE_DIGEST;
+}
+
+/** Digest of the unlock code (see {@link cheatCodeOk}) — the code itself is never stored. */
+const CHEAT_CODE_DIGEST = 0xec882480;
+
+/** Turn the ball on or off for this device. Turning it ON needs the unlock code. */
+export function setCheatBall(on, code = null) {
+  if (on === true && !cheatCodeOk(code)) return false;
   savePref(PREF_CHEATS, on === true);
   cheatBallStore.set({ on: on === true });
+  return true;
 }
 
 /** Hook: is the ball enabled on this device (re-renders on `setCheatBall`). */
