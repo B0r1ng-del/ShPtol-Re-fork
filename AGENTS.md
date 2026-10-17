@@ -54,3 +54,21 @@ npm run golden                              # golden results
 Browser suites are off by default and need Chrome: `SP_E2E=1` (UI), `SP_REAL_E2E=1` (real match, needs assets),
 `RENDER_E2E=1`, `SIM_E2E=1` — see CONTRIBUTING.md §2. Battle tests are easiest with the helpers described in
 docs/SIM.md (the test harness section) and the patterns in `test/content/op_siege.test.js`.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live as GitHub issues on the fork (`B0r1ng-del/ShPtol-Re-fork`), read and written with `gh` — and every `gh` call
+needs `-R B0r1ng-del/ShPtol-Re-fork`, because this clone's `gh` resolves to the upstream remote instead. See
+`docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical triage roles use their canonical names as-is (`needs-triage`, `needs-info`, `ready-for-agent`,
+`ready-for-human`, `wontfix`), plus the five `wayfinder:*` labels. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+single-context — one shared `GLOSSARY.md` at the repo root and decisions in `docs/adr/`, both created lazily; no
+`GLOSSARY-MAP.md` and no per-subproject glossaries. See `docs/agents/domain.md`.
