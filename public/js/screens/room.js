@@ -18,7 +18,7 @@
 
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SPECTATORS, HOST_CONFIG_DEFAULTS, HOST_ENEMY_MAX_STEPS, HOST_ENEMY_STEP_PCT, MOD_DEFAULTS, normalizeEnemyBuff, roomSeatCap } from '../../../shared/constants.js';
-import { MOD_ROWS, MOD_RULE_ROWS, modsCount, rememberMods } from '../ui/mods.js';
+import { MOD_ROWS, MOD_RULE_ROWS, modsCount, rememberMods, splitByLength } from '../ui/mods.js';
 import {
   html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyTag, DifficultyIcon, Tooltip, confirmDialog, doctorNo, Modal, SwitchRow,
 } from '../ui/components.js';
@@ -321,24 +321,29 @@ export const enemyBuffTotal = (rows) => (rows || []).reduce((n, r) => n + r.step
  */
 function HostConfigDialog({ rows, enemyRows, modRows, open, busy, onClose, onToggle, onEnemy, onMod }) {
   if (!rows || !rows.length) return null;
-  const editable = rows.some((r) => r.editable);
+  // 图一 (2026-10-17): ONE list of switches for the whole dialog — the Mod rules first, then the host options — so
+  // {@link MatchOptionSection} can split it into two aligned columns. Each row carries its own write handler and the
+  // testid its old block used, so the two kinds stay distinguishable in the DOM.
+  const switchRows = [
+    ...(modRows || []).map((r) => ({
+      ...r,
+      testid: `hostcfg-mod-${r.key}`,
+      onChange: (v) => r.editable && onMod(r.key, v),
+    })),
+    ...(rows || []).map((r) => ({
+      ...r,
+      testid: `hostcfg-${r.key}`,
+      onChange: (v) => r.editable && onToggle(r.key, v),
+    })),
+  ];
   return html`<${Modal} open=${open} onClose=${onClose} tone="mint" width="min(9rem, 96vw)"
       title=${t('房间配置')} micro="HOST CONFIG"
       actions=${html`<${Button} variant="secondary" onClick=${onClose}>${t('完成')}<//>`}>
     <div class="hostcfg">
-      ${editable ? null : html`<p class="hostcfg__note">${t('由创建者设置：只有房主可以修改这些选项。')}</p>`}
-      ${/* 需求方 2026-10-17 (图三): the 「对局选项」 block moved to the TOP of the dialog — its header and note are what the
-           owner pointed at with the upper line, while the switch rows keep their own order below it. */
-        (enemyRows && enemyRows.length) || (modRows && modRows.length)
-        ? html`<${MatchOptionSection} rows=${modRows} busy=${busy} onMod=${onMod} />`
+      ${rows.some((r) => !r.editable) ? html`<p class="hostcfg__note">${t('由创建者设置：只有房主可以修改这些选项。')}</p>` : null}
+      ${switchRows.length
+        ? html`<${MatchOptionSection} rows=${switchRows} busy=${busy} onMod=${onMod} onToggle=${onToggle} />`
         : null}
-      <div class="hostcfg__rows">
-        ${rows.map((r) => html`<${SwitchRow} key=${r.key}
-          label=${t(r.label)} tip=${t(r.tip)} on=${r.on}
-          disabled=${!r.editable || !!busy}
-          testid=${`hostcfg-${r.key}`} infoTestid=${`hostcfg-info-${r.key}`}
-          onChange=${(v) => r.editable && onToggle(r.key, v)} />`)}
-      </div>
       ${/* 需求方 2026-10-17: the four sliders go LAST — every option above them is a switch, and a slider is a different
            kind of control, so it reads as the dialog's tail rather than interrupting the switches. */
         enemyRows && enemyRows.length
@@ -350,12 +355,16 @@ function HostConfigDialog({ rows, enemyRows, modRows, open, busy, onClose, onTog
 
 /**
  * 对局选项 — the game-rule Mod switches that change THIS match's rules (需求方 2026-10-16: they moved out of the 模式界面's
- * Mod submenu and in under 「对局选项」). The block is drawn by {@link MatchOptionSection}; this is its own heading.
+ * Mod submenu and in under 「对局选项」), followed by the 房主配置 options of {@link HOST_CONFIG_ROWS}.
  *
- * 2026-10-17 (owner): the four enemy-buff SLIDERS left for {@link EnemyBuffSection} at the dialog's tail — everything above
- * them is a switch, and a slider is a different kind of control.
+ * 图一 (2026-10-17, 需求方 「将可开关的功能分成两列；如果可以，再按字数长短排列整齐」): every switch of the dialog — the
+ * Mod rules AND the host options — is ONE list, split into two columns long-label-first ({@link splitByLength}). Two
+ * separate blocks (each its own column pair) would have put the same feature in four places; one list keeps the dialog
+ * to a single grid whose columns are aligned with each other.
+ *
+ * 2026-10-17: the four enemy-buff SLIDERS stay outside, at the dialog's tail — a slider is a different kind of control.
  */
-function MatchOptionSection({ rows, busy, onMod }) {
+function MatchOptionSection({ rows, busy, onMod, onToggle }) {
   const switchRows = rows || [];
   const editable = switchRows.some((r) => r.editable);
   const tipOf = (r) => t(r.tip);
@@ -367,13 +376,13 @@ function MatchOptionSection({ rows, busy, onMod }) {
     ${switchRows.length ? html`<div class="mods mods--hostcfg">
       <p class="mods__note">${t('以下规则默认全部关闭（原版规则）；开启后会改变本局的玩法，对其他玩家同样生效。')}</p>
       <div class="mods__rows">
-        <div class="mods__col" data-col="rule">
-          ${switchRows.map((r) => html`<${SwitchRow} key=${r.key}
+        ${splitByLength(switchRows).map((col) => html`<div class="mods__col">
+          ${col.map((r) => html`<${SwitchRow} key=${r.key}
             label=${t(r.label)} tip=${tipOf(r)} on=${r.on}
-            disabled=${!editable || !!busy}
-            testid=${`hostcfg-mod-${r.key}`} infoTestid=${`hostcfg-mod-info-${r.key}`}
-            onChange=${(v) => editable && onMod(r.key, v)} />`)}
-        </div>
+            disabled=${!r.editable || !!busy}
+            testid=${r.testid} infoTestid=${`${r.testid}-info`}
+            onChange=${(v) => r.editable && r.onChange(v)} />`)}
+        </div>`)}
       </div>
     </div>` : null}
   </div>`;

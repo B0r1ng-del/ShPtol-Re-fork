@@ -75,3 +75,16 @@ export const MOD_COLS = Object.freeze(['rule', 'pack']);
 export const MOD_RULE_ROWS = Object.freeze(MOD_ROWS.filter((r) => r.col === 'rule'));
 /** 内容包 side of MOD_ROWS: the ported packs, shown in their own 「Mod 菜单」 dialog (screens/mods.js). */
 export const MOD_PACK_ROWS = Object.freeze(MOD_ROWS.filter((r) => r.col === 'pack'));
+
+/**
+ * 图一 (2026-10-17): the 房间配置 switch rows cut into TWO columns, LONG LABELS FIRST — 需求方 「如果可以，再按字数
+ *长短排列整齐」. Ordering by the label's length instead of by MOD_KEYS gives each column an edge that reads as a
+ * stair: the longest names stack from the top, the shortest close the grid, so neither column ends in a ragged notch.
+ * The length is the untranslated msgid's, which is what fixes the ORDER; a language renders it in its own words.
+ * @param {Array<{ label: string }>} rows @returns {Array<Array<any>>} the columns, left first
+ */
+export function splitByLength(rows) {
+  const sorted = (rows || []).slice().sort((a, b) => b.label.length - a.label.length);
+  const half = Math.ceil(sorted.length / 2);
+  return [sorted.slice(0, half), sorted.slice(half)];
+}

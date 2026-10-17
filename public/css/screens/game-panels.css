@@ -269,8 +269,15 @@
   position: absolute; left: 2.3rem; top: 2.1rem; width: 5.4rem; max-height: calc(100% - 2.4rem); z-index: 8; overflow: auto;
   scrollbar-width: none;
   display: flex; flex-direction: column; gap: .12rem; padding: .2rem .22rem;
-  background: rgba(11, 15, 13, .97); border: 1px solid var(--line-2); box-shadow: 0 .14rem .4rem rgba(0, 0, 0, .65);
+  /* ACRYLIC (需求方 2026-10-17 「为局内查看的盟约详细界面加上 Acrylic 背景」): the bond popup was the one in-match surface left
+     fully opaque (.97), so it read as a cut-out over the field. Same frosted plate as the chat window / HUD. */
+  background: rgba(11, 15, 13, .66);
+  -webkit-backdrop-filter: blur(.12rem) saturate(1.6); backdrop-filter: blur(.12rem) saturate(1.6);
+  border: 1px solid var(--line-2); box-shadow: 0 .14rem .4rem rgba(0, 0, 0, .65);
   animation: pop-in var(--t-med) var(--ease-out);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .bpop { background: rgba(11, 15, 13, .97); }
 }
 .bpop::-webkit-scrollbar { width: 0; height: 0; }
 /* placement (gameLogic bondPopupPlace / BPOP — keep in sync): beside the left-docked detail card, left of the
@@ -279,7 +286,7 @@
 .bpop--beside { left: 7.32rem; z-index: 10; }
 .bpop--besideR { left: auto; right: 5.92rem; z-index: 10; }
 .bpop--right { left: auto; right: .9rem; z-index: 10; }
-.bpop.is-over { z-index: 10; background: rgb(11, 15, 13); }
+.bpop.is-over { z-index: 10; background: rgba(11, 15, 13, .88); }
 .bpop__close { position: absolute; right: .08rem; top: .08rem; width: .36rem; height: .36rem; display: grid; place-items: center; background: none; border: 1px solid var(--line-2); color: var(--text-lo); }
 .bpop__close .icon { width: .18rem; height: .18rem; }
 .bpop__head { display: flex; gap: .16rem; align-items: center; }

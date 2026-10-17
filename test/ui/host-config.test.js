@@ -97,6 +97,7 @@ test('the 对局选项 sliders: the four HOST_ENEMY_KEYS in order, at 0 by defau
 
 test('the 对局选项 markup: one slider per row, wired to room.setEnemyBuff, with the total in a warning line', async () => {
   const { HOST_ENEMY_ROWS } = await mod();
+  const { splitByLength } = await import(pathToFileURL(path.join(ROOT, 'public/js/ui/mods.js')).href);
   // the four sliders reuse 设置's own control (.set-row / .set-range) so they look and drag the same
   assert.match(SRC, /class="set-row ebuff__row" key=\$\{r\.key\}/, 'the settings slider row');
   assert.match(SRC, /class="set-range" type="range" min="0" max=\$\{HOST_ENEMY_MAX_STEPS\} step="1"/);
@@ -119,19 +120,17 @@ test('the 对局选项 markup: one slider per row, wired to room.setEnemyBuff, w
   // the ready bar's badge counts the buffed sliders too, not just the switch rows
   assert.match(SRC, /\(enemyRows \|\| \[\]\)\.filter\(\(r\) => r\.steps !== 0\)\.length/);
   // the dialog's order (需求方 2026-10-17: 「把四个滑块功能放到最底下，有单独开关的往上放」):
-  // 对局选项 switches → 房主配置 switches → the four sliders last
+  // 对局选项 switches → the four sliders last (the switches are ONE list now — 图一, see the bottom of this test)
   const dialog = SRC.slice(SRC.indexOf('function HostConfigDialog('), SRC.indexOf('/** The ready bar'));
-  assert.ok(dialog.includes('hostcfg__rows'), 'the switch rows');
   assert.ok(dialog.includes('MatchOptionSection'), 'rendered by its own component');
   const at = (s) => dialog.indexOf(s);
-  assert.ok(at('MatchOptionSection') < at('hostcfg__rows'), '对局选项 opens the dialog');
-  assert.ok(at('hostcfg__rows') < at('EnemyBuffSection'), 'and the sliders are the dialog tail');
+  assert.ok(at('MatchOptionSection') < at('EnemyBuffSection'), 'the sliders are the dialog tail');
   // the two halves are separate components, each with its own message
   assert.ok(!/function MatchOptionSection\(\{[^}]*enemyRows/.test(SRC), 'the switches no longer take enemyRows');
   // 2026-10-16 (owner): the five game-rule Mod 开关 join the sliders under 「对局选项」, so one component draws both.
   // SwitchRow renders the attribute itself, so the prop here is `testid` (not `data-testid`).
-  assert.match(SRC, /testid=\$\{`hostcfg-mod-\$\{r\.key\}`\}/, 'the rule switches keep their testid');
-  assert.match(SRC, /switchRows\.map\(/, 'and are drawn by the same section as the sliders');
+  assert.match(SRC, /testid: `hostcfg-mod-\$\{r\.key\}`/, 'the rule switches keep their testid');
+  assert.match(SRC, /splitByLength\(switchRows\)\.map\(/, 'and are dealt into two columns by label length');
   // every label and explanation is a msgid with a real English translation
   for (const zh of ['对局选项', '怪物血量', '怪物攻击', '怪物防御', '怪物魔抗', '每格 +10%，最高 +100% · 加强本局全部敌人（含首领与联防）', '本局敌人已获得强化（合计 {n}%），请谨慎调整']) {
     // the warning's msgid carries a {n} param, so match the literal alone
@@ -144,11 +143,26 @@ test('the 对局选项 markup: one slider per row, wired to room.setEnemyBuff, w
   assert.match(CSS, /\.ebuff \{/);
   assert.match(CSS, /\.ebuff__rows \{/);
   assert.match(CSS, /\.ebuff__warn \{/);
-  // 对齐 (需求方 2026-10-17: 「右侧开关未对齐」): only the rule half of MOD_ROWS comes here, so the two-column grid
-  // `.mods__rows` (screens/lobby.css) must be narrowed to ONE full-width column inside this dialog — otherwise the single
-  // column sat in the left half and its switches stopped short of the `.hostcfg__rows` switches right above them.
-  assert.match(CSS, /\.mods--hostcfg \.mods__rows \{ grid-template-columns: minmax\(0, 1fr\); \}/);
+  // 图一 (2026-10-17, 需求方 「将可开关的功能分成两列；如果可以，再按字数长短排列整齐」): the dialog now hands ONE list —
+  // the Mod rules AND the host options — to `MatchOptionSection`, which deals it into two columns long-label-first. So
+  // `.mods--hostcfg` keeps the submenu's two-column grid (no one-column override any more) and `.hostcfg__rows` is gone.
+  assert.ok(!/\.mods--hostcfg \.mods__rows \{ grid-template-columns: minmax\(0, 1fr\); \}/.test(CSS), 'two columns again');
+  assert.ok(!/^\.hostcfg__rows \{/m.test(CSS), 'the separate host-option block is gone');
+  assert.match(SRC, /splitByLength\(switchRows\)\.map\(/, 'the rows are split by label length');
+  // the splitter itself: longer labels first, cut in half, no row lost
+  const cols = splitByLength(MOD_ROW_LABELS.map((label) => ({ label })));
+  assert.equal(cols.length, 2, 'two columns');
+  assert.equal(cols.flat().length, MOD_ROW_LABELS.length, 'every row lands somewhere');
+  const lens = cols.map((c) => c.map((r) => r.label.length));
+  for (const l of lens) for (let i = 1; i < l.length; i++) assert.ok(l[i - 1] >= l[i], 'long labels first');
+  assert.ok(Math.abs(lens[0].length - lens[1].length) <= 1, 'balanced halves');
 });
+
+/** Every label the 房间配置 dialog can show, as the msgid its length is measured on. */
+const MOD_ROW_LABELS = [
+  '关闭盟约禁用', '机变不限时间', '机变随机分配', '额外 4 回合', '定向甄选', '解除叠层上限',
+  '共享卡池', '共享悬赏', 'AI 队友最后选择', '多同盟模式', '装备可售卖', '在线聊天',
+];
 
 test('「AI 队友最后选择」 reads its own pre-existing room.state field, every other row reads hostConfig', async () => {
   const { hostConfigOption } = await mod();
@@ -180,7 +194,7 @@ test('room.js sends room.setHostConfig { key, on } and opens the dialog from the
   // under the switch. The owner's report: 「原样式通过点击功能标题来启用/禁用，开关状态不明显」.
   assert.match(SRC, /<[$]\{SwitchRow\} key=[$]\{r\.key\}/, 'the row is the shared SwitchRow');
   assert.match(SRC, /disabled=\${!r\.editable \|\| !!busy}/, 'a non-host (or a busy room) gets a disabled switch');
-  assert.match(SRC, /onChange=\${\(v\) => r\.editable && onToggle\(r\.key, v\)}/, 'only the host writes');
+  assert.match(SRC, /onChange=\${\(v\) => r\.editable && r\.onChange\(v\)}/, 'only the host writes');
   assert.ok(!/hostcfg__desc/.test(SRC), 'the explanation is no longer printed under the switch');
   const COMPONENTS = readFileSync(path.join(ROOT, 'public/js/ui/components.js'), 'utf8');
   assert.match(COMPONENTS, /export function SwitchRow\(\{ label, tip, on, onChange, disabled = false, testid, infoTestid \}\)/);
@@ -199,5 +213,5 @@ test('room.js sends room.setHostConfig { key, on } and opens the dialog from the
   // the removed standalone switch and the old rectangular option left no dead style behind
   assert.ok(!/\.ailast/.test(CSS), 'no stale .ailast rules');
   assert.ok(!/\.hostcfg__opt/.test(CSS), 'the rectangular option style is gone (the pill switch replaced it)');
-  assert.match(CSS, /\.hostcfg__rows \{/);
+  assert.match(CSS, /\.hostcfg__note \{/, 'the read-only note keeps its style');
 });
