@@ -337,6 +337,15 @@ export function SettingsModal({ open, onClose }) {
   const s = useSettings();
   const [tested, setTested] = useState(false);
   const cheatBall = useCheatBall();
+  // 作弊菜单 activation code (需求方 2026-10-17): turning the ball on asks for it first; the code is only compared
+  // locally (ui/cheats.js cheatCodeOk) and the typed text is never stored or logged.
+  const [codeOpen, setCodeOpen] = useState(false);
+  const [code, setCode] = useState('');
+  const [codeWrong, setCodeWrong] = useState(false);
+  const submitCode = () => {
+    if (setCheatBall(true, code)) { setCodeOpen(false); setCode(''); setCodeWrong(false); }
+    else { setCodeWrong(true); setCode(''); }
+  };
   const [touchUi] = useState(() => detectFeatures().coarse && !detectFeatures().fine);
   const mtNote = machineTranslationNote(); // a pack marked as machine translation says so under the switch
   const [fxOk, setFxOk] = useState(false);  // effects extracted from the local client: the 官方特效 row shows
@@ -385,8 +394,17 @@ export function SettingsModal({ open, onClose }) {
       <${Toggle} label=${t('作战统计')} micro="COMBAT STATS" value=${s.combatMetrics} onChange=${(v) => updateSettings({ combatMetrics: v })} />
       <p class="set-hint">${t('打开后，对局顶栏可以查看自己干员的伤害、治疗和 DPS / HPS。官方界面没有这个窗口。改变玩法的插件对局在 Worker 里演算，统计不到，按钮不显示。')}</p>
       <${Toggle} label=${t('显示作弊菜单')} micro="CHEAT MENU" value=${cheatBall}
-                 onChange=${(v) => setCheatBall(v)} />
-      <p class="set-hint">${t('在备战阶段显示一个可拖动的悬浮球，用来开启仅对自己生效的作弊开关。默认关闭。')}</p>
+                 onChange=${(v) => (v ? setCodeOpen(true) : setCheatBall(false))} />
+      <p class="set-hint">${t('在备战阶段显示一个可拖动的悬浮球，用来开启仅对自己生效的作弊开关。默认关闭，开启需要激活码。')}</p>
+      ${codeOpen ? html`<div class="set-row" data-testid="cheat-code-row">
+        <span class="set-row__label">${t('激活码')}<${MicroLabel}>CODE<//></span>
+        <input class="set-input" type="password" inputmode="numeric" autocomplete="off" maxlength="24"
+          value=${code} placeholder=${t('输入激活码')} aria-label=${t('激活码')} data-testid="cheat-code"
+          onInput=${(e) => setCode(e.currentTarget.value)}
+          onKeyDown=${(e) => { if (e.key === 'Enter') submitCode(); }} />
+        <${Button} variant="primary" onClick=${submitCode}>${t('确认')}<//>
+      </div>` : null}
+      ${codeWrong ? html`<p class="set-hint set-hint--warn" data-testid="cheat-code-wrong">${t('激活码不正确。')}</p>` : null}
       <div class="set-row">
         <span class="set-row__label">${t('画面质量')}<${MicroLabel}>QUALITY<//></span>        <div class="set-seg" role="radiogroup">
           ${QUALITY.map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${s.quality === id ? 'true' : 'false'}

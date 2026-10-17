@@ -2199,5 +2199,9 @@
   "{tier}级 {used}/{slots}": "Tier {tier} · {used}/{slots}",
   "无限火力": "Unlimited firepower",
   "{0} → 阶 {1}": "{0} → tier {1}",
-  "本服务器的内容集与你的不一致，请补齐本地缓存后重试": "This server runs a different content set; sync your local cache and try again"
+  "本服务器的内容集与你的不一致，请补齐本地缓存后重试": "This server runs a different content set; sync your local cache and try again",
+  "在备战阶段显示一个可拖动的悬浮球，用来开启仅对自己生效的作弊开关。默认关闭，开启需要激活码。": "Shows a draggable floating ball during prep that turns on cheats affecting you alone. Off by default; turning it on asks for an activation code.",
+  "激活码": "Activation code",
+  "输入激活码": "Enter the activation code",
+  "激活码不正确。": "That activation code is not correct."
 }

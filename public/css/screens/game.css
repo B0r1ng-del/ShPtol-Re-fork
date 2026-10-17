@@ -691,6 +691,14 @@
 .set-seg button:last-child { border-right: 0; }
 .set-seg button.is-on { background: var(--mint-500); color: var(--text-on-mint); font-weight: 700; }
 .set-hint { margin-top: .06rem; font-size: calc(.14 * var(--t)); color: var(--text-dim); line-height: 1.8; }
+/* 作弊菜单 激活码 (需求方 2026-10-17): the code input sits in a .set-row's middle cell; the wrong-code line is the hint in red */
+.set-input {
+  min-width: 0; height: .4rem; padding: 0 .12rem;
+  background: rgba(8, 11, 10, .7); border: 1px solid var(--line-2); color: var(--text-hi);
+  font-family: var(--font-num); font-size: .18rem; letter-spacing: .1em;
+}
+.set-input:focus-visible { outline: 2px solid var(--mint-500); outline-offset: 1px; }
+.set-hint--warn { color: var(--red-premium); }
 .set-hint kbd, .lvcard__key, .toolbtn kbd { font-family: var(--font-num); font-size: .11rem; border: 1px solid var(--line-2); padding: 0 .04rem; color: var(--text-lo); background: rgba(0, 0, 0, .3); }
 /* 快捷键 (ui/settings.js HotkeySection): each shortcut with its key — click the key, press the new one; two columns,
    one under 768 px (phones in landscape) */
