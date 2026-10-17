@@ -493,6 +493,12 @@ export function createDataStore(opts = {}) {
     },
     /** Current game-text locale ('zh' or the language of the last switch). */
     locale: () => locale,
+    /**
+     * Signature of the pack switch set (`setPacks`): a `useMemo` over `data.list(...)` must key on it, because the switch
+     * changes which records the file holds while `status` and the locale stay put (需求方 2026-10-17, 干员调配).
+     * @returns {string}
+     */
+    packsSig: () => packsSig,
     /** The languages whose overlays apply now, best first (empty in Chinese). */
     localeChain: () => [...chain],
     /**
@@ -547,6 +553,11 @@ export function createDataStore(opts = {}) {
       packs = normalizeMods(mods);
       packed.clear();
       for (const name of [...entries.keys()]) notify(name);
+      // 干员调配 (需求方 2026-10-17: 「开启卡兹戴尔／雷姆必拓后，干员调配界面没有出现相应的干员」): a screen that lists a file
+      // through a `useMemo` keyed on the file's OWN signature (`ready`, `data.locale()`) never re-runs when the pack set
+      // changes — the file array is a different array, but nothing it depends on moved. So the pack switch is a
+      // notification of its own, and `useData` listens for it: every roster that reads `data.list` re-renders.
+      for (const fn of listeners) fn(null);
     },
     /**
      * A Chinese game-data name (operator, item, bond, token …) in the current locale: the first overlay of the chain
@@ -650,6 +661,10 @@ export function getMode(modeId) {
 
 /**
  * Preact hook: start loading the given files and re-render when any of them settles.
+ *
+ * Also re-renders when the pack switch changes (`setPacks`): the file a caller lists is a different array then, and a
+ * `useMemo` over `data.list(...)` that keys on `ready` alone would keep the roster a switched-on pack never entered
+ * (需求方 2026-10-17, 干员调配). The switch notifies with `null`, so it is not mistaken for a file settling.
  * @param {...string} names
  * @returns {boolean} true once every file is settled (ready or missing)
  */
@@ -658,7 +673,7 @@ export function useData(...names) {
   const key = names.join('|');
   useEffect(() => {
     let alive = true;
-    const unsub = data.subscribe((n) => { if (alive && names.includes(n)) force(); });
+    const unsub = data.subscribe((n) => { if (alive && (n === null || names.includes(n))) force(); });
     for (const n of names) data.load(n);
     return () => { alive = false; unsub(); };
   }, [key]);

@@ -1,4 +1,5 @@
-// public/resource-sw.js — 引擎自带的资源 Service Worker（DESIGN §28.13.5，docs/WORKSHOP.md §1.9.4）。
+// public/resource-sw.js — 引擎自带的资源 Service Worker（包的资源缓存由引擎维护；注册口径见
+// public/js/resources/worker.js）。
 //
 // **这是引擎文件，不是包的内容。** 业主裁决（2026-10-10）：根作用域的 SW 能拦截本站点**所有**请求，所以它必须由
 // 引擎自带并由引擎维护；包**只声明** `pack.json.assets = { container, manifest, serverPolicy?, verify? }`，
