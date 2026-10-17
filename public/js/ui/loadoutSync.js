@@ -29,6 +29,45 @@ import { OWNERSHIP_PREF, parseStoredOwnership, toStoredOwnership, cleanIds, sani
 import { DIY_PREF, parseStoredDiy, toStoredDiy, cleanPicks, sanitizeDiyPicks } from './diyModel.js';
 import { toast } from './toasts.js';
 import { t, N_ } from '../../../shared/i18n.js';
+import { PHASE } from '../../../shared/constants.js';
+
+/**
+ * 行为开关 `prepLoadout` 的**客户端半**（DESIGN §34.43.3）：`room.loadout` 收哪些相位。
+ *
+ * 服务端那一半是 `server/match/match/platform.js` 的 `loadoutPhasesFor`（读包的行为声明）；这一半只是**这一页**
+ * 记住合成后的档位，因为「干员调配」屏要在本地就决定「改不了」时给不给入口 —— 等到服务器回 `WRONG_PHASE` 再
+ * 弹提示，玩家已经白改一遍了。
+ *
+ * ⚠️ **与 server 那份是两张表**：客户端不能 import `server/**`（导入边界），所以这是这一层既有的
+ * 「客户端副本 + 一个测试把两张表钉在一起」的做法（与 `CLIENT_WRAP_COMPONENTS`↔`MOD_COMPONENT_IDS` 同一条）。
+ * 缺省档 `locked` = 官方行为（只收 `INFO_CHECK`），所以没装任何包时这一层等于不存在。
+ */
+export const LOADOUT_CLIENT_PHASES = Object.freeze({
+  locked: Object.freeze([PHASE.INFO_CHECK]),
+  prep: Object.freeze([PHASE.INFO_CHECK, PHASE.PREP]),
+});
+
+/** 这一页拿到的档位（由 `roomMods.js` 从 `welcome.mods` 合成后写入；缺省 `'locked'` = 引擎今天的行为）。 */
+let prepLoadoutOption = 'locked';
+
+/** 记下这一页的有效档位（`roomMods.js` 调；非 `'prep'` 一律当作缺省）。 */
+export function setPrepLoadout(option) { prepLoadoutOption = option === 'prep' ? 'prep' : 'locked'; }
+
+/** 这一页允不允许在 `PREP` 里改调配（诊断 / 测试面）。 */
+export function prepLoadoutAllowed() { return prepLoadoutOption === 'prep'; }
+
+/**
+ * 这一档下 `room.loadout` **收**的相位（纯函数：入参是档位，不是这一页的状态 —— 于是两档都能直接断言）。
+ * **要判「锁定」就取反**：`locked = !currentLoadoutLockPhases().includes(phase)`。
+ * @param {'locked'|'prep'|null|undefined} option
+ * @returns {readonly string[]}
+ */
+export function loadoutLockPhases(option) {
+  return option === 'prep' ? LOADOUT_CLIENT_PHASES.prep : LOADOUT_CLIENT_PHASES.locked;
+}
+
+/** 这一页当前档位下 `room.loadout` **收**的相位（屏幕读它；判「锁定」时取反）。 */
+export function currentLoadoutLockPhases() { return loadoutLockPhases(prepLoadoutOption); }
 
 export const SYNC_DEBOUNCE_MS = 500;
 export const RETRY_MS = 1500;

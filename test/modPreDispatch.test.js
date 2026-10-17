@@ -613,13 +613,13 @@ describe('server.preDispatch 端到端（真 HTTP + 真 WebSocket）', () => {
       const welcome = await proven.hello('Proven');
       const digest = welcome.mods?.digest;
       assert.equal(typeof digest, 'string', '装了包就应当有摘要，客户端要回话它');
-      const opened = await proven.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', mods: digest });
+      const opened = await proven.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', modDigest: digest });
       assert.equal(opened.t, 'ok', JSON.stringify(opened));
       const state = await proven.waitFor('room.state');
       assert.equal(typeof state.code, 'string', '房间确实开出来了');
 
       // 另一条连接（未证明）仍然被拦：连接之间不共享闸门状态
-      const again = await unproven.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', mods: digest });
+      const again = await unproven.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', modDigest: digest });
       assert.equal(again.code, 'RESOURCE_REQUIRED');
 
       // 坏形状的证明在协议层就被拒（不会到钩子）

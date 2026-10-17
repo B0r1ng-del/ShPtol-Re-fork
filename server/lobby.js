@@ -156,7 +156,7 @@
 
 import { randomBytes, randomInt } from 'node:crypto';
 import { DIFFICULTIES, ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, HOST_CONFIG_KEYS, HOST_CONFIG_DEFAULTS, HOST_CONFIG_SOLO_KEYS, HOST_ENEMY_KEYS, HOST_ENEMY_DEFAULTS, HOST_ENEMY_MAX_STEPS, MOD_KEYS, MOD_DEFAULTS, normalizeMods, roomSeatCap, ULTIMATE_DIFFICULTY, modeIdFor } from '../shared/constants.js';
-import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks, charPotentialChanges } from '../shared/protocol.js';
+import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks, charPotentialChanges, PACK_MSG_LIMITS } from '../shared/protocol.js';
 import { encode, isDroppable, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
 import { Match as DefaultMatch } from './match/Match.js';
@@ -164,6 +164,8 @@ import { KITTED_CHARS } from './sim/content/kits/index.js';
 
 const VANILLA_KITTED = new Set(KITTED_CHARS);
 import { isContentHash } from '../shared/plugins/identity.js';
+import { modSetOf, isModDigest } from '../shared/modIdentity.js';
+import { createRoomHooks } from './roomPack.js';
 import { msg, wireMessage } from '../shared/i18n.js';
 
 /** Room code alphabet: uppercase letters without I and O (and no digits, so no 0/1). */
@@ -272,6 +274,13 @@ export class Room {
      * @type {Record<string, boolean>}
      */
     this.mods = { ...MOD_DEFAULTS };
+    /**
+     * 这个房间**声明**的包集合（W-A，DESIGN §34.9）：`{ digest, packs }`，或 `null` = 没声明（跑进程级那一份）。
+     * 本 fork 没有 `room.create.modIds` 这条通道（房间挑子集那一层没移植），所以它**永远是 `null`** —— 但这一格
+     * 存在，因为 `room.state.mods.packs` 与 `roomHooks` 的 W-B 判据都读它，判据只有一份才不会漂移。
+     * @type {{ digest: string, packs: Array<object> } | null}
+     */
+    this.modSet = null;
     /** @type {string | null} */
     this.hostId = null;
     /** @type {(Seat | null)[]} */
@@ -397,7 +406,60 @@ export class Lobby {
      * `Match.behaviour` 于是取空表 ⇒ 每一格都走官方档，与包这一层出现之前**逐字节相同**。
      * @type {{ packs: Array<{ id: string, hash?: string, behaviour?: Array<{ switch: string, option: string }> }> } | null}
      */
-    this.workshop = workshop && Array.isArray(workshop.packs) && workshop.packs.length ? workshop : null;
+    // ★ 判据是 `mods`（服务端投影出来的**身份清单**），不是 `packs`（装载器的原始记录）：`server/index.js` 传进来的
+    // 那份 `workshop` 投影里只有 `mods` / `panels` / `assets` / `kits` … 这些**服务端要用的形状**，没有 `packs`
+    // 这个键。从前这里判 `workshop.packs`，于是哪怕装了一堆包，`this.workshop` 也是 `null` —— `welcome` 没有
+    // `mods` 字段、行为声明全走官方档，而那正是最坏的静默失效（`test/modIdentityWire.test.js` 抓的就是这条）。
+    this.workshop = workshop && Array.isArray(workshop.mods) && workshop.mods.length ? workshop : null;
+    /**
+     * 本进程的 mod 集身份（DESIGN §34.2）：`{ digest, packs: [{ id, hash, layer, combat, api? }] }`，摘要由
+     * `shared/modIdentity.js modSetOf` 算 —— 它在 `shared/` 里而不是这里，因为**浏览器必须能自己重算**同一个值：
+     * 客户端拿到 (list, digest) 之后先核对这一对自洽，再把这个 digest 回话给服务器，才允许进一个装了包的房间。
+     *
+     * `null` = 没有包（干净安装）⇒ `welcome` 里没有 `mods` 这个键，`room.create` 也不校验摘要，整条闸门不存在，
+     * 与这一层出现之前**逐字节相同**。
+     * @type {{ digest: string, packs: Array<{ id: string, hash: string, layer: string, combat: boolean, api?: string }> } | null}
+     */
+    this.modSet = this.workshop && Array.isArray(this.workshop.mods) && this.workshop.mods.length
+      ? modSetOf(this.workshop.mods) : null;
+    /**
+     * 包通道的**准入面**（`pack.msg`，docs/WORKSHOP.md §1.9.6）：`<包 id>` → 这个包的**面板**声明过的通道集合
+     * （`client.panels[].messages`，由 `server/index.js` 的 `loadWorkshopPanels` 投影成 `workshop.panels`）。
+     * 这张表决定消息**收不收**：一个包说不出另一个包的通道，也说不出自己没写进面板声明的通道。
+     * 空 Map = 没有包声明面板 ⇒ `pack.msg` 一律拒（协议认识它，但没人有资格发）。
+     * @type {Map<string, Set<string>>}
+     */
+    this.packChannels = new Map();
+    for (const panel of (this.workshop && Array.isArray(this.workshop.panels) ? this.workshop.panels : [])) {
+      if (!panel || typeof panel.pack !== 'string' || !Array.isArray(panel.messages)) continue;
+      if (!this.packChannels.has(panel.pack)) this.packChannels.set(panel.pack, new Set());
+      for (const channel of panel.messages) this.packChannels.get(panel.pack).add(channel);
+    }
+    /**
+     * 包通道的**投递面**（`server.modules[].channels`）：`<包 id>` → 这个包的服务端模块声明过的接收通道集合。
+     * 与上面那张 `packChannels`（客户端能说什么）成对：那张决定消息**收不收**，这张决定消息送不送进**这一局**
+     * （`Match.handlePackMsg`）。由 `server/index.js` 从**裁后**的服务端模块装载结果投影过来。
+     * 空 Map = 没有包声明接收通道 ⇒ 投递路径整块跳过（不建对象、不多一次调用）。
+     * @type {Map<string, Set<string>>}
+     */
+    this.serverChannels = this.workshop && this.workshop.serverChannels instanceof Map
+      ? this.workshop.serverChannels : new Map();
+    /**
+     * 包声明的**房间级钩子**总线（`pack.json.server.room`，DESIGN §34.20）。`workshop.roomHooks` 是启动时装载的
+     * installer 列表；总线按**房间**留表（W-B：声明了集合的房间只装它点名的包）。一个包都没声明时是空列表 ⇒
+     * `install(room)` 什么都不做、`fire` 一次调用都没有，干净安装与从前**逐字节相同**（那几条路径都是空循环）。
+     */
+    this.roomHooks = createRoomHooks({
+      installers: this.workshop && Array.isArray(this.workshop.roomHooks) ? this.workshop.roomHooks : [],
+      log,
+      now,
+    });
+    /**
+     * `pack.msg` 的**频率**账（每会话令牌桶）：一条没有限流的通道就是一个刷屏通道，而「引擎不解释载荷」
+     * 不等于「引擎不管频率」。上限在 `shared/protocol.js PACK_MSG_LIMITS`（与载荷大小同一处）。
+     * @type {Map<string, { tokens: number, at: number }>}
+     */
+    this.packMsgBuckets = new Map();
     /** the server's room sets — visual and content (header "The room's plugins", "Gameplay plugins"), or null */
     this.plugins = plugins;
     /** the match hosts (header "Gameplay plugins"), or null */
@@ -503,7 +565,14 @@ export class Lobby {
       for (const s of r.seats) if (s && !s.left) (s.isBot ? bots++ : humans++);
       spectators += r.spectators.length;
     }
-    return { rooms: this.rooms.size, matches, humans, bots, spectators };
+    // `mods` 是**摘要**（不是 Mod 开关对象）：一个 bug report 引它就能说清「这一版跑的是哪份内容集」，
+    // 而它由 `modSetOf` 算出 —— 与 `welcome.mods.digest`、每一份 BattleSpec 的 `spec.mods` 是同一个值。
+    // `modPacks` 是**条数**（一个摘要看不出「装了 1 个还是 8 个」）。没装包时两个键都**不存在**
+    // （干净安装的 `/healthz` 与从前逐字节相同）。
+    return {
+      rooms: this.rooms.size, matches, humans, bots, spectators,
+      ...(this.modSet ? { mods: this.modSet.digest, modPacks: this.modSet.packs.length } : {}),
+    };
   }
 
   // ---------------------------------------------------------------------------------------------------
@@ -642,6 +711,7 @@ export class Lobby {
       case 'room.setMode': return this.setMode(session, msg);
       case 'room.contentReady': return this.contentReady(session, msg, ctx);
       case 'room.consent': return this.consent(session,msg);
+      case 'pack.msg': return this.packMsg(session, msg);
       default:
         if (typeof msg.t === 'string' && msg.t.startsWith('g.')) return this.routeGameNow(session, msg);
         return fail(ERR.BAD_MSG, `unhandled type ${String(msg.t).slice(0, 32)}`);
@@ -710,9 +780,14 @@ export class Lobby {
   // room.* handlers
   // ---------------------------------------------------------------------------------------------------
 
-  create(session, { mode, difficulty, mods }) {
+  create(session, { mode, difficulty, mods, modDigest }) {
     const cur = this.roomOf(session);
     if (cur && cur.match) return fail(ERR.ROOM_STARTED, 'leave your running match first');
+    // 内容集摘要闸门（`room.create.modDigest`，DESIGN §34.4）：本进程装了包时，客户端必须说出它以为自己在加入哪一份
+    // 内容集。说不出来、或说的不是这一份 ⇒ 拒绝，并**点名**差在哪几个包上（一个只说「不匹配」的拒绝，作者无从下手）。
+    // 没装包（干净安装）时 `this.modSet` 是 `null` ⇒ 整条闸门不存在，`room.create` 的行为与这一层出现之前逐字节相同。
+    const gate = this.checkModDigest(modDigest);
+    if (gate) return gate;
     if (this.rooms.size >= this.opts.maxRooms) return fail(ERR.INTERNAL, 'too many rooms');
     const key = session.limitKey || null;
     if (key && this.opts.maxRoomsPerAddr > 0) {
@@ -748,15 +823,139 @@ export class Lobby {
     session.roomCode = code;
     session.notice = null;
     session.pendingResult = null;
+    // 房间级钩子（`pack.json.server.room`，DESIGN §34.20）：房间**建起来时**把声明过的包各 `install(room)` 一次。
+    // 一个包都没声明时 `install` 是空循环（那张表里连条目都不建）⇒ 干净安装与从前逐字节相同。
+    this.roomHooks.install(room);
+    // `create` 是房间生命周期的第一个事件（闭枚举见 `server/roomPack.js ROOM_EVENTS`）：在 `install` 之后触发，
+    // 所以钩子既能观察到「房间刚建好」，也知道自己是这个房间的一员。
+    this.hookFire(room, 'create');
     this.log.info(`[lobby] ${code} created (${mode}/${diff}) by ${session.name}`);
     this.broadcastState(room);
     return OK;
   }
 
-  join(session, { code }) {
+  /**
+   * 内容集摘要闸门（`room.create.modDigest` / `room.join.modDigest`，DESIGN §34.2、§34.4）。
+   *
+   * 三档，全部走**同一个**判据（`this.modSet.digest`，由 `shared/modIdentity.js modSetOf` 算出来，与 `welcome.mods`
+   * 和每一份 BattleSpec 用的是同一个值 —— 三处不可能互相矛盾）：
+   *   * 没装包（`this.modSet === null`）⇒ 返回 `null`（放行）。干净安装上这条闸门**不存在**，一个不带摘要的客户端
+   *     与从前逐字节相同。
+   *   * 装了包但客户端没带摘要 ⇒ 拒绝，理由点名「本服务器跑了哪些包」—— 客户端据此能自己补齐。
+   *   * 带了但不是这一份 ⇒ 拒绝，理由点名差在哪几个包上（只差一个 / 多了几个），而不是一句「不匹配」。
+   *
+   * 返回 `null` = 放行；否则是一个 `fail(...)` 的回复对象。
+   * @param {string|undefined} given the digest the client claims it is joining
+   * @returns {null | { error: string, detail?: string }}
+   */
+  checkModDigest(given) {
+    if (!this.modSet) return null;
+    const mine = this.modSet.digest;
+    const ids = this.modSet.packs.map((p) => p.id);
+    if (given == null) {
+      return fail(ERR.MOD_SET_MISMATCH, `this server runs mods; say which set you are joining (modDigest) — running: ${ids.join(', ')}`);
+    }
+    if (!isModDigest(given)) {
+      // 形状已经在 shared/protocol.js 判过；走到这里说明调用方没走协议（内部调用），按同一个码拒绝。
+      return fail(ERR.MOD_SET_MISMATCH, `modDigest must be 16–64 lowercase hex characters — running: ${ids.join(', ')}`);
+    }
+    if (given === mine) return null;
+    // 点名差在哪：把「客户端以为的」与「服务器真有的」都列出来，作者才知道该删哪个包 / 补哪个包。
+    return fail(ERR.MOD_SET_MISMATCH, `the content set does not match this server (running: ${ids.join(', ')})`);
+  }
+
+  /**
+   * 触发一个房间级钩子事件（`pack.json.server.room`，DESIGN §34.20）。**本文件唯一的装配触点** —— 生命周期点各调
+   * 它一次，怎么分发（闭枚举校验、逐钩子 try/catch、`ROOM_HOOK_THREW`）全在 `server/roomPack.js`。
+   * 没有包声明房间钩子时 `fire` 一次调用都不做（总线那张表是空的）。
+   * @param {Room} room
+   * @param {string} event
+   * @param {object} [payload]
+   */
+  hookFire(room, event, payload = null) {
+    this.roomHooks.fire(room, event, payload);
+  }
+
+  /**
+   * `pack.msg`（docs/WORKSHOP.md §1.9.6）：**包自己的通道**，引擎只当不透明载荷转发。判据五条，全部落在
+   * 「不认识的声明要响亮」那条线上：
+   *   1. 必须**在房间里**（通道是房间内的，不在大厅里广播全网）；
+   *   2. `pack` 必须是这个服务器真的装着的包，且它**声明过**这个通道（`this.packChannels`）—— 一个包说不出另一个
+   *      包的通道，也说不出自己没写进 `client.panels[].messages` 的通道；
+   *   3. 载荷大小由 `validateC2S` 卡过（`PACK_MSG_LIMITS.bytes`），这里再卡**频率**（每会话令牌桶，超了 `ERR.RATE`）；
+   *   4. 送回**同一个房间**的成员与旁观者。引擎不解释 `data`，也不判断谁该收到 —— 客户端只把消息交给声明过这个
+   *      通道的面板，那是「第二个读者」的判据（`extensions.js` 的 `net.on(channel, …)`）。
+   *   5. 若房间里跑着对局、它的 `Match` 上有 `handlePackMsg(playerId, msg)`，**且这个包的服务端模块声明过这个通道**
+   *      （`server.modules[].channels`）—— 三条齐了才**在限流之后、转发之前**调一次：返回 `true` 或
+   *      `{ consumed: true }` = **已消费**，不再转发给同房其它人；其余返回值（含 `false` / `undefined`）与**抛错**
+   *      都当作未消费，照旧转发 —— 一条坏消息不能把整个转发打断。没声明过的通道**投都不投**（转发照旧）：
+   *      `channels` 是接收入口，不是注释。
+   *
+   * `session.playerId` **可能是观战者**（`pack.msg` 没有旁观者判据，与 `room.chat` 的 `ERR.SPECTATOR` 不同口径），
+   * 判不判由包自己决定。
+   * @param {import('./net.js').Session} session
+   * @param {{ pack: string, channel: string, data?: any }} msg
+   */
+  packMsg(session, msg) {
+    const room = this.roomOf(session);
+    if (!room) return fail(ERR.NOT_IN_ROOM);
+    const declared = this.packChannels.get(msg.pack);
+    if (!declared || !declared.has(msg.channel)) {
+      return fail(ERR.BAD_MSG, `pack "${String(msg.pack).slice(0, 32)}" does not declare the channel "${String(msg.channel).slice(0, 32)}"`);
+    }
+    if (!this.packMsgAllowed(session)) return fail(ERR.RATE);
+    // 对局子类的触发点：`matchClass` 包装器本来就能碰到整个 Match，这里只补「消息到了」这一下。**投递收窄到本包
+    // 服务端模块声明过的通道**：没声明过的通道没有接收入口，投都不投 —— 这是本格的判据，不是注释。转发口径一字
+    // 未动：这仍然是**面板**那半边的事，收窄只影响「送不送进这一局」。复用 `callMatch` 已有的 try/catch 与点名
+    // 日志 ⇒ 钩子抛错时返回 undefined，落进下面「未消费」那一条，转发照旧。
+    const declaredInMatch = this.serverChannels.get(msg.pack);
+    if (declaredInMatch && declaredInMatch.has(msg.channel)) {
+      const hook = this.callMatch(room, 'handlePackMsg', session.playerId, msg);
+      if (hook === true || (hook !== null && typeof hook === 'object' && hook.consumed === true)) return OK;
+    }
+    const out = {
+      t: 'pack.msg', pack: msg.pack, channel: msg.channel, from: session.playerId,
+      ...(msg.data === undefined ? {} : { data: msg.data }),
+    };
+    for (const seat of room.seats) {
+      if (!seat || seat.isBot) continue;
+      const target = this.registry.byId(seat.playerId);
+      if (target && target.connected) sendSession(target, out);
+    }
+    for (const seat of room.spectators) {
+      const target = this.registry.byId(seat.playerId);
+      if (target && target.connected) sendSession(target, out);
+    }
+    return OK;
+  }
+
+  /**
+   * `pack.msg` 的令牌桶（每会话）：`PACK_MSG_LIMITS.perSec` 每秒回填、`burst` 是上限。
+   * @param {import('./net.js').Session} session
+   * @param {number} [at] 采样时刻（测试直接传，免得依赖真实时钟；缺省用大厅的 `now()`）
+   * @returns {boolean} true = 这一次放行
+   */
+  packMsgAllowed(session, at) {
+    const now = typeof at === 'number' ? at : this.now();
+    const key = session.playerId;
+    const { perSec, burst } = PACK_MSG_LIMITS;
+    let b = this.packMsgBuckets.get(key);
+    if (!b) { b = { tokens: burst, at: now }; this.packMsgBuckets.set(key, b); }
+    b.tokens = Math.min(burst, b.tokens + ((now - b.at) / 1000) * perSec);
+    b.at = now;
+    if (b.tokens < 1) return false;
+    b.tokens -= 1;
+    return true;
+  }
+
+  join(session, { code, modDigest }) {
     const norm = String(code).trim().toUpperCase();
     const room = norm.length === ROOM_CODE_LEN ? this.rooms.get(norm) : undefined;
     if (!room) return fail(ERR.ROOM_NOT_FOUND);
+    // 入座也过同一道摘要闸门：一个跑着 A 份内容集的房间不该被一个以为是 B 份的客户端加入 —— 那正是「同一个摘要下
+    // 就有两种行为」的入口（DESIGN §34.2）。房间自己的 `modSet` 与进程那一份相同，所以判据只有一份。
+    const gate = this.checkModDigest(modDigest);
+    if (gate) return gate;
     const cur = this.roomOf(session);
     // idempotent for members; a spectator of this room goes on below: it may take a free player seat (header)
     if (cur === room && !room.spectatorOf(session.playerId)) { this.sendState(room, session); return OK; }
@@ -771,6 +970,10 @@ export class Lobby {
     session.notice = null;
     session.pendingResult = null;
     if (!room.hostId) room.hostId = session.playerId;
+    // 房间级钩子的载荷形状（`server/roomPack.js` 的闭契约）：`by` 是**座位快照对象**（`.playerId` 才是 id），
+    // `players` / `spectators` 是**数组**（钩子读 `.length`）。这里照契约给，不给简化过的形状。
+    const by = room.seatOf(session.playerId);
+    this.hookFire(room, 'join', { by });
     this.broadcastState(room);
     return OK;
   }
@@ -804,6 +1007,7 @@ export class Lobby {
     session.roomCode = room.code;
     session.notice = null;
     session.pendingResult = null;
+    this.hookFire(room, 'spectate', { by: { playerId: session.playerId, name: session.name, connected: session.connected } });
     this.broadcastState(room);
     if (room.match) this.callMatch(room, 'addSpectator', session.playerId);
     return OK;
@@ -1355,10 +1559,30 @@ export class Lobby {
    * server's content identity (header "Content identity").
    */
   welcomeInfo() {
-    if (!this.vanilla) return { diyKitted: KITTED_CHARS };
+    const panels = this.workshop && Array.isArray(this.workshop.panels) ? this.workshop.panels : [];
+    const assets = this.workshop && Array.isArray(this.workshop.assets) ? this.workshop.assets : [];
+    // 包写的主题变量：合并好的那一份 `{ vars }`，与 `modPanels` 同构 —— **只有声明了才有**，没有包声明主题时
+    // `welcome` 的字段集合一个都不多（`test/modClientPanels.test.js` 两侧对照钉着这条）。
+    const theme = this.workshop && this.workshop.theme && typeof this.workshop.theme === 'object' ? this.workshop.theme : null;
+    // 传输层的**生效值**（`pack.json.server.transport` 的声明 → `transportPolicy` 收敛 → `attachWebSocket` 真正装上去
+    // 的那个选项）：`{ deflate, params, maxPayload, threshold }`。客户端那格 `ctx.net.transport()` 是按**这个名字**定的，
+    // 所以它必须真的落在这里 —— 缺字段时那一格返回 `null`（不抛、不编造）。**报的是生效值，不是声明值**。
+    const transport = this.workshop && this.workshop.transport && typeof this.workshop.transport === 'object'
+      ? this.workshop.transport : null;
     let n;
     try { n = Number(this.plugins?.unofficial?.()) || 0; } catch { n = 0; }
-    return { diyKitted: KITTED_CHARS, content: n > 0 ? { vanilla: this.vanilla.cs, plugins: n } : { vanilla: this.vanilla.cs } };
+    const contentInfo = this.vanilla
+      ? { content: n > 0 ? { vanilla: this.vanilla.cs, plugins: n } : { vanilla: this.vanilla.cs } }
+      : {};
+    return {
+      diyKitted: KITTED_CHARS,
+      ...contentInfo,
+      ...(this.modSet ? { mods: this.modSet } : {}),
+      ...(panels.length ? { modPanels: panels } : {}),
+      ...(assets.length ? { modAssets: assets } : {}),
+      ...(theme && theme.vars && Object.keys(theme.vars).length ? { modTheme: theme } : {}),
+      ...(transport ? { transport } : {}),
+    };
   }
 
   // ---------------------------------------------------------------------------------------------------
@@ -1417,7 +1641,19 @@ export class Lobby {
         // 工坊 mod 层移植 (2026-10-17)：装了包时**同一个对象**再带一个 `packs` 键（包身份 + 口径 / 行为声明）。它不参与
         // `normalizeMods`（那里只取 MOD_KEYS 的布尔键），`Match` 把它收成 `this.modSet`，行为声明由它合成 ——
         // **没有这一键 ⇒ 包声明的开关静默不生效**，这正是缺口 2。没装包时这一份与从前逐字节相同。
-        mods: this.workshop ? { ...room.mods, packs: this.workshop.packs } : { ...room.mods },
+        // ★ 这一格是**两件事叠在一起**，别把它们混成一件：
+        //   * `room.mods`  —— 本 fork 的 Mod 开关对象（`MOD_KEYS` → boolean），每一局都发；
+        //   * `packs`      —— 本局跑的**包身份清单**，**只有这个房间真的声明了集合时才有**（`room.modSet`）。
+        // 房间没声明集合 ⇒ 不带 `packs`，`room.state` 与从前逐字节相同。判据是 `room.modSet`，不是
+        // `this.workshop` —— 后者只说明「这台服务器装了包」，不说明「这个房间挑了哪几个」。
+        mods: room.modSet ? { ...room.mods, packs: room.modSet.packs } : { ...room.mods },
+        // 包声明的**战斗逻辑**（`pack.json.server.battle`，DESIGN §34.17）：这一局要跑的 `install(battle)` 真函数
+        // （服务端跑的就是它们）与浏览器要加载的那份 `{ id, pack, hash, url }` 清单（进每一份 BattleSpec）。
+        // 没有包声明时**两个键都不出现** —— 战斗拿不到它们，行为与从前逐字节相同。
+        ...(this.workshop && Array.isArray(this.workshop.battleInstallers) && this.workshop.battleInstallers.length
+          ? { battleInstallers: this.workshop.battleInstallers } : {}),
+        ...(this.workshop && Array.isArray(this.workshop.battle) && this.workshop.battle.length
+          ? { workshopBattleModules: this.workshop.battle } : {}),
         seats,
         // the spectator seats (header): watched like eliminated players, never players
         spectators: room.spectators.map((s) => s.playerId),
@@ -1448,6 +1684,8 @@ export class Lobby {
       room.replay = null;
       room.matchCount++;
       this.log.info(`[lobby] ${room.code} match #${room.matchCount} starting (${room.mode}/${room.difficulty}, ${seats.length} seats, seed ${seed}${modded ? `, content ${room.content.cs.slice(0, 8)}${match.hosted ? ' in its match host' : ''}` : ''})`);
+      // 房间级钩子：对局真的起来了（`match.start()` 之前 —— 钩子要能在第一帧之前看到「这一局开始了」）。
+      this.hookFire(room, 'matchStart', { matchNo: room.matchCount, players: room.seats.filter(Boolean) });
       this.broadcastState(room);
       match.start();
     } catch (e) {
@@ -1474,6 +1712,8 @@ export class Lobby {
     // a match of gameplay plugins whose match host stopped (header "Gameplay plugins"; its members were told: proxy.js)
     const why = summary && typeof summary.reason === 'string' && summary.reason.startsWith('plugin-') ? ` (${summary.reason}${summary.detail ? `: ${summary.detail}` : ''})` : '';
     this.log.info(`[lobby] ${room.code} match #${room.matchCount} ended${why}`);
+    // 房间级钩子：这一局结束了（`matchFailed` 是另一条事件，由失败路径自己发 —— 正常结束只发这一条）。
+    this.hookFire(room, 'matchEnd', { matchNo: room.matchCount });
     for (let i = 0; i < room.seats.length; i++) {
       const s = room.seats[i];
       if (!s || s.isBot) continue;
@@ -1732,7 +1972,12 @@ export class Lobby {
     if (session && session.roomCode === room.code) session.roomCode = null;
     this.clearGrace(playerId);
     this.dropReplay(room, playerId);
-    if (this.freeSpectatorSeat(room, playerId)) return;
+    if (this.freeSpectatorSeat(room, playerId)) {
+      // 观战者走了也是一次 `leave`（钩子的观察面里观战者与玩家是两类成员，但「有人走了」是同一件事）。
+      const s = this.registry.byId(playerId);
+      this.hookFire(room, 'leave', { by: { playerId, name: s?.name ?? null, connected: s?.connected ?? false } });
+      return;
+    }
     const seat = room.seatOf(playerId);
     if (!seat || seat.isBot || seat.left || room.disposed) return;
     if (room.match) {
@@ -1745,6 +1990,7 @@ export class Lobby {
     }
     if (room.disposed) return; // onLeave may have ended the match and emptied the room
     if (room.hostId === playerId) this.migrateHost(room);
+    this.hookFire(room, 'leave', { by: { playerId, name: session?.name ?? null, connected: session?.connected ?? false } });
     if (room.activeHumans().length === 0) this.disposeRoom(room, 'empty');
     else this.broadcastState(room);
   }
@@ -1806,6 +2052,9 @@ export class Lobby {
   disposeRoom(room, reason) {
     if (room.disposed) return;
     room.disposed = true;
+    // `dispose` 是**唯一**一个在房间已经 disposed 之后触发的事件 —— 它的意义正是「这个房间没了」。
+    this.hookFire(room, 'dispose', { reason });
+    this.roomHooks.forget(room);
     if (this.rooms.get(room.code) === room) { this.trustedRuntime?.event('roomClosed',{room:room.toState()}); this.rooms.delete(room.code); }
     const ctx = room.matchCtx;
     room.match = null;

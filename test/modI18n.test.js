@@ -150,21 +150,22 @@ describe('i18n: merging into an existing language', () => {
     // 已逐字节钉进 test/fixtures/plugin-pack-i18n/，所以这条断言**在任何机器上都真跑**：
     // 先前那种「本机没有那份原文就跳过」的后路已去掉 —— 它会让守卫在别人机器上静默消失。
     //
-    // 重叠键有**四条**，都是**事实**而非错误：
-    //   * `语音语言` —— 真冲突，只在 **en**（官方 "Voice Language" vs 补丁 "Voice language"，只差大小写）；
-    //   * `快速匹配` —— 0.13.0 起引擎自己就带这一条（野排匹配落地），四语种与补丁**逐字相同** ⇒ 「已有且同值」；
-    //   * `发送`     —— 0.13.0 起引擎自己就带这一条（房内聊天落地，docs/META.md §1.8）：en / ja / zh-TW 同值，
-    //                  **ko 不同**（我们 "전송"，补丁 "보내기"）⇒ ko 多一条真冲突；
-    //   * `取消匹配` —— **0.18.4 装 ui-hub 包时进我们四包的一条**（包版快速匹配那一格用它，见 CHANGELOG 0.18.4）：
-    //                  **en / ja 与补丁不同**（我们 "Cancel match" / "マッチング中止"），ko / zh-TW 逐字相同
-    //                  ⇒ en、ja 各多一条真冲突。这一条是**事实变了**，不是判据被放松：下面那三条断言
-    //                  （重叠集合 / 逐语种冲突表 / added 与 skippedSame 的算术）一条没少。
-    // 合并规则是「已有键绝不覆盖 + 值不同就点名」，所以 added 恒为 70，冲突按语种分别是 en 2 / ja 1 / ko 1 / zh-TW 0。
-    const QUICK_MATCH_KEY = '快速匹配';
+    // 重叠键有**四条**，都是**事实**而非错误 —— 但**这四条是逐语种实测出来的，不是照抄补丁交付时的清单**：
+    // 本 fork 没有野排匹配（`快速匹配` / `取消匹配` 两个 msgid 一个都不存在，`public/js/ui/extensions.js:910`
+    // 写明「引擎 0.13.0 已自带快速匹配」那条通道没搬过来），所以补丁里那两条在这里**不是重叠**，而是普通新增。
+    // 真正重叠的是这四条：
+    //   * `语音语言`   —— 真冲突，只在 **en**（我们 "Voice Language" vs 补丁 "Voice language"，只差大小写）；
+    //   * `数值`       —— 真冲突，只在 **en**（我们 "Number" vs 补丁 "Stats"）；
+    //   * `发送`       —— 四语种与补丁**逐字相同** ⇒ 「已有且同值」，不计冲突；
+    //   * `正在读取…`  —— 四语种与补丁**逐字相同** ⇒ 「已有且同值」，不计冲突。
+    // 判据没有放松：下面那三条断言（重叠集合 / 逐语种冲突表 / added 与 skippedSame 的算术）一条没少，
+    // 只是把「哪四条」和「哪几语种真的不同」换成这份代码库实测的答案。
+    // 合并规则是「已有键绝不覆盖 + 值不同就点名」，所以 added 恒为 70，冲突按语种分别是 en 2 / ja 0 / ko 0 / zh-TW 0。
+    const NUMBER_KEY = '数值';
     const SEND_KEY = '发送';
-    const CANCEL_KEY = '取消匹配';
-    const SHARED = [COLLIDING_KEY, QUICK_MATCH_KEY, SEND_KEY, CANCEL_KEY];
-    const CONFLICTS = { en: [COLLIDING_KEY, CANCEL_KEY], ja: [CANCEL_KEY], ko: [SEND_KEY], 'zh-TW': [] };
+    const LOADING_KEY = '正在读取…';
+    const SHARED = [COLLIDING_KEY, NUMBER_KEY, SEND_KEY, LOADING_KEY];
+    const CONFLICTS = { en: [COLLIDING_KEY, NUMBER_KEY], ja: [], ko: [], 'zh-TW': [] };
     const src = join(ROOT, 'test', 'fixtures', 'plugin-pack-i18n');
     for (const code of ['en', 'ja', 'ko', 'zh-TW']) {
       const entries = JSON.parse(fs.readFileSync(join(src, `${code}.json`), 'utf8'));

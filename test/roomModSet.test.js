@@ -190,7 +190,7 @@ describe('P0: the real client sends the mod digest (a browser could not enter a 
       assert.equal(roomMods.currentModSet().digest, digest);
 
       const create = roomMods.buildCreatePayload('coop', 'NORMAL');
-      assert.deepEqual(create, { mode: 'coop', difficulty: 'NORMAL', mods: digest });
+      assert.deepEqual(create, { mode: 'coop', difficulty: 'NORMAL', modDigest: digest });
       assert.equal(validateC2S({ t: 'room.create', ...create }), null, 'the payload the transport will send is valid C2S');
 
       // the room.state push the create triggers is registered for BEFORE the request, so it cannot be missed
@@ -200,14 +200,14 @@ describe('P0: the real client sends the mod digest (a browser could not enter a 
       assert.equal(state.t, 'room.state');
 
       const join = roomMods.buildJoinPayload(state.code);
-      assert.deepEqual(join, { code: state.code, mods: digest });
+      assert.deepEqual(join, { code: state.code, modDigest: digest });
       assert.equal((await c.net.request('room.join', join)).t, 'ok', 'the host is already in it: idempotent for members');
 
       // …and both fields really were on the wire (the socket recorded the message objects, not the source text)
       const sentCreate = c.ws.sent.find((m) => m.t === 'room.create');
       const sentJoin = c.ws.sent.find((m) => m.t === 'room.join');
-      assert.deepEqual({ ...sentCreate, rid: undefined }, { t: 'room.create', rid: undefined, mode: 'coop', difficulty: 'NORMAL', mods: digest });
-      assert.deepEqual({ ...sentJoin, rid: undefined }, { t: 'room.join', rid: undefined, code: state.code, mods: digest });
+      assert.deepEqual({ ...sentCreate, rid: undefined }, { t: 'room.create', rid: undefined, mode: 'coop', difficulty: 'NORMAL', modDigest: digest });
+      assert.deepEqual({ ...sentJoin, rid: undefined }, { t: 'room.join', rid: undefined, code: state.code, modDigest: digest });
       assert.equal(typeof sentCreate.rid, 'number', 'the real transport added a rid');
     } finally {
       await c.close();
@@ -242,13 +242,13 @@ describe('P0: the real client sends the mod digest (a browser could not enter a 
     ] } });
     assert.deepEqual(roomMods.availableMods().map((p) => p.id), ['alpha-pack', 'zeta-pack']);
     assert.deepEqual(roomMods.setSelectedModIds(['zeta-pack', 'alpha-pack']), ['alpha-pack', 'zeta-pack'], 'kept sorted');
-    assert.deepEqual(roomMods.buildCreatePayload('coop', 'NORMAL'), { mode: 'coop', difficulty: 'NORMAL', mods: digest, modIds: ['alpha-pack', 'zeta-pack'] });
+    assert.deepEqual(roomMods.buildCreatePayload('coop', 'NORMAL'), { mode: 'coop', difficulty: 'NORMAL', modDigest: digest, modIds: ['alpha-pack', 'zeta-pack'] });
     // a stale pick (the server restarted with fewer packs) is dropped rather than sent to be refused
     assert.deepEqual(roomMods.setSelectedModIds(['alpha-pack', 'gone-pack']), ['alpha-pack']);
     assert.deepEqual(roomMods.buildCreatePayload('coop', 'NORMAL').modIds, ['alpha-pack']);
     // unticking everything is the same message as never ticking: no modIds
     assert.deepEqual(roomMods.setSelectedModIds([]), []);
-    assert.deepEqual(roomMods.buildCreatePayload('coop', 'NORMAL'), { mode: 'coop', difficulty: 'NORMAL', mods: digest });
+    assert.deepEqual(roomMods.buildCreatePayload('coop', 'NORMAL'), { mode: 'coop', difficulty: 'NORMAL', modDigest: digest });
     // and a server that changed under us drops the picks
     roomMods.setSelectedModIds(['alpha-pack']);
     assert.equal(roomMods.setWelcomeMods({ mods: { digest: 'f'.repeat(64), packs: [{ id: 'other-pack', hash: 'c'.repeat(64), layer: 'A', combat: false }] } }), false);
@@ -263,7 +263,7 @@ describe('room.create { modIds } declares the room set (W-A, DESIGN §34.9)', ()
     const b = await player(modded, 'Guest');
     try {
       assert.equal(b.welcome.mods.digest, digest, 'the server runs the two packs');
-      const created = await a.request({ t: 'room.create', mode: 'coop', difficulty: 'NORMAL', mods: digest, modIds: ['zeta-pack', 'alpha-pack'] });
+      const created = await a.request({ t: 'room.create', mode: 'coop', difficulty: 'NORMAL', modDigest: digest, modIds: ['zeta-pack', 'alpha-pack'] });
       assert.equal(created.t, 'ok', JSON.stringify(created));
       const hostState = await a.waitFor('room.state', (s) => s.code && s.mods);
       assert.deepEqual(hostState.mods.packs.map((p) => p.id), ['alpha-pack', 'zeta-pack'], 'sorted by id whatever order was sent');
@@ -275,7 +275,7 @@ describe('room.create { modIds } declares the room set (W-A, DESIGN §34.9)', ()
 
       // the joiner is handed the ROOM's set (the state frame broadcast to the members, not `welcome`'s)
       const guestP = b.waitFor('room.state', (s) => s.code === hostState.code && s.seats.some((x) => x && x.playerId === b.id));
-      const joined = await b.request({ t: 'room.join', code: hostState.code, mods: digest, consent: true });
+      const joined = await b.request({ t: 'room.join', code: hostState.code, modDigest: digest, consent: true });
       assert.equal(joined.t, 'ok', JSON.stringify(joined));
       const guestState = await guestP;
       assert.deepEqual(guestState.mods, hostState.mods, 'a joiner is told the ROOM set, not the server set');
@@ -289,14 +289,14 @@ describe('room.create { modIds } declares the room set (W-A, DESIGN §34.9)', ()
     const a = await TestClient.connect(wsUrl(modded));
     try {
       await a.hello('Host');
-      assert.equal((await a.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', mods: digest, modIds: ['alpha-pack', 'zeta-pack'] })).t, 'ok');
+      assert.equal((await a.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', modDigest: digest, modIds: ['alpha-pack', 'zeta-pack'] })).t, 'ok');
       const first = await a.waitFor('room.state', (s) => s.mods);
-      assert.equal((await a.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', mods: digest, modIds: ['zeta-pack', 'alpha-pack'] })).t, 'ok');
+      assert.equal((await a.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', modDigest: digest, modIds: ['zeta-pack', 'alpha-pack'] })).t, 'ok');
       const second = await a.waitFor('room.state', (s) => s.mods && s.code !== first.code);
       assert.equal(second.mods.digest, first.mods.digest, 'the order of modIds does not change the digest');
       assert.deepEqual(second.mods.packs.map((p) => p.id), first.mods.packs.map((p) => p.id));
       // a duplicate id in the list is the same set too
-      assert.equal((await a.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', mods: digest, modIds: ['alpha-pack', 'alpha-pack'] })).t, 'ok');
+      assert.equal((await a.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', modDigest: digest, modIds: ['alpha-pack', 'alpha-pack'] })).t, 'ok');
       const dup = await a.waitFor('room.state', (s) => s.mods && s.code !== first.code && s.code !== second.code);
       assert.deepEqual(dup.mods.packs.map((p) => p.id), ['alpha-pack']);
     } finally {
@@ -310,7 +310,7 @@ describe('room.create { modIds } declares the room set (W-A, DESIGN §34.9)', ()
       await a.hello('Host');
       // ONE of the two packs the server runs: the room's set is a strict subset, and the room's digest must not be the
       // process digest — otherwise `room.state.mods` would just be a copy of `welcome.mods` and mean nothing.
-      assert.equal((await a.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', mods: digest, modIds: ['alpha-pack'] })).t, 'ok');
+      assert.equal((await a.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', modDigest: digest, modIds: ['alpha-pack'] })).t, 'ok');
       const state = await a.waitFor('room.state', (s) => s.mods);
       assert.deepEqual(state.mods.packs.map((p) => p.id), ['alpha-pack']);
       assert.equal(state.mods.digest, modSetOf(state.mods.packs).digest);
@@ -327,7 +327,7 @@ describe('room.create { modIds } declares the room set (W-A, DESIGN §34.9)', ()
     try {
       await a.hello('Host');
       await s.hello('Watcher');
-      assert.equal((await a.request({ t: 'room.create', mode: 'coop', difficulty: 'NORMAL', mods: digest, modIds: ['alpha-pack'] })).t, 'ok');
+      assert.equal((await a.request({ t: 'room.create', mode: 'coop', difficulty: 'NORMAL', modDigest: digest, modIds: ['alpha-pack'] })).t, 'ok');
       const code = (await a.waitFor('room.state', (st) => st.mods)).code;
       assert.equal((await s.request({ t: 'room.spectate', code })).t, 'ok');
       const state = await s.waitFor('room.state', (st) => st.code === code);
@@ -343,10 +343,10 @@ describe('room.create { modIds } declares the room set (W-A, DESIGN §34.9)', ()
     const a = await TestClient.connect(wsUrl(modded));
     try {
       await a.hello('Host');
-      assert.equal((await a.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', mods: digest })).t, 'ok');
+      assert.equal((await a.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', modDigest: digest })).t, 'ok');
       const plain = await a.waitFor('room.state', (s) => s.code);
       assert.equal('mods' in plain, false, 'omitted modIds declares nothing');
-      assert.equal((await a.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', mods: digest, modIds: [] })).t, 'ok');
+      assert.equal((await a.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', modDigest: digest, modIds: [] })).t, 'ok');
       const empty = await a.waitFor('room.state', (s) => s.code && s.code !== plain.code);
       assert.equal('mods' in empty, false, 'an empty list declares nothing either');
     } finally {
@@ -367,13 +367,13 @@ describe('room.create { modIds } declares the room set (W-A, DESIGN §34.9)', ()
     const c = await TestClient.connect(wsUrl(modded));
     try {
       await c.hello('Host');
-      const bad = await c.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', mods: digest, modIds: ['alpha-pack', 'nope-pack'] });
+      const bad = await c.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', modDigest: digest, modIds: ['alpha-pack', 'nope-pack'] });
       assert.equal(bad.t, 'error', JSON.stringify(bad));
       assert.equal(bad.code, ERR.MOD_UNKNOWN, JSON.stringify(bad));
       assert.match(String(bad.detail), /nope-pack/, 'the refusal names what was not found');
       assert.match(String(bad.detail), /alpha-pack/, 'and what is on offer');
       assert.match(String(bad.detail), /zeta-pack/);
-      assert.equal((await c.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', mods: digest })).t, 'ok', 'the refusal did not consume anything');
+      assert.equal((await c.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', modDigest: digest })).t, 'ok', 'the refusal did not consume anything');
     } finally {
       await c.terminate();
     }
@@ -443,7 +443,7 @@ describe('the ?playtest=1 quick start carries the digest too, and a plain instal
     // The quick start carries the DIGEST (it has to — the entry gate is the process set, P0) but not the picks: it is a
     // solo room nobody joins, so the room's declared set would be decoration. `roomModFields` therefore returns `mods`
     // alone, and a lobby pick cannot leak into it.
-    assert.deepEqual(modded.sent[0], ['room.create', { mode: 'solo', difficulty: 'HARD', mods: digest }]);
+    assert.deepEqual(modded.sent[0], ['room.create', { mode: 'solo', difficulty: 'HARD', modDigest: digest }]);
     assert.equal(validateC2S({ t: 'room.create', ...modded.sent[0][1] }), null, 'the quick start sends valid C2S');
   });
 
@@ -460,7 +460,7 @@ describe('入座门判的是**进程**集合（W-A 定的，W-B 也故意不改�
     const b = await player(modded, 'Guest');
     try {
       // the room declares ONE of the two packs the server runs
-      assert.equal((await a.request({ t: 'room.create', mode: 'coop', difficulty: 'NORMAL', mods: digest, modIds: ['alpha-pack'] })).t, 'ok');
+      assert.equal((await a.request({ t: 'room.create', mode: 'coop', difficulty: 'NORMAL', modDigest: digest, modIds: ['alpha-pack'] })).t, 'ok');
       const created = await a.waitFor('room.state', (s) => s.code && s.mods);
       assert.deepEqual(created.mods.packs.map((p) => p.id), ['alpha-pack']);
       assert.notEqual(created.mods.digest, digest, 'the room set and the process set are already two different strings');
@@ -469,7 +469,7 @@ describe('入座门判的是**进程**集合（W-A 定的，W-B 也故意不改�
       // `room.state` — what the room really runs is decided per room (server/roomAssets.js) and alignment to it is the
       // client's job before it readies up (W-D).
       const stateP = b.waitFor('room.state', (s) => s.code === created.code && s.seats.some((x) => x && x.playerId === b.id));
-      const joined = await b.request({ t: 'room.join', code: created.code, mods: digest, consent: true });
+      const joined = await b.request({ t: 'room.join', code: created.code, modDigest: digest, consent: true });
       assert.equal(joined.t, 'ok', JSON.stringify(joined));
       const state = await stateP;
       assert.deepEqual(state.mods, created.mods, 'the joiner sees the room set, and got in on the process digest');
@@ -507,11 +507,11 @@ describe('room.mods：房主在房间里改集合（G1），守卫与对齐（G2
     const a = await player(modded, 'Host');
     const b = await player(modded, 'Guest');
     try {
-      assert.equal((await a.request({ t: 'room.create', mode: 'coop', difficulty: 'NORMAL', mods: digest, modIds: ['alpha-pack'] })).t, 'ok');
+      assert.equal((await a.request({ t: 'room.create', mode: 'coop', difficulty: 'NORMAL', modDigest: digest, modIds: ['alpha-pack'] })).t, 'ok');
       const created = await a.waitFor('room.state', (s) => s.code && s.mods);
       assert.deepEqual(created.mods.packs.map((p) => p.id), ['alpha-pack']);
       const guestJoined = b.waitFor('room.state', (s) => s.code === created.code && s.seats.some((x) => x && x.playerId === b.id));
-      assert.equal((await b.request({ t: 'room.join', code: created.code, mods: digest, consent: true })).t, 'ok');
+      assert.equal((await b.request({ t: 'room.join', code: created.code, modDigest: digest, consent: true })).t, 'ok');
       await guestJoined;
 
       // 客人先就绪、又自己取消（「有人 ready 后改被拒」另有用例）—— 这里要的是干净的一次变更
@@ -541,10 +541,10 @@ describe('room.mods：房主在房间里改集合（G1），守卫与对齐（G2
     const b = await player(modded, 'Guest');
     const c = await player(modded, 'Stranger');
     try {
-      assert.equal((await a.request({ t: 'room.create', mode: 'coop', difficulty: 'NORMAL', mods: digest, modIds: ['alpha-pack'] })).t, 'ok');
+      assert.equal((await a.request({ t: 'room.create', mode: 'coop', difficulty: 'NORMAL', modDigest: digest, modIds: ['alpha-pack'] })).t, 'ok');
       const created = await a.waitFor('room.state', (s) => s.code && s.mods);
       const guestJoined = b.waitFor('room.state', (s) => s.code === created.code && s.seats.some((x) => x && x.playerId === b.id));
-      assert.equal((await b.request({ t: 'room.join', code: created.code, mods: digest, consent: true })).t, 'ok');
+      assert.equal((await b.request({ t: 'room.join', code: created.code, modDigest: digest, consent: true })).t, 'ok');
       await guestJoined;
       const byGuest = await b.request({ t: 'room.mods', modIds: ['zeta-pack'] });
       assert.equal(byGuest.t, 'error', JSON.stringify(byGuest));
@@ -568,7 +568,7 @@ describe('room.mods：房主在房间里改集合（G1），守卫与对齐（G2
   test('已开局改被拒 MOD_SET_LOCKED（不是 NOT_READY），且正在跑的那一局不受影响', async () => {
     const a = await player(modded, 'SoloHost');
     try {
-      assert.equal((await a.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', mods: digest, modIds: ['alpha-pack'] })).t, 'ok');
+      assert.equal((await a.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', modDigest: digest, modIds: ['alpha-pack'] })).t, 'ok');
       const created = await a.waitFor('room.state', (s) => s.code && s.mods);
       assert.equal((await a.request({ t: 'room.start', })).t, 'ok', 'solo 房直接开局');
       const running = await a.waitFor('room.state', (s) => s.code === created.code && s.inMatch === true);
@@ -587,10 +587,10 @@ describe('room.mods：房主在房间里改集合（G1），守卫与对齐（G2
     const a = await player(modded, 'Host');
     const b = await player(modded, 'Guest');
     try {
-      assert.equal((await a.request({ t: 'room.create', mode: 'coop', difficulty: 'NORMAL', mods: digest, modIds: ['alpha-pack'] })).t, 'ok');
+      assert.equal((await a.request({ t: 'room.create', mode: 'coop', difficulty: 'NORMAL', modDigest: digest, modIds: ['alpha-pack'] })).t, 'ok');
       const created = await a.waitFor('room.state', (s) => s.code && s.mods);
       const guestJoined = b.waitFor('room.state', (s) => s.code === created.code && s.seats.some((x) => x && x.playerId === b.id));
-      assert.equal((await b.request({ t: 'room.join', code: created.code, mods: digest, consent: true })).t, 'ok');
+      assert.equal((await b.request({ t: 'room.join', code: created.code, modDigest: digest, consent: true })).t, 'ok');
       await guestJoined;
       const guestReady = b.waitFor('room.state', (s) => s.seats.some((x) => x && x.playerId === b.id && x.ready === true));
       assert.equal((await b.request({ t: 'room.ready', ready: true })).t, 'ok');
@@ -619,7 +619,7 @@ describe('room.mods：房主在房间里改集合（G1），守卫与对齐（G2
   test('AI 队友不算「有人已就绪」：加过 AI 的房间照样改得动（否则房主一加 AI 就再也改不了）', async () => {
     const a = await player(modded, 'Host');
     try {
-      assert.equal((await a.request({ t: 'room.create', mode: 'coop', difficulty: 'NORMAL', mods: digest, modIds: ['alpha-pack'] })).t, 'ok');
+      assert.equal((await a.request({ t: 'room.create', mode: 'coop', difficulty: 'NORMAL', modDigest: digest, modIds: ['alpha-pack'] })).t, 'ok');
       const created = await a.waitFor('room.state', (s) => s.code && s.mods);
       const botIn = a.waitFor('room.state', (s) => s.code === created.code && s.seats.some((x) => x && x.isBot));
       assert.equal((await a.request({ t: 'room.addBot' })).t, 'ok');
@@ -636,7 +636,7 @@ describe('room.mods：房主在房间里改集合（G1），守卫与对齐（G2
   test('未知包名 ⇒ MOD_UNKNOWN（点名未知与可用），集合一字未动', async () => {
     const a = await player(modded, 'Host');
     try {
-      assert.equal((await a.request({ t: 'room.create', mode: 'coop', difficulty: 'NORMAL', mods: digest, modIds: ['alpha-pack'] })).t, 'ok');
+      assert.equal((await a.request({ t: 'room.create', mode: 'coop', difficulty: 'NORMAL', modDigest: digest, modIds: ['alpha-pack'] })).t, 'ok');
       const created = await a.waitFor('room.state', (s) => s.code && s.mods);
       const bad = await a.request({ t: 'room.mods', modIds: ['alpha-pack', 'nope-pack'] });
       assert.equal(bad.t, 'error', JSON.stringify(bad));
@@ -658,7 +658,7 @@ describe('room.mods：房主在房间里改集合（G1），守卫与对齐（G2
     try {
       roomMods.setWelcomeMods(c.welcome);
       const createdP = nextFrame(c.net, 'room.state', (s) => s.code && s.mods);
-      assert.equal((await c.net.request('room.create', { mode: 'coop', difficulty: 'NORMAL', mods: digest, modIds: ['alpha-pack'] })).t, 'ok');
+      assert.equal((await c.net.request('room.create', { mode: 'coop', difficulty: 'NORMAL', modDigest: digest, modIds: ['alpha-pack'] })).t, 'ok');
       const state = await createdP;
       assert.deepEqual(state.mods.packs.map((p) => p.id), ['alpha-pack']);
       // 同一份集合（同序、乱序、重复都算同一份）：幂等 = 没有 room.state 广播

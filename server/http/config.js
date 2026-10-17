@@ -20,7 +20,10 @@ export const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
 
 /** startServer() options handed on to net.js Network / lobby.js Lobby (an absent one keeps that module's default). */
 const NET_OPTION_KEYS = ['reconnectWindowMs', 'heartbeatMs', 'helloTimeoutMs', 'ratePerSec', 'rateBurst', 'maxConnections', 'abuseDropsPerSec',
-  'maxConnectionsPerAddr', 'heavyPerSec', 'heavyBurst', 'trustProxy'];
+  'maxConnectionsPerAddr', 'heavyPerSec', 'heavyBurst', 'trustProxy',
+  // 包声明的分发前钩子（`server.preDispatch`, DESIGN §34.13）：`createModDispatch` 装配出来的那一对。没有包声明时
+  // 两者都是 undefined ⇒ `netOptionsFrom` 不写这两个键，`Network.opts` 与从前逐字节相同（两个 `typeof` 判断都不进）。
+  'preDispatch', 'onConnection'];
 const LOBBY_OPTION_KEYS = ['lobbyGraceMs', 'maxRooms', 'maxRoomsPerAddr', 'maxMatchesPerAddr', 'resyncMinGapMs', 'soloReconnectWindowMs'];
 
 /**
