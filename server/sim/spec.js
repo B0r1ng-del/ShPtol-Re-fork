@@ -212,6 +212,16 @@ export function createBattleFromSpec(spec, dataSource, opts = {}) {
   // 函数不能过线）。它们走 `installContent` 既有的 `extra` 通道（`(battle) => …` 或 `{ install(battle) }` 两种形状都收），
   // 所以不需要第二条装载路径。没有包声明时这个键不出现，`Battle` 拿不到它，行为与从前逐字节相同。
   if (Array.isArray(opts.battleInstallers) && opts.battleInstallers.length) battleOpts.extraContent = opts.battleInstallers;
+  // 包的 kit 归属与调用预算（`pack.json.callBudget`, DESIGN §34.52）：浏览器那一半由 `loadSpecKits` 从同一份清单上
+  // 读出来（三张 Map），这里原样转交 —— 少了它们，kit 的逐单位回调在浏览器里一条都不归账，而服务端复算那半会回滚，
+  // 两端就停在**不同**的调用次数上。没传 ⇒ 三个键都不出现（KEY DISCIPLINE：干净安装的 opts 形状逐字节不变）。
+  // ★ 空表也转交：`loadSpecKits` 对空清单交回的是**空 Map**（不是缺键），而「调用方给了表」与「没给表」是两件事 ——
+  //   前者说明这条通道在用（只是这次没有内容），后者才是干净安装。
+  if (opts.kits) battleOpts.kits = opts.kits;
+  if (opts.tokenKits) battleOpts.tokenKits = opts.tokenKits;
+  if (opts.kitOwners instanceof Map) battleOpts.kitOwners = opts.kitOwners;
+  if (opts.tokenKitOwners instanceof Map) battleOpts.tokenKitOwners = opts.tokenKitOwners;
+  if (opts.kitBudgets instanceof Map) battleOpts.kitBudgets = opts.kitBudgets;
   if (opts.logger) battleOpts.logger = opts.logger;
   if (opts.recordEvents === false) battleOpts.recordEvents = false;
   if (opts.quiet) battleOpts.quiet = true;

@@ -154,7 +154,7 @@ export class SharedPool {
    * Item roll for the shop's item slot: tier by the chess tier shares at this level, uniform item within the tier,
    * falling back to lower tiers when a tier has no item. Returns an item id or null.
    */
-  rollItem(rng, maxTier, stock = null) {
+  rollItem(rng, maxTier, stock = null, bias = null) {
     const shares = this.tierShares(maxTier);
     const tiers = Object.keys(shares).map(Number).sort((a, b) => a - b);
     let tier = null;
@@ -165,12 +165,17 @@ export class SharedPool {
     } else {
       tier = 1 + Math.floor(rng() * Math.max(1, maxTier));
     }
+    // 工坊 mod 层移植 (behaviour `shopBias: bondBias`): the item slot PREFERS items whose `giveBondId` is one of the
+    // player's ACTIVE bonds. Bias only — the tier still comes from the same `tierShares` draw above, and a tier with
+    // no such item falls through to the official list below, so the slot is never left empty and nothing is ever
+    // granted (the bias never hands out a bond). `bias == null` ⇒ the official roll, byte for byte.
+    const prefer = (list) => (bias && list.some(bias) ? list.filter(bias) : list);
     for (let t = tier; t >= 1; t--) {
-      const list = (this.gd.shopItemsByTier[t] || []).filter(id => !stock || stock.canGain(id));
+      const list = prefer((this.gd.shopItemsByTier[t] || []).filter(id => !stock || stock.canGain(id)));
       if (list.length) return stock ? stock.pick(rng, list) : list[Math.floor(rng() * list.length)];
     }
     for (let t = tier + 1; t <= 6; t++) {
-      const list = (this.gd.shopItemsByTier[t] || []).filter(id => !stock || stock.canGain(id));
+      const list = prefer((this.gd.shopItemsByTier[t] || []).filter(id => !stock || stock.canGain(id)));
       if (list.length) return stock ? stock.pick(rng, list) : list[Math.floor(rng() * list.length)];
     }
     return null;

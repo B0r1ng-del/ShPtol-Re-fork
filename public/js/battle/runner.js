@@ -103,6 +103,96 @@ function dataBaseForBattle(mods) {
 }
 export { loadBrowserSim, SIM_DATA_FILES } from './simLoader.js';
 
+/**
+ * 包声明的**战斗逻辑**，浏览器那一半（`spec.workshopBattle`，DESIGN §34.17 / §34.52）。
+ *
+ * 服务端在装载期就把这些模块 import 过了（`server/battlePack.js loadBattleInstallers`），浏览器这里做的是**同一件事
+ * 的另一半**：按 spec 送来的 URL 动态 import，取出它的 `install(battle)`，并把装载期定下来的**调用预算**一起挂上
+ * —— 预算不在这条差别里（两端唯一的不同是「谁去 import」），所以两端的预算必须来自同一个 `callBudget` 字段，
+ * 而不是浏览器自己再算一遍。
+ *
+ * 为什么必须挂 `callBudget`：`server/sim/battle/hooks.js` 的计数与回滚是同一段字节，两端读同一本账。漏了这一格，
+ * 浏览器会用「无上限」跑同一个包 ⇒ 两端在不同的调用次数上回滚 ⇒ 同一份摘要下两种行为。
+ *
+ * 依赖可注入（`importModule` / `fetch`）是为了让 Node 侧的 `test/callBudget.test.js` 真的跑这条路径，而不是拿正则
+ * 去匹配源码：只有真的跑起来，「同一个计数上回滚」才是被证明过的。
+ *
+ * @param {{ workshopBattle?: Array<{ id: string, pack?: string, hash?: string, url: string, callBudget?: number }> } | null} spec
+ * @param {{ importModule?: (url: string) => Promise<any>, log?: { warn?: Function } }} [deps]
+ * @returns {Promise<Array<{ id: string, hash: string, install: Function, callBudget?: number }>>}
+ */
+export async function loadSpecBattleInstallers(spec, deps = {}) {
+  const list = spec && Array.isArray(spec.workshopBattle) ? spec.workshopBattle : [];
+  if (!list.length) return [];
+  const importModule = typeof deps.importModule === 'function' ? deps.importModule : (url) => import(/* @vite-ignore */ url);
+  const log = deps.log || globalThis.console;
+  const out = [];
+  for (const entry of list) {
+    const url = entry && typeof entry.url === 'string' ? entry.url : '';
+    if (!url) continue;
+    let mod = null;
+    try { mod = await importModule(url); } catch (e) {
+      log?.warn?.(`[workshop] battle module "${entry.id}" failed to load: ${e && e.message ? e.message : e}`);
+      continue;
+    }
+    const install = typeof mod?.install === 'function' ? mod.install : null;
+    if (!install) { log?.warn?.(`[workshop] battle module "${entry.id}" does not export an install(battle)`); continue; }
+    out.push({ id: entry.id, hash: entry.hash || '', install, ...(Number.isFinite(entry.callBudget) ? { callBudget: entry.callBudget } : {}) });
+  }
+  return out;
+}
+
+/**
+ * 包声明的 **kit**（`spec.workshopKits`），浏览器那一半：按 URL 取回每个模块的导出表。
+ *
+ * `server/workshop.js` 把 `kits/` 与 token kit 合成**一份清单**送到客户端（`workshopKits`），这里把它拆回两张表
+ * （`kits` / `tokenKits`）并给出 `owners`（chess id → 包 id）。服务端 `loadWorkshopKits` 做的正是同一件事，两端的
+ * 差别同样只有「谁去 import」。
+ *
+ * @param {{ workshopKits?: Array<{ id: string, pack?: string, url: string, kind?: string, callBudget?: number }> } | null} spec
+ * @param {{ importModule?: (url: string) => Promise<any>, log?: { warn?: Function } }} [deps]
+ * @returns {Promise<{ kits: Record<string, any>, tokenKits: Record<string, any>, owners: Map<string, string>, tokenOwners: Map<string, string>, budgets: Map<string, number> }>}
+ */
+export async function loadSpecKits(spec, deps = {}) {
+  const list = spec && Array.isArray(spec.workshopKits) ? spec.workshopKits : [];
+  /** @type {Record<string, any>} */ const kits = {};
+  /** @type {Record<string, any>} */ const tokenKits = {};
+  const owners = new Map();
+  const tokenOwners = new Map();
+  const budgets = new Map();
+  if (!list.length) return { kits, tokenKits, owners, tokenOwners, budgets, kitOwners: owners, tokenKitOwners: tokenOwners, kitBudgets: budgets };
+  const importModule = typeof deps.importModule === 'function' ? deps.importModule : (url) => import(/* @vite-ignore */ url);
+  const log = deps.log || globalThis.console;
+  for (const entry of list) {
+    const url = entry && typeof entry.url === 'string' ? entry.url : '';
+    if (!url) continue;
+    const token = entry.kind === 'token';
+    const target = token ? tokenKits : kits;
+    const map = token ? tokenOwners : owners;
+    const packId = typeof entry.pack === 'string' && entry.pack ? entry.pack : entry.id;
+    // 归属与预算**先登记**，再去 import：这两张表只依赖装载期已经算好的清单（`pack` / `callBudget`），不依赖模块
+    // 能不能在这台机器上加载成功。晚一步登记的话，一个加载失败的模块会顺手把它的归属与预算一起丢掉 —— 而
+    // 「这个 kit 属于哪个包、它的上限是多少」在服务端已经裁决过了，浏览器没有理由再判一次。
+    if (typeof entry.id === 'string' && entry.id) map.set(entry.id, packId);
+    if (Number.isFinite(entry.callBudget)) budgets.set(packId, entry.callBudget);
+    let mod = null;
+    try { mod = await importModule(url); } catch (e) {
+      log?.warn?.(`[workshop] kit module "${entry.id}" failed to load: ${e && e.message ? e.message : e}`);
+      continue;
+    }
+    // A module may export one function (the kit) or a table of them; both shapes are what the server accepts.
+    const def = typeof mod?.default === 'function' ? mod.default : mod;
+    if (typeof def === 'function') { target[entry.id] = def; }
+    else if (def && typeof def === 'object') {
+      for (const [k, fn] of Object.entries(def)) if (typeof fn === 'function') { target[k] = fn; map.set(k, packId); }
+    } else { log?.warn?.(`[workshop] kit module "${entry.id}" exports no kit function`); }
+  }
+  // `owners` / `budgets` 是这两张表的短名（服务端口径）；`kitOwners` / `kitBudgets` 是它们进 Battle opts 时的名字
+  // （`battle/players.js` 按后者读），`tokenKitOwners` 是召唤物那一半。三组都指向同一份 Map —— 不复制，免得出现
+  // 两份会漂移的真相。
+  return { kits, tokenKits, owners, tokenOwners, budgets, kitOwners: owners, tokenKitOwners: tokenOwners, kitBudgets: budgets };
+}
+
 const TICK = 1 / 30;
 /** Fast-forward budget per frame (ticks) when far behind. */
 export const CATCHUP_TICKS = 240;

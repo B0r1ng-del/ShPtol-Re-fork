@@ -24,6 +24,9 @@ export class BattleStatus {
       }
     }
     for (const key of ['onTick', 'onExpire', 'onRemove']) buff[key] = captureKazdelCallback(this, buff[key]);
+    // 调用预算（`pack.json.callBudget`, DESIGN §34.52）：包在它自己的 install 作用域里标的 buff 盖上包章，
+    // 这样预算耗尽回滚时能精确撤掉「这个包加上去的」那些（第一方内容没有这一格，行为不变）。
+    if (this._packScope) buff.pack = this._packScope.id;
     const list = unit.buffs;
     let idx = -1;
     for (let i = 0; i < list.length; i++) if (list[i].key === buff.key) { idx = i; break; }

@@ -518,7 +518,14 @@ describe('audio banks and plan id sets', () => {
     const plan = (o) => buildPlan({ assets07: {}, ops03: {}, enemies05: {}, maps05: {}, audio: indexAudio({}), modelsData: {},
       charword, extraOperators, ...o }).template.audio;
     const a = plan({ optionalVoice: true });
-    assert.deepEqual(Object.keys(a), ['bgm', 'bossBgm', 'voice', 'voiceJp', 'voiceEn', 'voiceKr', 'voiceNative', 'voiceNativeLangType', 'sfx']);
+    // The upstream five keep their order; this fork appends `voiceLang` / `voiceLangs` (the multi-dub tables, 工坊 mod
+    // 层移植) right after `voiceJp` and the optional trees after those. Assert the RELATION (upstream order preserved,
+    // new keys appended before `sfx`) rather than one exact list: the list grows whenever a dub tree is added on purpose.
+    const keys = Object.keys(a);
+    const upstream = ['bgm', 'bossBgm', 'voice', 'voiceJp'];
+    assert.deepEqual(keys.filter((k) => upstream.includes(k)), upstream, 'the upstream keys, in their order');
+    for (const k of ['voiceEn', 'voiceKr', 'voiceNative', 'voiceNativeLangType']) assert.ok(keys.includes(k), `${k} is planned`);
+    assert.equal(keys[keys.length - 1], 'sfx', 'sfx still closes the object');
     assert.equal(a.voiceEn.char_102_texas.select.alts[0].rel, 'audio/voice/en/char_102_texas/cn_021.mp3');
     assert.equal(a.voiceKr.char_263_skadi.select.alts[0].rel, 'audio/voice/kr/char_263_skadi/cn_021.mp3');
     assert.equal(a.voiceNative.char_102_texas.select.alts[0].rel, 'audio/voice/native/char_102_texas_ita/cn_021.mp3');
@@ -526,7 +533,11 @@ describe('audio banks and plan id sets', () => {
     assert.equal(a.voiceNative.char_263_skadi, undefined, 'no own-language dub: no entry');
     assert.equal(a.voiceNative.char_999_out, undefined, 'not fielded: no tree');
     assert.deepEqual(Object.getOwnPropertySymbols(a.voiceNativeLangType).map((s) => a.voiceNativeLangType[s]), [{ char_102_texas: 'ITA' }], 'a literal, and only a fielded operator who is in the voice tree');
-    assert.deepEqual(Object.keys(plan({})), ['bgm', 'bossBgm', 'voice', 'voiceJp', 'sfx'], 'optionalVoice defaults off');
+    // optionalVoice defaults off ⇒ no voiceEn / voiceKr / voiceNative trees (the fork's voiceLang / voiceLangs tables
+    // are not gated on it: they describe the default dub's language and the other dubs the loader knows about).
+    const plain = Object.keys(plan({}));
+    for (const k of ['voiceEn', 'voiceKr', 'voiceNative', 'voiceNativeLangType']) assert.ok(!plain.includes(k), `${k} is off by default`);
+    assert.equal(plain[plain.length - 1], 'sfx');
   });
 
   // A unit's attack sound is a leaf like any other: when its file was never downloaded (or a checkout lost it) the whole

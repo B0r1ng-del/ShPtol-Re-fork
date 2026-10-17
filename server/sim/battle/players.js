@@ -236,7 +236,15 @@ export class BattlePlayers {
     for (const t of u.kit.talents || []) {
       if (t && typeof t.install === 'function') this._safe(() => t.install(this, u), 'talent.install', u);
     }
-    if (typeof u.kit.install === 'function') this._safe(() => u.kit.install(this, u), 'kit.install', u);
+    if (typeof u.kit.install === 'function') {
+      // 调用预算（`pack.json.callBudget`, DESIGN §34.52）：一个包提供的 kit 是**逐单位**装的，所以它的
+      // install(battle, unit) 也要跑在这个包的作用域里 —— 否则 kit 注册的 hook / 计时器拿不到包身份，
+      // 预算就对它失效（而 kit 恰好是最容易每 tick 跑一次的那类回调）。包身份由 kit 函数自己的 `pack` 章给出
+      // （content/index.js 在装配 kit 时盖的），第一方的 kit 没有这一格 ⇒ 行为不变。
+      const packId = typeof u.kit.pack === 'string' && u.kit.pack ? u.kit.pack : null;
+      if (packId) this._withPackScope({ id: packId, callBudget: Number.isInteger(u.kit.packCallBudget) ? u.kit.packCallBudget : null }, () => this._safe(() => u.kit.install(this, u), 'kit.install', u));
+      else this._safe(() => u.kit.install(this, u), 'kit.install', u);
+    }
     // trait lines the ENGINE owns for every operator (content/traitMods.js: the module attack-speed riders whose
     // condition is a pure function of the field — 「攻击范围内存在N名及以上敌人时攻击速度+X」). Runs after kit.install:
     // a kit that implements its own line for this trait is never double-counted — traitMods.js refuses every condition
