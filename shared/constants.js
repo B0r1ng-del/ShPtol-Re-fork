@@ -218,12 +218,12 @@ export const enemyBuffMul = (src) => {
  */
 export const MOD_KEYS = Object.freeze([
   'noBondBan', 'untimedSp', 'randomSpVote', 'extraRounds', 'targetedPick', 'uncapLayers',
-  'packRhine', 'packAphris', 'packRelic',
+  'packRhine', 'packAphris', 'packRelic', 'packKazdel',
 ]);
 /** Defaults of MOD_KEYS: the official behaviour of each switch (all off). */
 export const MOD_DEFAULTS = Object.freeze({
   noBondBan: false, untimedSp: false, randomSpVote: false, extraRounds: false, targetedPick: false, uncapLayers: false,
-  packRhine: false, packAphris: false, packRelic: false,
+  packRhine: false, packAphris: false, packRelic: false, packKazdel: false,
 });
 /**
  * 内容包开关 — the second column of the Mod submenu: whether a ported content pack may be used IN GAME. One key per
@@ -245,11 +245,12 @@ export const MOD_DEFAULTS = Object.freeze({
  * every room contains them like the official content. That is also why they are absent from PACK_KEYS: a pack with no
  * switch has nothing to strip, and `packEnabled(mods, undefined)` is true for exactly that reason.
  */
-export const PACK_KEYS = Object.freeze(['packRhine', 'packAphris', 'packRelic']);
+export const PACK_KEYS = Object.freeze(['packRhine', 'packAphris', 'packRelic', 'packKazdel']);
 export const PACK_AUTHORS = Object.freeze({
   packRhine: 'YUYUYUYUYUYUYUTOUA',
   packAphris: 'SrC204',
   packRelic: 'UNDFFIO',
+  packKazdel: 'YUYUYUYUYUYUYUTOUA',
 });
 /**
  * Whether a data record of pack `packId` may be used under these switches. No `packId` = the original content (`null`

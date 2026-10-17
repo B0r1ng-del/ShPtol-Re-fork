@@ -138,6 +138,7 @@ import { installPixiNumberMask } from '../ui/numberMask.js';
 // working. createFieldView stays here: it is one closure over the view's own state.
 
 import { GEO, ANIM } from '../../../shared/constants.js';
+import { KAZDEL_BOND } from '../../../shared/kazdel.js';
 import { fxForm } from '../../../shared/protocol.js';
 import { Camera, presetCamera, lerpCamera, easeInOutCubic, pickTile, normRect } from './projection.js';
 import { SnapshotBuffer, frameTime } from './interp.js';
@@ -1510,6 +1511,7 @@ export async function createFieldView(host, options = {}) {
     tiles.setBattleRect(rect);
     board3d?.setBattleRect(rect);
     for (const u of Array.isArray(meta.units) ? meta.units : []) addInfo(u);
+    fx.syncKazdel(meta.kazdel, Number(meta.gt ?? meta.t) || 0);
     // the official effects of this battle's units load now (the prep → battle switch), the board's heights for their
     // depth-tested materials
     if (ofx.active && !battleMeta.prep) {
@@ -1721,7 +1723,7 @@ export async function createFieldView(host, options = {}) {
         let officialForm = false;
         if (form !== undefined) {
           const inf = infos.get(e[4].id);
-          if (inf && (form === null || FORMS[inf.spine || inf.defId]?.[form])) inf.form = form;
+          if (inf && (form === null || (form === 'kazdelSoul' && inf.kazdelSoul) || FORMS[inf.spine || inf.defId]?.[form])) inf.form = form;
           const x = late > 0 ? { ...e[4], late, ...(Number(e[4].dur) > 0 ? { dur: Math.max(0, Number(e[4].dur) - late) } : {}) } : e[4];
           const fv = views.get(e[4].id);
           fv?.setForm?.(form, x);
@@ -1743,7 +1745,7 @@ export async function createFieldView(host, options = {}) {
         const url = assets.bondIcon ? assets.bondIcon(bondId) : null;
         let tex = null;
         if (url) { try { tex = P.Texture.from(url); } catch { tex = null; } }
-        fx.pop(tex, `+${n}`, 0xffffff, layerPops.size);
+        fx.pop(tex, `+${n}`, 0xffffff, layerPops.size, bondId === KAZDEL_BOND);
         break;
       }
       case 'bounty': {
@@ -1789,6 +1791,7 @@ export async function createFieldView(host, options = {}) {
     slideAt = interp.nextSnapT(renderT);
     if (slideAt > renderT) interp.forEachUpcoming(renderT, slideAt, startSlide);
     interp.sample(renderT, sample);
+    fx.syncKazdel(interp.rawAt(renderT)?.kazdel, renderT);
     for (const [id, s] of sample) {
       let v = views.get(id);
       if (!v && gone.has(id)) {

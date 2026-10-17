@@ -36,7 +36,32 @@ import { layerGainRoom } from '../../shared/constants.js';
 import { uniteLeft } from '../sim/spec.js';
 import { frontOf } from '../sim/dir.js';
 import { RHINE_BOND, RHINE_CHARACTERS, rhineCapacity, rhineDevice } from '../../shared/rhineResearch.js';
+import { KAZDEL_BOND, KAZDEL_GARRISON_KEYS } from '../../shared/kazdel.js';
 import { diyTokenOwner, diyRecordOf } from '../../shared/diy.js';
+
+/** The 卡兹戴尔 特质 keys whose `bb.layer` is a per-kill gain with no per-battle cap (see layerAllowanceOf). */
+const KAZDEL_GARRISON_KEYS_VALUES = new Set(Object.values(KAZDEL_GARRISON_KEYS));
+
+/**
+ * May the operator on this board leave a 亡魂 behind? Mirrors the sim's own rule (server/sim/content/kazdel.js
+ * `soulEligible`): a soul needs 卡兹戴尔 at its 3/6/9 threshold, and the operator must be a 卡兹戴尔 member — except at the
+ * 9 threshold, where every 阵营 qualifies. `start` is the player's own spec bond table (`spec.players[].bonds`), so the
+ * count and the activation are the ones the match itself handed to the battle; `bonds` is layerBondsOf's wider set.
+ */
+function soulEligible(rec, start, bonds) {
+  if (!rec || !start) return false;
+  const own = start[KAZDEL_BOND];
+  if (!own || own.active !== true) return false;
+  const count = Number(own.count) || 0;
+  if (count >= 9) return true;
+  if (count < 3) return false;
+  // 调和 (maniShip) active on this board: its operators enjoy every core bond (research 02 §2.1), 卡兹戴尔 included —
+  // the sim's `isMember` says the same, so the eligibility must too. Inactive 调和 grants nothing, even though the
+  // operator's own record still names it (`bonds` is derived from records, `start` is what the match actually ran).
+  if (start.maniShip?.active === true) return true;
+  if (start.maniShip && start.maniShip.active !== true) return (rec.bonds || []).includes(KAZDEL_BOND);
+  return (rec.bonds || []).includes(KAZDEL_BOND) || (rec.bonds || []).includes('maniShip');
+}
 
 export const MAX_TICKS_PER_INTERVAL = 8;
 export const INTERVAL_MS = 1000 / 30;
@@ -635,6 +660,20 @@ function layerAllowanceOf(p, gd, spec) {
   const credit = (g, times) => {
     const bb = g.bb || {};
     if (Number.isFinite(bb.extra_cnt)) { extra = true; return; }
+    // 卡兹戴尔 (内容包 卡兹戴尔, tools/kazdel-data.mjs): 奥达 / 赫德雷 gain `layer` per kill they took part in, with no
+    // per-battle cap (`bbStr.bond_ids` names the bonds, `bb.layer` the per-kill gain). Only a bond the player actually has
+    // ACTIVE gets that allowance — the trait's own text is 「其对应盟约激活时」 — so an inactive target keeps the flat
+    // bound every other bond has, and the shared ceiling still applies (the bound below is `min`).
+    if (KAZDEL_GARRISON_KEYS_VALUES.has(g.effectKey) && Number.isFinite(bb.layer) && bb.layer > 0) {
+      // `bbStr.bond_ids` names the target bonds; a trait that names none (赫德雷: 「使已激活的【卡兹戴尔】增加6层」) is
+      // 卡兹戴尔's own, so it must NOT spill onto the whole lineup. Like every layer trait it only applies to a normal
+      // field that grants layers (the 特质 is a battle rule, not a 联防 / boss / 隐藏 round one).
+      if (spec?.kind !== 'normal' || spec.flags?.layerGainsEnabled === false) return;
+      const named = String(g.bbStr?.bond_ids ?? '').split(',').map((x) => x.trim()).filter((x) => gd.bond(x));
+      const start = p.bonds && typeof p.bonds === 'object' ? p.bonds : {};
+      for (const b of named.length ? named : [KAZDEL_BOND]) if (start[b]?.active === true) out.set(b, Infinity);
+      return;
+    }
     if (!Number.isFinite(bb.bond_add_count) && !Number.isFinite(bb.bond_add_count_multi)) return;
     const s = g.bbStr || {};
     const bonds = s.bond_type === 'bond_by_id' ? String(s.bond_id ?? '').split(',').map((x) => x.trim()).filter((x) => gd.bond(x)) : [...lineup];
@@ -743,7 +782,7 @@ export function specBounds(spec, gd = null) {
       const v = Number(b && b.layers);
       if (Number.isFinite(v) && v > 0) startLayers.set(id, v);
     }
-    players.set(p.playerId, { chess, all, names, defIds, bonds: gd ? layerBondsOf(p, gd) : null, startLayers, layerAllow: gd ? layerAllowanceOf(p, gd, spec) : new Map() });
+    players.set(p.playerId, { chess, all, names, defIds, bonds: gd ? layerBondsOf(p, gd) : null, startBonds: p.bonds && typeof p.bonds === 'object' ? p.bonds : null, startLayers, layerAllow: gd ? layerAllowanceOf(p, gd, spec) : new Map() });
   }
   const round = Number(spec && spec.round) || 0;
   return {
@@ -909,7 +948,24 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
         if (!u || !Number.isInteger(u.uid) || !own.all.has(u.uid) || seen.has(u.uid)) continue;
         seen.add(u.uid);
         if (!finiteIn(u.hpPct, 0, 1) || !finiteIn(u.sp, 0, 1e5)) return bad('unit state');
-        unitsEnd.push({ uid: u.uid, defId: own.all.get(u.uid), hpPct: u.hpPct, sp: u.sp, skillActive: !!u.skillActive, alive: !!u.alive && u.hpPct > 0 });
+        // 卡兹戴尔 (内容包 卡兹戴尔, tools/kazdel-data.mjs): a body whose soul outlived it carries the soul's HP ratio and
+        // SP into the next battlefield (联防, server/match/unite.js). Validated here like every other carried number —
+        // dropping the field would silently strand the soul. The shape is the protocol's (shared/protocol.js isUnitEnd):
+        // only a DOWN body (hpPct 0, not alive) may carry one, and the soul itself must be a live one (hpPct > 0).
+        // A soul only exists while 卡兹戴尔 is ACTIVE on this board (its 3/6/9 thresholds) and the body's operator is
+        // eligible for it, so a report that attaches one to an inactive or ineligible board is a lie about the battle.
+        let kazdelSoul;
+        if (u.kazdelSoul !== undefined) {
+          const s = u.kazdelSoul;
+          if (!s || typeof s !== 'object' || u.alive !== false || u.hpPct !== 0) return bad('soul state');
+          if (!finiteIn(s.hpPct, 0, 1) || !(s.hpPct > 0) || !finiteIn(s.sp, 0, 1e5)) return bad('soul state');
+          if (!own.bonds || !own.bonds.has(KAZDEL_BOND)) return bad('soul bond');
+          const rec = typeof gd.chess === 'function' ? gd.chess(own.chess.get(u.uid)) : null;
+          if (!soulEligible(rec, own.startBonds, own.bonds)) return bad('soul body');
+          kazdelSoul = { hpPct: s.hpPct, sp: s.sp };
+        }
+        unitsEnd.push({ uid: u.uid, defId: own.all.get(u.uid), hpPct: u.hpPct, sp: u.sp, skillActive: !!u.skillActive,
+          alive: !!u.alive && u.hpPct > 0, ...(kazdelSoul ? { kazdelSoul } : {}) });
       }
       const unitStats = [];
       for (const u of Array.isArray(p.unitStats) ? p.unitStats : []) {

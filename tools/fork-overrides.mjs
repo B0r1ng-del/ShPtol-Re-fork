@@ -17,6 +17,7 @@
 //   * the 自选编队 slots of `data/chess.json` / `data/backups.json` — 5 per tier instead of the official 2 (二.8)
 
 import { FORK_EXTRA6_BOND_MEMBERS } from './fork-extra6.mjs';
+import { KAZDEL_BOND, KAZDEL_EQUIPMENT } from '../shared/kazdel.js';
 
 /** modeId of the fork's third room mode (终极模拟, AC-4, up to six 博士). */
 export const FORK_MODE_ID = 'mode_ultimate_abyss';
@@ -342,6 +343,16 @@ export function applyForkBackups(backups) {
 export const FORK_RHINE_BOND_ID = 'rhineShip';
 /** The ported 盟约's icon: the author's own monochrome SVG redraw of the 莱茵生命 insignia (`public/art/rhine/bond.svg`). */
 export const FORK_RHINE_ICON = '/art/rhine/bond.svg';
+/**
+ * 八: the 卡兹戴尔 盟约's icon and its two 装备 icons. `public/art/kazdel/README.md` carries the provenance: `bond.png`
+ * is the PNG the owner supplied for it, the two `-v2.png` are the equipment illustrations, and neither is official art
+ * (`public/assets/` stays ignored). `shared/kazdel.js` owns the bond / equipment ids.
+ */
+export const FORK_KAZDEL_BOND_ID = KAZDEL_BOND;
+export const FORK_KAZDEL_ICON = '/art/kazdel/bond.png';
+export const FORK_KAZDEL_ITEM_ICONS = Object.freeze(Object.fromEntries(
+  Object.keys(KAZDEL_EQUIPMENT).map((key) => [`trap_kazdel_${key}`, `/art/kazdel/${key}-v2.png`]),
+));
 const FORK_RHINE_PACKS = Object.freeze(['packRhine', 'packAphris']);
 /** `rhineShip`'s blackboard and its 效果 text (the source expansion's own words). */
 const FORK_RHINE = Object.freeze({
@@ -528,8 +539,20 @@ export function applyForkPackAphris(backups) {
 export function applyForkAssets(assets) {
   if (!isPlainObject(assets)) return assets;
   const bonds = isPlainObject(assets.bonds) ? assets.bonds : null;
-  if (!bonds || bonds[FORK_RHINE_BOND_ID] === FORK_RHINE_ICON) return assets;
-  return { ...assets, bonds: { ...bonds, [FORK_RHINE_BOND_ID]: FORK_RHINE_ICON } };
+  if (!bonds) return assets;
+  const patch = {};
+  if (bonds[FORK_RHINE_BOND_ID] !== FORK_RHINE_ICON) patch[FORK_RHINE_BOND_ID] = FORK_RHINE_ICON;
+  // 八: the 卡兹戴尔 盟约's icon. The file is the PNG the owner supplied for it (see `public/art/kazdel/README.md` for
+  // its provenance and the licence boundary). The two equipment icons are the same pipeline's, and both live under
+  // `public/art/kazdel/`, which — like `public/art/rhine/` — is the fork's own art rather than a game asset.
+  if (bonds[FORK_KAZDEL_BOND_ID] !== FORK_KAZDEL_ICON) patch[FORK_KAZDEL_BOND_ID] = FORK_KAZDEL_ICON;
+  const items = isPlainObject(assets.items) ? assets.items : {};
+  for (const [trapId, url] of Object.entries(FORK_KAZDEL_ITEM_ICONS)) if (items[trapId] !== url) patch[trapId] = url;
+  if (!Object.keys(patch).length) return assets;
+  const bondsNext = { ...bonds };
+  const itemsNext = { ...items };
+  for (const [id, url] of Object.entries(patch)) (id.startsWith('trap_') ? itemsNext : bondsNext)[id] = url;
+  return { ...assets, bonds: bondsNext, items: itemsNext };
 }
 
 /**

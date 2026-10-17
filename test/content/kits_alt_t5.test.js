@@ -65,7 +65,7 @@ test('tier 5: every selectable skill of every visible chess has a hand-authored 
   const rep = kitCoverage({ tier: 5 });
   // 19 official + 结城理 (内容包 packExtra6, 六.C)
   // 19 official + 结城理 (内容包 packExtra6, 六.C) + 森蚺 / 伊芙利特 (packRhine, 六.F)
-  assert.equal(rep.summary.chess, 21);
+  assert.equal(rep.summary.chess, 22);
   assert.equal(rep.summary.covered, rep.summary.skills, rep.chess.flatMap((r) => r.skills.filter((s) => !s.covered).map((s) => `${r.name} S${s.index + 1}`)).join(', '));
   assert.equal(rep.summary.chessFullyCovered, rep.summary.chess);
 });
@@ -73,7 +73,7 @@ test('tier 5: every selectable skill of every visible chess has a hand-authored 
 test('tier 5: every chess × every legal skill × every module fights with its authored spec and casts, no content errors', () => {
   // tier, not the official `chess_char_5_NN_a` shape: 森蚺 / 伊芙利特 are PRESET cards with their own ids
   const bases = ds.chessIds().filter((id) => id.endsWith('_a') && raw(id).tier === 5 && raw(id).visible);
-  assert.equal(bases.length, 21);
+  assert.equal(bases.length, 22);
   let n = 0;
   for (const base of bases) {
     const gold = base.replace(/_a$/, '_b');

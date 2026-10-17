@@ -10,9 +10,10 @@ export const FORCED_EXIT = 'forcedExit';
 /**
  * Generic death particles for a battle unit's 'die' event: never for stage devices, nor for a summon used up by its
  * own effect (user playtest #2 item 4: 香槟炸弹's blast — sim fx `{ consumed: true, id }` before its 'die' — is its end,
- * not a knock-out), nor for an operator entering the battle knocked out (FORCED_EXIT).
+ * not a knock-out), nor for an operator entering the battle knocked out (FORCED_EXIT), nor for a 卡兹戴尔 亡魂 —
+ * the soul is already a death's aftermath, so a second burst of particles would read as a second death.
  */
-export const showsDeathFx = (info, consumed = false, reason = null) => !consumed && reason !== FORCED_EXIT && info?.kind !== 'device';
+export const showsDeathFx = (info, consumed = false, reason = null) => !consumed && reason !== FORCED_EXIT && info?.kind !== 'device' && !info?.kazdelSoul;
 
 /**
  * The views' info of a battle unit from its UnitInfo (m.field / fieldMeta `units`, a 'spawn' event; snapshot.js
@@ -37,6 +38,8 @@ export function renderInfo(u) {
     dir: typeof u.dir === 'string' ? u.dir : undefined,
     // the unit's current model form (UnitInfo.form: an enemy's mode, a 傀儡师's 替身): the view starts in it (UnitView reads info.form)
     form: typeof u.form === 'string' ? u.form : undefined,
+    // 八 卡兹戴尔: the unit is a 亡魂 (a dead operator's soul fighting on) — `soulOf` names the body it belongs to
+    ...(u.kazdelSoul === true ? { kazdelSoul: true, soulOf: typeof u.soulOf === 'number' || typeof u.soulOf === 'string' ? u.soulOf : undefined } : {}),
     // Reconnecting / observing must show the device's current breakthrough before its next effect is emitted.
     researchStage: Number.isInteger(u.researchStage) && u.researchStage >= 0 && u.researchStage <= 2 ? u.researchStage : undefined,
     researchActive: typeof u.researchActive === 'boolean' ? u.researchActive : undefined,
@@ -55,7 +58,7 @@ export function renderInfo(u) {
     // the ally's equipped item ids (UnitInfo.items, DESIGN §16 / §21.11): the detail card needs them for a teammate's
     // unit (resolveDetail `unitItems` → the read-only 装备 section and the 变形同构体 pairing chips); the owner's own
     // unit takes its items from the piece instead, so only other players' boards ever read this field
-    items: Array.isArray(u.items) ? u.items.filter((x) => typeof x === 'string') : undefined,
+    items: Array.isArray(u.items) ? u.items.filter((x) => typeof x === 'string' && x.length > 0) : undefined,
     // 0.2.0 补位: the replaced operator's charId of a chess fighting as its stand-in (UnitInfo.standInFor; spine / avatar /
     // name are already the stand-in's) — the detail card and the view's data lookups (attack interval, splash FX) follow it
     standInFor: typeof u.standInFor === 'string' && u.standInFor ? u.standInFor : undefined,

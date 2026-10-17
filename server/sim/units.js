@@ -140,7 +140,10 @@ export class Unit {
     const b = this.base;
     const cm = this.cultMul || NO_MUL;
     const bHp = fin(b.maxHp, 1) > 0 ? fin(b.maxHp, 1) : 1;
-    const maxHp = Math.max(1, fin((bHp + a('hpFlat')) * Math.max(0, 1 + a('hpPct')) * m('hpMul') * cm.hp, bHp));
+    // 八 卡兹戴尔: `hpFinal` is the 最终加算 of 最大生命值 — added once AFTER the percentages, mirroring `atkFinal`
+    // below (PRTS 属性基本公式). It is what 众魂's 「每层提高卡兹戴尔本体 10 点生命」 uses, and it is added outside the
+    // Πmul so it is not scaled by hpMul.
+    const maxHp = Math.max(1, fin((bHp + a('hpFlat')) * Math.max(0, 1 + a('hpPct')) * m('hpMul') * cm.hp + a('hpFinal'), bHp));
     // PRTS 游戏数据基础 属性基本公式 A_f = F_t[(A + D_p)(1 + D_t) + F_p]: `atkFinal` is the 最终加算 (FINAL_ADDITION) —
     // added after the percentages, inside the Πmul (阿戈尔's devoured base ATK, DESIGN §24.7)
     const atk = Math.max(0, fin(((b.atk + a('atkFlat')) * Math.max(0, 1 + a('atkPct')) + a('atkFinal')) * m('atkMul') * cm.atk, fin(b.atk, 0)));

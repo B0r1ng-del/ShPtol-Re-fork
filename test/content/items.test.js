@@ -686,10 +686,11 @@ test('变形同构体: carrier counts as a member of the other item\'s giveBondI
   assert.deepEqual([...unitBonds(h.unit('t_op'))], ['lateranoShip']);
   const h2 = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [A('4_08')] }] });
   assert.deepEqual([...unitBonds(h2.unit('t_op'))], [], 'the bond item alone grants nothing');
-  // every giveBondId item grants its bond (the official 14, plus 莱茵生命 from 莱茵实验终端, 六.F)
+  // every giveBondId item grants its bond (the official 14, plus 莱茵生命 from 莱茵实验终端, 六.F, plus
+  // 卡兹戴尔 from 舍身刻印, 内容包 卡兹戴尔)
   const grants = Object.values(DATA.items).filter((r) => r.giveBondId && !r.isGolden);
-  assert.equal(grants.length, 19);
-  assert.equal(new Set(grants.map((r) => r.giveBondId)).size, 15);
+  assert.equal(grants.length, 20);
+  assert.equal(new Set(grants.map((r) => r.giveBondId)).size, 16);
   for (const r of grants) {
     const hh = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [r.id, A('6_09')] }] });
     assert.ok(unitBonds(hh.unit('t_op')).includes(r.giveBondId), r.id);
@@ -892,7 +893,9 @@ test('寻呼模块: a pick-one offer of 3 different same-bond operators (tier �
   const ids = offer.slots.map((s) => s.id);
   assert.equal(ids.length, 3);
   assert.equal(new Set(ids).size, 3, 'distinct');
-  for (const id of ids) assert.ok(DATA.chess[id].tier <= 3 && DATA.chess[id].bonds.some((b) => DATA.chess[cid].bonds.includes(b)), id);
+  // the offer is drawn from the MATCH's data (a default room has every 内容包 switch off, shared/packData.js), so the
+  // bonds of a record a pack edited (锡人 gains 卡兹戴尔 in data/chess.json) are the stripped ones here.
+  for (const id of ids) assert.ok(m.gd.chess(id).tier <= 3 && m.gd.chess(id).bonds.some((b) => m.gd.chess(cid).bonds.includes(b)), id);
   const f0 = ps.funds;
   assert.deepEqual(m.handle('p_0', { t: 'g.reward', idx: 1 }), OK);
   assert.equal(ps.funds, f0);
@@ -1284,8 +1287,11 @@ test('merging: two identical normal items become the golden one (upgradeNum 2); 
 });
 
 test('coverage: every equipment (normal + golden) and every Art is exercised by a test above', () => {
-  // items whose numbers are asserted in the stat table, the proc tests or the meta tests
-  const missing = Object.keys(DATA.items).filter((id) => !COVER.has(id)).sort();
+  // items whose numbers are asserted in the stat table, the proc tests or the meta tests.
+  // 卡兹戴尔装备 (内容包, tools/kazdel-data.mjs) 的数值在 test/content/kazdel_equipment.test.js 里连它们读的
+  // 盟约 / 魂灵一起断言 —— 这个文件的合成战斗没有【卡兹戴尔】盟约，套进来只会测出一个假的默认值。
+  const kazdel = /^chess_item_kazdel_/;
+  const missing = Object.keys(DATA.items).filter((id) => !COVER.has(id) && !kazdel.test(id)).sort();
   assert.deepEqual(missing, []);
-  assert.equal(Object.keys(DATA.items).length, 119);
+  assert.equal(Object.keys(DATA.items).length, 123);
 });

@@ -53,6 +53,7 @@
 import { MIN_DAMAGE_RATIO, ELEMENT, ELEMENT_ORDER, PALSY_MAX } from './constants.js';
 import { BOSS_HIT_LIMIT } from '../../shared/constants.js';
 import { evadesGround } from './targeting.js';
+import { kazdelCannonOwner } from './kazdelOrigin.js';
 
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
@@ -85,6 +86,7 @@ export function makeDamageInfo(d = {}) {
     isAttack: !!d.isAttack,
     isProjectile: !!d.isProjectile,
     tags: d.tags ?? [],
+    kazdelCannonOwnerId: d.kazdelCannonOwnerId ?? null,
     cancel: false,
     noSp: !!d.noSp,
     ignoreSleep: !!d.ignoreSleep,
@@ -319,11 +321,23 @@ function peekStats(unit) {
 }
 
 /**
+ * 卡兹戴尔 众魂大炮: whether this hit may reach `target` at all. A cannon never harms another player's ally, and never
+ * a 亡魂; missing provenance means the hit is refused rather than turned into team-wide friendly fire.
+ */
+export function kazdelCannonImmune(battle, source, target, dmg) {
+  const cannon = source?.kazdelCannon || dmg?.tags?.includes('kazdelCannon') || battle._kazdelCannonDamageDepth > 0;
+  if (!cannon) return false;
+  const ownerId = kazdelCannonOwner(battle, source, dmg);
+  return !!target?.kazdelSoul || (target?.side === 'ally' && (ownerId == null || target.ownerId !== ownerId));
+}
+
+/**
  * Full damage pipeline. Returns the HP actually removed (0 when dodged/cancelled/absorbed).
  */
 export function dealDamage(battle, source, target, dmgIn) {
   if (!target || !target.alive || target.removed || target.hidden || !target.deployed) return 0;
   const dmg = dmgIn && dmgIn._norm ? dmgIn : makeDamageInfo(dmgIn);
+  if (kazdelCannonImmune(battle, source, target, dmg)) return 0;
   if (dmg.type === 'element') return applyElement(battle, source, target, dmg);
   // 无来源 (dmg.sourceless, element bursts): hooks see no source — nothing keyed on "damage dealt by X" (ATK-up vs a
   // tag, 伤害提升 items / bonds / modules, reflect, "受到来自…的伤害") can recognise it; `credit` names the unit that still
@@ -387,6 +401,7 @@ export function dealDamage(battle, source, target, dmgIn) {
  */
 export function applyHpLoss(battle, source, target, amount, dmg, mark) {
   if (!target.alive) return 0;
+  if (kazdelCannonImmune(battle, source, target, dmg)) return 0;
   let dealt = 0;
   const hs = dmg && dmg.sourceless ? null : source; // the source hooks see (无来源: none; `credit` keeps it)
   if (target.bossPool) {
@@ -431,7 +446,7 @@ export function applyHpLoss(battle, source, target, amount, dmg, mark) {
   if (battle._hooks.damaged) battle.emit('damaged', { source: hs, target, amount, type: dmg ? dmg.type : 'true', dmg, credit: source });
   if (target.side === 'ally' && target.skill && dmg && !dmg.noSp && dmg.type !== 'element') battle._skills.onDamaged(target);
   const dead = target.bossPool ? target.bossPool.hp <= 0 : target.hp <= 0;
-  if (dead && target.alive) battle.kill(target, source);
+  if (dead && target.alive) battle.kill(target, source, dmg);
   return dealt;
 }
 
@@ -493,6 +508,7 @@ export function elementIntake(target) {
 
 /** Element gauge accumulation + burst. Fires `elementHit` { source, target, dmg } first (mutable amount/mul, cancel). */
 export function applyElement(battle, source, target, dmg) {
+  if (kazdelCannonImmune(battle, source, target, dmg)) return 0;
   const el = dmg.element;
   if (!el || !(el in target.elem)) return 0;
   if (!hasHp(target)) return 0; // a killing blow's rider: the target is dead, nothing fills or bursts (header)
@@ -623,14 +639,35 @@ export function reduceElement(target, amount, el = null) {
 }
 
 /**
- * Shared recipient rule for healing selectors and the final pipeline (六.F 莱茵装置 / 梅尔's 机械水獭).
+ * 八 卡兹戴尔: the 亡魂 a unit belongs to, walking the owner chain (a soul's own summon answers with the soul). Null for
+ * anything that is not part of a soul's chain — every other unit in the battle.
+ */
+export function soulOrigin(unit) {
+  if (!unit?.kazdelSoul && !unit?.ownerUnit) return null;
+  const seen = new Set();
+  for (let u = unit; u && !seen.has(u); u = u.ownerUnit) {
+    if (u.kazdelSoul) return u;
+    seen.add(u);
+  }
+  return null;
+}
+
+/**
+ * Shared recipient rule for healing selectors and the final pipeline (六.F 莱茵装置 / 梅尔's 机械水獭, plus 八's 亡魂).
  *
  * `flags.noOperatorHeal` (梅尔's otters, kits/rhineSupport.js): an OPERATOR's heal cannot reach the summon — the owner
  * chain is walked so a summon-of-a-summon is covered — while another summon's own heal still can. The flag is only ever
  * set by ported content, so with every 内容包开关 off this is exactly the two checks `heal` used to inline.
+ *
+ * 卡兹戴尔 亡魂 form their own healing group (`soulOrigin`): a living source cannot heal them and they cannot heal the
+ * living — 锡人's S2 is the sole explicit exception, carrying the `kazdelSoulHeal` tag.
  */
 export function canReceiveHeal(source, target, opts = {}) {
   if (!target) return false;
+  const sourceSoul = soulOrigin(source), targetSoul = soulOrigin(target);
+  if (targetSoul && !sourceSoul && !opts.tags?.includes('kazdelSoulHeal')) return false;
+  if (targetSoul && opts.regen && !opts.self && !opts.tags?.includes('kazdelSoulHeal')) return false;
+  if (sourceSoul && !targetSoul) return false;
   if (target.s.flags.noOperatorHeal && source !== target) {
     const seen = new Set();
     for (let origin = source; origin && !seen.has(origin); origin = origin.ownerUnit) {
@@ -688,5 +725,8 @@ export function heal(battle, source, target, amount, opts = {}) {
     if (source.side === 'ally' && source.ownerId != null) { const pp = battle._pp(source.ownerId); if (pp) pp.healingDone += actual; }
   }
   if (actual >= 0.5 && !opts.silent) battle._ev(['heal', target.id, Math.round(actual)]);
+  // Post-resolution observers see the adjusted amount and the real overflow only after HP / stats are committed.
+  // Also fires for a valid full-HP heal; cancelled / forbidden heals returned before this point.
+  if (battle._hooks.healResolved) battle.emit('healResolved', { source, target, amount: amt, actual, overheal: Math.max(0, amt - actual), opts });
   return actual;
 }

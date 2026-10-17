@@ -7,6 +7,7 @@ import { ROWS, COLS, ENEMY_COLLIDER_RADIUS } from '../constants.js';
 import { absoluteRangeKeys, canTargetEnemy, extendedGrid, enemyStealthed } from '../targeting.js';
 import { bodyKeys, bodyInKeys, bodyInRadius, bodyInRange } from '../body.js';
 import { roundHalfEven } from '../detmath.js';
+import { canReceiveHeal } from '../damage.js';
 
 export class BattleQueries {
   /**
@@ -160,19 +161,18 @@ export class BattleQueries {
   }
 
   /**
-   * Allies (not devices) within tiles `keys`, sorted by HP ratio (lowest first) that need healing. A `noHeal` (禁疗) ally
-   * is left out unless the healer's profile heals it through its 禁疗 (`healThrough(healer, ally)`: 凯尔希's Mon3tr —
-   * damage.js heal).
+   * Allies (not devices) within tiles `keys`, sorted by HP ratio (lowest first) that need healing. The shared recipient
+   * rule decides who may be healed at all (`canReceiveHeal`: 禁疗, and 八 卡兹戴尔's 亡魂 healing group) — the same rule
+   * the heal pipeline and the chain selector use, so a selector can never offer a target the pipeline would refuse.
    */
   injuredAlliesInKeys(keys, healer, includeElement = false) {
     const out = [];
     if (!keys) return out;
     const set = keys instanceof Set ? keys : (healer && healer.rangeKeys === keys && healer.rangeKeySet ? healer.rangeKeySet : new Set(keys));
-    const through = healer && healer.profile && typeof healer.profile.healThrough === 'function' ? healer.profile.healThrough : null;
     for (const a of this.allyUnits) {
       if (!a.alive || !a.deployed || a.hidden || a.kind === 'device') continue;
       if (!set.has(a.tileR * COLS + a.tileC)) continue;
-      if (a !== healer && ((a.s.flags.noHeal && !(through && through(healer, a))) || (a.profile && a.profile.noHeal))) continue;
+      if (!canReceiveHeal(healer, a)) continue;
       const injured = a.hp < a.s.maxHp - 1e-6;
       const elem = includeElement && (a.elem.burn + a.elem.neural + a.elem.necrosis + a.elem.apoptosis + a.elem.erosion) > 0;
       if (injured || elem) out.push(a);

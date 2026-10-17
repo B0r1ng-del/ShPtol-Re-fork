@@ -46,12 +46,16 @@ test('diyPool: tier 5 = 15 prototypes + 72 owned 6★, tier 6 = 9 + 72; no prese
   assert.deepEqual(p5, [...RESERVES5, ...ELITES, ...ownedPool]);
   assert.deepEqual(p6, [...ELITES, ...ownedPool]);
   assert.deepEqual([p5.length, p6.length], [87, 81]);
-  // A pick is a 6★ outside the CHESS pool. 伊芙利特 / 森蚺 / 多萝西 are both: the ported packRhine gives each a chess
-  // record (六.F, tools/rhine-data.mjs) while the 自选 pool keeps the 6★ — the two are separate selectors (a pick
-  // fields the operator's own kit by charId, the chess is what the shop draws).
-  const alsoChess = new Set(['char_134_ifrit', 'char_416_zumama', 'char_4048_doroth']);
-  const roster = new Set(Object.values(chess).map((c) => c.charId).filter(Boolean));
-  for (const id of p5) assert.ok((!roster.has(id) || alsoChess.has(id)) && !COLLAB.includes(id), id);
+  // A pick is a 6★ outside the CHESS pool. A ported expansion may give a 6★ pick a chess record too (六.F's 伊芙利特 /
+  // 森蚺 / 多萝西, 八's 维什戴尔 / 赫德雷 / Logos) — the two are separate selectors (a pick fields the operator's own kit
+  // by charId, the chess is what the shop draws), so the overlap is LEGAL exactly when the chess record is ported
+  // content (it carries a `packId`). Derived, never a list of names.
+  const roster = new Map(Object.values(chess).filter((c) => c.charId).map((c) => [c.charId, c]));
+  for (const id of p5) {
+    const rec = roster.get(id);
+    assert.ok(!rec || rec.packId, `${id}: only ported content may be both a pick and a chess`);
+    assert.ok(!COLLAB.includes(id), id);
+  }
   assert.deepEqual(diyPool(4, { data: DATA }), [], 'no 自选 slot at tier 4');
   // the kit registry: the 预备干员 run the generic kit (exact for their skills), the nine elites their stand-in kits, the
   // owned 6★ only with an operator kit file (kits/index.js OPERATOR_KIT_FILES), in pool order

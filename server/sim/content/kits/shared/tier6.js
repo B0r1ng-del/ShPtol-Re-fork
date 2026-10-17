@@ -113,6 +113,7 @@
 import { textCount, textFinite } from '../../../../../shared/plugins/textNumber.js';
 import { absoluteRangeKeys } from '../../../targeting.js';
 import { COLS, ROWS, PULL_STOP_RADIUS } from '../../../constants.js';
+import { nativeOperator } from './nativeIdentity.js';
 import { hasHp } from '../../../damage.js';
 import { hypot } from '../../../detmath.js';
 
@@ -151,7 +152,8 @@ const live = (u) => !!u && u.alive && u.deployed && !u.removed && !u.hidden;
 const isElite = (e) => !!e && (e.isBoss || e.def?.rank === 'ELITE' || e.def?.rank === 'BOSS');
 const hasBond = (u, id) => !!(u && u.def && Array.isArray(u.def.bonds) && u.def.bonds.includes(id));
 const keyOf = (u) => Math.round(u.y) * COLS + Math.round(u.x);
-const opsOf = (battle, ownerId) => battle.allies(ownerId).filter((a) => a.kind === 'op');
+// 八 卡兹戴尔: see tier5.js — a 亡魂 is the operator it came from, so the native-op lookups include souls.
+const opsOf = (battle, ownerId) => battle.allies(ownerId).filter((a) => nativeOperator(a));
 const ANY = Object.freeze({ canHitFly: true });
 const enemiesIn = (battle, unit, keys) => battle.enemiesInKeys(keys || unit.rangeKeys || [], unit, ANY);
 const isTok = (t, id, owner) => !!t && t.kind === 'token' && t.defId === id && t.ownerUnit === owner;

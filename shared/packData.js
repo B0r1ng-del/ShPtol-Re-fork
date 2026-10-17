@@ -150,6 +150,13 @@ export function withPackMembers(mods, map) {
   for (const [id, rec] of Object.entries(map)) {
     if (!isPlain(rec) || !isPlain(rec[PACK_MEMBERS_FIELD])) continue;
     let next = null;
+    // Which packs contributed to this record is itself pack bookkeeping: while a pack is off its entry leaves with it,
+    // so the stripped record carries no trace of a switch the room never turned on.
+    const contributions = Object.entries(rec[PACK_MEMBERS_FIELD]).filter(([key]) => packEnabled(mods, key));
+    if (contributions.length !== Object.keys(rec[PACK_MEMBERS_FIELD]).length) {
+      next = { ...rec, [PACK_MEMBERS_FIELD]: Object.fromEntries(contributions) };
+      if (!contributions.length) delete next[PACK_MEMBERS_FIELD];
+    }
     for (const field of MEMBER_FIELDS) {
       const list = rec[field];
       if (!Array.isArray(list) || !list.length) continue;

@@ -70,6 +70,8 @@ export class FxSim {
     const r = clamp(num(ex.r ?? ex.radius, spec.r ?? 1), 0.3, 30);
     const ts = this.ctx.timeScale ? Math.max(0.25, this.ctx.timeScale()) : 2;
     const dur = num(ex.dur ?? ex.duration, spec.dur ?? 0) / ts;
+    // 八 卡兹戴尔: the 亡魂's cues and the 众魂大炮's telegraph / impact share one Graphics in render/fx/kazdel.js
+    if (spec.a.startsWith('kazdel')) { this.kazdelFx(kind, at, ex, dur); return; }
     if (kind === 'dorothyTrap' && ex.skill === 'sktok_doroth_3') {
       const row = Math.round(at.y), column = Math.round(at.x);
       const cross = [[0,0],[1,0],[2,0],[-1,0],[-2,0],[0,1],[0,2],[0,-1],[0,-2]];

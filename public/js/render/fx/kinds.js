@@ -9,6 +9,12 @@ import { RHINE_BALANCE } from '../../../../shared/rhineResearch.js';
 
 export const FX_KINDS = Object.freeze({
   form: { a: 'none' }, // the persistent UnitView form is applied by render/app.js before cosmetic fx
+  // 八 卡兹戴尔 (render/fx/kazdel.js): the 亡魂's own cues and the 众魂大炮's telegraph / impact
+  kazdelSoulSpawn: { a: 'kazdelSoul', c: 0xdd546b, pt: true },
+  kazdelSoulEnd: { a: 'kazdelSoul', c: 0xdd546b, pt: true },
+  kazdelSoulHeal: { a: 'kazdelSoul', c: 0xa1e6b6, pt: true },
+  kazdelCannonWarning: { a: 'kazdelCannon', c: 0xff6e62, pt: true, dur: 2 },
+  kazdelCannonImpact: { a: 'kazdelCannon', c: 0xffc69d, pt: true },
   burn: { a: 'flame', c: 0xff713b, r: 0.6 },
   // 六.F 科研装置 (render/rhineDevices.js): the rig's own cues, drawn from the sim's explicit events
   rhineHeal: { a: 'researchHeal', c: 0x6fe8c1, pt: true },
