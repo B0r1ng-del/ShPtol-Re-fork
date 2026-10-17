@@ -136,6 +136,11 @@ test('E2 audit: every pure healer (医师 / 群愈师 / 疗养师 / 链愈师 / 
   for (const c of healers) {
     for (let si = 0; si < (c.skills || []).length; si++) {
       for (const member of [null, ...bonds]) {
+        // 八 卡兹戴尔: this audit injects the healer as a synthetic member of EVERY bond, and `kazdelShip`'s own text
+        // says its 众魂大炮 hits this player's LIVING allies for the same amount as the enemy ("炮击对本玩家活体友军
+        // 造成与敌方同额伤害"). With the healer as the only ally on the field it is therefore shelled by its own
+        // covenant, so the bind's blocking / healing budget cannot hold. Skipped by NAME, not by weakening the assert.
+        if (member === 'kazdelShip') continue;
         const tiers = member ? (BONDS[member].thresholds ?? [1]).length : 0;
         const r = blockRun({ chessId: c.chessId, skillIndex: si }, member ? { member, rec: c, bonds: { [member]: { count: 12, active: true, tier: Math.max(1, tiers), layers: 60 } } } : {});
         const tag = `${c.name} ${c.chessId} S${si + 1}${member ? ' ' + member : ''}`;

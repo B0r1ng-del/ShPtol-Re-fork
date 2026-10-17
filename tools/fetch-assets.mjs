@@ -64,6 +64,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Downloader } from './assets/downloader.mjs';
 import { prepareCustomRelicIcons } from './assets/relics.mjs';
 import { rhineArtInput, addRhineArt } from './assets/rhine-plan.mjs';
+import { kazdelArtInput, addKazdelArt } from './assets/kazdel-plan.mjs';
 import { restartForEnvProxy } from './assets/env-proxy.mjs';
 import { MirrorPolicy, selectDownloadSource, validateSource } from './assets/network.mjs';
 import { normalizeProxyPrefix } from './assets/sources.mjs';
@@ -453,7 +454,9 @@ async function main() {
   const plan = buildPlan({
     // 六.F 莱茵生命 (tools/rhine-data.mjs): its six operators field PRESET chess of their own, so research 07/03 do
     // not name them and they would ship with no avatar / portrait / Spine (assets/rhine-plan.mjs).
-    ...rhineArtInput(assets07, ops03), enemies05, maps05, audio, modelsData, charword, voiceLang: opts.voiceLang,
+    // 内容包 卡兹戴尔 (tools/kazdel-data.mjs): the same for its six operators — 奥达 / 陨星 / 明椒 are not in the
+    // fork's research tables at all (assets/kazdel-plan.mjs).
+    ...kazdelArtInput(rhineArtInput(assets07, ops03)), enemies05, maps05, audio, modelsData, charword, voiceLang: opts.voiceLang,
     // default: only the slots a battle can play (plan.mjs VOICE_BATTLE_SLOTS); --voice-all takes the whole official set
     voiceSlots: opts.voiceAll ? null : undefined,
     optionalVoice: opts.optionalVoice,
@@ -526,7 +529,8 @@ async function main() {
   });
   // 六.F: the pack's own art is LOCAL (public/art/rhine/, like the relic icons) — the bond icon, the three device
   // sprites and the two equipment icons have no remote URL (assets/rhine-plan.mjs addRhineArt).
-  const body = addRhineArt(resolved.value);
+  // 内容包 卡兹戴尔: the same for its bond icon and the two equipment icons (assets/kazdel-plan.mjs addKazdelArt).
+  const body = addKazdelArt(addRhineArt(resolved.value));
   tidyManifest(body);
   tidyVoiceTrees(body);
   const fontFaces = {};

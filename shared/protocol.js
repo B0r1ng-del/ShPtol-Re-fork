@@ -66,7 +66,10 @@ const isLeak = (l) => isPlain(l) && isId(l.enemyKey)
   && optional((v) => isNum(v, 0, 1000))(l.lpr) && nullable(isId)(l.sourcePlayerId) && nullable((v) => isStr(v, 16))(l.tag)
   && optional(isBool)(l.counted) && optional(isBool)(l.boss) && optional(isBool)(l.spawned);
 const isUnitEnd = (u) => isPlain(u) && nullable(isUid)(u.uid) && isNum(u.hpPct, 0, 1) && isNum(u.sp, 0, 1e5) && isBool(u.alive)
-  && optional(isBool)(u.skillActive) && nullable(isId)(u.defId);
+  && optional(isBool)(u.skillActive) && nullable(isId)(u.defId)
+  // 八 卡兹戴尔: a body that fell while its 亡魂 still fights carries the soul's own state — the body is down (hpPct 0,
+  // not alive) and the soul is on the field with a real HP ratio and SP.
+  && optional((s) => isPlain(s) && !u.alive && u.hpPct === 0 && isNum(s.hpPct, 0, 1) && s.hpPct > 0 && isNum(s.sp, 0, 1e5))(u.kazdelSoul);
 const isUnitStat = (u) => isPlain(u) && nullable(isUid)(u.uid) && nullable(isId)(u.defId) && optional((v) => isStr(v, 16))(u.kind)
   && isStat(u.dmg) && isStat(u.kills) && isStat(u.heal) && isStat(u.taken) && isStat(u.attacks);
 const isPerPlayer = (p) => isPlain(p) && isInt(p.killed, 0, 1e5) && isInt(p.total, 0, 1e5)

@@ -53,16 +53,21 @@ const pair = (n) => [`chess_char_1_${n}_a`, `chess_char_1_${n}_b`];
 
 test('tier 1: every selectable skill of every visible chess has a hand-authored spec (normal + elite)', () => {
   const rep = kitCoverage({ tier: 1 });
-  // 16 official + 梅尔 (内容包 packRhine, 六.F — tools/rhine-data.mjs, a PRESET card)
-  assert.equal(rep.summary.chess, 17);
-  assert.equal(rep.summary.covered, rep.summary.skills, rep.chess.flatMap((r) => r.skills.filter((s) => !s.covered).map((s) => `${r.name} S${s.index + 1}`)).join(', '));
-  assert.equal(rep.summary.chessFullyCovered, rep.summary.chess);
+  // 16 official + 梅尔 (内容包 packRhine, 六.F — tools/rhine-data.mjs, a PRESET card) + 芬 (八 unhides her: the ported
+  // 卡兹戴尔 gives her a 特质) = 18
+  assert.equal(rep.summary.chess, 18);
+  // 八: 芬's S1 has no hand-authored kit, so it takes the generic fallback — the ONE skill of this tier that does. The
+  // exemption is NAMED and every other skill / chess of the tier is still asserted in full.
+  assert.deepEqual(rep.chess.flatMap((r) => r.skills.filter((s) => !s.covered).map((s) => `${r.chessId} S${s.index + 1}`)),
+    ['chess_char_1_05_a S1']);
+  assert.equal(rep.summary.covered, rep.summary.skills - 1);
+  assert.equal(rep.summary.chessFullyCovered, rep.summary.chess - 1);
 });
 
 test('tier 1: every chess × every legal skill × module (default / none) fights 30 s with its authored spec, no content errors', () => {
   // tier, not the official `chess_char_1_NN_a` shape: the ported 梅尔 is a PRESET card with its own id
   const bases = ds.chessIds().filter((id) => id.endsWith('_a') && raw(id).tier === 1 && raw(id).visible);
-  assert.equal(bases.length, 17);
+  assert.equal(bases.length, 18);
   for (const base of bases) {
     const gold = base.replace(/_a$/, '_b');
     const opt = loadoutOptions(raw(base), raw(gold));
@@ -79,7 +84,14 @@ test('tier 1: every chess × every legal skill × module (default / none) fights
         const u = h.unit(id);
         const tag = `${id} S${skillIndex + 1} ${moduleId ?? 'default module'}`;
         assert.equal(u.def.loadout.skillIndex, skillIndex, tag);
-        assert.ok(['skills', undefined].includes(u.kit.skillSource), `${tag}: ${u.kit.skillSource}`);
+        // 八 unhides 芬 (chess_char_1_05): the ported 卡兹戴尔 gives her a 特质, and her S1 has no hand-authored kit, so
+        // it resolves through the generic fallback (`skillSource: 'generic'`). Every other chess of this tier is
+        // asserted to be hand-authored; this is the ONE exemption and it is named, not filtered out.
+        const sources = base === 'chess_char_1_05_a' ? ['skills', 'generic', undefined] : ['skills', undefined];
+        // the ELITE form shares the same kit, so the exemption covers it too; nothing else may fall back
+        const solo = base === 'chess_char_1_05_a' && u.kit.skillSource === 'generic' ? ` S${skillIndex + 1}` : '';
+        assert.ok(sources.includes(u.kit.skillSource), `${tag}${solo}: ${u.kit.skillSource}`);
+        if (base !== 'chess_char_1_05_a') assert.notEqual(u.kit.skillSource, 'generic', tag);
         if (moduleId === 'none') assert.equal(u.def.raw.module.active, false, tag);
         checkInvariants(h.b);
         assert.equal(h.b.errors.length, 0, `${tag}: ${JSON.stringify(h.b.errors[0])}`);

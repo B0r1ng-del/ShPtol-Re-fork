@@ -64,6 +64,7 @@ export const MOD_ROWS = Object.freeze([
   { col: 'pack', key: 'packRhine', label: N_('莱茵生命'), tip: N_('开启后游戏内可使用移植内容：莱茵生命盟约与科研装置、联合科研干员。关闭（默认）时完全不加载，回到原版内容。') },
   { col: 'pack', key: 'packAphris', label: N_('谬因·并入莱茵'), tip: N_('开启后莱茵生命盟约解锁，干员谬因加入其中，并可获得其层数加成。关闭（默认）时谬因保持原版盟约。') },
   { col: 'pack', key: 'packRelic', label: N_('收藏品玩法'), tip: N_('开启后游戏内可使用移植内容：收藏品玩法（每回合三选一、护盾与图鉴）。关闭（默认）时不加载任何收藏品。') },
+  { col: 'pack', key: 'packKazdel', label: N_('卡兹戴尔'), tip: N_('开启后游戏内可使用移植内容：卡兹戴尔盟约、众魂亡魂与众魂大炮、十名成员与两件装备。关闭（默认）时完全不加载，回到原版内容。') },
 ]);
 
 /** The two columns of MOD_ROWS (图三): the game-rule switches, and the ported 内容包 switches. */

@@ -3999,6 +3999,13 @@ async function main() {
   const { applyRhineData, validateRhineData } = await import('./rhine-data.mjs');
   await applyRhineData(files);
   errors.push(...validateRhineData(files));
+  // 八 卡兹戴尔: `tools/kazdel.mjs` runs the source expansion's own overlay (`tools/kazdel-data.mjs`) and tags what it
+  // added with `packId: 'packKazdel'`, so the whole content leaves again while that switch is off. LAST, and
+  // specifically AFTER 六.F: it appends its members to the 盟约 of the RHINE operators too (伊芙利特 joins 精准, 梅尔 /
+  // 森蚺 / 多萝西 join 灵巧 / 坚守 …), and each overlay recomputes the member lists from the chess that name them — so
+  // running it earlier would have 莱茵's own recompute drop the names again.
+  const { applyKazdel } = await import('./kazdel.mjs');
+  await applyKazdel(files);
   let total = 0;
   const sizes = {};
   const texts = {};

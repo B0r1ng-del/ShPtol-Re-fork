@@ -23,7 +23,7 @@ const OFF = normalizeMods(undefined);
 
 describe('内容包开关: the switches themselves', () => {
   test('one switch per pack, all off by default, all in MOD_KEYS (so they travel with room.create.mods)', () => {
-    assert.deepEqual([...PACK_KEYS], ['packRhine', 'packAphris', 'packRelic']);
+    assert.deepEqual([...PACK_KEYS], ['packRhine', 'packAphris', 'packRelic', 'packKazdel']);
     for (const k of PACK_KEYS) {
       assert.ok(MOD_KEYS.includes(k), `${k} is a Mod key`);
       assert.equal(MOD_DEFAULTS[k], false, `${k} defaults off`);
@@ -34,6 +34,8 @@ describe('内容包开关: the switches themselves', () => {
     assert.equal(PACK_AUTHORS.packRhine, 'YUYUYUYUYUYUYUTOUA');
     assert.equal(PACK_AUTHORS.packAphris, 'SrC204');
     assert.equal(PACK_AUTHORS.packRelic, 'UNDFFIO');
+    // 八: 卡兹戴尔 comes from the same author as 莱茵生命 (the source expansion ships both)
+    assert.equal(PACK_AUTHORS.packKazdel, 'YUYUYUYUYUYUYUTOUA');
     // 2026-10-15 (owner): 「新干员包」/「额外干员包」 are embedded, not switches — no key, no author, no row
     const modsSrc = read('public/js/ui/mods.js');
     for (const gone of ['packExtra6', 'packCustom']) {

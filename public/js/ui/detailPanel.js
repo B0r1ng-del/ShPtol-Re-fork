@@ -41,11 +41,12 @@ import { useEffect } from '../../vendor/hooks.module.js';
 import { html, Icon, TierChip, MicroLabel, Button, confirmDialog, useTicker } from './components.js';
 import { Img, RichText, UnitThumb, BondGlyph, GIcon, diyToken } from './gameComponents.js';
 import { attackInterval, rangeGridBox, fmtNum, tileKey, chessLoadout, nextThreshold, bondTier, briefingBondTip, pieceBondIds, grantedBonds, morphPairings, ownStandIn, standInOf, standInLoadout, standInLabel, standInTip, standInForText, ownDiyRecord, ownDiyPick, diyRecordFor, pickGetter, unitPick, unitCultivation } from './gameLogic.js';
-import { chessPortraitUrl, skillIconUrl, skillRecordIconUrl, profIconUrl, subProfIconUrl, itemIconUrl, enemyIconUrl, tokenAvatarUrl, factionIconUrl, uiUrl, moduleTypeIconUrl } from './assetUrls.js';
+import { chessPortraitUrl, chessAvatarUrl, skillIconUrl, skillRecordIconUrl, profIconUrl, subProfIconUrl, itemIconUrl, enemyIconUrl, tokenAvatarUrl, factionIconUrl, uiUrl, moduleTypeIconUrl } from './assetUrls.js';
 import { abilityRows } from './abilityLines.js';
 import { data } from '../data.js';
 import { attackRangeGrid } from '../../../shared/loadoutRecord.js';
 import { SKILL_SUMMON_START_DEPLOY, ITEM_SELL_PRICE } from '../../../shared/constants.js';
+import { KAZDEL_SOUL_TOKEN } from '../../../shared/kazdel.js';
 import { moduleBadge, fullTraitText } from './loadoutModel.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
 import { audio } from '../audio.js';
@@ -661,14 +662,17 @@ function MapCharDetail({ token, snapHp, live, m }) {
     <//>` : null}`;
 }
 
-export function TokenDetail({ token, piece, ownerId = null, snapHp = null, live = null, researchStage = null, researchState = null }) {
+export function TokenDetail({ token, piece, ownerId = null, snapHp = null, live = null, researchStage = null, researchState = null, soulState = null }) {
   const m = data.get('assets');
   // a band map character (外勤医疗's Touch / 预备干员-医疗, tokens.json kind 'mapChar') is an operator of the mode, not a
   // summon: no owner variants — its stats, skill, talents and 特性 are on the record (GitHub #260, PR #278)
   if (token?.kind === 'mapChar') return MapCharDetail({ token, snapHp, live, m });
   // the owner's variant: its stats, talents and token skill (a golden owner's summon is stronger)
   const v0 = tokenVariantFor(token, ownerId);
-  const s = v0?.stats || token.stats || {};
+  // 卡兹戴尔亡魂 (内容包 卡兹戴尔, tools/kazdel-data.mjs): a runtime def derived from the dead operator, deliberately absent
+  // from the deployable token catalogue — its maxHp comes from the unit, not the token record.
+  const soul = soulState?.kazdelSoul === true;
+  const s = soul ? { ...(token.stats || {}), maxHp: soulState.maxHp } : v0?.stats || token.stats || {};
   const hp = hpOf(live, snapHp);
   const st = {
     maxHp: liveStat(live, 'maxHp', s.maxHp), atk: liveStat(live, 'atk', s.atk), def: liveStat(live, 'def', s.def),
@@ -685,13 +689,15 @@ export function TokenDetail({ token, piece, ownerId = null, snapHp = null, live 
   const baseResearchAttack = research && !Number.isFinite(live?.atk);
   return html`
     <div class="dhead dhead--item">
-      <div class="dhead__icon"><${Img} src=${tokenAvatarUrl(m, token.tokenId)} fallback=${html`<${GIcon} name="target" />`} /></div>
+      <div class="dhead__icon"><${Img} src=${soul ? chessAvatarUrl(m, { assets: { avatar: soulState.avatar } }) : tokenAvatarUrl(m, token.tokenId)} fallback=${html`<${GIcon} name="target" />`} /></div>
       <div class="dhead__info">
-        <div class="dhead__chips"><span class="dtag-token">${research ? t('科研装置') : t('召唤物')}</span>${piece?.count > 1 ? html`<span class="dtag-kind num">×${piece.count}</span>` : null}</div>
-        <h3 class="dhead__name">${token.name}</h3>
+        <div class="dhead__chips"><span class=${soul ? 'dtag-token dtag-kazdel-soul' : 'dtag-token'}>${soul ? t('亡魂') : research ? t('科研装置') : t('召唤物')}</span>${piece?.count > 1 ? html`<span class="dtag-kind num">×${piece.count}</span>` : null}</div>
+        <h3 class="dhead__name">${soul ? soulState.name : token.name}</h3>
         ${hp ? html`<div class="dhp"><i style=${`width:${Math.max(0, Math.min(100, (hp.hp / Math.max(1, hp.max)) * 100))}%`}></i><span class="num">${fmtNum(hp.hp)} / ${fmtNum(hp.max)}</span></div>` : null}
       </div>
     </div>
+    ${soul ? html`<div class="drange"><span class="dstat__k">${t('攻击范围')}</span><${RangeGrid} grid=${live?.range} /></div>
+      <${Section} title=${t('众魂归来')}><p class="dtext">${t('继承本体的普通攻击、所选原生技能与全部原生天赋，不继承装备触发及仅活体产层特质；不占人口，不再产生死亡层数。')}</p><p class="dtext">${t('亡魂仅接受亡魂之间的治疗及锡人二技能治疗；医疗亡魂不治疗本体。战争巨炮不会伤害亡魂。持续至被击败或本体重新部署，无时间限制。')}</p><//>` : null}
     <div class=${cx('dstats', live && 'is-live')} data-live=${live ? live.src || 'prep' : undefined}>
       <${LiveTag} live=${live} />
       <${Stat} k=${t('生命上限')} ...${st.maxHp} /><${Stat} k=${baseResearchAttack ? t('基础攻击') : t('攻击')} ...${st.atk} />
@@ -701,9 +707,9 @@ export function TokenDetail({ token, piece, ownerId = null, snapHp = null, live 
     ${baseResearchAttack ? html`<p class="dhint">${t('基础攻击未计入科研层数、装备与梅尔加成；实际数值以开战时或实时数值为准。')}</p>` : null}
     ${research ? html`<${Section} title=${t('作用范围')}><p class="dtext">${researchRangeText({ id: token.tokenId, stage: piece?.stage ?? researchStage ?? live?.researchStage })}</p>${laser ? null : html`<p class="dhint">${t('高亮的整格区域均生效，不随朝向改变。移动单位按所在格判断；巨型单位按占据格判断。')}</p>`}<//>` : null}
     ${laser ? html`<${Section} title=${t('锁定与增伤')}><p class="dtext">${laserProgressText(laserState.researchLaserProgress, laserState.researchLaserTarget, laserState.researchLaserActive)}</p><p class="dhint">${t('锁定面板最大生命值最高的敌人，目标死亡或永久离场后重新选敌并清空增伤。满20秒后，每秒额外造成目标最大生命值（0.05%＋每层科研0.0005个百分点）的真实伤害；领袖直接按完整共享最大生命值计算。')}</p><//>` : null}
-    ${token.descRaw || token.desc ? html`<${Section} title=${t('说明')}><${RichText} as="p" text=${token.descRaw || token.desc} class="dtext" /><//>` : null}
-    ${skill ? html`<${Section} title=${t('技能')}><p class="dtext"><b>${skill.name}</b> ${skill.desc}</p><//>` : null}
-    ${talents.length ? html`<${Section} title=${t('天赋')}>${talents.map((t, i) => html`<p class="dtext" key=${i}><b>${t.name}</b> ${t.desc}</p>`)}<//>` : null}`;
+    ${!soul && (token.descRaw || token.desc) ? html`<${Section} title=${t('说明')}><${RichText} as="p" text=${token.descRaw || token.desc} class="dtext" /><//>` : null}
+    ${!soul && skill ? html`<${Section} title=${t('技能')}><p class="dtext"><b>${skill.name}</b> ${skill.desc}</p><//>` : null}
+    ${!soul && talents.length ? html`<${Section} title=${t('天赋')}>${talents.map((t, i) => html`<p class="dtext" key=${i}><b>${t.name}</b> ${t.desc}</p>`)}<//>` : null}`;
 }
 
 /**
@@ -818,6 +824,12 @@ export function resolveDetail(target, pieces, { priv = null, backups = data.get(
   if (target.kind === 'token') { const t = data.lookup('tokens', target.id) || diyToken(target.id); return t ? { type: 'token', token: t } : null; }
   if (target.kind === 'unit') {
     const u = target.unit || {};
+    // A soul may carry its donor's uid or art; its card must never resolve back to the owner's editable piece.
+    // (卡兹戴尔亡魂, 内容包 卡兹戴尔: runtime defs derived from the dead operator, absent from the token catalogue.)
+    if (u.kazdelSoul === true) {
+      const token = data.lookup('tokens', u.defId) || { tokenId: KAZDEL_SOUL_TOKEN, name: u.name, stats: {} };
+      return { type: 'token', token, unitId: u.id, soulState: u };
+    }
     const own = Number.isInteger(u.uid) ? pieces?.get(u.uid) : null;
     if (u.side === 'enemy') { const en = data.lookup('enemies', u.defId); return en ? { type: 'enemy', enemy: en, unitId: u.id } : null; }
     // a hand item on a scouted prep board (m.field units, kind 'item'): the item's own card
@@ -910,7 +922,7 @@ export function DetailPanel({ detail, editable, snapHp, onClose, onSell, onDestr
       ${detail.type === 'item' ? html`<${ItemDetail} item=${detail.item} piece=${detail.piece} editable=${editable} onDestroy=${destroyIt} offBonds=${offBonds}
         onSell=${itemSell ? onSell : null} sellPrice=${itemSell ? ITEM_SELL_PRICE : null} />` : null}
       ${detail.type === 'enemy' ? html`<${EnemyDetail} enemy=${detail.enemy} snapHp=${snapHp} count=${detail.count} live=${liveNow} />` : null}
-      ${detail.type === 'token' ? html`<${TokenDetail} token=${detail.token} piece=${detail.piece} ownerId=${detail.ownerId ?? null} snapHp=${snapHp} live=${liveNow} researchStage=${detail.researchStage} researchState=${detail.researchState} />` : null}
+      ${detail.type === 'token' ? html`<${TokenDetail} token=${detail.token} piece=${detail.piece} ownerId=${detail.ownerId ?? null} snapHp=${snapHp} live=${liveNow} researchStage=${detail.researchStage} researchState=${detail.researchState} soulState=${detail.soulState} />` : null}
       ${detail.type === 'terrain' ? html`<${TerrainDetail} terrain=${detail.terrain} />` : null}
       ${detail.type === 'device' ? html`<${DeviceDetail} device=${detail.device} snapHp=${snapHp} live=${liveNow} />` : null}
     </div>

@@ -751,7 +751,10 @@ test('coverage: every IN_BATTLE garrison id of a visible chess (and every id the
   // 梅尔 / 塞雷娅 / 伊芙利特的特质由 content/rhine.js 派发（不是这个旧派发器），它们的计算公式
   // 在 test/pack-rhine.test.js 里跟它们读的装置一起覆盖。
   const rhine = /^garrison_rhine_(mayer|saria|ifrit)_[ab]$/;
-  const missing = [...VISIBLE_IDS].filter((g) => !COVER.has(g) && !rhine.test(g)).sort();
+  // 卡兹戴尔特质由 content/kazdel.js 派发（同样不走这个旧派发器），九名干员的普通/精锐 18 条全部在
+  // test/content/kazdel.test.js「all normal/elite Kazdel garrison records …」里逐条断言了数值。
+  const kazdel = /^garrison_kazdel_[a-z]+_[ab]$/;
+  const missing = [...VISIBLE_IDS].filter((g) => !COVER.has(g) && !rhine.test(g) && !kazdel.test(g)).sort();
   assert.deepEqual(missing, []);
   assert.ok(VISIBLE_IDS.size >= 100, `${VISIBLE_IDS.size} ids`);
 });

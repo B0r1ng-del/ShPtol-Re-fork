@@ -357,7 +357,8 @@ export function resultDigest(result) {
       // mods included: a leak re-enters the 联防 with them (round multipliers, bounty id)
       (Array.isArray(p.leaked) ? p.leaked : []).map((l) => `${l && l.enemyKey}|${l && l.counted === false ? 0 : 1}|${(l && l.sourcePlayerId) || ''}|${modsKey(l && l.mods)}`).sort(),
       Math.round(Number(p.damageDealt) || 0), Math.round(Number(p.bossDamage) || 0),
-      (Array.isArray(p.unitsEnd) ? p.unitsEnd : []).map((u) => [u && u.uid, r4(u && u.hpPct), r4(u && u.sp), !!(u && u.alive)]),
+      (Array.isArray(p.unitsEnd) ? p.unitsEnd : []).map((u) => [u && u.uid, r4(u && u.hpPct), r4(u && u.sp), !!(u && u.alive),
+        ...(u?.kazdelSoul ? [[r4(u.kazdelSoul.hpPct), r4(u.kazdelSoul.sp)]] : [])]),
     ];
   });
   const json = JSON.stringify([res.reason ?? null, r4(res.time), res.killed | 0, res.total | 0, players]);
@@ -422,6 +423,7 @@ export function compactResult(res) {
       unitsEnd: cap(p.unitsEnd, 64).filter(Boolean).map((u) => ({
         uid: uidOr(u.uid), defId: keyOr(u.defId), hpPct: Math.max(0, Math.min(1, fnum(u.hpPct))), sp: Math.max(0, Math.min(1e5, fnum(u.sp))),
         skillActive: !!u.skillActive, alive: !!u.alive,
+        ...(u.kazdelSoul ? { kazdelSoul: { hpPct: u.kazdelSoul.hpPct, sp: u.kazdelSoul.sp } } : {}),
       })),
       unitStats: cap(p.unitStats, 160).filter(Boolean).map((u) => ({
         uid: uidOr(u.uid), defId: keyOr(u.defId), kind: typeof u.kind === 'string' && u.kind.length <= 16 ? u.kind : 'op',

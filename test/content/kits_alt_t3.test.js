@@ -5,11 +5,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { getDefaultSource } from '../../server/sim/simdata.js';
-import { skillSpecSource } from '../../server/sim/content/index.js';
+import { skillSpecSource, KITS } from '../../server/sim/content/index.js';
 import { effectiveProfile } from '../../server/sim/ai.js';
 import { kitCoverage } from '../../tools/kit-coverage.mjs';
 import { wolfShadows, wolfTacticalPoint } from '../../server/sim/content/tokens.js';
-import { KITS, TIER_KITS } from '../../server/sim/content/kits/index.js';
+// `KITS` here is the MERGED registry (content/index.js), which includes the ported expansions' factories; `TIER_KITS`
+// is the base registry's own tier grouping (kits/index.js), used only to tell an ordinary tier-3 card from a ported one.
+import { TIER_KITS } from '../../server/sim/content/kits/index.js';
 
 const TIER3_KITS = TIER_KITS[2];
 
@@ -38,7 +40,7 @@ const atkHits = (h, u, skill = null) => h.hooksOf('damaged').filter((c) => c.sou
 test('coverage: every selectable skill of every visible tier-3 chess is hand-authored (normal + 精锐)', () => {
   const rep = kitCoverage({ tier: 3 });
   // 19 official + 塞雷娅 / 白面鸮 re-tiered into III by the ported pack (六.F: both were 4/5)
-  assert.equal(rep.summary.chess, 21);
+  assert.equal(rep.summary.chess, 22);
   assert.equal(rep.summary.covered, rep.summary.skills, rep.chess.filter((r) => r.skills.some((s) => !s.covered)).map((r) => r.name).join(' '));
   for (const r of rep.chess) for (const s of r.skills) if (!s.isDefault) assert.deepEqual([s.normal, s.elite], ['skills', 'skills'], `${r.name} S${s.index + 1}`);
 });
@@ -47,18 +49,24 @@ test('skills map: every selected alternate is authored; eagerly built specs use 
   const rows = kitCoverage({ tier: 3 }).chess;
   for (const r of rows) for (const id of BOTH(r.chessId)) {
     const d0 = ds.getChess(id);
-    const kit = KITS[r.chessId](d0.skill.bb, d0.raw, d0);
+    // A kit registry is keyed by BASE id (server/sim/content/index.js `kitOf`), so an elite resolves its base's factory —
+    // the same way the ported `chess_rhine_*_b` / `chess_kazdel_*_b` cards do.
+    const key = d0.baseId ?? r.chessId;
+    const kit = KITS[key](d0.skill.bb, d0.raw, d0);
     const alts = r.skills.filter((s) => !s.isDefault).map((s) => s.skillId);
     // 塞雷娅 / 白面鸮 are tier-3 chess whose kits live in their original tier's group (the ported pack re-tiers them
     // but does not move the kit file), so a factory may build just the selected alternative. Both are valid contracts.
     const eager = Object.keys(kit.skills ?? {});
     assert.ok(eager.every((sid) => r.skills.some((s) => s.skillId === sid)), `${id} only legal skill keys (expansion kits may also key their default)`);
-    const buildsAllRecords = KITS[r.chessId] === TIER3_KITS[r.chessId];
+    // `TIER3_KITS` is the tier-3 group of the base registry (kits/index.js); a PORTED card (rhine / kazdel) is not in
+    // it, so its factory is never expected to key every alternative — for those the per-skill contract below is the one
+    // that applies (the same rule the 塞雷娅 / 白面鸮 re-tier already relies on).
+    const buildsAllRecords = !!(TIER3_KITS[key] && KITS[key] === TIER3_KITS[key]);
     if (buildsAllRecords) assert.deepEqual(eager.slice().sort(), alts.slice().sort(), `${id} all eager keys`);
     for (const sid of alts) {
       const dS = LD(id, sid);
       assert.equal(skillSpecSource(dS, KITS), 'skills', `${id} ${sid}`);
-      const own = KITS[r.chessId](dS.skill.bb, dS.raw, dS).skills[sid];
+      const own = KITS[key](dS.skill.bb, dS.raw, dS).skills[sid];
       assert.ok(own && typeof own === 'object', `${id} ${sid} selected authored spec`);
       // same numbers from the default-selected kit and from the kit built for that skill
       if (buildsAllRecords) assert.equal(JSON.stringify(kit.skills[sid], (k, v) => (typeof v === 'function' ? 'fn' : v)), JSON.stringify(own, (k, v) => (typeof v === 'function' ? 'fn' : v)), `${id} ${sid}`);
