@@ -489,7 +489,11 @@ function LoadoutScreen({ st }) {
   const m = data.get('assets');
   const getChess = (id) => data.lookup('chess', id);
   const getBond = (id) => data.lookup('bonds', id);
-  const roster = useMemo(() => rosterOf(data.list('chess')), [ready, data.locale()]); // (names follow a language switch)
+  // 内容包开关 (需求方 2026-10-17: 「开启卡兹戴尔／雷姆必拓后，干员调配界面没有出现相应的干员」): `data.list` is a DIFFERENT
+  // array once a pack is switched on, but `ready` and the locale do not move — so the memo needs the switch itself as a
+  // key, or the roster stays the one it built before the pack existed. `data.packsSig()` is that value.
+  const packsSig = data.packsSig();
+  const roster = useMemo(() => rosterOf(data.list('chess')), [ready, data.locale(), packsSig]); // (names follow a language switch)
   const bonds = useMemo(() => {
     const used = new Set(roster.flatMap((c) => c.bonds || []));
     return (data.list('bonds') || []).filter((b) => b && used.has(b.bondId))
