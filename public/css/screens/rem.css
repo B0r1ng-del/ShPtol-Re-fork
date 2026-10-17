@@ -1,0 +1,13 @@
+/* 雷姆必拓盟约图标（public/art/rem/bond.png，用户提供的黑标透明底）。和卡兹戴尔同一条规则（kazdel.css 的那两条）：
+   本文件在所有 screens/*.css 之后加载，按 src 给每一处用到它的图标换成单色，并单独放大每一处的图标盒子 ——
+   这张图是横向排版的标识（墨迹 2.63:1），跟满幅方形的卡兹戴尔图标不一样，同一格里要放大才看得清。 */
+.lo-card__bond[src="/art/rem/bond.png"],
+.lo-bond__icon[src="/art/rem/bond.png"],
+.dbond__icon img[src="/art/rem/bond.png"],
+.bond__icon[src="/art/rem/bond.png"] { filter: brightness(0) invert(.9); }
+
+/* 干员列表（.lo-card__bond）：名字下面那排小徽章 */
+.lo-card__bond[src="/art/rem/bond.png"] { width: max(.26rem, 18px); height: max(.26rem, 18px); }
+
+/* 干员详情的盟约胶囊（.lo-bond__icon）：一格里既有图标又有名字，图标跟着那行字一起放大 */
+.lo-bond__icon[src="/art/rem/bond.png"] { width: max(.2rem, 14px); height: max(.2rem, 14px); }
