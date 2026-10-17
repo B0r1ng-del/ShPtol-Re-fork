@@ -35,8 +35,8 @@ function place(m, ps, chessId, row, col) {
 test('data carries the §16 choices every visible chess needs (skills at both statuses, elite modules + none)', () => {
   // 112 official + the two ported packExtra6 operators (内容包 六.C, tools/fork-extra6.mjs) + the six
   // packRhine 莱茵生命 operators (内容包 六.F, tools/rhine-data.mjs) + the six packKazdel 卡兹戴尔 operators
-  // (内容包 卡兹戴尔, tools/kazdel-data.mjs)
-  assert.equal(visible.length, 127);
+  // (内容包 卡兹戴尔, tools/kazdel-data.mjs) + the nine packRem 雷姆必拓 operators (内容包 雷姆必拓, tools/rem-data.mjs)
+  assert.equal(visible.length, 136);
   for (const c of visible) {
     const g = chess(c.goldenId);
     const o = loadoutOptions(c, g);

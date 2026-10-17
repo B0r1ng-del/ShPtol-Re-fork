@@ -37,12 +37,31 @@ export class BattleBlocking {
         // a diagonal neighbour's centre is ≥ √0.5 away: out of reach of the ground (and device) radius
         if (c < 0 || c >= COLS || (!fly && r !== r0 && c !== c0)) continue;
         const o = this._occ[r * COLS + c];
-        if (!o || !this._blockerFor(o, e, w)) continue;
+        // 九 雷姆必拓: a marcher mid-transit still holds its previous free tile as an anchor, but must block only at the
+        // position it actually stands on — so the anchored tile never blocks on its behalf.
+        if (!o || o.remTransitAnchor || !this._blockerFor(o, e, w)) continue;
         const d2 = (e.x - c) * (e.x - c) + (e.y - r) * (e.y - r);
         const k = fly ? 1 + (o.s.blockRadiusScale || 0) : 1;
         const r2 = o.kind === 'device' ? BLOCK_RADIUS_SQ.device : fly ? BLOCK_RADIUS_SQ.fly * k * k : BLOCK_RADIUS_SQ.ground;
         if (d2 < r2 && d2 < bd) { u = o; bd = d2; }
       }
+    }
+    // A 雷姆必拓 marcher keeps its previous free tile reserved but blocks only at its actual transit position.
+    for (const o of this.remTransit || []) {
+      if (!o.remTransitAnchor || !this._blockerFor(o, e, w)) continue;
+      const d2 = (e.x - o.x) * (e.x - o.x) + (e.y - o.y) * (e.y - o.y);
+      const k = fly ? 1 + (o.s.blockRadiusScale || 0) : 1;
+      const r2 = fly ? BLOCK_RADIUS_SQ.fly * k * k : BLOCK_RADIUS_SQ.ground;
+      if (d2 < r2 && d2 < bd) { u = o; bd = d2; }
+    }
+    // 雷姆必拓 reinforcements reserve no tile at all (`isRemMobile`), so they block purely by their real position —
+    // including when stopped on top of another reinforcement.
+    for (const o of this.remTroops || []) {
+      if (!this._blockerFor(o, e, w)) continue;
+      const d2 = (e.x - o.x) * (e.x - o.x) + (e.y - o.y) * (e.y - o.y);
+      const k = fly ? 1 + (o.s.blockRadiusScale || 0) : 1;
+      const r2 = fly ? BLOCK_RADIUS_SQ.fly * k * k : BLOCK_RADIUS_SQ.ground;
+      if (d2 < r2 && d2 < bd) { u = o; bd = d2; }
     }
     if (!u) return false;
     e.blockedBy = u;

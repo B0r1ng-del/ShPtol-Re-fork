@@ -754,7 +754,10 @@ test('coverage: every IN_BATTLE garrison id of a visible chess (and every id the
   // 卡兹戴尔特质由 content/kazdel.js 派发（同样不走这个旧派发器），九名干员的普通/精锐 18 条全部在
   // test/content/kazdel.test.js「all normal/elite Kazdel garrison records …」里逐条断言了数值。
   const kazdel = /^garrison_kazdel_[a-z]+_[ab]$/;
-  const missing = [...VISIBLE_IDS].filter((g) => !COVER.has(g) && !rhine.test(g) && !kazdel.test(g)).sort();
+  // 九 雷姆必拓: the nine operators' traits are dispatched by content/rem_traits.js (also not this old dispatcher); all
+  // 18 normal/elite records are asserted one by one in test/content/rem-traits.test.js.
+  const rem = /^garrison_rem_[a-z]+_[ab]$/;
+  const missing = [...VISIBLE_IDS].filter((g) => !COVER.has(g) && !rhine.test(g) && !kazdel.test(g) && !rem.test(g)).sort();
   assert.deepEqual(missing, []);
   assert.ok(VISIBLE_IDS.size >= 100, `${VISIBLE_IDS.size} ids`);
 });

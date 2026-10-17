@@ -39,8 +39,8 @@ const atkHits = (h, u, skill = null) => h.hooksOf('damaged').filter((c) => c.sou
 
 test('coverage: every selectable skill of every visible tier-3 chess is hand-authored (normal + 精锐)', () => {
   const rep = kitCoverage({ tier: 3 });
-  // 19 official + 塞雷娅 / 白面鸮 re-tiered into III by the ported pack (六.F: both were 4/5)
-  assert.equal(rep.summary.chess, 22);
+  // 19 official + 塞雷娅 / 白面鸮 re-tiered into III by the ported pack (六.F: both were 4/5) + 时隙 (九 雷姆必拓)
+  assert.equal(rep.summary.chess, 23);
   assert.equal(rep.summary.covered, rep.summary.skills, rep.chess.filter((r) => r.skills.some((s) => !s.covered)).map((r) => r.name).join(' '));
   for (const r of rep.chess) for (const s of r.skills) if (!s.isDefault) assert.deepEqual([s.normal, s.elite], ['skills', 'skills'], `${r.name} S${s.index + 1}`);
 });

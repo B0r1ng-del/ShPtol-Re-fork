@@ -98,9 +98,9 @@ test('every chess, 自选 form and stand-in form: the raw keyframes plus every p
     n++;
     if (Object.keys(steps(c.charId)).length) withSteps++;
   }
-  // 258 official + the two ported packExtra6 operators (内容包 六.C) and the six ported packRhine ones (六.F),
-  // each a base/elite pair
-  assert.equal(n, 274);
+  // 258 official + the two ported packExtra6 operators (内容包 六.C), the six ported packRhine ones (六.F) and the
+  // eighteen 卡兹戴尔 / 雷姆必拓 records (八 / 九), each a base/elite pair
+  assert.equal(n, 304);
   assert.ok(withSteps >= 220, `chess with potential steps: ${withSteps}`);
   let forms = 0;
   for (const [charId, u] of Object.entries(backups.units)) {

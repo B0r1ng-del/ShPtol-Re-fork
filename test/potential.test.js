@@ -116,8 +116,8 @@ test('every chess and 自选 form at every potential: the raw keyframes plus the
     for (let rank = 0; rank <= FULL_RANK; rank++) { const r = atRank(c, rank); check(c.chessId, c.charId, c.status, r.statsBase ?? r.stats, rank); n++; }
   }
   // 258 official records + the two ported packExtra6 operators' base/elite pairs (内容包 六.C) + the six ported
-  // packRhine ones' (六.F), × six potential ranks
-  assert.equal(n, 274 * 6);
+  // packRhine ones' (六.F) + the eighteen 卡兹戴尔 / 雷姆必拓 records (八 / 九), × six potential ranks
+  assert.equal(n, 304 * 6);
   let forms = 0;
   for (const [charId, u] of Object.entries(backups.units)) {
     for (const f of Object.values(u.forms)) {

@@ -169,8 +169,17 @@ function compileDorothyToken(ctx, chess) {
     assets: { avatar: DOROTHY_TOKEN, spine: DOROTHY_TOKEN } };
 }
 
-function compileChess(ctx, config, spec, gold, index) {
-  const c = ctx.charTable[spec.charId], baseId = `chess_rhine_${spec.key}_a`, goldenId = `chess_rhine_${spec.key}_b`;
+/**
+ * Build one ported operator record at one potential rank.
+ *
+ * `spec.prefix` and `spec.garrison` let another expansion reuse this compiler with its own ids and its own trait record
+ * (雷姆必拓 passes `prefix: 'rem'` and a pre-built garrison); 莱茵 passes neither and gets `chess_rhine_*` + `makeGarrison`.
+ * The caller owns `identifier` — 莱茵's own numbering is below, and an expansion with a different block overwrites it
+ * after the call rather than threading a second parameter through every spec.
+ */
+export function compileChess(ctx, config, spec, gold, index) {
+  const prefix = spec.prefix || 'rhine';
+  const c = ctx.charTable[spec.charId], baseId = `chess_${prefix}_${spec.key}_a`, goldenId = `chess_${prefix}_${spec.key}_b`;
   const chessId = gold ? goldenId : baseId;
   const st = config.economy.chessStatus[spec.tier][gold ? 'golden' : 'normal'];
   const status = { phase: st.phase, level: st.level, skillLevel: st.skillLevel, equipLevel: st.equipLevel };
@@ -185,7 +194,7 @@ function compileChess(ctx, config, spec, gold, index) {
     return [{ ...skill, isDefault: s.skillId === spec.skillId }];
   });
   const skill = clone(skills.find(s => s.isDefault)); delete skill.isDefault;
-  const g = makeGarrison(spec.trait, gold);
+  const g = spec.garrison || makeGarrison(spec.trait, gold);
   const statsBase = statsFrom(attrs), talentsBase = baseTalentList(ctx, c, status.phase, status.level, chessId, (ctx.potRank ?? OPERATOR_POTENTIAL));
   if (spec.key === 'mayer') for (const t of talentsBase) adaptMayerTalent(t, RHINE_BALANCE.mayerSummons[gold ? 1 : 0]);
   if (spec.key === 'dorothy') for (const t of talentsBase) adaptDorothyTalent(t, RHINE_BALANCE.dorothyTrapLimit[gold ? 1 : 0]);

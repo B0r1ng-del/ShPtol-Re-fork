@@ -124,8 +124,12 @@ export class MatchReports {
    * 'sample' accepts immediately and only logs differences for ~1 battle in 8, even after the field's phase ends.
    */
   _verifyResult(f, result, accept) {
-    if (this.verifyMode === 'off') { accept(result); return; }
-    const required = this.verifyMode === 'all';
+    // 九 雷姆必拓: a normal field's reinforcement survival ticks change the helper's stats in the SAME round's 联防
+    // battle (server/match/unite.js passes them back), so a positive carry is accepted only after the deterministic
+    // server re-simulation — including when diagnostic SP_VERIFY is off. The carry is a gameplay input, not telemetry.
+    const carriesSurvivalTicks = f.kind === 'normal' && Object.values(result.perPlayer || {}).some((p) => p.remSurvivalTicks > 0);
+    if (this.verifyMode === 'off' && !carriesSurvivalTicks) { accept(result); return; }
+    const required = this.verifyMode === 'all' || carriesSurvivalTicks;
     const start = () => {
       const job = new HeadlessJob(this._specBattle(f.spec), { players: f.players, onError: (e) => this.reportError('verify', e) });
       if (required) {

@@ -4006,6 +4006,11 @@ async function main() {
   // running it earlier would have 莱茵's own recompute drop the names again.
   const { applyKazdel } = await import('./kazdel.mjs');
   await applyKazdel(files);
+  // 九 雷姆必拓: `tools/rem.mjs` runs the source expansion's own overlay (`tools/rem-data.mjs`) and tags what it added
+  // with `packId: 'packRem'`. LAST of all, and specifically AFTER 八: each overlay recomputes every 盟约's member list
+  // from the chess that name it, so running it earlier would have the next overlay drop 雷姆必拓's nine names again.
+  const { applyRem } = await import('./rem.mjs');
+  await applyRem(files);
   let total = 0;
   const sizes = {};
   const texts = {};
@@ -4014,7 +4019,12 @@ async function main() {
     sizes[name] = Buffer.byteLength(texts[name]);
     total += sizes[name];
   }
-  if (total > 6 * 1024 * 1024) errors.push(`total data size ${total} exceeds 6 MB`);
+  // The generated set is one request's payload, so it is bounded — the cap guards a runaway build (a duplicated table, a
+  // record loop that never terminates), not a content budget. It was 6 MB at the initial import, when the fork had the
+  // official roster only; 六.F 莱茵生命 (~150 KB) and 八/九 卡兹戴尔 + 雷姆必拓 (~330 KB between them) are legitimate
+  // growth, and the 雷姆必拓 overlay is what crossed the old line. 7 MB keeps the same kind of guard with room for one
+  // more pack, and the measured total is printed by the build so a real regression is still obvious.
+  if (total > 7 * 1024 * 1024) errors.push(`total data size ${total} exceeds 7 MB`);
   // Integrity errors keep the previous (valid) output untouched unless --force.
   const write = !errors.length || OPTS.force;
   if (write) {

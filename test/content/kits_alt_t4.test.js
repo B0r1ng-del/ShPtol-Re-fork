@@ -41,8 +41,8 @@ function battle(units, o = {}) {
 
 test('tier4 loadouts: every selectable skill of every visible chess is hand-authored (normal + elite)', () => {
   const rep = kitCoverage({ tier: 4 });
-  // 22 official + 阿 (内容包 packRhine, 六.F — tools/rhine-data.mjs)
-  assert.equal(rep.summary.chess, 24);
+  // 22 official + 阿 (内容包 packRhine, 六.F — tools/rhine-data.mjs) + 暴行 (九 雷姆必拓)
+  assert.equal(rep.summary.chess, 25);
   assert.equal(rep.summary.covered, rep.summary.skills, JSON.stringify(rep.chess.flatMap((r) => r.skills.filter((s) => !s.covered).map((s) => `${r.name} S${s.index + 1}`))));
   for (const base of T4) {
     const { skills } = loadoutOptions(C[base], C[gold(base)]);

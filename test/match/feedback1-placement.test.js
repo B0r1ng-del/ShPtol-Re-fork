@@ -134,10 +134,14 @@ test('#3 bots never put a piece into the water (layout planner and full bot prep
 // ---------------------------------------------------------------------------------------------------------------------
 // #9 tactical points
 
-test('#9 data: 狼群 and 流形 are owner-range summons (token text "只能部署在召唤者攻击范围内"), no other hand summon is', () => {
+test('#9 data: 狼群, 流形 and 沙地兽 are owner-range summons (token text "只能部署在召唤者攻击范围内"), no other hand summon is', () => {
   assert.equal(DATA.tokens[WOLF].ownerRange, true);
   assert.equal(DATA.tokens[MANIFOLD].ownerRange, true);
-  for (const t of Object.values(DATA.tokens)) if (t.placeable && t.tokenId !== WOLF && t.tokenId !== MANIFOLD) assert.ok(!t.ownerRange, t.name);
+  // 九 雷姆必拓: 莱伊's 沙地兽 (token_10034_ray_sndbst) is the third — the source expansion adds it in the same commit as
+  // the operator, with the same `只能部署在召唤者攻击范围内` token text.
+  assert.equal(DATA.tokens['token_10034_ray_sndbst'].ownerRange, true);
+  const restricted = new Set([WOLF, MANIFOLD, 'token_10034_ray_sndbst']);
+  for (const t of Object.values(DATA.tokens)) if (t.placeable && !restricted.has(t.tokenId)) assert.ok(!t.ownerRange, t.name);
 });
 
 test('#9 g.move: 伺夜\'s 狼群 only on a tile of her attack range (rotated grid of her tile + facing); outside → BAD_TILE', () => {

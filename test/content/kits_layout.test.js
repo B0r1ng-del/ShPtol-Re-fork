@@ -26,7 +26,11 @@ const jsIn = (dir) => readdirSync(join(KIT_DIR, dir)).filter((f) => f.endsWith('
 test('kits/index.js lists every kit file of kits/ops/ exactly once, and only those', () => {
   const listed = [...KIT_FILES.flat(), ...STANDIN_KIT_FILES, ...OPERATOR_KIT_FILES];
   assert.equal(new Set(listed).size, listed.length, 'a file listed twice');
-  assert.deepEqual([...listed].sort(), jsIn('ops'));
+  // The expansions' own chess keep their own registries, loaded by content/index.js rather than kits/index.js:
+  // 六.F 莱茵生命 (kits/rhine.js), 八 卡兹戴尔 (kits/kazdel.js) and 九 雷姆必拓 (kits/rem.js). Their `ops/chess_<pack>_*`
+  // files belong to those registries, so they are excluded here by prefix — never by "the listing happened to miss them".
+  const PACK_KIT = /^chess_(rhine|kazdel|rem)_/;
+  assert.deepEqual([...listed].sort(), jsIn('ops').filter((f) => !PACK_KIT.test(f)));
 });
 
 test('a stand-in kit file standin-<codename>.js registers the kit of that stand-in charId (data/backups.json units)', async () => {

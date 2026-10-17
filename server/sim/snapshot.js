@@ -113,7 +113,9 @@ export function animOf(u, t) {
   if (t - u.deployedAt < DEPLOY_ANIM_TIME && u.side === 'ally') return ANIM.DEPLOY;
   if (t < (u.skillAnimUntil ?? -1)) return ANIM.SKILL;
   if (t - u.lastAttackAt < ATTACK_ANIM_TIME) return u.skill && u.skill.active && u.skill.kind !== 'passive' ? ANIM.SKILL : ANIM.ATTACK;
-  if (u.side === 'enemy' && u.moving && !u.blockedBy) return ANIM.MOVE;
+  // 九 雷姆必拓: a reinforcement marches on its own route, so it animates like an enemy while moving — `remType` is set
+  // only on those tokens (content/rem.js), never on an operator or another summon.
+  if ((u.side === 'enemy' || u.remType) && u.moving && !u.blockedBy) return ANIM.MOVE;
   return ANIM.IDLE;
 }
 
