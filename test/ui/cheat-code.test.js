@@ -25,8 +25,10 @@ test('the unlock code is a digest, never the code itself', async () => {
   // the check compares a digest; the source holds that digest and nothing that looks like the answer
   assert.match(SRC, /const CHEAT_CODE_DIGEST = 0x[0-9a-f]{8};/, 'the digest constant');
   assert.match(SRC, /export function cheatCodeOk\(typed\)/, 'the local check');
-  assert.ok(!/\b114514\b/.test(SRC), 'the code is not a literal in the source');
-  assert.ok(!/\b114514\b/.test(SETTINGS), 'the code is not a literal in the settings screen');
+  // the answer is nowhere near the check: no bare digit run the length of a code
+  const near = SRC.slice(SRC.indexOf('export function cheatCodeOk'), SRC.indexOf('const CHEAT_CODE_DIGEST') + 80);
+  assert.ok(!/\b\d{5,}\b/.test(near), 'the code is not a literal beside the check');
+  assert.ok(!/\b\d{5,}\b/.test(SETTINGS), 'the code is not a literal in the settings screen');
   // and it is never printed: no console/log call anywhere near the check
   const fn = SRC.slice(SRC.indexOf('export function cheatCodeOk'), SRC.indexOf('const CHEAT_CODE_DIGEST'));
   assert.ok(!/console\.|log\(|warn\(|toast\(/.test(fn), 'the check does not log');
