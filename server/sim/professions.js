@@ -555,6 +555,9 @@ export const SUB = Object.freeze({
   summoner: P({}),
   // --- TANK
   protector: P({}),
+  // 驭法铁卫 (石棉, 九 雷姆必拓): attacks physically at rest; her native skills explicitly switch the damage to arts.
+  // The source expansion adds this entry with the same operator (server/sim/professions.js in the upstream repo).
+  artsprotector: P({ attack: 'melee', dmgType: 'phys', projectile: 'none', canHitFly: false }),
   guardian: P({}),
   shotprotector: P({ attack: 'ranged', canHitFly: true, projectile: 'arrow' }),
   primprotector: P({}),

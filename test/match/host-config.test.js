@@ -204,6 +204,9 @@ test('the options never move the random streams: the same seed draws the same se
 test('the options are published on every m.public frame, so the client can mark what they change', () => {
   const h = makeMatch({ mode: 'coop', humans: 2, bots: 2, sharedPool: false, multiAlliance: true }).start();
   const v = h.m.publicView();
-  assert.deepEqual(v.hostConfig, { sharedPool: false, sharedBounty: true, aiPicksLast: false, multiAlliance: true, itemSell: false });
+  // `onlineChat` is part of the published options since 需求方 2026-10-17 (PR #54: 在线聊天 in 房间配置, default ON).
+  // This fixture builds its Match directly (no lobby), so the value is whatever the constructor was handed; it reports
+  // `false` here and the point of the test is that the KEY is published on every frame.
+  assert.deepEqual(v.hostConfig, { sharedPool: false, sharedBounty: true, aiPicksLast: false, multiAlliance: true, itemSell: false, onlineChat: false });
   h.m.dispose();
 });

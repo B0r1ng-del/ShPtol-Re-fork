@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { validateKazdelData, KAZDEL_ADDITIONS, KAZDEL_EXISTING, WISDEL_TOKEN, kazdelGarrison } from '../tools/kazdel-data.mjs';
-import { applyKazdel } from '../tools/kazdel.mjs';
+import { applyKazdel, KAZDEL_PACK } from '../tools/kazdel.mjs';
 import { applyRhineData } from '../tools/rhine-data.mjs';
 import { composeStats, loadoutRecord, resolveRecordLoadout } from '../shared/loadoutRecord.js';
 import { stripPotential } from '../shared/potential.js';
@@ -185,7 +185,14 @@ test('Kazdel data: the all-packs-off baseline plus the overlay rebuilds the 卡�
     assert.deepEqual(rebuilt.chess[id].bonds, files.chess[id].bonds, `${id}.bonds`);
     assert.deepEqual(rebuilt.chess[id].packRestore, files.chess[id].packRestore, `${id}.packRestore`);
   }
-  assert.deepEqual(rebuilt.bonds[KAZDEL_BOND], files.bonds[KAZDEL_BOND], 'the bond record');
+  // The bond record's OWN fields are this pack's; its `members` / `visibleMembers` are the one thing another pack also
+  // touches — every overlay recomputes them from the chess that name the bond, so a later pack (九 雷姆必拓) appends its
+  // own members and records them in `packMembers`. Compare the two lists WITHOUT the other packs' contributions.
+  const ownMembers = (bond, pack) => {
+    const drop = new Set(Object.entries(bond.packMembers || {}).filter(([k]) => k !== pack).flatMap(([, v]) => v));
+    return { ...bond, members: bond.members.filter((id) => !drop.has(id)), visibleMembers: bond.visibleMembers.filter((id) => !drop.has(id)) };
+  };
+  assert.deepEqual(ownMembers(rebuilt.bonds[KAZDEL_BOND], KAZDEL_PACK), ownMembers(files.bonds[KAZDEL_BOND], KAZDEL_PACK), 'the bond record');
   assert.deepEqual(validateKazdelData(rebuilt, { openingBans: FORK_BANS }), []);
 });
 

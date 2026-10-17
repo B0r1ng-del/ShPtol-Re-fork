@@ -444,7 +444,27 @@ test('every token of data/tokens.json spawns with data defaults and runs without
   const o = h.unit('test_owner');
   const tiles = [];
   for (let r = 9; r <= 12; r++) for (let c = 3; c <= 9; c++) tiles.push([r, c]);
+  // 九 雷姆必拓: 莱伊's 沙地兽 is a FIXED summoner's summon — its kit lives in her own `op-ray.js` (the source expansion
+  // wires it through the owner, not through this central registry), so it is exercised on its real owner below instead
+  // of through `spawnToken` on a generic summoner.
+  const OWNER_KIT_TOKENS = new Set(['token_10034_ray_sndbst']);
   for (const id of ids) {
+    if (OWNER_KIT_TOKENS.has(id)) {
+      const native = makeBattle({ units: [
+        { uid: 'owner', chessId: 'chess_rem_ray_a', skillIndex: 2, row: 10, col: 4 },
+        { uid: 'nativeToken', kind: 'token', tokenId: id, ownerUid: 'owner', row: 10, col: 5 },
+      ], autoFinish: false, timeLimit: 20 });
+      native.step();
+      const token = native.unit('nativeToken');
+      assert.ok(token.alive && token.deployed, `${id} native deployment`);
+      assert.equal(token.ownerUnit, native.unit('owner'));
+      assert.notEqual(token.kit.generic, true, `${id} native token kit`);
+      assert.ok(token.s.flags.noHeal, `${id} native no-healing rule`);
+      native.run(10);
+      assert.deepEqual(native.b.errors, []);
+      checkInvariants(native.b);
+      continue;
+    }
     const [r, c] = tiles.shift();
     const t = h.b.spawnToken(raw[id].kind === 'mapChar' ? 'p1' : o, id, r, c);
     assert.ok(t, `${id} spawned`);

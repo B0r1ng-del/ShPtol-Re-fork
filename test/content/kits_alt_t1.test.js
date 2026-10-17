@@ -54,8 +54,8 @@ const pair = (n) => [`chess_char_1_${n}_a`, `chess_char_1_${n}_b`];
 test('tier 1: every selectable skill of every visible chess has a hand-authored spec (normal + elite)', () => {
   const rep = kitCoverage({ tier: 1 });
   // 16 official + 梅尔 (内容包 packRhine, 六.F — tools/rhine-data.mjs, a PRESET card) + 芬 (八 unhides her: the ported
-  // 卡兹戴尔 gives her a 特质) = 18
-  assert.equal(rep.summary.chess, 18);
+  // 卡兹戴尔 gives her a 特质) + 嘉辛塔 / 蜜莓 (九 雷姆必拓, tools/rem-data.mjs) = 20
+  assert.equal(rep.summary.chess, 20);
   // 八: 芬's S1 has no hand-authored kit, so it takes the generic fallback — the ONE skill of this tier that does. The
   // exemption is NAMED and every other skill / chess of the tier is still asserted in full.
   assert.deepEqual(rep.chess.flatMap((r) => r.skills.filter((s) => !s.covered).map((s) => `${r.chessId} S${s.index + 1}`)),
@@ -67,7 +67,8 @@ test('tier 1: every selectable skill of every visible chess has a hand-authored 
 test('tier 1: every chess × every legal skill × module (default / none) fights 30 s with its authored spec, no content errors', () => {
   // tier, not the official `chess_char_1_NN_a` shape: the ported 梅尔 is a PRESET card with its own id
   const bases = ds.chessIds().filter((id) => id.endsWith('_a') && raw(id).tier === 1 && raw(id).visible);
-  assert.equal(bases.length, 18);
+  // 九 雷姆必拓 adds 嘉辛塔 / 蜜莓 at tier I (tools/rem-data.mjs)
+  assert.equal(bases.length, 20);
   for (const base of bases) {
     const gold = base.replace(/_a$/, '_b');
     const opt = loadoutOptions(raw(base), raw(gold));

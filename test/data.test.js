@@ -48,13 +48,15 @@ function assertStatsFinite(stats, label, keys) {
   for (const k of keys) assert.ok(isFiniteNum(stats[k]), `${label}: stats.${k} = ${stats[k]}`);
 }
 
-test('all data files load and are non-empty; total size < 6 MB', () => {
+test('all data files load and are non-empty; total size < 7 MB', () => {
   let total = 0;
   for (const f of FILES) {
     total += statSync(join(DATA, `${f}.json`)).size;
     assert.ok(Object.keys(D[f]).length > 0, `${f} is empty`);
   }
-  assert.ok(total < 6 * 1024 * 1024, `total ${total} bytes`);
+  // The cap guards a runaway build, not a content budget; it was 6 MB while the fork had the official roster only.
+  // 六.F 莱茵生命 + 八 卡兹戴尔 + 九 雷姆必拓 are legitimate growth (tools/build-data.mjs carries the same limit).
+  assert.ok(total < 7 * 1024 * 1024, `total ${total} bytes`);
 });
 
 test('numbers: every stats/bb/enemyScale object holds only finite numbers (no null/NaN leaks)', () => {
@@ -75,9 +77,9 @@ test('numbers: every stats/bb/enemyScale object holds only finite numbers (no nu
   assert.deepEqual(bad.slice(0, 10), [], `${bad.length} bad numeric fields`);
 });
 
-test('chess: 306 records, 127 visible non-DIY (18/20/22/24/22/21 per tier)', () => {
-  assert.equal(Object.keys(chess).length, 306);
-  assert.equal(visible.length, 127);
+test('chess: 324 records, 136 visible non-DIY (20/22/23/25/24/22 per tier)', () => {
+  assert.equal(Object.keys(chess).length, 324);
+  assert.equal(visible.length, 136);
   const perTier = {};
   for (const c of visible) perTier[c.tier] = (perTier[c.tier] || 0) + 1;
   // tier 5 / 6 gained one each: the ported packExtra6 operators (tools/fork-extra6.mjs, 六.C)
@@ -85,7 +87,8 @@ test('chess: 306 records, 127 visible non-DIY (18/20/22/24/22/21 per tier)', () 
   // with 塞雷娅 5→3 and 白面鸮 4→3 moving with them
   // 八: the ported 卡兹戴尔 operators (tools/kazdel.mjs) — 6 new at tiers II–VI, and 芬 (chess_char_1_05) became
   // VISIBLE: the overlay gives her a 卡兹戴尔 特质, which a hidden record cannot carry (it is re-tiered, not added).
-  assert.deepEqual(perTier, { 1: 18, 2: 20, 3: 22, 4: 24, 5: 22, 6: 21 });
+  // 九: the ported 雷姆必拓 operators (tools/rem.mjs) — 9 new: 2 at tier I, 2 at II, 1 at III, 2 at IV, 2 at V.
+  assert.deepEqual(perTier, { 1: 20, 2: 22, 3: 23, 4: 25, 5: 24, 6: 22 });
   // 4 official DIY slots + the fork's 6 extra ones (二.8, 5 per tier; tools/fork-overrides.mjs applyForkChess)
   assert.equal(normalChess.filter((c) => c.isDiy).length, 10);
   assert.equal(normalChess.filter((c) => c.isHidden).length, 16);
@@ -135,15 +138,15 @@ test('chess: every non-DIY chess has stats, range, classification and a resolvab
   assert.equal(chess.chess_char_1_01_a.targetPriority, 'fly');
 });
 
-test('bonds: 25 bonds with valid members, thresholds and effects', () => {
+test('bonds: 26 bonds with valid members, thresholds and effects', () => {
   // 23 official + the ported 莱茵生命 (`rhineShip`, fork-overrides.mjs applyForkBonds, 六.3) + the ported 卡兹戴尔
-  // (`kazdelShip`, tools/kazdel.mjs, 八). The committed data holds the ALL-PACKS-ON content; a room's 内容包开关 decides
-  // what its match actually contains (shared/packData.js).
-  assert.equal(Object.keys(bonds).length, 25);
-  // 10 core: the official 8 阵营 盟约 (炎 萨尔贡 维多利亚 谢拉格 拉特兰 阿戈尔 叙拉古 卡西米尔) plus the ported 莱茵生命
-  // and 卡兹戴尔, both eighth-and-ninth 阵营 of the same kind (`bondType` SEASON, `identifier` 24 / 25 continuing their
+  // (`kazdelShip`, tools/kazdel.mjs, 八) + the ported 雷姆必拓 (`remShip`, tools/rem.mjs, 九). The committed data holds
+  // the ALL-PACKS-ON content; a room's 内容包开关 decides what its match actually contains (shared/packData.js).
+  assert.equal(Object.keys(bonds).length, 26);
+  // 11 core: the official 8 阵营 盟约 (炎 萨尔贡 维多利亚 谢拉格 拉特兰 阿戈尔 叙拉古 卡西米尔) plus the ported 莱茵生命,
+  // 卡兹戴尔 and 雷姆必拓, all 阵营 of the same kind (`bondType` SEASON, `identifier` 24 / 25 / 26 continuing their
   // sequence) — the briefing's 核心盟约 list, not 附加盟约 (owner report 2026-10-15)
-  assert.equal(Object.values(bonds).filter((b) => b.isCore).length, 10);
+  assert.equal(Object.values(bonds).filter((b) => b.isCore).length, 11);
   const modes = new Set(['BOARD', 'BOARD_AND_DECK', 'BOARD_ALL_CHESS']);
   for (const b of Object.values(bonds)) {
     assert.ok(modes.has(b.countMode), `${b.bondId}: countMode ${b.countMode}`);
@@ -166,10 +169,11 @@ test('bonds: 25 bonds with valid members, thresholds and effects', () => {
   for (const c of normalChess) for (const b of c.bonds) assert.ok(bonds[b].members.includes(c.chessId), `${c.chessId} not in ${b}.members`);
 });
 
-test('garrisons: all referenced exist; 58 distinct effect keys', () => {
+test('garrisons: all referenced exist; 67 distinct effect keys', () => {
   const keys = new Set(Object.values(garrisons).map((g) => g.effectKey));
   // +9: the ported 卡兹戴尔 traits' own keys (tools/kazdel.mjs, 八)
-  assert.equal(keys.size, 58);
+  // +9: the ported 雷姆必拓 traits' own keys (tools/rem.mjs, 九) — nine operators, one `REM_*` key each
+  assert.equal(keys.size, 67);
   for (const g of Object.values(garrisons)) {
     assert.ok(typeof g.eventType === 'string' && typeof g.desc === 'string', g.garrisonId);
     for (const o of g.owners) assert.ok(chess[o], `${g.garrisonId}: owner ${o}`);
@@ -445,7 +449,8 @@ test('chess/tokens: talent tokens resolve and every token variant says where it 
     assert.equal(t.placeable, t.displayType !== 'HIDDEN' && made, `${t.tokenId} (${t.name}): placeable`);
   }
   assert.deepEqual(Object.values(tokens).filter((t) => t.placeable).map((t) => t.name).sort(),
-    ['医疗探机', '机械水獭', '诅咒娃娃', '斯卡蒂的海嗣', '流形', '狼群', '爬行号·防护单元', '共振装置'].sort());
+    // 沙地兽 is 石棉's (雷姆必拓, tools/rem.mjs 九) — a placeable summon like the others, added with the pack.
+    ['医疗探机', '机械水獭', '诅咒娃娃', '斯卡蒂的海嗣', '流形', '狼群', '爬行号·防护单元', '共振装置', '沙地兽'].sort());
   assert.equal(tokens.enemy_9012_acloon.stats.deployLimit, tokens.enemy_9012_acloon.deployLimit);
 });
 
@@ -530,8 +535,9 @@ test('chess: skills[] = every skill unlocked at the status, at the chess skill l
   }
   // + the ported packExtra6 丰川祥子 S3 (六.C, tools/fork-extra6.mjs): one more skill, normal + elite
   // + the ported 卡兹戴尔 operators (八, tools/kazdel.mjs): two more, normal + elite
-  assert.equal(active.length, 84, '42 skills, normal + elite');
-  assert.equal(new Set(active.map(([c, s]) => `${c.baseId} ${s.skillId}`)).size, 42);
+  // + the ported 雷姆必拓 operators (九, tools/rem.mjs): two more, normal + elite
+  assert.equal(active.length, 86, '43 skills, normal + elite');
+  assert.equal(new Set(active.map(([c, s]) => `${c.baseId} ${s.skillId}`)).size, 43);
   // from the SEARCH row (解放者 / 阵法术师 / 安洁莉娜) and 深巡 S2's deviation: the owner's decisions of 2026-10-05
   const fromSearch = active.filter(([, s]) => s.trigger.rawRule === 'SEARCH').map(([c, s]) => `${c.baseId} ${s.skillId}`);
   assert.deepEqual([...new Set(fromSearch)].sort(), ['chess_char_3_08_a skchr_mint_1', 'chess_char_4_05_a skchr_beewax_1', 'chess_char_4_24_a skchr_billro_3', 'chess_char_5_19_a skchr_mlynar_2', 'chess_char_5_20_a skchr_aglina_3']);
@@ -546,8 +552,12 @@ test('chess: skills[] = every skill unlocked at the status, at the chess skill l
   assert.equal(grown('chess_char_3_08_a', 'skchr_mint_1').rawRule, 'SEARCH', '薄绿 S1: its official 阵法术师 row stays the rawRule');
   assert.equal(grown('chess_char_5_15_a', 'skchr_thorn2_3').rule, 'DEFAULT', '引星棘刺 S3: 被动效果：攻击范围扩大 is her own range');
   const deviated = Object.values(chess).flatMap((c) => (c.skills || []).filter((s) => s.trigger.rawRule === 'TAKE_DAMAGE' && s.trigger.rule !== 'TAKE_DAMAGE').map((s) => `${c.baseId} ${s.skillId}`));
-  assert.equal(deviated.length, 14, 'exactly the six skills of §21.29 and 余 S2, normal + elite');
-  assert.deepEqual([...new Set(deviated)].sort(), ['chess_char_1_04_a skchr_udflow_2', 'chess_char_1_20_a skchr_liskam_2', 'chess_char_2_18_a skchr_ashlok_2', 'chess_char_2_18_a skcom_atk_up[3]', 'chess_char_5_08_a skchr_horn_2', 'chess_char_5_08_a skchr_horn_3', 'chess_char_6_03_a skchr_yu_2']);
+  // 九: 珊比 (chess_rem_thumpy, 雷姆必拓) is a 重装 — 本源铁卫 — so the fork's own TANK rule of 2026-10-03
+  // (TRIGGER_DEVIATIONS above: a 重装 MANUAL skill casts with an enemy in range) applies to her three skills on both
+  // forms. She is a NAMED exemption, not a loosened assertion: the count is exact and her three entries are listed.
+  assert.equal(deviated.length, 20, 'exactly the six skills of §21.29, 余 S2 and 珊比 S1–S3, normal + elite');
+  assert.deepEqual([...new Set(deviated)].sort(), ['chess_char_1_04_a skchr_udflow_2', 'chess_char_1_20_a skchr_liskam_2', 'chess_char_2_18_a skchr_ashlok_2', 'chess_char_2_18_a skcom_atk_up[3]', 'chess_char_5_08_a skchr_horn_2', 'chess_char_5_08_a skchr_horn_3', 'chess_char_6_03_a skchr_yu_2',
+    'chess_rem_thumpy_a skchr_thumpy_1', 'chess_rem_thumpy_a skchr_thumpy_2', 'chess_rem_thumpy_a skchr_thumpy_3']);
   for (const c of Object.values(chess)) {
     for (const s of c.skills || []) {
       if (s.skillType !== 'MANUAL') assert.ok(!['TAKE_DAMAGE', 'SEARCH', 'SKILL_RANGE'].includes(s.trigger.rule), `${c.chessId} ${s.skillId}: an AUTO / PASSIVE skill takes no strategy row`);

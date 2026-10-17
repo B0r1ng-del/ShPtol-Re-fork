@@ -47,7 +47,8 @@ async function safeImport(path) {
 const KIT_REGISTRY = await safeImport('./kits/index.js');
 const RHINE_KITS = await safeImport('./kits/rhine.js');
 const KAZDEL_KITS = await safeImport('./kits/kazdel.js');
-const DOMAIN_NAMES = ['tokens', 'devices', 'enemies', 'bosses', 'bonds', 'garrisons', 'items', 'bands', 'choices', 'relics', 'rhine', 'rhineMeta', 'kazdel'];
+const REM_KITS = await safeImport('./kits/rem.js');
+const DOMAIN_NAMES = ['tokens', 'devices', 'enemies', 'bosses', 'bonds', 'garrisons', 'items', 'bands', 'choices', 'relics', 'rhine', 'rhineMeta', 'kazdel', 'rem', 'rem_traits'];
 const DOMAINS = await Promise.all(DOMAIN_NAMES.map((n) => safeImport(`./${n}.js`)));
 const tokens = DOMAINS[0];
 const rhine = DOMAINS[DOMAIN_NAMES.indexOf('rhine')];
@@ -59,7 +60,7 @@ const rhine = DOMAINS[DOMAIN_NAMES.indexOf('rhine')];
 // DIY characters keep upstream's charId kits. The expansions' own chess ids keep the expansions' rules — each registry
 // is spread FIRST, so a 自选 body's own kit still wins for its charId while a ported chess id (`chess_rhine_*_a` /
 // `chess_kazdel_*_a`, which no other registry names) resolves to its own expansion's kit.
-export const KITS = Object.freeze({ ...(RHINE_KITS.default ?? {}), ...(KAZDEL_KITS.default ?? {}), ...(KIT_REGISTRY.KITS ?? {}) });
+export const KITS = Object.freeze({ ...(RHINE_KITS.default ?? {}), ...(KAZDEL_KITS.default ?? {}), ...(REM_KITS.default ?? {}), ...(KIT_REGISTRY.KITS ?? {}) });
 
 /** Domain modules in install order, followed by the Rhine battle / prep expansion. */
 export const MODULES = Object.freeze(DOMAIN_NAMES.map((n, i) => [n, DOMAINS[i]]));

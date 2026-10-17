@@ -36,13 +36,14 @@ const isFiniteNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const ELITES = ['char_608_acpion', 'char_609_acguad', 'char_610_acfend', 'char_611_acnipe', 'char_612_accast', 'char_613_acmedc', 'char_614_acsupo', 'char_615_acspec', 'char_617_sharp2'];
 const RESERVES = ['char_600_cpione', 'char_601_cguard', 'char_602_cdfend', 'char_603_csnipe', 'char_604_ccast', 'char_605_cmedic', 'char_606_csuppo', 'char_607_cspec'];
 
-test('chess: 153 base chess — 88 PRESET / 55 NORMAL / 10 DIY — and every record keeps the five official backup fields', () => {
-  assert.equal(base.length, 153);
+test('chess: 162 base chess — 97 PRESET / 55 NORMAL / 10 DIY — and every record keeps the five official backup fields', () => {
+  assert.equal(base.length, 162);
   // 4 official DIY slots + the fork's 6 extra ones (二.8, 5 per tier): tools/fork-overrides.mjs applyForkChess
   // tier 5 / 6 gained one PRESET each: the ported packExtra6 operators (六.C, tools/fork-extra6.mjs); tier 1 / 2 / 4 / 5
-  // one each and tier 3 two: the ported packRhine operators, with 塞雷娅 / 白面鸮 re-tiered into III (六.F); and 八 adds
-  // six more PRESET rows: the ported 卡兹戴尔 operators (tools/kazdel.mjs)
-  assert.deepEqual([ofType('PRESET').length, ofType('NORMAL').length, ofType('DIY').length], [88, 55, 10]);
+  // one each and tier 3 two: the ported packRhine operators, with 塞雷娅 / 白面鸮 re-tiered into III (六.F); 八 adds
+  // six more PRESET rows: the ported 卡兹戴尔 operators (tools/kazdel.mjs); 九 adds nine: the ported 雷姆必拓 operators
+  // (tools/rem.mjs)
+  assert.deepEqual([ofType('PRESET').length, ofType('NORMAL').length, ofType('DIY').length], [97, 55, 10]);
   for (const c of all) {
     assert.deepEqual(Object.keys(c.backup), ['charId', 'tmplId', 'skillIndex', 'uniEquipId', 'potRank'], `${c.chessId}: backup fields`);
     assert.deepEqual(c.backup, chess[c.baseId].backup, `${c.chessId}: the elite shares its base row's backup`);
@@ -56,13 +57,12 @@ test('chess: 153 base chess — 88 PRESET / 55 NORMAL / 10 DIY — and every rec
   }
   for (const c of ofType('DIY')) assert.deepEqual(c.backup, { charId: null, tmplId: null, skillIndex: 0, uniEquipId: null, potRank: 0 });
   // the stored potential above 0: 宴 and 野鬃 (the official PRESET rows that name one), plus every ported operator —
-  // tools/rhine-data.mjs (六.F) and tools/kazdel.mjs (八) both build their records at OPERATOR_POTENTIAL (full), through
-  // the same `attachPotential`, like the rest of the roster
+  // tools/rhine-data.mjs (六.F), tools/kazdel.mjs (八) and tools/rem.mjs (九) all build their records at
+  // OPERATOR_POTENTIAL (full), through the same `attachPotential`, like the rest of the roster
   const posed = base.filter((c) => c.backup.potRank !== 0).map((c) => c.chessId);
-  assert.deepEqual(posed.filter((id) => id.startsWith('chess_rhine_') || id.startsWith('chess_kazdel_')).sort(),
-    base.filter((c) => c.chessId.startsWith('chess_rhine_') || c.chessId.startsWith('chess_kazdel_')).map((c) => c.chessId).sort());
-  assert.deepEqual(posed.filter((id) => !id.startsWith('chess_rhine_') && !id.startsWith('chess_kazdel_')),
-    ['chess_char_1_18_a', 'chess_char_1_19_a']);
+  const ported = (id) => id.startsWith('chess_rhine_') || id.startsWith('chess_kazdel_') || id.startsWith('chess_rem_');
+  assert.deepEqual(posed.filter(ported).sort(), base.filter((c) => ported(c.chessId)).map((c) => c.chessId).sort());
+  assert.deepEqual(posed.filter((id) => !ported(id)), ['chess_char_1_18_a', 'chess_char_1_19_a']);
   assert.deepEqual(ofType('NORMAL').filter((c) => c.isHidden).map((c) => c.chessId), ['chess_char_5_18_a', 'chess_char_6_10_a']);
 });
 
@@ -77,10 +77,11 @@ test('chess: the backup fields are the official shop row, verbatim', { skip: !HA
   const forkSlots = new Set(FORK_DIY_SLOT_IDS.flatMap((id) => [id, `${id.slice(0, -1)}b`]));
   for (const c of all) {
     const s = act.charShopChessDatas[c.baseId];
-    // The ported operators are synthesized whole by tools/rhine-data.mjs (六.F) and tools/kazdel.mjs (八) (their 商店行
-    // does not exist in the official season either); they are recognized by id, never by "the lookup happened to miss".
+    // The ported operators are synthesized whole by tools/rhine-data.mjs (六.F), tools/kazdel.mjs (八) and
+    // tools/rem.mjs (九) (their 商店行 does not exist in the official season either); they are recognized by id, never by
+    // "the lookup happened to miss".
     if (!s) {
-      assert.ok(forkSlots.has(c.baseId) || c.chessId.startsWith('chess_rhine_') || c.chessId.startsWith('chess_kazdel_'),
+      assert.ok(forkSlots.has(c.baseId) || c.chessId.startsWith('chess_rhine_') || c.chessId.startsWith('chess_kazdel_') || c.chessId.startsWith('chess_rem_'),
         `${c.chessId}: no official shop row and not a fork 自选 slot`);
       continue;
     }

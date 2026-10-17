@@ -79,6 +79,9 @@ const isPerPlayer = (p) => isPlain(p) && isInt(p.killed, 0, 1e5) && isInt(p.tota
   // scheduled enemies (server/match/fields.js validateClientResult bounds it against maxTotal instead).
   && optional((x) => isInt(x, 0, 1e5))(p.resolved)
   && optional((x) => isInt(x, 0, 1e9))(p.creditedKills)
+  // 九 雷姆必拓: the reinforcement survival ticks a helper carries into 联防 (server/sim/battle/lifecycle.js reports it,
+  // server/match/unite.js reads it back). An integer like every other carried number; absent means "no carry".
+  && optional((x) => isInt(x, 0, 1e9))(p.remSurvivalTicks)
   && isList(p.leaked, RESULT_LIMITS.leaked, isLeak) && isBool(p.perfect)
   && isMap(p.layerGains, RESULT_LIMITS.layerGains, isId, (v) => isNum(v, 0, 1e4))
   && isStat(p.coins) && isStat(p.damageDealt) && isStat(p.bossDamage) && isStat(p.healingDone) && isStat(p.deaths)

@@ -967,6 +967,12 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
         unitsEnd.push({ uid: u.uid, defId: own.all.get(u.uid), hpPct: u.hpPct, sp: u.sp, skillActive: !!u.skillActive,
           alive: !!u.alive && u.hpPct > 0, ...(kazdelSoul ? { kazdelSoul } : {}) });
       }
+      // 雷姆必拓 (内容包 雷姆必拓, tools/rem-data.mjs): the accumulated reinforcement survival ticks a helper carries into
+      // 联防 (server/sim/battle/lifecycle.js reports it, server/match/unite.js reads it back). One integer, bounded like
+      // every other carried number; a report that names it at all must be one.
+      if (p.remSurvivalTicks !== undefined && (!Number.isInteger(p.remSurvivalTicks) || p.remSurvivalTicks < 0 || p.remSurvivalTicks > 1e9)) {
+        return bad('reinforcement survival ticks');
+      }
       const unitStats = [];
       for (const u of Array.isArray(p.unitStats) ? p.unitStats : []) {
         if (!u) continue;
@@ -989,6 +995,9 @@ export function validateClientResult(spec, raw, { gd = null } = {}) {
         damageDealt: stat(p.damageDealt), bossDamage: stat(p.bossDamage), healingDone: stat(p.healingDone), deaths: Math.trunc(stat(p.deaths)),
         unitsEnd, unitStats,
         creditedKills: Number.isInteger(p.creditedKills) ? p.creditedKills : unitStats.reduce((n, u) => n + u.kills, 0),
+        // Absent stays absent: the carry starts at zero anyway, and a fabricated 0 would be indistinguishable from
+        // "this pack is off" in the digest (`server/sim/spec.js resultDigest`).
+        ...(p.remSurvivalTicks > 0 ? { remSurvivalTicks: p.remSurvivalTicks } : {}),
       };
       // the HUD capsule's numerator: kept only when the client reported one (an absent value must stay absent — the
       // teammate UI then falls back to `killed`, never to a fabricated 0); clamped to the denominator

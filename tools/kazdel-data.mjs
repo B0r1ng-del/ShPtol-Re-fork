@@ -254,8 +254,12 @@ export async function applyKazdelData(files, source = null) {
       soul_hp_per_stack: KAZDEL_BALANCE.soulHpPerLayer, soul_atk_ratio: KAZDEL_BALANCE.soulAttackRatio, soul_atk_per_stack: KAZDEL_BALANCE.soulAttackPerLayer },
     bbStr: { key: 'kazdel_souls' }, buffs: [], baseParams: {}, perStackParams: {},
     spec: { soulsPerPiecePerBattle: KAZDEL_BALANCE.soulsPerPiecePerBattle, cannon: clone(KAZDEL_CANNON) } };
+  // 盟约 member lists are recomputed from the chess that name each bond. `build-data.mjs` writes them in `naturalCmp`
+  // order and `test/fork-data.test.js` pins that, so the recompute sorts — the source expansion leaves them in
+  // chess-table order, which this fork's committed tables do not use.
+  const naturalCmp = (a, b) => String(a).localeCompare(String(b), 'en', { numeric: true });
   for (const b of Object.values(bonds)) {
-    b.members = Object.values(chess).filter(c => !c.isGolden && c.bonds.includes(b.bondId)).map(c => c.chessId);
+    b.members = Object.values(chess).filter(c => !c.isGolden && c.bonds.includes(b.bondId)).map(c => c.chessId).sort(naturalCmp);
     b.visibleMembers = b.members.filter(id => chess[id].visible);
   }
   effects.bondeffect_kazdel = { effectId: 'bondeffect_kazdel', effectType: 'BOND', name: '卡兹戴尔', desc, descRaw: desc,
