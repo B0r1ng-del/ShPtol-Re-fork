@@ -206,22 +206,31 @@
 .gtop__iconbtn.has-sprite.is-on { background: var(--chk-sprite) center / 100% 100% no-repeat; }
 
 /* ready toggle */
+/* ACRYLIC (图二, 需求方 2026-10-17 「将 UI 控件的最底层背景替换为 Acrylic 材质」): the ready pill is the bottom layer of its
+   own control, so it takes the same frosted plate the HUD uses (translucent fill + blur + saturation, `.chat` /
+   `.dpbox`), not the near-opaque `.9` it shipped with. Its hover / is-on states keep their own fills. */
 .readywrap { display: flex; flex-direction: column; align-items: flex-end; gap: .05rem; }
 .readywrap__count { font-size: .14rem; color: var(--text-lo); }
 .readywrap__count b { color: var(--mint-400); font-size: .17rem; }
 /* why 准备就绪 is refused (the temp overflow row holds pieces, user playtest #3 item 3): shown, not only on hover */
 .readywrap__why {
   display: inline-flex; align-items: center; gap: .05rem; padding: .02rem .1rem .02rem .06rem; font-size: .14rem; font-weight: 700;
-  color: #ffdcd6; background: rgba(40, 6, 6, .88); border: 1px solid rgba(255, 90, 71, .7); border-right: 3px solid #ff5a47; white-space: nowrap;
+  color: #ffdcd6; background: rgba(40, 6, 6, .62); -webkit-backdrop-filter: blur(.12rem) saturate(1.6); backdrop-filter: blur(.12rem) saturate(1.6);
+  border: 1px solid rgba(255, 90, 71, .7); border-right: 3px solid #ff5a47; white-space: nowrap;
 }
 .readywrap__why .icon { width: .16rem; height: .16rem; color: #ff6a55; flex: none; }
 .readywrap__why b { color: #ff8a78; font-size: .16rem; }
 .readybtn {
   display: flex; align-items: center; gap: .12rem; height: .56rem; padding: 0 .16rem 0 .12rem; min-width: 2.3rem;
-  background: rgba(10, 14, 12, .9); border: 2px solid var(--mint-500); color: var(--text-hi);
+  background: rgba(10, 14, 12, .55); -webkit-backdrop-filter: blur(.12rem) saturate(1.6); backdrop-filter: blur(.12rem) saturate(1.6);
+  border: 2px solid var(--mint-500); color: var(--text-hi);
   font-size: .22rem; font-weight: 700; letter-spacing: .14em;
   box-shadow: 0 0 .18rem rgba(23, 249, 183, .15);
   transition: background var(--t-fast), color var(--t-fast), box-shadow var(--t-fast);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .readybtn { background: rgba(10, 14, 12, .9); }
+  .readywrap__why { background: rgba(40, 6, 6, .88); }
 }
 .readybtn:hover:not(:disabled) { background: rgba(78, 216, 175, .14); box-shadow: 0 0 .26rem rgba(23, 249, 183, .3); }
 .readybtn__box { width: .3rem; height: .3rem; border: 2px solid var(--mint-500); display: grid; place-items: center; flex: none; }
@@ -691,6 +700,14 @@
 .set-seg button:last-child { border-right: 0; }
 .set-seg button.is-on { background: var(--mint-500); color: var(--text-on-mint); font-weight: 700; }
 .set-hint { margin-top: .06rem; font-size: calc(.14 * var(--t)); color: var(--text-dim); line-height: 1.8; }
+/* 作弊菜单 激活码 (需求方 2026-10-17): the code input sits in a .set-row's middle cell; the wrong-code line is the hint in red */
+.set-input {
+  min-width: 0; height: .4rem; padding: 0 .12rem;
+  background: rgba(8, 11, 10, .7); border: 1px solid var(--line-2); color: var(--text-hi);
+  font-family: var(--font-num); font-size: .18rem; letter-spacing: .1em;
+}
+.set-input:focus-visible { outline: 2px solid var(--mint-500); outline-offset: 1px; }
+.set-hint--warn { color: var(--red-premium); }
 .set-hint kbd, .lvcard__key, .toolbtn kbd { font-family: var(--font-num); font-size: .11rem; border: 1px solid var(--line-2); padding: 0 .04rem; color: var(--text-lo); background: rgba(0, 0, 0, .3); }
 /* 快捷键 (ui/settings.js HotkeySection): each shortcut with its key — click the key, press the new one; two columns,
    one under 768 px (phones in landscape) */

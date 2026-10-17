@@ -87,8 +87,11 @@ test('both switch menus use it: 房主配置\'s own options and its Mod 开关 s
   assert.ok(!/dpick__opt/.test(code(MODS)), 'ui/mods.js no longer uses the dpick__opt option style');
   // every row of both menus carries a testid and an ⓘ testid the e2e suite selects on. The Mod rows are the panel's
   // second menu now, so they are namespaced `hostcfg-mod-…` to keep one selector space per dialog.
-  assert.match(ROOM, /testid=\$\{`hostcfg-\$\{r\.key\}`\} infoTestid=\$\{`hostcfg-info-\$\{r\.key\}`\}/);
-  assert.match(ROOM, /testid=\$\{`hostcfg-mod-\$\{r\.key\}`\} infoTestid=\$\{`hostcfg-mod-info-\$\{r\.key\}`\}/);
+  // 图一 (2026-10-17): the two menus became ONE list dealt into two columns, so each row carries its testid on its own
+  // (HostConfigDialog sets it, MatchOptionSection reads it) and the ⓘ's is that testid plus `-info`.
+  assert.match(ROOM, /testid: `hostcfg-\$\{r\.key\}`/, 'the host options keep `hostcfg-<key>`');
+  assert.match(ROOM, /testid: `hostcfg-mod-\$\{r\.key\}`/, 'the Mod rules keep `hostcfg-mod-<key>`');
+  assert.match(ROOM, /testid=\$\{r\.testid\} infoTestid=\$\{`\$\{r\.testid\}-info`\}/, 'SwitchRow renders both');
   // 房主配置 keeps its read-only shape for a non-host: the switch renders disabled
   assert.match(ROOM, /disabled=\$\{!r\.editable \|\| !!busy\}/);
 });

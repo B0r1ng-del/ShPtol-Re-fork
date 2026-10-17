@@ -21,18 +21,27 @@
    2026-10-15, green box). The buttons below keep their own content widths, so 莱茵科技 / 冻结 / 刷新 read as one row and
    the pre-莱茵科技 two-button row is byte-identical to what it was. */
 .shopbar__tools { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: .06rem .12rem; }
-.shopbar__remain {
-  flex-basis: 100%; max-width: fit-content; pointer-events: none;
-  font-size: .16rem; color: var(--text-md); padding: .04rem .14rem; background: rgba(8, 11, 10, .78);
-  border-left: 3px solid var(--mint-500);
-}
 .shopbar__remain b { color: var(--mint-400); font-size: .2rem; margin-left: .04rem; }
 .toolbtn {
   --tb: var(--ice);
   display: flex; align-items: center; gap: .08rem; height: .48rem; padding: 0 .14rem 0 .08rem;
-  background: rgba(8, 11, 10, .9); border: 2px solid var(--tb); color: var(--tb); font-size: .19rem; font-weight: 700; letter-spacing: .1em;
+  /* ACRYLIC (图五, 需求方 2026-10-17): 冻结 / 刷新 are controls too — frosted plate, the --tb border and text kept. */
+  background: rgba(8, 11, 10, .55);
+  -webkit-backdrop-filter: blur(.12rem) saturate(1.6); backdrop-filter: blur(.12rem) saturate(1.6);
+  border: 2px solid var(--tb); color: var(--tb); font-size: .19rem; font-weight: 700; letter-spacing: .1em;
   box-shadow: 0 .04rem .14rem rgba(0, 0, 0, .45);
   transition: background var(--t-fast), box-shadow var(--t-fast), transform var(--t-fast);
+}
+/* 剩余可放置角色: the same plate as the two buttons below it (it sits on the bar, not inside it) */
+.shopbar__remain {
+  flex-basis: 100%; max-width: fit-content; pointer-events: none;
+  font-size: .16rem; color: var(--text-md); padding: .04rem .14rem;
+  background: rgba(8, 11, 10, .55); -webkit-backdrop-filter: blur(.12rem) saturate(1.6); backdrop-filter: blur(.12rem) saturate(1.6);
+  border-left: 3px solid var(--mint-500);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .toolbtn { background: rgba(8, 11, 10, .9); }
+  .shopbar__remain { background: rgba(8, 11, 10, .78); }
 }
 .toolbtn:hover:not(:disabled) { background: rgba(8, 11, 10, .9); background: color-mix(in srgb, var(--tb) 16%, rgba(8, 11, 10, .9)); box-shadow: 0 0 .18rem transparent; box-shadow: 0 0 .18rem color-mix(in srgb, var(--tb) 40%, transparent); }
 .toolbtn:active:not(:disabled) { transform: translateY(1px); }
@@ -49,9 +58,15 @@
 
 .shopbar__row {
   position: relative; display: flex; align-items: stretch; gap: .08rem; padding: .1rem;
-  background: linear-gradient(180deg, rgba(14, 19, 17, .94), rgba(8, 11, 10, .97));
+  /* ACRYLIC (图三, 需求方 2026-10-17): 图三's bottom layer is the bar that wraps the cards — the cards themselves keep
+     their own opaque faces (`.scard` / `.lvcard`, untouched), so the frost shows only in the frame's padding and gaps. */
+  background: linear-gradient(180deg, rgba(14, 19, 17, .58), rgba(8, 11, 10, .62));
+  -webkit-backdrop-filter: blur(.12rem) saturate(1.6); backdrop-filter: blur(.12rem) saturate(1.6);
   border: 1px solid var(--line-2); border-top: 2px solid var(--mint-700);
   box-shadow: 0 -.04rem .3rem rgba(0, 0, 0, .55);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .shopbar__row { background: linear-gradient(180deg, rgba(14, 19, 17, .94), rgba(8, 11, 10, .97)); }
 }
 .shopbar__row::before {
   content: ''; position: absolute; left: 0; right: 0; top: -2px; height: 2px;
