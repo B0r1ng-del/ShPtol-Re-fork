@@ -56,8 +56,8 @@ const PACKS = {
     files: { 'resource-manifest.json': MANIFEST, 'n.json': NOSTORE, 'p.json': PUBLIC },
   },
   'core-claim': {
-    pack: { name: 'CoreClaim', routes: [{ path: '/data/support.json', file: 'support.json', cache: 'no-store' }] },
-    files: { 'support.json': JSON.stringify({ from: 'the pack' }) },
+    pack: { name: 'CoreClaim', routes: [{ path: '/data/bonds.json', file: 'bonds.json', cache: 'no-store' }] },
+    files: { 'bonds.json': JSON.stringify({ from: 'the pack' }) },
   },
 };
 
@@ -83,7 +83,7 @@ describe('routes: 服务面自己的判据（只读 / 只 .json / 越不出去�
   test('声明合法：绝对路径 → 包内文件，cache 缺省 no-cache，三种语义都有对应的 Cache-Control', () => {
     const { routes, errors } = workshopRoutesFor(loadWorkshop(wsRoot, { log: quiet }), wsRoot, { log: quiet });
     assert.deepEqual(errors, [], JSON.stringify(errors));
-    assert.deepEqual([...routes.keys()].sort(), ['/data/resource-manifest.json', '/data/support.json', '/sp-nostore.json', '/sp-public.json']);
+    assert.deepEqual([...routes.keys()].sort(), ['/data/bonds.json', '/data/resource-manifest.json', '/sp-nostore.json', '/sp-public.json']);
     const m = routes.get('/data/resource-manifest.json');
     assert.equal(m.file, join(wsRoot, 'manifest-pack', 'resource-manifest.json'));
     assert.equal(m.cache, 'no-cache');
@@ -132,7 +132,7 @@ describe('routes: 服务面自己的判据（只读 / 只 .json / 越不出去�
   test('两个包声明同一条路径：包 id 小的赢，输的那条被报告（DESIGN §34.3）', () => {
     const loaded = { packs: [
       { id: 'zeta', dir: join(wsRoot, 'manifest-pack'), routes: [{ path: '/x.json', file: 'resource-manifest.json' }] },
-      { id: 'alpha', dir: join(wsRoot, 'core-claim'), routes: [{ path: '/x.json', file: 'support.json' }] },
+      { id: 'alpha', dir: join(wsRoot, 'core-claim'), routes: [{ path: '/x.json', file: 'bonds.json' }] },
     ] };
     const { routes, errors } = workshopRoutesFor(loaded, wsRoot, { log: quiet });
     assert.equal(routes.get('/x.json').pack, 'alpha', '小 id 赢（与数据叠加 / kit 碰撞同一条规则）');
@@ -194,12 +194,12 @@ describe('routes: 真 HTTP 服务面', () => {
       assert.equal((await get('/sp-not-declared.js')).status, 404);
       assert.equal((await get('/data/nope.json')).status, 404);
 
-      // 核心先吃（DESIGN §34.35）：这条路径**核心自己**有文件 ⇒ 包的那条同名声明不生效，服务的是引擎的 data/support.json。
+      // 核心先吃（DESIGN §34.35）：这条路径**核心自己**有文件 ⇒ 包的那条同名声明不生效，服务的是引擎的 data/bonds.json。
       // （上面那条单独的用例把这条语义连同「包不被拒」一起钉住，这里只钉「HTTP 面上确实是核心那份」。）
-      const claimed = await get('/data/support.json');
+      const claimed = await get('/data/bonds.json');
       assert.equal(claimed.status, 200, '核心那份还在');
-      const officialSupport = JSON.parse(fs.readFileSync(join(ROOT, 'data', 'support.json'), 'utf8'));
-      assert.deepEqual(await claimed.json(), officialSupport, '核心先吃：不是包里的 support.json');
+      const officialBonds = JSON.parse(fs.readFileSync(join(ROOT, 'data', 'bonds.json'), 'utf8'));
+      assert.deepEqual(await claimed.json(), officialBonds, '核心先吃：不是包里的 bonds.json');
 
       // 穿越：编码过的 `..` 解出来还是 `..`，但没有那样的声明路径 ⇒ 落到核心静态层被拒
       for (const path of ['/data/../manifest-pack/pack.json', '/%2e%2e/%2e%2e/etc/passwd', '/data/%2e%2e/manifest-pack/pack.json']) {
@@ -234,14 +234,14 @@ describe('routes: 真 HTTP 服务面', () => {
 
   test('声明的路径与核心同名时：核心先吃，包的那条声明不生效且被点名（就地改语义：这条曾经「有意为之」）', async () => {
     // 这条断言的**语义**在 0.15.2 就地从「声明的路径就是声明过的」改成了「核心先吃」——不是删掉它。改前的立场是
-    // 包声明的 `/data/support.json` 顶掉核心那份；现在核心那份必须赢，而且包**不被拒**（只那一条声明不生效）。
+    // 包声明的 `/data/bonds.json` 顶掉核心那份；现在核心那份必须赢，而且包**不被拒**（只那一条声明不生效）。
     const srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true, workshopDir: wsRoot });
     try {
-      const res = await fetch(`${srv.url}/data/support.json`);
+      const res = await fetch(`${srv.url}/data/bonds.json`);
       assert.equal(res.status, 200, '核心那份还在，所以还是 200');
-      const official = JSON.parse(fs.readFileSync(join(ROOT, 'data', 'support.json'), 'utf8'));
-      assert.deepEqual(await res.json(), official, '服务的是引擎自己的 data/support.json，不是包里的那份');
-      const packFile = JSON.parse(fs.readFileSync(join(wsRoot, 'core-claim', 'support.json'), 'utf8'));
+      const official = JSON.parse(fs.readFileSync(join(ROOT, 'data', 'bonds.json'), 'utf8'));
+      assert.deepEqual(await res.json(), official, '服务的是引擎自己的 data/bonds.json，不是包里的那份');
+      const packFile = JSON.parse(fs.readFileSync(join(wsRoot, 'core-claim', 'bonds.json'), 'utf8'));
       assert.notDeepEqual(packFile, official, '两份确实不同 —— 否则上面那条断言证明不了谁赢');
       assert.deepEqual(packFile, { from: 'the pack' });
       // 包**没有被拒**：它另一条不撞核心的声明照常服务（这是「兼容」那一半）
@@ -260,14 +260,14 @@ describe('routes: 真 HTTP 服务面', () => {
       mount: CORE_MOUNT,
     });
     // 核心真的服务那两条 ⇒ 包的同名声明不生效
-    assert.equal(routes.has('/data/support.json'), false, '撞核心的文件不在表里 ⇒ 请求落到核心挂载');
+    assert.equal(routes.has('/data/bonds.json'), false, '撞核心的文件不在表里 ⇒ 请求落到核心挂载');
     // 响亮：一条 error（装载报告）+ 一行 log.warn（启动日志），都点出这条路径
-    const shadowed = errors.filter((e) => e.path === '/data/support.json');
+    const shadowed = errors.filter((e) => e.path === '/data/bonds.json');
     assert.equal(shadowed.length, 1, JSON.stringify(errors));
     assert.match(shadowed[0].reason, /engine answers this path first/);
     assert.match(shadowed[0].reason, /may not shadow a core path/);
     assert.match(shadowed[0].reason, /Still loads/i, '报告里必须说清「包仍然装载」');
-    const warned = warnings.filter((w) => w.includes('/data/support.json'));
+    const warned = warnings.filter((w) => w.includes('/data/bonds.json'));
     assert.equal(warned.length, 1, JSON.stringify(warnings));
     assert.match(warned[0], /the engine answers this path first/);
   });

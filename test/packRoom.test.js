@@ -118,7 +118,7 @@ const order = (lines) => lines.map((l) => { const t = parseTrace(l); return `${t
  * `modSet` 是 null，闸门也就不存在，所以那时不加这个字段。
  */
 const requestRoom = (client, srv, msg) => client.request(
-  srv.lobby.modSet ? { mods: srv.lobby.modSet.digest, ...msg } : { ...msg },
+  srv.lobby.modSet ? { modDigest: srv.lobby.modSet.digest, ...msg } : { ...msg },
 );
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -434,7 +434,7 @@ export function install(room) {
     }
   });
 
-  test('W-B：房间声明了集合时，只有它点名的包的房间钩子参与', async () => {
+  test('W-B：房间声明了集合时，只有它点名的包的房间钩子参与', { skip: 'W-A 未移植：本 fork 没有 room.create.modIds（房间挑包子集那一层）。`createRoomHooks.packsFor` 的 W-B 分支代码在（`room.modSet` 为 null 时走进程级那一份），但没有通道能让房间声明子集，所以这条测试无法在真服务器上跑。见 docs/FORK.md「未移植的上游能力」。' }, async () => {
     const ws = path.join(tmp, 'ws');
     writePack(ws, 'aa-pack', TRACE_MODULE('aa-pack'));
     writePack(ws, 'zz-pack', TRACE_MODULE('zz-pack'));
@@ -505,7 +505,10 @@ export function install(room) {
       assert.deepEqual(srv.lobby.roomHooks.stats(), { installers: 0, rooms: 0 });
       assert.equal((await requestRoom(a, srv, { t: 'room.create', mode: 'solo', difficulty: 'NORMAL' })).t, 'ok');
       const state = await a.waitFor('room.state');
-      assert.equal(state.mods, undefined, '没声明集合的房间照旧不带 mods（与从前逐字节相同的不变量）');
+      // ★ 本 fork 的 `room.state.mods` 是 **Mod 开关对象**（`MOD_KEYS` → boolean），一直存在（上游把它当摘要，
+      // 只在声明了集合时才有）。所以这里钉的不是「没有这个键」，而是「**没有 `packs`**」—— 那才是「这个房间
+      // 声明了哪几个包」的载体，房间没声明集合时它必须缺席（`room.state` 与从前逐字节相同）。
+      assert.equal(state.mods && state.mods.packs, undefined, '没声明集合的房间照旧不带 packs（与从前逐字节相同的不变量）');
       assert.equal(srv.lobby.roomHooks.stats().rooms, 0, '没有包声明房间钩子 ⇒ 一张表都不建');
       assert.equal((await a.request({ t: 'room.leave' })).t, 'ok');
     } finally {
@@ -520,7 +523,8 @@ export function install(room) {
     try {
       const packs = (srv.lobby.welcomeInfo().mods || { packs: [] }).packs.map((p) => p.id);
       assert.equal(packs.includes('dropped'), false, `被裁的包不该出现在线上摘要里：${JSON.stringify(packs)}`);
-      assert.deepEqual(srv.lobby.workshop.roomHooks, []);
+      // 一个包都没留下来 ⇒ `this.workshop` 是 `null`（判据是 `workshop.mods` 非空），总线也就没有 installer。
+      assert.deepEqual(srv.lobby.workshop?.roomHooks ?? [], []);
       assert.deepEqual(srv.lobby.roomHooks.stats(), { installers: 0, rooms: 0 });
       // 而且它也不是「装了但没生效」：房间照旧能建（此时服务器一个包都没装载，所以摘要闸门也不存在）
       assert.equal((await requestRoom(a, srv, { t: 'room.create', mode: 'solo', difficulty: 'NORMAL' })).t, 'ok');

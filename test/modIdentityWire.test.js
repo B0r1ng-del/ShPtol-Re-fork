@@ -103,10 +103,10 @@ describe('mod identity: entering a modded room needs the client to confirm the c
       const missing = await c.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL' });
       assert.equal(missing.t, 'error', JSON.stringify(missing));
       assert.match(String(missing.detail), /alpha-pack/, 'the refusal says WHAT is running (error.detail)');
-      const wrong = await c.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', mods: 'deadbeefdeadbeef' });
+      const wrong = await c.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', modDigest: 'deadbeefdeadbeef' });
       assert.equal(wrong.t, 'error');
-      assert.match(String(wrong.detail), /different mod set/);
-      const ok = await c.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', mods: digest });
+      assert.match(String(wrong.detail), /does not match/);
+      const ok = await c.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', modDigest: digest });
       assert.equal(ok.t, 'ok', JSON.stringify(ok));
     } finally {
       await c.terminate();
@@ -127,21 +127,26 @@ describe('mod identity: entering a modded room needs the client to confirm the c
 
   test('the protocol accepts the field as optional and refuses a malformed one', () => {
     assert.equal(validateC2S({ t: 'room.join', code: 'ABCD' }), null, 'an old client that sends nothing is still valid');
-    assert.equal(validateC2S({ t: 'room.join', code: 'ABCD', mods: digest }), null);
-    assert.equal(validateC2S({ t: 'room.join', code: 'ABCD', mods: 'nope' }), 'bad field mods');
-    assert.equal(validateC2S({ t: 'room.join', code: 'ABCD', mods: 42 }), 'bad field mods');
-    // W7（DESIGN §34.53）：`room.join` 多一格**可选**的 `consent` —— 进一个声明了模组集合的房间要每名真人明确同意。
-    // 它**不是** `modIds` 那一类（加入者仍不许提集合）：`consent` 说的是「我同意跑**这一房声明的那一份字节**」，
-    // 一个布尔，改不了集合。与 `mods` 并列而不是合并，因为那是两种表态（握手 vs 表态）。
-    assert.deepEqual(C2S['room.join'].$optional, ['mods', 'consent']);
-    assert.equal(validateC2S({ t: 'room.join', code: 'ABCD', consent: true }), null, '同意这一格收 true');
-    assert.equal(validateC2S({ t: 'room.join', code: 'ABCD', consent: null }), null, '显式 null = 没同意，形状层收');
-    assert.equal(validateC2S({ t: 'room.join', code: 'ABCD', consent: 'yes' }), 'bad field consent', '只有 true 算同意');
-    // W-A (DESIGN §34.9): `room.create` gained `modIds` — the packs a ROOM declares, a subset of what this server
-    // loaded. `room.join` deliberately did not: a room set is the host's to declare, never a joiner's.
-    // 房内聊天（docs/META.md §1.8）又加了 `chatMode`：同样是**房主建的那个房间**的属性，不是加入者的。
-    // 本房座位上限 (业主裁决 B5, docs/META.md §1.9) 再加 `seatCap`：房主选的座位数，同样是房主这一侧的。
-    assert.deepEqual(C2S['room.create'].$optional, ['mods', 'modIds', 'chatMode', 'seatCap']);
+    assert.equal(validateC2S({ t: 'room.join', code: 'ABCD', modDigest: digest }), null);
+    // 方案 A 的边界（业主裁决 2026-10-17）：摘要另开 `modDigest`，`mods` 的语义**一个字没动**。
+    // 本 fork 的 `room.join` 从来没有 `mods` 这一格（`mods` 只出现在 `room.create`，是 Mod 开关对象）。
+    // ⚠️ `validateC2S` 只判**声明过的字段**的形状，未声明字段它不拦（拦的是 net.js 的 `Object.hasOwn(C2S, msg.t)`
+    // 那一层，判的是消息**类型**不是字段）—— 所以这里不能断言 `room.join` 上带 `mods` 会被拒：它会被原样忽略。
+    assert.equal(validateC2S({ t: 'room.join', code: 'ABCD', mods: 'nope' }), null, '未声明字段不进形状判据');
+    // `room.create.mods` 仍然是开关对象：字符串被拒，`{ noBondBan: true }` 被收。
+    assert.equal(validateC2S({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', mods: 'nope' }), 'bad field mods');
+    assert.equal(validateC2S({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', mods: { noBondBan: true } }), null);
+    // 摘要的形状：16–64 位小写十六进制，别的都拒。
+    assert.equal(validateC2S({ t: 'room.join', code: 'ABCD', modDigest: 'NOTHEX' }), 'bad field modDigest');
+    assert.equal(validateC2S({ t: 'room.join', code: 'ABCD', modDigest: 42 }), 'bad field modDigest');
+    // 方案 A 之后两格的**可选字段表**（这是本 fork 的真实形状，不是上游的）：
+    //   * `room.join`  —— 只有 `modDigest`（加入者说出它以为在加入哪一份内容集）。本 fork 没有上游的
+    //                    `modIds`（房间声明集合那一层）与 `consent`（W7 的同意表态），所以这里也不该出现它们。
+    //   * `room.create` —— `mods`（Mod 开关对象，本 fork 原有）+ `modDigest`（新开的内容集摘要）。
+    assert.deepEqual(C2S['room.join'].$optional, ['modDigest']);
+    assert.deepEqual(C2S['room.create'].$optional, ['mods', 'modDigest']);
+    // `mods` 与 `modDigest` 是**两格不同语义**的字段，同时出现也合法（开关 + 内容集）。
+    assert.equal(validateC2S({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', mods: { noBondBan: true }, modDigest: digest }), null);
   });
 });
 

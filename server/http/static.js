@@ -56,6 +56,7 @@
 // an empty manifest.
 // Files go out through files.js serveFile.
 
+import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { MEDIA_PREFIX } from '../../shared/media.js';
@@ -75,7 +76,48 @@ import { csUrlPart } from '../../shared/plugins/identity.js';
 import { FILE_URL_DIGITS, PLUGIN_AUDIO_EXTS, PLUGIN_FILES_URL, VISUAL_DOC_FILE, VISUAL_SETS_URL, VS_URL_DIGITS } from '../../shared/plugins/visual.js';
 import { SIM_WORKER_CSP } from './csp.js';
 // 工坊素材路由 (工坊 mod 层移植, 2026-10-16): the prefix and extension allowlist a pack's own art is served under.
-import { WORKSHOP_ASSET_PREFIX, WORKSHOP_ASSET_TYPES } from './workshop.js';
+import { WORKSHOP_ASSET_PREFIX, WORKSHOP_ASSET_TYPES, ROUTE_CACHE_HEADERS, isCacheOnlyPath } from './workshop.js';
+import { DYNAMIC_ROUTE_CACHE_HEADERS, runDynamicRoute } from './routeMount.js';
+import { WORKSHOP_PANEL_PREFIX, WORKSHOP_RESOURCE_PREFIX } from '../../shared/workshop.js';
+import { pipeline } from 'node:stream/promises';
+
+/** 包声明的战斗逻辑模块的服务前缀（`pack.json.server.battle`，与 `/workshop-kits/` 同一类通道）。 */
+const WORKSHOP_BATTLE_PREFIX = '/workshop-battle/';
+
+/**
+ * `/workshop-kits/<pack>/<rel>` → `<packDir>/kits/<rel>`（DESIGN §34.18），URL 不该被回答时返回 null。
+ *
+ * 三道门，次序刻意让每一种拒绝都与「文件根本不在」不可区分：
+ *   1. 第一段必须是**已装载**的包 —— 没装的包在这里压根没有目录（表就是 `loadWorkshop` 的结果建的），
+ *      所以「别的包的路径」不是特例，只是一次查表未命中；
+ *   2. `decoded` 已经由调用方 `decodeURIComponent` **正好解一次**，所以 `%2e%2e` 到这里就是 `..`，按段拒掉
+ *      —— **绝不二次解码**（二次解码正是 `%252e%252e` 变成 `..` 的路）；
+ *   3. 其余部分必须是非空 `.js`，没有空段 / `.` / `..`、没有反斜杠，且解析后的路径必须留在 `<packDir>/kits/`
+ *      之下 —— 用 `path.resolve` + `path.relative` 判，**绝不字符串前缀匹配**（前缀判据会放过
+ *      `<packDir>/kits-evil/x.js`）。
+ *
+ * 文件在不在留给调用方的 `readFile`：未命中与穿越必须给出同一个 404 体。
+ * @param {string} decoded 百分号解码后的请求路径
+ * @param {Map<string, string>|null} kitDirs 包 id → `<packDir>/kits`（`workshopKitDirsFor`）
+ * @returns {string|null} 绝对路径，或 null
+ */
+function resolvePackRelativeKit(decoded, kitDirs) {
+  if (!kitDirs || !kitDirs.size) return null;
+  const rest = decoded.slice('/workshop-kits/'.length);
+  const slash = rest.indexOf('/');
+  if (slash <= 0) return null;                                  // 没有包段，或没有文件段
+  const pack = rest.slice(0, slash);
+  const rel = rest.slice(slash + 1);
+  const dir = kitDirs.get(pack);
+  if (!dir) return null;                                        // 未知 / 未装载的包
+  if (!rel.endsWith('.js') || rel.includes('\\')) return null;
+  const segments = rel.split('/');
+  if (segments.some((s) => !s || s === '.' || s === '..')) return null;
+  const abs = path.resolve(dir, ...segments);
+  const back = path.relative(path.resolve(dir), abs);
+  if (!back || back.startsWith('..') || path.isAbsolute(back)) return null;
+  return abs;
+}
 import { UI_FRAME_CSP } from '../../shared/plugins/ui.js';
 
 /** Browser stand-in of server/data.js, served at /data.js (see the header). Served byte for byte: its first line names the entry, server/index.js. */
@@ -126,7 +168,9 @@ const CS_FILE = /^\/cs\/([0-9a-f]{16})\/([A-Za-z0-9._\/-]{1,200})$/;
  */
 export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = path.join(ROOT, 'server', 'sim'), packsDir = path.join(ROOT, 'packs'),
   pluginsDir = path.join(path.dirname(path.resolve(packsDir)), 'plugins'), packs = null, content = null, log = noopLog,
-  assetIndex = null, views = null, visual = null, contents = null, workshopJson = null, workshopAssets = null }) {
+  assetIndex = null, views = null, visual = null, contents = null, workshopJson = null, workshopAssets = null,
+  workshopKitFiles = null, workshopKitDirs = null, workshopPanelFiles = null, workshopBattleFiles = null,
+  workshopResourceFiles = null, workshopI18n = null, resourcePolicy = 'serve', workshopRoutes = null, modRoutes = null }) {
   const registry = packs || createPluginRegistry({ publicDir, dataDir, packsDir, pluginsDir }, { log: /** @type {any} */ (log) });
   const sets = visual || (typeof registry.pluginFile === 'function' ? createVisualSets({ registry, log }) : null);
   let vanilla = content;
@@ -268,6 +312,162 @@ export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = pa
       const body = workshopJson.get(decoded.slice('/data/'.length, -'.json'.length));
       if (body) {
         await serveBuffer(req, res, { body, hash: null, type: MIME['.json'], cacheControl: 'no-cache', key: `wsjson:${decoded}`, cache: gzipCache });
+        return;
+      }
+    }
+    // 包给**已有语种**补的词条（`pack.json.i18n`, docs/WORKSHOP.md §1.10）：`/i18n/<code>.json` 在有包声明时送
+    // **合并体**（官方文件 + 包的新增键，已有键绝不覆盖），与上面 `/data/*.json` 逐字同一条纪律 —— 客户端读的就是
+    // 这个 URL（public/js/ui/lang.js），而 `public/i18n/<code>.json` 一个字节都不改。没有包声明 i18n 时这张表是
+    // 空的 ⇒ 请求落到下面的普通静态路径，行为逐字节不变。
+    if (workshopI18n && workshopI18n.size && decoded.startsWith('/i18n/') && decoded.endsWith('.json')) {
+      const code = decoded.slice('/i18n/'.length, -'.json'.length);
+      const body = code && !code.includes('/') ? workshopI18n.get(code) : null;
+      if (body) {
+        await serveBuffer(req, res, { body, hash: null, type: MIME['.json'], cacheControl: 'no-cache', key: `wsi18n:${decoded}`, cache: gzipCache });
+        return;
+      }
+    }
+    // 包声明的**战斗逻辑**模块（`pack.json.server.battle`，DESIGN §34.17）：与 `/workshop-kits/` 同一条通道，但
+    // **只服务装载器登记过的 URL**，不放宽成「包内子树」—— 服务端把它当 data: URL 加载，data: 没有目录，相对路径
+    // 无从解析，所以它也没有需要「按 URL 解出包内相对路径」的第二个消费者，登记表就是它全部的入口。
+    if (workshopBattleFiles && workshopBattleFiles.size && decoded.startsWith(WORKSHOP_BATTLE_PREFIX)) {
+      const abs = workshopBattleFiles.get(decoded);
+      if (!abs) { sendError(req, res, 404, '页面不存在 · Not found'); return; }
+      let body;
+      try {
+        body = await fsp.readFile(abs);
+      } catch (e) {
+        log.error('[workshop] battle module read failed', e);
+        sendError(req, res, 404, '页面不存在 · Not found');
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': MIME['.js'], 'Content-Length': body.length, 'Cache-Control': 'no-cache' });
+      res.end(req.method === 'HEAD' ? undefined : body);
+      return;
+    }
+    // 工坊行为层 (docs/WORKSHOP.md §4, DESIGN §34.18): serve a pack's kit module as an ES module, so the BROWSER runs
+    // the very code the server runs. Two halves: a URL the loader registered → the kit file itself; `<包>/<rel>` where
+    // `<包>` is a LOADED pack → `<packDir>/kits/<rel>`, so a kit may import its OWN siblings with a downward relative
+    // specifier (`./lib/util.js` → `/workshop-kits/<pack>/lib/util.js`). That is the geometry §34.18 rests on: on disk
+    // the specifier means `<packDir>/kits/lib/util.js` and in the URL it means the same file, because the `kits/`
+    // segment is not in the URL and `resolvePackRelativeKit` adds it back.
+    if (workshopKitFiles && workshopKitFiles.size && decoded.startsWith('/workshop-kits/')) {
+      const abs = workshopKitFiles.get(decoded) ?? resolvePackRelativeKit(decoded, workshopKitDirs);
+      if (!abs) { sendError(req, res, 404, '页面不存在 · Not found'); return; }
+      let body;
+      try {
+        body = await fsp.readFile(abs);
+      } catch (e) {
+        log.error('[workshop] kit read failed', e);
+        sendError(req, res, 404, '页面不存在 · Not found');
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': MIME['.js'], 'Content-Length': body.length, 'Cache-Control': 'no-cache' });
+      res.end(req.method === 'HEAD' ? undefined : body);
+      return;
+    }
+    // 包声明的资源容器与清单（`pack.json.assets`, DESIGN §34.13, docs/WORKSHOP.md §1.9.4）：`/workshop-resources/`
+    // 下**只有装载器注册过的两个 URL** 会被回答 —— 未注册 / 穿越 / 不在声明里的路径一律 404，所以目录穿越在这里
+    // 不是「被挡住」，而是**没有可以穿越的目标**（键就是那两个 URL 字符串）。容器可达数百 MB，所以它**流式**
+    // 出去（`createReadStream` + `pipeline`），绝不整读进内存；清单小，照读。`?v=<hash12>` 是缓存键。
+    if (workshopResourceFiles && workshopResourceFiles.size && decoded.startsWith(WORKSHOP_RESOURCE_PREFIX)) {
+      const entry = workshopResourceFiles.get(decoded);
+      if (!entry) { sendError(req, res, 404, '页面不存在 · Not found'); return; }
+      let st;
+      try {
+        st = await fsp.stat(entry.file);
+        if (!st.isFile()) throw Object.assign(new Error('not a file'), { code: 'ENOENT' });
+      } catch (e) {
+        if (!e || !['ENOENT', 'ENOTDIR', 'EISDIR', 'ENAMETOOLONG'].includes(e.code)) log.error('[workshop] resource stat failed', e);
+        sendError(req, res, 404, '页面不存在 · Not found');
+        return;
+      }
+      /** @type {Record<string, string|number>} */
+      const headers = {
+        'Content-Type': entry.kind === 'manifest' ? MIME['.json'] : 'application/octet-stream',
+        'Content-Length': st.size,
+        'Cache-Control': 'no-cache',
+      };
+      // The digest the loader verified (`server/workshop.js assetsIssues`), stated on the wire so a downloader can
+      // check the bytes it received against the same value the server checked them against — no second hashing pass.
+      if (entry.sha256) headers['X-SP-Resource-Sha256'] = entry.sha256;
+      res.writeHead(200, headers);
+      if (req.method === 'HEAD') { res.end(); return; }
+      try {
+        await pipeline(fs.createReadStream(entry.file), res);
+      } catch (e) {
+        // The headers are gone by now, so the only honest answer is to cut the connection: a truncated body with a
+        // 200 and a full Content-Length is exactly what a client cannot detect.
+        log.error('[workshop] resource stream failed', e);
+        res.destroy();
+      }
+      return;
+    }
+    // C 层注册点 (DESIGN §34.8, docs/WORKSHOP.md §1.9.3): a pack's panel module, served as an ES module the BROWSER
+    // imports — the twin of the kit route, and the reason `/workshop-assets` can keep refusing `.js`. Only URLs the
+    // loader registered are servable. Since the owner's ruling of 2026-10-10 the same route also serves a panel's OWN
+    // stylesheets (`.css`): a declaration that brings a whole new component cannot be expressed as theme variables.
+    const panelExt = decoded.endsWith('.css') ? '.css' : decoded.endsWith('.js') ? '.js' : '';
+    if (workshopPanelFiles && workshopPanelFiles.size && decoded.startsWith(WORKSHOP_PANEL_PREFIX) && panelExt) {
+      const abs = workshopPanelFiles.get(decoded);
+      if (!abs) { sendError(req, res, 404, '页面不存在 · Not found'); return; }
+      let body;
+      try {
+        body = await fsp.readFile(abs);
+      } catch (e) {
+        log.error('[workshop] panel read failed', e);
+        sendError(req, res, 404, '页面不存在 · Not found');
+        return;
+      }
+      const type = panelExt === '.css' ? 'text/css; charset=utf-8' : MIME['.js'];
+      res.writeHead(200, { 'Content-Type': type, 'Content-Length': body.length, 'Cache-Control': 'no-cache' });
+      res.end(req.method === 'HEAD' ? undefined : body);
+      return;
+    }
+    // 包声明的只读路由 (`pack.json.routes`, DESIGN §34.13 / docs/WORKSHOP.md §1.9)。刻意放在核心挂载之前：`path`
+    // 是作者显式声明的绝对路径，命中它就是命中它 —— 一条声明过的路径不该因为磁盘上恰好有个同名核心文件而变成别的
+    // 东西（所以「声明了但文件不在」在下面的 stat 里是 404，不是回落）。只读、只 GET/HEAD、只 `.json`，并且**只有
+    // 精确命中的声明路径**才会被回答 —— 目录穿越在这里不是「被挡住」，而是**没有可以穿越的目标**：`..` 永远拼不出
+    // 一个已声明的 key。空 Map ⇒ 整块跳过（干净安装逐字节不变）。
+    if (workshopRoutes && workshopRoutes.size) {
+      const route = workshopRoutes.get(decoded);
+      if (route) {
+        let body;
+        try {
+          const st = await fsp.stat(route.file);
+          if (!st.isFile()) throw Object.assign(new Error('not a file'), { code: 'ENOENT' });
+          body = await fsp.readFile(route.file);
+        } catch (e) {
+          if (!e || !['ENOENT', 'ENOTDIR', 'EISDIR', 'ENAMETOOLONG'].includes(e.code)) log.error('[workshop] route read failed', e);
+          sendError(req, res, 404, '页面不存在 · Not found', decoded.length <= 200 ? decoded : '');
+          return;
+        }
+        res.writeHead(200, {
+          'Content-Type': MIME['.json'], 'Content-Length': body.length,
+          'Cache-Control': ROUTE_CACHE_HEADERS[route.cache] || ROUTE_CACHE_HEADERS['no-cache'],
+        });
+        res.end(req.method === 'HEAD' ? undefined : body);
+        return;
+      }
+    }
+    // 包声明的**动态只读端点**（`server.modules[*].uses` 含 `route`）：与上面静态那一半同一条几何，但内容由包的
+    // 几何（只答**逐字命中**的声明路径，所以 `..` 没有可以穿越的目标），但内容由包的一个**同步**回调现算，并且这一层
+    // 另有四条纪律（挂在 `server/http/routeMount.js`）：路径必须在 `/mod/<包id>/…` 里、不许落在引擎保留的命名空间里、
+    // 只有 `no-store`/`no-cache`、回调必须同步返回 JSON 可序列化的值。空 Map ⇒ 整块跳过（干净安装逐字节不变）。
+    if (modRoutes && modRoutes.size) {
+      const entry = modRoutes.get(decoded);
+      if (entry) {
+        const result = runDynamicRoute(entry.handler);
+        if (!result.ok) {
+          log.warn?.(`[workshop] ${entry.pack}/${entry.module} route "${decoded}": ${result.reason}`);
+          sendError(req, res, 500, '服务器内部错误 · Internal error');
+          return;
+        }
+        res.writeHead(200, {
+          'Content-Type': MIME['.json'], 'Content-Length': result.body.length,
+          'Cache-Control': DYNAMIC_ROUTE_CACHE_HEADERS[entry.cache] || DYNAMIC_ROUTE_CACHE_HEADERS['no-store'],
+        });
+        res.end(req.method === 'HEAD' ? undefined : result.body);
         return;
       }
     }

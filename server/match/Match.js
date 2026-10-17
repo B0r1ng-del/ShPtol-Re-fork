@@ -355,6 +355,15 @@ export class Match {
     /** @type {Record<string, boolean>} */
     this.mods = this.gd.mods;
     /**
+     * 包声明的**战斗逻辑**（`pack.json.server.battle`，DESIGN §34.17）：这一场要跑的 `install(battle)` 真函数
+     * （服务端跑的就是它们）与浏览器要加载的那份 `{ id, pack, hash, url }` 清单（进每一份 BattleSpec）。
+     * 没有包声明时两者分别是 `null` / 空数组 —— 战斗拿不到这两个键，行为与从前**逐字节相同**。
+     * @type {Array<{ id: string, install: Function }>|null}
+     */
+    this.battleInstallers = Array.isArray(opts.battleInstallers) && opts.battleInstallers.length ? opts.battleInstallers : null;
+    /** @type {Array<{ id: string, pack: string, hash?: string, url: string }>} */
+    this.workshopBattleModules = Array.isArray(opts.workshopBattleModules) ? opts.workshopBattleModules : [];
+    /**
      * 工坊 mod 层移植 (2026-10-16, `shared/behaviour.js`): this match's merged behaviour declaration — the 「行为开关」
      * a workshop pack declares (`pack.json.behaviour`), merged across the room's packs in pack-id order.
      *

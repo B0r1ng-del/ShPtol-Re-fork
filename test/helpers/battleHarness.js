@@ -257,7 +257,10 @@ export function makeBattle(opts = {}) {
     sharedBoss: opts.sharedBoss ?? null, flags: { startOpCooldown: 0, ...opts.flags }, fieldId: opts.fieldId ?? 'test', data,
     content: opts.content ?? 'full', recordEvents: opts.recordEvents !== false, logger: opts.logger ?? quietLogger(opts.verbose),
     quiet: opts.verbose ? false : true, devices: opts.devices,
-    autoFinish: opts.autoFinish ?? spawns.length > 0, kits: opts.kits, extraContent: opts.extraContent,
+    // `battleInstallers`（`pack.json.server.battle` 的 `install(battle)` 清单）与 `extraContent` 走**同一条**装载
+    // 通道（`installContent` 的 `extra`）：前者是包的载荷、后者是测试的载荷，两者可以同时存在，所以拼在一起。
+    autoFinish: opts.autoFinish ?? spawns.length > 0, kits: opts.kits,
+    extraContent: [...(opts.extraContent ?? []), ...(opts.battleInstallers ?? [])],
     setup: (b) => {
       for (const name of hookNames) {
         captured[name] = [];

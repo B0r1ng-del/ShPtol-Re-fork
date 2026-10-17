@@ -149,13 +149,13 @@ describe('对局子类收到包通道消息（DESIGN §34.14 的唯一网络触�
     const a = await TestClient.connect(wsUrl);
     clients.push(a);
     const wa = await a.hello(`A${clients.length}`);
-    const created = await a.request({ t: 'room.create', mode: 'coop', difficulty: 'NORMAL', mods: dg });
+    const created = await a.request({ t: 'room.create', mode: 'coop', difficulty: 'NORMAL', modDigest: dg });
     assert.equal(created.t, 'ok', JSON.stringify(created));
     const state = await a.waitFor('room.state');
     const b = await TestClient.connect(wsUrl);
     clients.push(b);
     await b.hello(`B${clients.length}`);
-    const joined = await b.request({ t: 'room.join', code: state.code, mods: dg });
+    const joined = await b.request({ t: 'room.join', code: state.code, modDigest: dg });
     assert.equal(joined.t, 'ok', JSON.stringify(joined));
     const ready = await b.request({ t: 'room.ready', ready: true });
     assert.equal(ready.t, 'ok', JSON.stringify(ready));

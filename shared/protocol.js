@@ -7,6 +7,12 @@ import { diySlotIds, validateDiyPicks } from './diy.js';
 import { cultivatedStats, isPotential, isCultivate, POTENTIAL_DEFAULT, CULTIVATE_DEFAULT, hasPotentialData } from './potential.js';
 import { isContentHash } from './plugins/identity.js';
 import { isPluginId } from './plugins/manifest.js';
+import { isModDigest, isModId } from './modIdentity.js';
+
+// The mod-identity shapes are declared in `shared/modIdentity.js` (inside the typecheck slice; this file is excluded
+// by jsconfig.json) and re-exported here, because THIS file is the normative protocol contract — one implementation,
+// two doors. `pack.msg` / the room digest gate read them from this module, never from a second copy.
+export { MOD_LIMITS, isModId, isModEntry, isModList, isModDigest, modDigest, modSetOf } from './modIdentity.js';
 
 // ---- tiny validators -------------------------------------------------------
 const isInt = (v, lo = -Infinity, hi = Infinity) => Number.isInteger(v) && v >= lo && v <= hi;
@@ -451,8 +457,18 @@ export const C2S = {
   // Mod 开关 (模式界面, beside 干员调配): the per-device gameplay switches the creator carries into the room it makes.
   // Optional — a client that sends none creates the room with every switch off (the official mode). The room keeps
   // them across its matches like the mode and the difficulty, and the match reads them when it starts (Match.mods).
-  'room.create': { mode: (v) => ROOM_MODES.includes(v), difficulty: (v) => DIFFICULTIES.includes(v), mods: isMods, $optional: ['mods'] },
-  'room.join': { code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v) },
+  //
+  // ★ `modDigest` 与 `mods` 是**两个不同的东西**，刻意不同名（业主裁决 2026-10-17）：
+  //   * `mods`       —— 本 fork 的 **Mod 开关对象**（`MOD_KEYS` → boolean），描述「这一局开哪几格玩法」；
+  //   * `modDigest`  —— 工坊 **内容集摘要**（`shared/modIdentity.js modDigest`，16–64 位十六进制），描述「这一局跑
+  //                     的是哪一份包集合」。客户端拿到 `welcome.mods.packs` 之后自己重算一次，再把这个值回话。
+  // 上游把摘要叫 `mods`，那在本 fork 里**已经被占用**（同一个字段名两种语义 ⇒ `validateC2S` 回 `bad field mods`，
+  // 实测过）。所以新开一格，而不是改 `mods` 的语义 —— 后者会让每一个已经发 `mods` 的客户端静默改变含义。
+  'room.create': {
+    mode: (v) => ROOM_MODES.includes(v), difficulty: (v) => DIFFICULTIES.includes(v), mods: isMods,
+    modDigest: isModDigest, $optional: ['mods', 'modDigest'],
+  },
+  'room.join': { code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v), modDigest: isModDigest, $optional: ['modDigest'] },
   'room.leave': {},
   'room.ready': { ready: isBool },
   'room.setDifficulty': { difficulty: (v) => DIFFICULTIES.includes(v) },
@@ -606,6 +622,37 @@ export const C2S = {
   'b.rehearsalResult': {
     taskId: isId, choice: (v) => v === undefined || isInt(v, 0, 7), error: (v) => v === undefined || v === true,
     $optional: ['choice', 'error'],
+  },
+
+  // 资源包准入（工坊 mod 层移植, DESIGN §34.13）。这三个类型属于**钩子总线**：唯一的消费者是包声明的
+  // `server.preDispatch` 钩子（server/net.js onFrame，过了 validateC2S 之后、ping/hello 之前）。它们必须在这里，
+  // 否则消息在 C2S 自有属性白名单就被当非法类型拒掉，连钩子都到不了；而钩子在 ping/hello **之前**被调用，
+  // 是因为服务端的挑战是连接建立时发出去的，客户端的证明往往在 `hello` 之前到达（放到会话检查之后就只会被回
+  // `hello required`）。形状在这里判死，钩子因此可以直接信任字段。
+  //
+  // 形状跟客户端的证明算法（public/js/resources/bundle.js prove()）：nonce 是服务端 24 随机字节的十六进制
+  // （48 位），version 是资源清单版本（12 位十六进制），proofs 是 3 条完整 SHA-256（64 位十六进制）。
+  // **没有钩子的服务器**上它们仍然是合法协议类型，会照常落到大厅 —— 大厅对没有处理的类型回 `BAD_MSG`，
+  // 不会静默吞掉。
+  'resource.challenge.request': {},
+  'resource.reset': {},
+  'resource.proof': {
+    nonce: (v) => typeof v === 'string' && /^[0-9a-f]{48}$/.test(v),
+    version: (v) => typeof v === 'string' && /^[0-9a-f]{12}$/.test(v),
+    proofs: (v) => Array.isArray(v) && v.length === 3
+      && v.every((p) => typeof p === 'string' && /^[0-9a-f]{64}$/.test(p)),
+  },
+
+  // 包命名空间消息（docs/WORKSHOP.md §1.9.6）。插件包要的聊天 / 皮肤这类通道，引擎里**没有**，而引擎也不该替它
+  // 发明语义。所以引擎只做一件事：把一条**不透明**载荷从发送者送到同一个房间里、装了同一个包、且声明过这个通道
+  // 的客户端。**类型名由引擎定**（`pack.msg`），**通道名由包定**（作者的 `client.panels[].messages` 里只写后半段，
+  // 线上的 `<包id>.<名字>` 由引擎拼）—— 于是「包能定义新协议类型」这件事没有发生，`b.*` 那条边界一个字没动。
+  'pack.msg': {
+    pack: isModId,
+    channel: (v) => typeof v === 'string' && /^[a-z][a-z0-9_-]{0,63}$/.test(v),
+    // 载荷**有界**：一条消息不该能把房间的内存吃掉。形状之外引擎一概不解释（`data` 的语义属于包自己）。
+    data: (v) => v === undefined || jsonBytes(v) <= PACK_MSG_LIMITS.bytes,
+    $optional: ['data'],
   },
 };
 

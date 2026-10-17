@@ -108,7 +108,7 @@ describe('真服务器：boot / healthz / matchClass / 裁剪', () => {
     const c = await TestClient.connect(`${srv.url.replace('http', 'ws')}/ws`);
     clients.push(c);
     await c.hello('接线博士');
-    const created = await c.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', mods: digest });
+    const created = await c.request({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', modDigest: digest });
     assert.equal(created.t, 'ok', JSON.stringify(created));
     await c.waitFor('room.state');
     const started = await c.request({ t: 'room.start' });

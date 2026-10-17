@@ -224,8 +224,9 @@ describe('server.battle：装载与真服务器', () => {
     try {
       const packs = (srv.lobby.welcomeInfo().mods || { packs: [] }).packs.map((p) => p.id);
       assert.equal(packs.includes('bad-battle'), false, `被裁的包不该出现在线上摘要里：${JSON.stringify(packs)}`);
-      assert.deepEqual(srv.lobby.workshop.battle, []);
-      assert.deepEqual(srv.lobby.workshop.battleInstallers, []);
+      // 一个包都没留下来 ⇒ `this.workshop` 是 `null`（判据是 `workshop.mods` 非空），两个清单也就不存在。
+      assert.deepEqual(srv.lobby.workshop?.battle ?? [], []);
+      assert.deepEqual(srv.lobby.workshop?.battleInstallers ?? [], []);
     } finally {
       await srv.close();
       fs.rmSync(t3, { recursive: true, force: true });

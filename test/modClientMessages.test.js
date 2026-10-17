@@ -137,14 +137,14 @@ describe('服务端：真服务器、真房间、两个客户端', () => {
     const a = await TestClient.connect(`${srv.url.replace('http', 'ws')}/ws`);
     clients.push(a);
     await a.hello(`A${clients.length}`);
-    const created = await a.request({ t: 'room.create', mode, difficulty: 'NORMAL', mods: digest });
+    const created = await a.request({ t: 'room.create', mode, difficulty: 'NORMAL', modDigest: digest });
     assert.equal(created.t, 'ok', JSON.stringify(created));
     const state = await a.waitFor('room.state');
     const b = await TestClient.connect(`${srv.url.replace('http', 'ws')}/ws`);
     clients.push(b);
     await b.hello(`B${clients.length}`);
     if (mode === 'coop') {
-      const joined = await b.request({ t: 'room.join', code: state.code, mods: digest });
+      const joined = await b.request({ t: 'room.join', code: state.code, modDigest: digest });
       assert.equal(joined.t, 'ok', JSON.stringify(joined));
     }
     a.clearInbox();

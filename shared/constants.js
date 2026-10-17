@@ -454,6 +454,10 @@ export const ERR = Object.freeze({
   RATE: 'RATE',                   // rate limited
   NOT_IN_ROOM: 'NOT_IN_ROOM',
   ROOM_NOT_FOUND: 'ROOM_NOT_FOUND',
+  // 内容集摘要闸门（`room.create.modDigest` / `room.join.modDigest`, DESIGN §34.4）：本服务器装了包，而客户端说不出
+  // 它以为自己在加入哪一份内容集 —— 或说的不是这一份。单独一个码，而不是复用 BAD_MSG：这不是「你发错了消息」，
+  // 是「你和这个服务器跑的不是同一份内容」，客户端要据此走「补齐本地缓存」那条路（public/js/roomMods.js）。
+  MOD_SET_MISMATCH: 'MOD_SET_MISMATCH',
   ROOM_FULL: 'ROOM_FULL',
   ROOM_STARTED: 'ROOM_STARTED',
   NOT_HOST: 'NOT_HOST',
@@ -499,6 +503,7 @@ export const ERR = Object.freeze({
 
 export const ERR_TEXT = {
   SESSION_IN_USE: N_('此对局仍在其他窗口中，或当前浏览器无法安全恢复。请关闭原窗口后重试。'),
+  MOD_SET_MISMATCH: N_('本服务器的内容集与你的不一致，请补齐本地缓存后重试'),
   BAD_MSG: N_('无效的请求'), RATE: N_('操作过于频繁'), NOT_IN_ROOM: N_('你不在房间中'), ROOM_NOT_FOUND: N_('未找到该同盟密钥对应的房间'),
   ROOM_FULL: N_('房间已满'), ROOM_STARTED: N_('模拟已开始'), NOT_HOST: N_('只有房主可以操作'), NOT_READY: N_('仍有玩家未就绪'),
   WRONG_PHASE: N_('当前阶段无法进行该操作'), NO_FUNDS: N_('资金不足'), HAND_FULL: N_('整备区已满'), BOARD_FULL: N_('已达到部署上限'),

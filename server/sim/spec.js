@@ -41,6 +41,7 @@ import { Battle } from './Battle.js';
 import { toDataSource, withUnitLoadouts } from './simdata.js';
 import { isPotential, isCultivate } from '../../shared/potential.js';
 import { isContentHash } from '../../shared/plugins/identity.js';
+import { isModList } from '../../shared/modIdentity.js';
 import { BOSS_POOL_MIN_HP } from './constants.js';
 
 export const SPEC_VERSION = 1;
@@ -89,6 +90,31 @@ export function buildBattleSpec(o = {}) {
     // the content set the battle runs on and the art it was drawn with (header): not read by the sim
     ...(isContentHash(o.cs) ? { cs: o.cs } : {}),
     ...(isContentHash(o.vs) ? { vs: o.vs } : {}),
+    // 工坊行为层 (docs/WORKSHOP.md §4): the kit MODULES this field needs, as JSON-safe { id, pack, hash, url } records.
+    // A function cannot cross the wire, so a client-simulated battle imports these URLs and rebuilds the same kit map
+    // the server uses for verification (public/js/battle/runner.js loadSpecKits). Empty for a plain install. `hash` is
+    // the pack's content hash (DESIGN §34.2): the client can tell which bytes the URL is supposed to serve.
+    workshopKits: (Array.isArray(o.workshopKits) ? o.workshopKits : [])
+      .filter((m) => m && typeof m.id === 'string' && typeof m.url === 'string')
+      .map((m) => ({
+        id: m.id,
+        pack: typeof m.pack === 'string' ? m.pack : null,
+        url: m.url,
+        ...(typeof m.hash === 'string' ? { hash: m.hash } : {}),
+        // 调用预算（`pack.json.callBudget`）的 kit 那一半：**同一个数字**由装载期算好后随这份清单过线，浏览器读它、
+        // 不再自己算一次。没声明的包不长这个键 —— 老客户端读不懂这个键时也只是不带账，不会读错。
+        ...(Number.isInteger(m.callBudget) ? { callBudget: m.callBudget } : {}),
+        // 召唤物的行为层（docs/WORKSHOP.md §4.7）：**同一份清单**里的另一条通道，`kind: 'token'` 标记它属于 token
+        // 键空间（`Battle opts.tokenKits` 而不是 `opts.kits`）。干员 kit 照旧不带这个键 —— 线上格式对已经存在的
+        // 读者逐字节不变，而两个键空间在装载器里是**分开裁决**的，所以必须分开送达。
+        ...(m.kind === 'token' ? { kind: 'token' } : {}),
+      })),
+    // 本局跑的是哪一份内容集（DESIGN §34.2）：`{ digest, packs }`，由 `shared/modIdentity.js modSetOf` 算出 —— 与
+    // `welcome.mods`、`/healthz` 的 `mods` 是同一个值，三处不可能互相矛盾。`null` = 干净安装（**显式 null，不是
+    // 缺键**：老客户端与老 replay 读 `spec.mods === null` 是一条明确的「没有内容集」判断）。sim 本身不读它 ——
+    // 它是「这一局跑的是哪份内容」的**声明**，不是玩法输入。它在这里还因为 spec 是两条执行路径（服务端复算 /
+    // 浏览器模拟）唯一共享的对象 —— 用**另一份**内容集算出来的结果必须能被区分。
+    mods: isModList(o.mods?.packs) ? JSON.parse(JSON.stringify(o.mods)) : null,
   };
   const out = JSON.parse(JSON.stringify(spec, specReplacer));
   // 雷姆必拓: the carried reinforcement survival ticks are a 联防-only field — a normal battle has no earlier battlefield
@@ -182,6 +208,10 @@ export function createBattleFromSpec(spec, dataSource, opts = {}) {
     content: opts.content ?? s.content ?? 'full',
   };
   if (s.bossId != null) battleOpts.bossId = s.bossId;
+  // 包声明的战斗逻辑（`server.battle`，DESIGN §34.17）：`install(battle)` 的真函数由**调用方**给（`opts`，不是 spec ——
+  // 函数不能过线）。它们走 `installContent` 既有的 `extra` 通道（`(battle) => …` 或 `{ install(battle) }` 两种形状都收），
+  // 所以不需要第二条装载路径。没有包声明时这个键不出现，`Battle` 拿不到它，行为与从前逐字节相同。
+  if (Array.isArray(opts.battleInstallers) && opts.battleInstallers.length) battleOpts.extraContent = opts.battleInstallers;
   if (opts.logger) battleOpts.logger = opts.logger;
   if (opts.recordEvents === false) battleOpts.recordEvents = false;
   if (opts.quiet) battleOpts.quiet = true;
