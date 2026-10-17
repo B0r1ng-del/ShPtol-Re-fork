@@ -327,6 +327,23 @@ export class SnapshotBuffer {
   }
 
   /**
+   * The RAW snapshot the frame at `time` (default renderT) is drawn from — the older end of the interval sample()
+   * interpolates, i.e. `_indexAt()` clamped the same way — or null when nothing has arrived yet.
+   *
+   * Field-level things that are NOT interpolated (a 卡兹戴尔 cannon's warning, DESIGN §21.14: the effect is drawn on the
+   * game clock and only changes when a snapshot says so) read their state from here: `render/app.js` hands
+   * `rawAt(t)?.kazdel` to `fx.syncKazdel`. `sample()` produces interpolated per-unit tuples and carries no such field,
+   * which is exactly why this accessor exists beside it.
+   */
+  rawAt(time = this.renderT) {
+    const s = this.snaps;
+    if (!s.length || !Number.isFinite(time)) return null;
+    let ia = this._indexAt(time);
+    if (ia < 0) ia = 0;                 // before the first snapshot: draw the oldest one (same clamp as sample())
+    return s[ia].raw || null;
+  }
+
+  /**
    * Game time of the first snapshot after `time` (default renderT) — the newer end of the interval sample() interpolates
    * — or NaN when there is none (extrapolating). render/app.js starts a push's slide while that interval is shown.
    */
