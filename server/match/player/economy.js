@@ -4,8 +4,10 @@
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
 // the player state).
 
-import { ERR, PHASE, layerGainRoom, CHEAT_KEYS, CHEAT_FREE_REFRESH_STEP, CHEAT_BOND_LAYER_STEP, CHEAT_GOLD_FLOOR, ITEM_SELL_PRICE } from '../../../shared/constants.js';
+import { ERR, PHASE, layerGainRoom } from '../../../shared/constants.js';
+import { ruleOption } from '../../../shared/plugins/rules.js';
 import { freeSlot } from '../board.js';
+import { computeBonds } from '../bondsMeta.js';
 import { OK, fail } from './common.js';
 // 工坊 mod 层移植 (2026-10-16): the behaviour layer's shop bias. A pack declares `behaviour.shopBias`; with no such
 // declaration `behaviourIsDefault` is true and this returns null, so a vanilla match is byte-identical.
@@ -198,11 +200,15 @@ export class PlayerEconomy {
   }
 
   _rollItemSlot() {
-    // 工坊 mod 层移植 (behaviour `shopBias: bondBias`): 包里声明了这一格且玩家有已激活盟约时，装备槽在**同阶**里
-    // 优先抽「属于这些盟约」的装备（`bondBiasPreference` 是那条判据的唯一实现）。没声明 / 没激活盟约 ⇒ bias 为 null
-    // ⇒ 官方抽法，一次 rng 都不多花（golden 与从前逐字节相同）。
-    const bonds = bondBiasBonds(this);
-    const bias = bonds ? bondBiasPreference(this.gd, bonds) : null;
+    // startRound rolls the shop before recompute, so the cached this.bonds can be one round behind.
+    // bondBias therefore calls computeBonds at the roll (no rng). The official rule passes null and
+    // does not call it, so the shop's rng stays today's two draws.
+    let bias = null;
+    if (ruleOption(this.m?.rules, 'shopBias') === 'bondBias') {
+      const bonds = computeBonds(this.gd, this);
+      bias = new Set();
+      for (const [id, st] of Object.entries(bonds)) if (st && st.active) bias.add(id);
+    }
     const id = this.m.pool.rollItem(this.m.rngShop, this.shop.level, this.m.itemPool, bias);
     return id ? { kind: 'item', id, basePrice: this.gd.itemPrice(id), frozen: false, sold: false } : null;
   }
@@ -212,6 +218,7 @@ export class PlayerEconomy {
    * (manual refresh). Slot counts follow the current level.
    */
   rollShop({ keepFrozen = false } = {}) {
+    if (this._consumeTestShop()) return;
     const { chess: nChess, item: nItem } = this.gd.shopSlots(this.shop.level);
     const old = this.shop.slots;
     const layout = this.shop.layout || { chess: old.length, item: 0 };
@@ -232,16 +239,42 @@ export class PlayerEconomy {
   }
 
   /**
-   * The 调度中心's upgrade opens the new level's extra slots at once, each with a new card drawn at the new level; the
-   * cards already shown stay where they are (chess slots keep their index, the item slot(s) stay after them).
-   *
-   * The owner's ruling of 2026-10-12, on a live report that the new slot looked broken: a fresh operator appears in the
-   * new slot straight away. 0.2.0 drew one (item 19 of the community report of 2026-10-06, 「升级商店获得新的商店位时用新卡
-   * 补上，而不是空着」); 0.2.2 §27.52 reverted that to a `null` slot on the strength of a second-hand reading of bilibili
-   * BV1AXwuzdEys 1:39 (GitHub #332 / PR #333 by @2321Robin — the note itself says the frame rests on the reporter, not on
-   * a watched video) and the fact that the texts only ever name the slots (the tutorial's 休整期 page 「升级后将出现更多的
-   * 商品栏位」, PRTS 帮助 「增加刷新栏位」). The owner's experience wins over that: the slot is filled, and the 0.2.2 empty
-   * slot is the documented deviation. [ASSUMED] the new card follows the freeze toggle, as a manual refresh's cards do.
+   * A test match's queued next shop (g.test shop) replaces this roll once and draws no rng. Queued layouts are validated by the command; level upgrades stay blocked until the roll consumes the queue.
+   * The defensive fallback handles only corrupted internal state.
+   * [ASSUMED] The queue replaces frozen slots too. Absent on a normal match, so this returns false immediately.
+   * @returns {boolean} true when the queue was applied
+   */
+  _consumeTestShop() {
+    const queued = this._testShopNext;
+    if (this.m.test !== true || !queued) return false;
+    this._testShopNext = null;
+    const { chess: nChess, item: nItem } = this.gd.shopSlots(this.shop.level);
+    const ok = Array.isArray(queued) && queued.length === nChess + nItem && queued.every((s, i) => {
+      const kind = i < nChess ? 'chess' : 'item';
+      return !!s && s.kind === kind && (kind === 'chess' ? !!this.gd.chess(s.id) : !!this.gd.item(s.id));
+    });
+    if (!ok) return false;
+    const slots = queued.map((s) => ({
+      kind: s.kind, id: s.id,
+      basePrice: s.kind === 'chess' ? this.gd.chessPrice(s.id) : this.gd.itemPrice(s.id),
+      frozen: false, sold: false,
+    }));
+    this.shop.slots = slots;
+    this.shop.layout = { chess: nChess, item: nItem };
+    for (const s of slots) if (s) s.frozen = this.shop.frozen;
+    this.dirty();
+    return true;
+  }
+
+  /**
+   * The 调度中心's upgrade opens the new level's extra slots at once — EMPTY: no card is drawn into them (a `null` slot).
+   * The next roll (a manual refresh or the round start) fills them with the other unfrozen slots; the cards already shown
+   * stay where they are (chess slots keep their index, the item slot stays after them). Official: the footage of a 1→2
+   * upgrade (bilibili BV1AXwuzdEys 1:39, GitHub #332 / PR #333 by @2321Robin) shows the new slot appear and stay empty, and
+   * the texts only name the slots — the tutorial's 休整期 page 「升级后将出现更多的商品栏位」, PRTS 帮助 「增加刷新栏位」 —,
+   * never a card that comes with them. 0.2.0 drew a card into each new slot instead (item 19 of the community report of
+   * 2026-10-06, 「升级商店获得新的商店位时用新卡补上，而不是空着」, one uncorroborated remark; its follow-on, that the new card
+   * follows the freeze toggle, was [ASSUMED]); until then the extra slots waited for the next roll as well.
    */
   _openLevelSlots() {
     const { chess: nChess, item: nItem } = this.gd.shopSlots(this.shop.level);
@@ -340,6 +373,7 @@ export class PlayerEconomy {
   }
 
   levelUp() {
+    if (this.m.test === true && this._testShopNext) return fail(ERR.WRONG_PHASE);
     const g = this._gate(); if (g) return g;
     if (this.shop.level >= this.gd.maxShopLevel) return fail(ERR.MAX_LEVEL);
     const price = Math.max(0, this.shop.upgradePrice);

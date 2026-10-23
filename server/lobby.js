@@ -85,6 +85,13 @@
 //     and a change while it runs is stored for the next match (ROOM_STARTED 'stored for the next match'). Every
 //     `welcome` carries `diyKitted` (welcomeInfo): the operators a DIY slot may field, so the client's picker offers
 //     exactly what the server accepts.
+//   * 干员皮肤 (docs/SKINS.md): room.skins { skins } — `{ [charId]: skinId }`, the appearance each operator wears — is
+//     a plain map of charIds to skinIds, at most SKIN_LIMITS.entries (256 [ASSUMED]); a bad shape is BAD_MSG and does
+//     not clear the stored choice. A charId the room's content does not have is dropped (shared/protocol.js
+//     checkSkinSelection). An unknown skinId can do nothing worse than fail to resolve in the client's spineEntry.
+//     Stored on the session and the seat. Unlike
+//     the settings above there is NO phase gate: a match receives seats[].skins when it starts AND takes a later change
+//     at once (match.setSkins, any phase), because the choice is public — a teammate sees your model — and cosmetic.
 //   * Content identity (DESIGN §32, the plugin system's first step): the lobby is given the server's vanilla content
 //     (server/plugins/identity.js; none in unit tests that build a Lobby without it). Every `welcome` carries
 //     `content: { vanilla: <cs> }` — and `plugins: <n>` when this server has n > 0 unofficial plugins (every class but a
@@ -155,8 +162,8 @@
 //     a player seat (the seat is kept and given back on resume).
 
 import { randomBytes, randomInt } from 'node:crypto';
-import { DIFFICULTIES, ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, HOST_CONFIG_KEYS, HOST_CONFIG_DEFAULTS, HOST_CONFIG_SOLO_KEYS, HOST_ENEMY_KEYS, HOST_ENEMY_DEFAULTS, HOST_ENEMY_MAX_STEPS, MOD_KEYS, MOD_DEFAULTS, normalizeMods, roomSeatCap, ULTIMATE_DIFFICULTY, modeIdFor } from '../shared/constants.js';
-import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks, charPotentialChanges, PACK_MSG_LIMITS } from '../shared/protocol.js';
+import { DIFFICULTIES, ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor } from '../shared/constants.js';
+import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks, charPotentialChanges, checkSkinSelection, operatorCharIds } from '../shared/protocol.js';
 import { encode, isDroppable, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
 import { Match as DefaultMatch } from './match/Match.js';
@@ -164,9 +171,9 @@ import { KITTED_CHARS } from './sim/content/kits/index.js';
 
 const VANILLA_KITTED = new Set(KITTED_CHARS);
 import { isContentHash } from '../shared/plugins/identity.js';
-import { modSetOf, isModDigest } from '../shared/modIdentity.js';
-import { createRoomHooks } from './roomPack.js';
+import { ruleOption } from '../shared/plugins/rules.js';
 import { msg, wireMessage } from '../shared/i18n.js';
+import { parseTestModeEnv, testModeGate, unrecognizedTestMode } from './testMode.js';
 
 /** Room code alphabet: uppercase letters without I and O (and no digits, so no 0/1). */
 export const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -200,6 +207,7 @@ const noopLog = { info() {}, warn() {}, error() {}, debug() {} };
  *             connected: boolean, left: boolean, loadout?: Record<string, { skill: number, module: string|null }> | null,
  *             ops?: Readonly<Record<string, { potential: number, cultivate: number }>> | null,
  *             notOwned?: readonly string[] | null, diy?: Readonly<Record<string, DiyLoadout>> | null,
+ *             skins?: Readonly<Record<string, string>> | null,
  *             content?: 'ready' | 'failed' | null, contentGen?: number, loadoutCs?: string | null, notOwnedCs?: string | null,
  *             diyCs?: string | null }} Seat
  *   content: a room with gameplay plugins — whether the player's page loaded and checked its content (header "Gameplay
@@ -238,7 +246,23 @@ function freezeDiy(picks) {
   return Object.freeze(out);
 }
 
-/** One room: its mode's seat slots (solo 1, coop MAX_SEATS, ultimate ULTIMATE_SEATS), host, difficulty, optional match. */
+/**
+ * Frozen copy of a skin selection (docs/SKINS.md), keyed by operator charId.
+ *
+ * A non-plain object, a key that is not a charId, a value that is not a skinId, or a map over the wire cap is refused
+ * (`null` — the caller answers BAD_MSG and does not clear what is already stored). A charId `hasOperator` rejects is
+ * dropped. The stored copy is then at most the operator count of the room's content, and ≤ 256 [ASSUMED].
+ * @param {Record<string, string>} skins `{ [charId]: skinId }`
+ * @param {(charId: string) => boolean} hasOperator
+ * @returns {Readonly<Record<string, string>>|null}
+ */
+function freezeSkins(skins, hasOperator) {
+  const res = checkSkinSelection(skins, hasOperator);
+  if (!res.ok) return null;
+  return Object.freeze({ ...res.skins });
+}
+
+/** One room: 4 seat slots, host, difficulty, optional running match. */
 export class Room {
   /** @param {string} code @param {'solo'|'coop'|'ultimate'} mode @param {string} difficulty @param {number} now */
   constructor(code, mode, difficulty, now) {
@@ -317,6 +341,8 @@ export class Room {
      *   bytes?: number, dataBytes?: number, modes?: readonly object[], modeId?: string }> | null}
      */
     this.content = null;
+    /** Test room (DESIGN §34.8). Set only at create, and only when the process switch is on. Never flipped later. */
+    this.test = false;
     /** the room's queue (header "Gameplay plugins": Lobby.serial): what is still waiting or running, and its tail */
     this.queue = { pending: 0, tail: Promise.resolve() };
   }
@@ -368,6 +394,8 @@ export class Room {
         : null)),
       spectators: this.spectators.map((s) => ({ playerId: s.playerId, name: s.name, connected: s.connected, ...(this.modded ? { content: s.content || 'loading' } : {}) })),
       ...(this.content ? { content: this.content.trusted ? {...this.content, trusted:{...this.content.trusted, consent:Object.fromEntries(this.seats.filter(x => x && !x.isBot).map(x => [x.seat,x.consentCs === this.content.cs]))}} : this.content } : {}),
+      // omitted when false so a normal room.state stays identical
+      ...(this.test ? { test: true } : {}),
     };
   }
 }
@@ -386,7 +414,7 @@ export class Lobby {
    *   plugins?: { resolve: (ids: string[], opts?: { scope?: 'room' | 'personal', settings?: object, replacing?: object | null }) => any,
    *     hold?: (vs: string) => void, release?: (vs: string) => void, holdContent?: (cs: string) => void,
    *     releaseContent?: (cs: string) => void, onContentStale?: (fn: (cs: string, ids: string[]) => void) => () => void, onStale?: (fn: (vs: string, ids: string[]) => void) => () => void,
-   *     unofficial?: () => number, defaults?: () => string[], dataOf?: (cs: string) => any, kittedOf?: (cs: string) => any,
+   *     unofficial?: () => number, hasNotices?: () => boolean, defaults?: () => string[], dataOf?: (cs: string) => any, kittedOf?: (cs: string) => any,
    *     contentInUse?: () => number } | null,
    *   hosts?: { create: (cs: string, opts: object) => any, stats?: () => object } | null,
    *   options?: Partial<typeof LOBBY_DEFAULTS>,
@@ -476,7 +504,24 @@ export class Lobby {
     this.getData = getData;
     this.now = now;
     this.seedFn = seedFn || (() => randomInt(2 ** 32));
+    const testModeOpt = options.testMode;
+    const testHostOpt = options.testHost;
+    if (Object.hasOwn(options, 'testMode') || Object.hasOwn(options, 'testHost')) {
+      options = { ...options };
+      delete options.testMode;
+      delete options.testHost;
+    }
     this.opts = { ...LOBBY_DEFAULTS, ...options };
+    // Test rooms stay off until the bound address is known (setTestHost). An empty host fails closed, so a
+    // server that is about to bind 0.0.0.0 does not briefly accept test rooms on the default. [ASSUMED] the
+    // env words are parsed in server/testMode.js.
+    const rawMode = testModeOpt != null ? testModeOpt : (typeof process !== 'undefined' && process.env ? process.env.SP_TEST_MODE : undefined);
+    this.testMode = parseTestModeEnv(rawMode);
+    this.testUnrecognized = unrecognizedTestMode(rawMode);
+    this.testHost = '';
+    this.testEnabled = false;
+    this.testWarn = this.testUnrecognized;
+    if (testHostOpt != null) this.setTestHost(testHostOpt);
     /** @type {Map<string, Room>} */
     this.rooms = new Map();
     /** @type {Map<string, NodeJS.Timeout>} lobby grace timers by playerId */
@@ -496,6 +541,19 @@ export class Lobby {
      */
     this.autoApplyPlugins = null;
     this.offContentStale = plugins?.onContentStale?.((cs, ids) => this.pluginsChanged(cs, ids, 'content')) || null;
+  }
+
+  /**
+   * The address this process bound. Test rooms stay disabled until this runs. `host` empty fails closed.
+   * @param {string} host
+   * @returns {{ enabled: boolean, warn: string|null }}
+   */
+  setTestHost(host) {
+    this.testHost = typeof host === 'string' ? host : '';
+    const gate = testModeGate(this.testMode, this.testHost);
+    this.testEnabled = gate.enabled === true;
+    this.testWarn = this.testUnrecognized || gate.warn;
+    return { enabled: this.testEnabled, warn: this.testWarn };
   }
 
   /**
@@ -712,8 +770,7 @@ export class Lobby {
       case 'room.loadout': return this.loadout(session, msg);
       case 'room.ownership': return this.ownership(session, msg);
       case 'room.diy': return this.diy(session, msg);
-      case 'room.mods': return this.setRoomMods(session, msg);
-      case 'room.appearance': return this.appearance(session, msg);
+      case 'room.skins': return this.skins(session, msg);
       case 'room.spectate': return this.spectate(session, msg);
       case 'room.removeSpectator': return this.removeSpectator(session, msg);
       case 'room.setPlugins': return this.setPlugins(session, msg);
@@ -789,7 +846,9 @@ export class Lobby {
   // room.* handlers
   // ---------------------------------------------------------------------------------------------------
 
-  create(session, { mode, difficulty, mods, modDigest }) {
+  create(session, { mode, difficulty, test } = {}) {
+    // A test room exists only when the process switch allowed it. The check runs before the room is built.
+    if (test === true && this.testEnabled !== true) return fail(ERR.TEST_DISABLED);
     const cur = this.roomOf(session);
     if (cur && cur.match) return fail(ERR.ROOM_STARTED, 'leave your running match first');
     // 内容集摘要闸门（`room.create.modDigest`，DESIGN §34.4）：本进程装了包时，客户端必须说出它以为自己在加入哪一份
@@ -810,11 +869,8 @@ export class Lobby {
     const code = this.genCode();
     if (!code) return fail(ERR.INTERNAL, 'no room code available');
     if (cur) this.removeMember(cur, session.playerId);
-    // fork: 终极模拟 has no difficulty picker — its room always runs the AC-4 (ABYSS) table, whatever the client sent
-    const diff = mode === 'ultimate' ? ULTIMATE_DIFFICULTY : difficulty;
-    const room = new Room(code, mode, diff, this.now());
-    // upstream 0.3.0 §8.4: the room's content set, then the server owner's default plugins (plugins/config.json
-    // `default`; header "Gameplay plugins"): none — the original game
+    const room = new Room(code, mode, difficulty, this.now());
+    room.test = test === true;
     room.content = this.vanilla;
     const defaults = this.plugins?.defaults?.() || [];
     if (defaults.length) {
@@ -832,139 +888,16 @@ export class Lobby {
     session.roomCode = code;
     session.notice = null;
     session.pendingResult = null;
-    // 房间级钩子（`pack.json.server.room`，DESIGN §34.20）：房间**建起来时**把声明过的包各 `install(room)` 一次。
-    // 一个包都没声明时 `install` 是空循环（那张表里连条目都不建）⇒ 干净安装与从前逐字节相同。
-    this.roomHooks.install(room);
-    // `create` 是房间生命周期的第一个事件（闭枚举见 `server/roomPack.js ROOM_EVENTS`）：在 `install` 之后触发，
-    // 所以钩子既能观察到「房间刚建好」，也知道自己是这个房间的一员。
-    this.hookFire(room, 'create');
-    this.log.info(`[lobby] ${code} created (${mode}/${diff}) by ${session.name}`);
+    this.log.info(`[lobby] ${code} created (${mode}/${difficulty}${room.test ? ', test' : ''}) by ${session.name}`);
     this.broadcastState(room);
     return OK;
   }
 
-  /**
-   * 内容集摘要闸门（`room.create.modDigest` / `room.join.modDigest`，DESIGN §34.2、§34.4）。
-   *
-   * 三档，全部走**同一个**判据（`this.modSet.digest`，由 `shared/modIdentity.js modSetOf` 算出来，与 `welcome.mods`
-   * 和每一份 BattleSpec 用的是同一个值 —— 三处不可能互相矛盾）：
-   *   * 没装包（`this.modSet === null`）⇒ 返回 `null`（放行）。干净安装上这条闸门**不存在**，一个不带摘要的客户端
-   *     与从前逐字节相同。
-   *   * 装了包但客户端没带摘要 ⇒ 拒绝，理由点名「本服务器跑了哪些包」—— 客户端据此能自己补齐。
-   *   * 带了但不是这一份 ⇒ 拒绝，理由点名差在哪几个包上（只差一个 / 多了几个），而不是一句「不匹配」。
-   *
-   * 返回 `null` = 放行；否则是一个 `fail(...)` 的回复对象。
-   * @param {string|undefined} given the digest the client claims it is joining
-   * @returns {null | { error: string, detail?: string }}
-   */
-  checkModDigest(given) {
-    if (!this.modSet) return null;
-    const mine = this.modSet.digest;
-    const ids = this.modSet.packs.map((p) => p.id);
-    if (given == null) {
-      return fail(ERR.MOD_SET_MISMATCH, `this server runs mods; say which set you are joining (modDigest) — running: ${ids.join(', ')}`);
-    }
-    if (!isModDigest(given)) {
-      // 形状已经在 shared/protocol.js 判过；走到这里说明调用方没走协议（内部调用），按同一个码拒绝。
-      return fail(ERR.MOD_SET_MISMATCH, `modDigest must be 16–64 lowercase hex characters — running: ${ids.join(', ')}`);
-    }
-    if (given === mine) return null;
-    // 点名差在哪：把「客户端以为的」与「服务器真有的」都列出来，作者才知道该删哪个包 / 补哪个包。
-    return fail(ERR.MOD_SET_MISMATCH, `the content set does not match this server (running: ${ids.join(', ')})`);
-  }
-
-  /**
-   * 触发一个房间级钩子事件（`pack.json.server.room`，DESIGN §34.20）。**本文件唯一的装配触点** —— 生命周期点各调
-   * 它一次，怎么分发（闭枚举校验、逐钩子 try/catch、`ROOM_HOOK_THREW`）全在 `server/roomPack.js`。
-   * 没有包声明房间钩子时 `fire` 一次调用都不做（总线那张表是空的）。
-   * @param {Room} room
-   * @param {string} event
-   * @param {object} [payload]
-   */
-  hookFire(room, event, payload = null) {
-    this.roomHooks.fire(room, event, payload);
-  }
-
-  /**
-   * `pack.msg`（docs/WORKSHOP.md §1.9.6）：**包自己的通道**，引擎只当不透明载荷转发。判据五条，全部落在
-   * 「不认识的声明要响亮」那条线上：
-   *   1. 必须**在房间里**（通道是房间内的，不在大厅里广播全网）；
-   *   2. `pack` 必须是这个服务器真的装着的包，且它**声明过**这个通道（`this.packChannels`）—— 一个包说不出另一个
-   *      包的通道，也说不出自己没写进 `client.panels[].messages` 的通道；
-   *   3. 载荷大小由 `validateC2S` 卡过（`PACK_MSG_LIMITS.bytes`），这里再卡**频率**（每会话令牌桶，超了 `ERR.RATE`）；
-   *   4. 送回**同一个房间**的成员与旁观者。引擎不解释 `data`，也不判断谁该收到 —— 客户端只把消息交给声明过这个
-   *      通道的面板，那是「第二个读者」的判据（`extensions.js` 的 `net.on(channel, …)`）。
-   *   5. 若房间里跑着对局、它的 `Match` 上有 `handlePackMsg(playerId, msg)`，**且这个包的服务端模块声明过这个通道**
-   *      （`server.modules[].channels`）—— 三条齐了才**在限流之后、转发之前**调一次：返回 `true` 或
-   *      `{ consumed: true }` = **已消费**，不再转发给同房其它人；其余返回值（含 `false` / `undefined`）与**抛错**
-   *      都当作未消费，照旧转发 —— 一条坏消息不能把整个转发打断。没声明过的通道**投都不投**（转发照旧）：
-   *      `channels` 是接收入口，不是注释。
-   *
-   * `session.playerId` **可能是观战者**（`pack.msg` 没有旁观者判据，与 `room.chat` 的 `ERR.SPECTATOR` 不同口径），
-   * 判不判由包自己决定。
-   * @param {import('./net.js').Session} session
-   * @param {{ pack: string, channel: string, data?: any }} msg
-   */
-  packMsg(session, msg) {
-    const room = this.roomOf(session);
-    if (!room) return fail(ERR.NOT_IN_ROOM);
-    const declared = this.packChannels.get(msg.pack);
-    if (!declared || !declared.has(msg.channel)) {
-      return fail(ERR.BAD_MSG, `pack "${String(msg.pack).slice(0, 32)}" does not declare the channel "${String(msg.channel).slice(0, 32)}"`);
-    }
-    if (!this.packMsgAllowed(session)) return fail(ERR.RATE);
-    // 对局子类的触发点：`matchClass` 包装器本来就能碰到整个 Match，这里只补「消息到了」这一下。**投递收窄到本包
-    // 服务端模块声明过的通道**：没声明过的通道没有接收入口，投都不投 —— 这是本格的判据，不是注释。转发口径一字
-    // 未动：这仍然是**面板**那半边的事，收窄只影响「送不送进这一局」。复用 `callMatch` 已有的 try/catch 与点名
-    // 日志 ⇒ 钩子抛错时返回 undefined，落进下面「未消费」那一条，转发照旧。
-    const declaredInMatch = this.serverChannels.get(msg.pack);
-    if (declaredInMatch && declaredInMatch.has(msg.channel)) {
-      const hook = this.callMatch(room, 'handlePackMsg', session.playerId, msg);
-      if (hook === true || (hook !== null && typeof hook === 'object' && hook.consumed === true)) return OK;
-    }
-    const out = {
-      t: 'pack.msg', pack: msg.pack, channel: msg.channel, from: session.playerId,
-      ...(msg.data === undefined ? {} : { data: msg.data }),
-    };
-    for (const seat of room.seats) {
-      if (!seat || seat.isBot) continue;
-      const target = this.registry.byId(seat.playerId);
-      if (target && target.connected) sendSession(target, out);
-    }
-    for (const seat of room.spectators) {
-      const target = this.registry.byId(seat.playerId);
-      if (target && target.connected) sendSession(target, out);
-    }
-    return OK;
-  }
-
-  /**
-   * `pack.msg` 的令牌桶（每会话）：`PACK_MSG_LIMITS.perSec` 每秒回填、`burst` 是上限。
-   * @param {import('./net.js').Session} session
-   * @param {number} [at] 采样时刻（测试直接传，免得依赖真实时钟；缺省用大厅的 `now()`）
-   * @returns {boolean} true = 这一次放行
-   */
-  packMsgAllowed(session, at) {
-    const now = typeof at === 'number' ? at : this.now();
-    const key = session.playerId;
-    const { perSec, burst } = PACK_MSG_LIMITS;
-    let b = this.packMsgBuckets.get(key);
-    if (!b) { b = { tokens: burst, at: now }; this.packMsgBuckets.set(key, b); }
-    b.tokens = Math.min(burst, b.tokens + ((now - b.at) / 1000) * perSec);
-    b.at = now;
-    if (b.tokens < 1) return false;
-    b.tokens -= 1;
-    return true;
-  }
-
-  join(session, { code, modDigest }) {
+  join(session, { code, testAck }) {
     const norm = String(code).trim().toUpperCase();
     const room = norm.length === ROOM_CODE_LEN ? this.rooms.get(norm) : undefined;
     if (!room) return fail(ERR.ROOM_NOT_FOUND);
-    // 入座也过同一道摘要闸门：一个跑着 A 份内容集的房间不该被一个以为是 B 份的客户端加入 —— 那正是「同一个摘要下
-    // 就有两种行为」的入口（DESIGN §34.2）。房间自己的 `modSet` 与进程那一份相同，所以判据只有一份。
-    const gate = this.checkModDigest(modDigest);
-    if (gate) return gate;
+    if (room.test && testAck !== true) return fail(ERR.TEST_CONFIRM);
     const cur = this.roomOf(session);
     // idempotent for members; a spectator of this room goes on below: it may take a free player seat (header)
     if (cur === room && !room.spectatorOf(session.playerId)) { this.sendState(room, session); return OK; }
@@ -998,10 +931,11 @@ export class Lobby {
    * room.spectate: one of a co-op room's MAX_SPECTATORS spectator seats, in its lobby or during its match (header). In a
    * running match the match registers the spectator and resends what it may see (Match.addSpectator).
    */
-  spectate(session, { code }) {
+  spectate(session, { code, testAck }) {
     const norm = String(code).trim().toUpperCase();
     const room = norm.length === ROOM_CODE_LEN ? this.rooms.get(norm) : undefined;
     if (!room) return fail(ERR.ROOM_NOT_FOUND);
+    if (room.test && testAck !== true) return fail(ERR.TEST_CONFIRM);
     const cur = this.roomOf(session);
     if (cur === room) {
       if (!room.spectatorOf(session.playerId)) return fail(ERR.ALREADY, 'seated as a player');
@@ -1221,7 +1155,7 @@ export class Lobby {
       return fail(ERR.INTERNAL);
     }
     if (!r || !r.ok) return fail(r && isErrCode(r.error) ? r.error : ERR.INTERNAL, r && typeof r.detail === 'string' ? r.detail.slice(0, 200) : undefined);
-    const { cs, vs, plugins: list, warnings, bytes, dataBytes, modes, kitted, trusted, execution } = r.set;
+    const { cs, vs, plugins: list, warnings, bytes, dataBytes, modes, kitted, trusted, execution, rules } = r.set;
     const modded = isContentHash(cs) && cs !== this.vanilla.cs;
     const frozen = (a) => Object.freeze((Array.isArray(a) ? a : []).map((p) => Object.freeze({ ...p })));
     // the operators its plugins add to a 自选 slot's list (welcome.diyKitted holds the server's own): the pages' pickers
@@ -1237,6 +1171,7 @@ export class Lobby {
         warnings: Object.freeze([...(warnings || [])]),
         bytes: Number(bytes) || 0,
         ...(modded ? { dataBytes: Number(dataBytes) || 0, modes: frozen(modes), ...(extra.length ? { kittedExtra: Object.freeze(extra) } : {}) } : {}),
+        ...(rules ? { rules } : {}),
       }),
     };
   }
@@ -1444,7 +1379,10 @@ export class Lobby {
     if (typeof room.match.setLoadout !== 'function') return fail(ERR.ROOM_STARTED, 'stored for the next match');
     let r;
     try {
-      r = room.match.setLoadout(session.playerId, loadout, opsSet);
+      // Preserve named defaults for prep merging: normalisation drops them, but they mean reset this operator.
+      r = ruleOption(room.content?.rules, 'prepLoadout') === 'prep'
+        ? room.match.setLoadout(session.playerId, entries, ops)
+        : room.match.setLoadout(session.playerId, loadout, opsSet);
     } catch (e) {
       this.log.error(`[lobby] ${room.code} match.setLoadout threw`, e);
       return fail(ERR.INTERNAL);
@@ -1495,39 +1433,25 @@ export class Lobby {
   }
 
   /**
-   * room.appearance (DESIGN §34.35, 皮肤 / 头像): 别人看到的你长什么样. Kept on the session (a preference that survives
-   * leaving the room) and on the seat (so the room state carries it), then broadcast — the whole reason this message
-   * exists is that the other players see it. **Deliberately not gated on a running match** (a skin is a display fact,
-   * not a rule) and **never interpreted**: the server cannot see pack content, so an unknown `skinId` is forwarded as
-   * written and the painting side falls back to the original — judging the value does not belong to this layer.
-   * `picks` and `avatar` shallow-merge, independently: changing the avatar does not clear the skins, and vice versa.
+   * room.skins (docs/SKINS.md): store the appearances this player chose for their operators, on the session and the
+   * seat, and hand them to a running match.
+   *
+   * Unlike room.loadout there is no phase gate. The loadout is frozen at INFO_CHECK because it changes what a unit
+   * *does*; a skin changes only what it looks like, and it is public — a teammate switching model mid-match is
+   * harmless, and the next `m.public` broadcast carries it to everyone.
    */
-  appearance(session, { picks, avatar }) {
-    const next = { ...(session.appearance || {}) };
-    if (picks !== undefined) next.picks = { ...(next.picks || {}) };
-    for (const [charId, one] of Object.entries(picks || {})) next.picks[charId] = Object.freeze({ ...one });
-    if (avatar !== undefined) next.avatar = Object.freeze({ ...avatar });
-    session.appearance = Object.freeze(next);
+  skins(session, { skins }) {
     const room = this.roomOf(session);
+    const ids = operatorCharIds(this.dataFor(room));
+    const kept = freezeSkins(skins, (id) => ids.has(id));
+    if (!kept) return fail(ERR.BAD_MSG, 'bad skin selection');
+    session.skins = kept;
     if (!room) return OK;
     const seat = room.seatOf(session.playerId);
-    if (!seat) return OK;
-    seat.appearance = session.appearance;
-    this.broadcastState(room);
-    return OK;
-  }
-
-  /**
-   * room.mods (DESIGN §34.34, `PANEL_SEND_TYPES` 的第二条): the host swapping the pack set this room loads would need
-   * `room.create.modIds` — the per-room subset channel, which this fork has not ported (`Room.modSet` is documented as
-   * permanently `null` above). So the message is **refused by name** rather than answered `ok` and ignored: a panel that
-   * silently believes it changed the room is worse than one that is told it cannot.
-   */
-  setRoomMods(session, { modIds }) {
-    const room = this.roomOf(session);
-    if (!room) return fail(ERR.NOT_IN_ROOM);
-    if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
-    return fail(ERR.BAD_MSG, 'this server has no per-room pack subset (room.create.modIds is not ported)'); // i18n-ignore (developer diagnostic)
+    if (seat) seat.skins = kept;
+    if (!room.match || !seat) return OK;
+    if (typeof room.match.setSkins !== 'function') return fail(ERR.ROOM_STARTED, 'stored for the next match');
+    return matchAnswer(this.callMatch(room, 'setSkins', session.playerId, kept));
   }
 
   /** The game data of a room's content (header "Gameplay plugins"): its content set's, else the server's. @param {Room | null} room */
@@ -1596,7 +1520,16 @@ export class Lobby {
       const r = checkDiyPicks({ ...diy }, { data, kitted: this.kittedFor(room) });
       diy = r && 'ok' in r ? freezeDiy(r.picks) : null;
     }
-    return { loadout, ops, notOwned, diy };
+    // 干员皮肤 (docs/SKINS.md): the skinId lives in a cosmetic overlay, not the content set, but the KEY is an operator
+    // of this room. A charId the content does not have is dropped; a map that is no longer a plain charId→skinId
+    // selection is left off the seat rather than handed to the match.
+    let skins = null;
+    if (s.skins && typeof s.skins === 'object') {
+      const ids = operatorCharIds(data);
+      const res = checkSkinSelection(s.skins, (id) => ids.has(id));
+      if (res.ok) skins = Object.freeze({ ...res.skins });
+    }
+    return { loadout, ops, notOwned, diy, skins };
   }
 
   /**
@@ -1604,30 +1537,18 @@ export class Lobby {
    * server's content identity (header "Content identity").
    */
   welcomeInfo() {
-    const panels = this.workshop && Array.isArray(this.workshop.panels) ? this.workshop.panels : [];
-    const assets = this.workshop && Array.isArray(this.workshop.assets) ? this.workshop.assets : [];
-    // 包写的主题变量：合并好的那一份 `{ vars }`，与 `modPanels` 同构 —— **只有声明了才有**，没有包声明主题时
-    // `welcome` 的字段集合一个都不多（`test/modClientPanels.test.js` 两侧对照钉着这条）。
-    const theme = this.workshop && this.workshop.theme && typeof this.workshop.theme === 'object' ? this.workshop.theme : null;
-    // 传输层的**生效值**（`pack.json.server.transport` 的声明 → `transportPolicy` 收敛 → `attachWebSocket` 真正装上去
-    // 的那个选项）：`{ deflate, params, maxPayload, threshold }`。客户端那格 `ctx.net.transport()` 是按**这个名字**定的，
-    // 所以它必须真的落在这里 —— 缺字段时那一格返回 `null`（不抛、不编造）。**报的是生效值，不是声明值**。
-    const transport = this.workshop && this.workshop.transport && typeof this.workshop.transport === 'object'
-      ? this.workshop.transport : null;
-    let n;
-    try { n = Number(this.plugins?.unofficial?.()) || 0; } catch { n = 0; }
-    const contentInfo = this.vanilla
-      ? { content: n > 0 ? { vanilla: this.vanilla.cs, plugins: n } : { vanilla: this.vanilla.cs } }
-      : {};
-    return {
-      diyKitted: KITTED_CHARS,
-      ...contentInfo,
-      ...(this.modSet ? { mods: this.modSet } : {}),
-      ...(panels.length ? { modPanels: panels } : {}),
-      ...(assets.length ? { modAssets: assets } : {}),
-      ...(theme && theme.vars && Object.keys(theme.vars).length ? { modTheme: theme } : {}),
-      ...(transport ? { transport } : {}),
-    };
+    let info;
+    if (!this.vanilla) info = { diyKitted: KITTED_CHARS };
+    else {
+      let n;
+      try { n = Number(this.plugins?.unofficial?.()) || 0; } catch { n = 0; }
+      info = { diyKitted: KITTED_CHARS, content: n > 0 ? { vanilla: this.vanilla.cs, plugins: n } : { vanilla: this.vanilla.cs } };
+      // Catalogue metadata, never part of a room or match; omitted when no loaded plugin publishes a notice.
+      if (this.plugins?.hasNotices?.()) info.content.notices = true;
+    }
+    // Omitted when the switch is off, so a welcome from a normal server stays identical.
+    if (this.testEnabled === true) info.testMode = true;
+    return info;
   }
 
   // ---------------------------------------------------------------------------------------------------
@@ -1636,6 +1557,7 @@ export class Lobby {
 
   /** @param {Room} room @param {string | null} [key] per-network limit key of the starter */
   startMatch(room, key = null) {
+    if (room.test && !this.testEnabled) return fail(ERR.TEST_DISABLED);
     const host = room.seatOf(room.hostId);
     if (host) host.ready = true;
     // the room's data: its content set's in a room with gameplay plugins (header "Gameplay plugins")
@@ -1652,6 +1574,8 @@ export class Lobby {
         notOwned: own ? own.notOwned : null,
         // 0.2.0 自选编队: the human's checked DIY picks (bots field no 自选 piece [ASSUMED])
         diy: own ? own.diy : null,
+        // 干员皮肤 (docs/SKINS.md): the appearances the human wears, keyed by operator charId (bots always default)
+        skins: own ? own.skins : null,
       };
     });
     // lastPublic / results: the latest m.public broadcast and the m.result frames (encoded), kept for the replay.
@@ -1705,6 +1629,8 @@ export class Lobby {
         // the room's host: the current executor of a delegated bot layout rehearsal (DESIGN §14; setHost follows a
         // migration while the match runs)
         hostId: room.hostId,
+        // only a room created as a test room; a normal match opts object does not grow a test key
+        ...(room.test === true ? { test: true } : {}),
         seed,
         // the room's match number: with the seed it keeps battleIds unique across the room's matches (DESIGN §14)
         matchNo: room.matchCount + 1,
@@ -1713,6 +1639,10 @@ export class Lobby {
         ...(room.content ? { cs: room.content.cs } : {}),
         ...(room.content?.vs ? { vs: room.content.vs } : {}),
         ...(modded ? { requireCs: true } : {}),
+        // The list the lobby just checked the picks with (kittedFor). Vanilla rooms omit it: setDiy stays on
+        // KITTED_CHARS, and the worker payload / test journal of a normal match do not grow a key.
+        ...(modded ? { kitted: this.kittedFor(room) } : {}),
+        ...(room.content?.rules ? { rules: room.content.rules } : {}),
         data,
         log: this.log,
         now: this.now,
@@ -1728,9 +1658,7 @@ export class Lobby {
       room.matchKey = key;
       room.replay = null;
       room.matchCount++;
-      this.log.info(`[lobby] ${room.code} match #${room.matchCount} starting (${room.mode}/${room.difficulty}, ${seats.length} seats, seed ${seed}${modded ? `, content ${room.content.cs.slice(0, 8)}${match.hosted ? ' in its match host' : ''}` : ''})`);
-      // 房间级钩子：对局真的起来了（`match.start()` 之前 —— 钩子要能在第一帧之前看到「这一局开始了」）。
-      this.hookFire(room, 'matchStart', { matchNo: room.matchCount, players: room.seats.filter(Boolean) });
+      this.log.info(`[lobby] ${room.code} match #${room.matchCount} starting (${room.mode}/${room.difficulty}, ${seats.length} seats, seed ${seed}${room.test ? ', test' : ''}${modded ? `, content ${room.content.cs.slice(0, 8)}${match.hosted ? ' in its match host' : ''}` : ''})`);
       this.broadcastState(room);
       match.start();
     } catch (e) {
@@ -1914,13 +1842,17 @@ export class Lobby {
   routeGameNow(session, msg) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
+    if (msg.t === 'g.test') {
+      if (!this.testEnabled) return fail(ERR.TEST_DISABLED);
+      if (room.test !== true) return fail(ERR.TEST_FORBIDDEN);
+    }
     if (!room.match) return fail(ERR.WRONG_PHASE, 'no running match');
     if (msg.t === 'g.leave') {
       this.removeMember(room, session.playerId);
       return OK;
     }
     // a spectator only watches (header): nothing else of it ever reaches the match
-    if (msg.t !== 'g.watch' && room.spectatorOf(session.playerId)) return fail(ERR.SPECTATOR);
+    if (msg.t !== 'g.watch' && !(room.test && msg.t === 'g.test') && room.spectatorOf(session.playerId)) return fail(ERR.SPECTATOR);
     let res;
     try {
       res = room.match.handle(session.playerId, msg);
@@ -2000,6 +1932,9 @@ export class Lobby {
       ops: session.ops || null,
       notOwned: session.notOwned || null,
       diy: session.diy || null,
+      // 干员皮肤 (docs/SKINS.md): the appearances this player wears, keyed by operator charId (PUBLIC: the match
+      // publishes them to teammates)
+      skins: session.skins || null,
       // the content each was checked for (header "Gameplay plugins": filtered at the match start when it is another)
       loadoutCs: session.loadoutCs ?? null,
       notOwnedCs: session.notOwnedCs ?? null,

@@ -90,31 +90,8 @@ export function buildBattleSpec(o = {}) {
     // the content set the battle runs on and the art it was drawn with (header): not read by the sim
     ...(isContentHash(o.cs) ? { cs: o.cs } : {}),
     ...(isContentHash(o.vs) ? { vs: o.vs } : {}),
-    // 工坊行为层 (docs/WORKSHOP.md §4): the kit MODULES this field needs, as JSON-safe { id, pack, hash, url } records.
-    // A function cannot cross the wire, so a client-simulated battle imports these URLs and rebuilds the same kit map
-    // the server uses for verification (public/js/battle/runner.js loadSpecKits). Empty for a plain install. `hash` is
-    // the pack's content hash (DESIGN §34.2): the client can tell which bytes the URL is supposed to serve.
-    workshopKits: (Array.isArray(o.workshopKits) ? o.workshopKits : [])
-      .filter((m) => m && typeof m.id === 'string' && typeof m.url === 'string')
-      .map((m) => ({
-        id: m.id,
-        pack: typeof m.pack === 'string' ? m.pack : null,
-        url: m.url,
-        ...(typeof m.hash === 'string' ? { hash: m.hash } : {}),
-        // 调用预算（`pack.json.callBudget`）的 kit 那一半：**同一个数字**由装载期算好后随这份清单过线，浏览器读它、
-        // 不再自己算一次。没声明的包不长这个键 —— 老客户端读不懂这个键时也只是不带账，不会读错。
-        ...(Number.isInteger(m.callBudget) ? { callBudget: m.callBudget } : {}),
-        // 召唤物的行为层（docs/WORKSHOP.md §4.7）：**同一份清单**里的另一条通道，`kind: 'token'` 标记它属于 token
-        // 键空间（`Battle opts.tokenKits` 而不是 `opts.kits`）。干员 kit 照旧不带这个键 —— 线上格式对已经存在的
-        // 读者逐字节不变，而两个键空间在装载器里是**分开裁决**的，所以必须分开送达。
-        ...(m.kind === 'token' ? { kind: 'token' } : {}),
-      })),
-    // 本局跑的是哪一份内容集（DESIGN §34.2）：`{ digest, packs }`，由 `shared/modIdentity.js modSetOf` 算出 —— 与
-    // `welcome.mods`、`/healthz` 的 `mods` 是同一个值，三处不可能互相矛盾。`null` = 干净安装（**显式 null，不是
-    // 缺键**：老客户端与老 replay 读 `spec.mods === null` 是一条明确的「没有内容集」判断）。sim 本身不读它 ——
-    // 它是「这一局跑的是哪份内容」的**声明**，不是玩法输入。它在这里还因为 spec 是两条执行路径（服务端复算 /
-    // 浏览器模拟）唯一共享的对象 —— 用**另一份**内容集算出来的结果必须能被区分。
-    mods: isModList(o.mods?.packs) ? JSON.parse(JSON.stringify(o.mods)) : null,
+    // morphPairing plus only. An official spec grows no key (identity and extra-field tests).
+    ...(o.morphPairing === 'plus' ? { morphPairing: 'plus' } : {}),
   };
   const out = JSON.parse(JSON.stringify(spec, specReplacer));
   // 雷姆必拓: the carried reinforcement survival ticks are a 联防-only field — a normal battle has no earlier battlefield
@@ -208,20 +185,7 @@ export function createBattleFromSpec(spec, dataSource, opts = {}) {
     content: opts.content ?? s.content ?? 'full',
   };
   if (s.bossId != null) battleOpts.bossId = s.bossId;
-  // 包声明的战斗逻辑（`server.battle`，DESIGN §34.17）：`install(battle)` 的真函数由**调用方**给（`opts`，不是 spec ——
-  // 函数不能过线）。它们走 `installContent` 既有的 `extra` 通道（`(battle) => …` 或 `{ install(battle) }` 两种形状都收），
-  // 所以不需要第二条装载路径。没有包声明时这个键不出现，`Battle` 拿不到它，行为与从前逐字节相同。
-  if (Array.isArray(opts.battleInstallers) && opts.battleInstallers.length) battleOpts.extraContent = opts.battleInstallers;
-  // 包的 kit 归属与调用预算（`pack.json.callBudget`, DESIGN §34.52）：浏览器那一半由 `loadSpecKits` 从同一份清单上
-  // 读出来（三张 Map），这里原样转交 —— 少了它们，kit 的逐单位回调在浏览器里一条都不归账，而服务端复算那半会回滚，
-  // 两端就停在**不同**的调用次数上。没传 ⇒ 三个键都不出现（KEY DISCIPLINE：干净安装的 opts 形状逐字节不变）。
-  // ★ 空表也转交：`loadSpecKits` 对空清单交回的是**空 Map**（不是缺键），而「调用方给了表」与「没给表」是两件事 ——
-  //   前者说明这条通道在用（只是这次没有内容），后者才是干净安装。
-  if (opts.kits) battleOpts.kits = opts.kits;
-  if (opts.tokenKits) battleOpts.tokenKits = opts.tokenKits;
-  if (opts.kitOwners instanceof Map) battleOpts.kitOwners = opts.kitOwners;
-  if (opts.tokenKitOwners instanceof Map) battleOpts.tokenKitOwners = opts.tokenKitOwners;
-  if (opts.kitBudgets instanceof Map) battleOpts.kitBudgets = opts.kitBudgets;
+  if (s.morphPairing === 'plus') battleOpts.morphPairing = 'plus';
   if (opts.logger) battleOpts.logger = opts.logger;
   if (opts.recordEvents === false) battleOpts.recordEvents = false;
   if (opts.quiet) battleOpts.quiet = true;
@@ -308,9 +272,11 @@ export function attachLpMeter(battle) {
 /**
  * 联防 (user playtest #6 item 7): each source player's enemies still standing on a unite field — not spawned yet,
  * alive, or already through the objective again — i.e. what settlement would charge them if the battle ended now
- * (server/match/unite.js uniteSurvivors: the unite result's counted leaks + unspawned entries by `sourcePlayerId`;
- * alive enemies become leaks on a timeout, keyed like Battle._recordLeak). It falls as the helpers strike them down and
- * rises when one splits or summons (content-spawned children inherit the parent's sourcePlayerId).
+ * (server/match/unite.js uniteSurvivors: the unite result's leaks + unspawned entries by `sourcePlayerId`; alive enemies
+ * become leaks on a timeout, keyed like Battle._recordLeak). It falls as the helpers strike them down; nothing that
+ * appears while the field runs ever raises it — a 联防 field tags its runtime spawns `uniteRuntime` at birth (spawns.js,
+ * player report 2026-10-16: a child or a summon never crossed the leaker's own goal), and every read here filters it
+ * out. Reports
  * `{ [playerId]: n }` (a player with none left is absent), or null for a battle without the sim's state (a stand-in).
  * @returns {Record<string, number> | null}
  */
@@ -321,14 +287,14 @@ export function uniteLeft(battle) {
   if (battle.finished && typeof battle.result === 'function') {
     const r = battle.result();
     if (!r || !r.perPlayer) return null;
-    for (const pp of Object.values(r.perPlayer)) for (const l of (pp && pp.leaked) || []) if (l && l.counted !== false) add(l.sourcePlayerId);
+    for (const pp of Object.values(r.perPlayer)) for (const l of (pp && pp.leaked) || []) if (l && l.counted !== false && !l.uniteRuntime) add(l.sourcePlayerId);
     for (const u of r.unspawned || []) if (u) add(u.sourcePlayerId);
     return out;
   }
   if (!battle._perPlayer || !Array.isArray(battle._pending) || !Array.isArray(battle.enemies)) return null;
   for (const p of battle._pending) if (p) add(p.sourcePlayerId);
-  for (const e of battle.enemies) if (e && e.alive && e.counted) add(e.sourcePlayerId ?? e.ownerId);
-  for (const pp of Object.values(battle._perPlayer)) for (const l of (pp && pp.leaked) || []) if (l && l.counted !== false) add(l.sourcePlayerId);
+  for (const e of battle.enemies) if (e && e.alive && e.counted && !e.uniteRuntime) add(e.sourcePlayerId ?? e.ownerId);
+  for (const pp of Object.values(battle._perPlayer)) for (const l of (pp && pp.leaked) || []) if (l && l.counted !== false && !l.uniteRuntime) add(l.sourcePlayerId);
   return out;
 }
 
@@ -406,7 +372,9 @@ export function resultDigest(result) {
       p.killed | 0, p.total | 0, !!p.perfect, r4(p.coins),
       Object.keys(lg).sort().map((k) => [k, r4(lg[k])]),
       // mods included: a leak re-enters the 联防 with them (round multipliers, bounty id)
-      (Array.isArray(p.leaked) ? p.leaked : []).map((l) => `${l && l.enemyKey}|${l && l.counted === false ? 0 : 1}|${(l && l.sourcePlayerId) || ''}|${modsKey(l && l.mods)}`).sort(),
+      // mods included: a leak re-enters the 联防 with them (round multipliers, bounty id); `uniteRuntime` too — it decides
+      // whether the 联防 bills the leak, so a client must not be able to report it differently from the re-simulation
+      (Array.isArray(p.leaked) ? p.leaked : []).map((l) => `${l && l.enemyKey}|${l && l.counted === false ? 0 : 1}|${l && l.uniteRuntime ? 'x' : ''}|${(l && l.sourcePlayerId) || ''}|${modsKey(l && l.mods)}`).sort(),
       Math.round(Number(p.damageDealt) || 0), Math.round(Number(p.bossDamage) || 0),
       (Array.isArray(p.unitsEnd) ? p.unitsEnd : []).map((u) => [u && u.uid, r4(u && u.hpPct), r4(u && u.sp), !!(u && u.alive),
         ...(u?.kazdelSoul ? [[r4(u.kazdelSoul.hpPct), r4(u.kazdelSoul.sp)]] : [])]),
@@ -463,6 +431,7 @@ export function compactResult(res) {
       total,
       leaked: leakEntries(p).map((l) => {
         const o = { enemyKey: l.enemyKey, mods: compactMods(l.mods), lpr: leakLpr(l), sourcePlayerId: keyOr(l.sourcePlayerId), tag: typeof l.tag === 'string' && l.tag.length <= 16 ? l.tag : null, counted: l.counted !== false };
+        if (l.uniteRuntime) o.uniteRuntime = true; // born on a 联防 field: the server must not bill it (unite.js uniteSurvivors)
         if (l.boss) o.boss = true;
         if (l.spawned) o.spawned = true;
         return o;

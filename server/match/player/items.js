@@ -1,10 +1,11 @@
 // server/match/player/items.js — PlayerState methods: items — g.equip (max 2, a 3rd replaces the one the player picks;
-// consume-on-equip items), g.art (Arts on a tile, rotated by the facing) and g.destroy (hand / temp items; equipped
-// ones are locked).
+// consume-on-equip items), g.art (Arts on a tile, rotated by the facing), g.destroy (hand / temp items; equipped
+// ones are locked) and g.unequip (DESIGN §34.15, only when the room's unequip rule is allow).
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
 // the player state).
 
-import { ERR } from '../../../shared/constants.js';
+import { ERR, GEO } from '../../../shared/constants.js';
+import { morphSlotPolicy, ruleOption } from '../../../shared/plugins/rules.js';
 import { tileKey, inField, parseDir, freeSlot } from '../board.js';
 import { offsetTile } from '../../sim/dir.js';
 import { itemKey } from '../gamedata.js';
@@ -67,6 +68,9 @@ export class PlayerItems {
       }
     }
     if (replaceUid != null && !(Number.isInteger(replaceUid) && (target.items || []).some((x) => x.uid === replaceUid))) return fail(ERR.BAD_TARGET, 'replace: not equipped on the target');
+    const policy = this._slotPolicy();
+    // [ASSUMED] a second 变形同构体 is refused before anything moves. Official accepts() is always true.
+    if (!policy.accepts(target.items || [], rec)) return fail(ERR.BAD_TARGET, 'morph already equipped');
     const consume = typeof rec.kind === 'string' && rec.kind.startsWith('consume_on_equip');
     if (consume) {
       const key = 'item:' + itemKey(item.id);
@@ -75,7 +79,7 @@ export class PlayerItems {
       // 装备替换为将要佩戴的装备，并销毁被指定的装备"; GitHub #263): the pick (else the oldest) comes off before the effect —
       // which so sees the carrier without it (its bonds) — and is destroyed once the effect went through, leaving the slot
       // free (the normal 博士投影 then takes it: ev.keep, so it no longer pushes the oldest item out). A refusal puts it back.
-      const off = this._takeReplaced(target, replaceUid);
+      const off = this._takeReplaced(target, replaceUid, rec);
       const ev = { item, target, golden: !!rec.isGolden, keep: false, error: null, consumed: true };
       this.m.dispatchItem(this, item, target, 'onEquip', ev);
       if (ev.error) {
@@ -120,13 +124,21 @@ export class PlayerItems {
    * the replaced item is destroyed. 「满没满」与「顶掉哪一件」都走这一局的装备位策略
    * （`plus`：变形同构体不占位、也不会被顶掉）；缺省档下策略就是官方那一条，循环体与从前同一批算术。
    */
+  /** The room's equip-slot policy. Official returns the shared frozen singleton, so the numbers stay today's. */
+  _slotPolicy() {
+    return morphSlotPolicy(ruleOption(this.m?.rules, 'morphPairing'), (it) => !!this.gd.item(it?.id)?.canGiveBond);
+  }
+
   _attach(target, item, replaceUid = null) {
     target.items = target.items || [];
-    const policy = matchSlotPolicy(this.m);
-    const used = () => policy.slotsUsed(target.items, (id) => this.gd.item(id));
-    while (used() >= this.gd.equipPerChess) { // loop-cap: splices one item each pass
-      const i = policy.replacedIndex(target.items, replaceUid, (id) => this.gd.item(id));
-      const [old] = target.items.splice(i >= 0 ? i : 0, 1);
+    const policy = this._slotPolicy();
+    const rec = this.gd.item(item.id);
+    const cap = policy.slotCap(this.gd.equipPerChess);
+    // A plus morph does not occupy a slot, so this while does not run for it. Official occupies() is always true
+    // and slotsUsed is items.length, so the comparison and the splice index stay today's.
+    while (policy.occupies(rec) && policy.slotsUsed(target.items) >= cap) { // loop-cap: splices one item each pass
+      const i = policy.replacedIndex(target.items, replaceUid);
+      const [old] = target.items.splice(i, 1);
       replaceUid = null;
       this.m.dispatchItem(this, old, target, 'onDestroy', { item: old, holder: target, reason: 'replace' });
       this.releaseItemStock(old);
@@ -139,13 +151,15 @@ export class PlayerItems {
    * destroyed — and return { piece, idx } (null while a slot is free). 「满」与「挑哪一件」都走这一局的装备位策略
    * （`plus`：变形同构体既不占位、也不会被挑走）；缺省档逐字是 `items.length < equipPerChess` 与「找不到 ⇒ 0」。
    */
-  _takeReplaced(target, replaceUid = null) {
+  _takeReplaced(target, replaceUid = null, incoming = null) {
     target.items = target.items || [];
-    const policy = matchSlotPolicy(this.m);
-    if (policy.slotsUsed(target.items, (id) => this.gd.item(id)) < this.gd.equipPerChess) return null;
-    const idx = policy.replacedIndex(target.items, replaceUid, (id) => this.gd.item(id));
-    const [piece] = target.items.splice(idx >= 0 ? idx : 0, 1);
-    return { piece, idx: idx >= 0 ? idx : 0 };
+    const policy = this._slotPolicy();
+    // A plus morph does not replace anyone. Official occupies() is always true.
+    if (incoming && !policy.occupies(incoming)) return null;
+    if (policy.slotsUsed(target.items) < policy.slotCap(this.gd.equipPerChess)) return null;
+    const idx = policy.replacedIndex(target.items, replaceUid);
+    const [piece] = target.items.splice(idx, 1);
+    return { piece, idx };
   }
 
   /** g.art {itemUid, row, col, dir?}: the Art's range grid is rotated by `dir` (absent ⇒ RIGHT). */
@@ -198,45 +212,23 @@ export class PlayerItems {
   }
 
   /**
-   * g.unequip {itemUid} (behaviour `unequip`, DESIGN §34.43.2 / 投稿 `79de9ff03518`): take one EQUIPPED item off its
-   * operator and stow it — the hand right-to-left first, then the temporary slots. Same `_gate()` as `destroy`.
-   *
-   * WITH THE SWITCH OFF (the default) this is byte-for-byte `destroy`'s refusal: `BAD_TARGET` +
-   * `'equipped items are locked'`, the SAME string, and nothing moves. A room that declares nothing therefore behaves
-   * exactly as if this intent did not exist, and no golden scenario moves.
-   *
-   * ATOMICITY (the place this is easiest to get wrong): `stow(piece, { allowTemp: true })` can still return `null` when
-   * both the hand and the temp row are full. The piece goes back at its ORIGINAL index and `HAND_FULL` is returned —
-   * without that rollback the item would vanish into thin air. `HAND_FULL` rather than `BAD_TARGET` because "there is
-   * nowhere to put it" is an independent, actionable error.
-   *
-   * The shared-item pool is untouched: the item only moves from an EQUIPMENT SLOT into the hand / temp, so `piece` and
-   * `uid` are unchanged and `SharedItemPool.held()` still counts it. There is no "give back" here (unlike `destroy` /
-   * sell, which really do remove one from the pool). Deliberately no content hook: none of the 19 `HOOKS` fits (it is
-   * neither `onDestroy` nor `onEquip`) and no pack needs it today — a decision, not an omission.
-   * @param {number} itemUid
+   * g.unequip {itemUid}: during PREP, while the seat is not ready, move one equipped item back to the hand
+   * (right→left), else into a free hole of the visible temporary window. Neither free: HAND_FULL and nothing moves.
+   * The official rule returns the same lock as destroy. Bots never send this.
+   * [ASSUMED] shares the existing prep-intent ready lock; hidden temp overflow is not a free slot. Never calls stow.
    */
   unequip(itemUid) {
     const g = this._gate(); if (g) return g;
-    if (!unequipAllowed(this.m && this.m.behaviour)) return fail(ERR.BAD_TARGET, 'equipped items are locked');
+    if (ruleOption(this.m?.rules, 'unequip') !== 'allow') return fail(ERR.BAD_TARGET, 'equipped items are locked');
     const loc = this.find(itemUid);
-    if (!loc || loc.piece.kind !== 'item' || loc.area !== 'equipped') return fail(ERR.BAD_TARGET, 'not equipped on an operator');
-    const holder = loc.holder;
-    const idx = holder && Array.isArray(holder.items) ? holder.items.findIndex((x) => x && x.uid === itemUid) : -1;
-    if (!holder || idx < 0) return fail(ERR.BAD_TARGET, 'not equipped on an operator');
-    // Capacity FIRST, before anything moves (DESIGN §34.43.2: 「手牌与临时整备区都满 ⇒ 整件事原子拒绝」).
-    // This check is deliberately local to this intent and does NOT go through `stow`: `stow` treats the temp area as an
-    // UNBOUNDED queue behind the five visible slots (pieces.js "Five visible slots are a window, not a capacity limit" —
-    // that is why every other gain can never fail), so it never returns null and HAND_FULL would be unreachable. This
-    // one intent's own contract is that a full hand + a full temporary row refuses the action outright, which keeps the
-    // rollback below meaningful. Nothing is detached yet, so the item cannot be lost either way.
-    if (freeSlot(this.hand) < 0 && !(this.temp.length <= TEMP_SIZE && freeSlot(this.temp) >= 0)) return fail(ERR.HAND_FULL);
-    const [piece] = holder.items.splice(idx, 1);
-    const where = this.stow(piece, { allowTemp: true });
-    if (where === null) {
-      holder.items.splice(idx, 0, piece);   // roll back at the ORIGINAL index: the item must not disappear
-      return fail(ERR.HAND_FULL);
-    }
+    if (!loc || loc.piece.kind !== 'item' || loc.area !== 'equipped') return fail(ERR.BAD_TARGET);
+    const handAt = freeSlot(this.hand);
+    const tempAt = freeSlot(this.temp.slice(0, GEO.TEMP_SIZE));
+    if (handAt < 0 && tempAt < 0) return fail(ERR.HAND_FULL);
+    const piece = loc.piece;
+    this._detach(loc);
+    if (handAt >= 0) this.hand[handAt] = piece;
+    else this._putTemp(tempAt, piece);
     this.recompute();
     return OK;
   }
