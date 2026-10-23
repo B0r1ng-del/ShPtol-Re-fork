@@ -59,7 +59,7 @@ export const MOD_ROWS = Object.freeze([
   { col: 'rule', key: 'untimedSp', label: N_('机变不限时间'), tip: N_('所有模式的机变阶段都不再有时间限制，全部选择完毕后结束') },
   { col: 'rule', key: 'randomSpVote', label: N_('机变随机分配'), tip: N_('所有模式的机变阶段都可以投票「随机分配」：过半即由系统随机发放（悬赏决策除外）') },
   { col: 'rule', key: 'extraRounds', label: N_('额外 4 回合'), tip: N_('所有模式的回合数由 14 回合变为 18 回合，新增的 4 回合都是普通回合，Boss 回合相应后移到第 18 回合') },
-  { col: 'rule', key: 'targetedPick', label: N_('定向甄选'), tip: N_('三个相同干员合为进阶干员时，奖励的高阶干员三选一改为从当前已激活最高层数的盟约旗下的干员中随机') },
+  { col: 'rule', key: 'targetedPick', label: N_('定向甄选'), tip: N_('三个相同干员合为进阶干员时，奖励的高阶干员三选一里，当前已激活最高层数盟约旗下的干员各多占 20% 的出现概率（其余干员照常出现）') },
   { col: 'rule', key: 'uncapLayers', label: N_('解除叠层上限'), tip: N_('盟约叠层上限由 999 层解除，可以叠到 999 层以上；只解除上限，其他盟约规则不变') },
   { col: 'pack', key: 'packRhine', label: N_('莱茵生命'), tip: N_('开启后游戏内可使用移植内容：莱茵生命盟约与科研装置、联合科研干员。关闭（默认）时完全不加载，回到原版内容。') },
   { col: 'pack', key: 'packAphris', label: N_('谬因·并入莱茵'), tip: N_('开启后莱茵生命盟约解锁，干员谬因加入其中，并可获得其层数加成。关闭（默认）时谬因保持原版盟约。') },

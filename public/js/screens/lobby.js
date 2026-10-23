@@ -29,6 +29,8 @@ import { getConfig, getMode, getStage, useData } from '../data.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
 
 /** Official mode texts (activity_table act2autochess.modeDataDict), fallback when config.json is absent. */
+export const FORGE_EDITOR_URL = 'http://127.0.0.1:8787/';
+
 export const MODE_TEXT = {
   single: {
     FUNNY: { code: 'AC-1', desc: N_('时长较短的模拟训练'), effects: [N_('可以快速完成作战'), N_('常规奖励')] },
@@ -361,6 +363,12 @@ export function LobbyScreen() {
         <div class="topbar__tools">
           <${SettingsButton} class="lobby-settings" variant="secondary" square=${true} />
           <${GuideButton} class="lobby-guide" variant="secondary" square=${true} />
+          ${/* Forge 工坊 (需求方 2026-10-23): a jump to the LOCAL editor (`npm run editor` → 127.0.0.1:8787).
+               A plain anchor in a new tab — the game server does not proxy the editor (it never has: editor/ is a
+               separate process by design). If the editor is not running the browser shows its own "can't reach" page,
+               which is the honest answer; a button that pretended otherwise would be worse. */
+            html`<a class="btn btn--secondary btn--square lobby-forge" href=${FORGE_EDITOR_URL} target="_blank" rel="noopener noreferrer"
+              title=${t('Forge 工坊')} aria-label=${t('Forge 工坊')} data-testid="forge-link"><${Icon} name="hammer" /></a>`}
           <${PwaInstallButton} class="lobby-pwa" square=${true} />
         </div>
       </div>

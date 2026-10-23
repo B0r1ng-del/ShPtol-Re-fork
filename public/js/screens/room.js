@@ -100,7 +100,10 @@ export const HOST_CONFIG_ROWS = Object.freeze([
   { key: 'sharedPool', label: N_('共享卡池'), tip: N_('全同盟共用一个干员池'), on: true, solo: false },
   { key: 'sharedBounty', label: N_('共享悬赏'), tip: N_('全队共用一套悬赏决策牌，先选先得'), on: true, solo: false },
   { key: 'aiPicksLast', label: N_('AI 队友最后选择'), tip: N_('策略与机变轮选时，所有博士先于 AI 队友选择'), on: false, solo: false },
-  { key: 'multiAlliance', label: N_('多同盟模式'), tip: N_('官方规则：每个策略只能由一位博士选择'), on: false, solo: false },
+  // 多策略模式 (原名「多同盟模式」，需求方 2026-10-23 改名): the host lifts 「每个策略只能由一位博士选择」, so several
+  // 博士 may take the SAME 策略. The KEY stays `multiAlliance` — it travels in room.state / MatchSpec / the client, and
+  // renaming it would change every recorded match's payload for a label change. Only the label moved.
+  { key: 'multiAlliance', label: N_('多策略模式'), tip: N_('开启后同一份策略可被多位博士各选一次；关闭时官方规则：每个策略只能由一位博士选择'), on: false, solo: false },
   { key: 'itemSell', label: N_('装备可售卖'), tip: N_('开启后装备可以出售，售价 1 块钱；关闭时装备只能销毁'), on: false, solo: true },
   // 在线聊天 (fork, 需求方 2026-10-16): the in-match chat window. `solo: true` since 2026-10-17 — the owner reported the
   // option was unusable (「在线聊天选项无法使用」), and the cause was that a single-seat room both hid this row and had the

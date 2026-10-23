@@ -1824,7 +1824,7 @@
   "房间配置": "Room settings",
   "共享卡池": "Shared operator pool",
   "共享悬赏": "Shared bounties",
-  "多同盟模式": "Multi-alliance mode",
+  "多策略模式": "Multi-strategy mode",
   "全同盟共用一个干员池": "The whole alliance draws from one operator pool",
   "全队共用一套悬赏决策牌，先选先得": "The team shares one set of bounty cards, first come first served",
   "官方规则：每个策略只能由一位博士选择": "Official rule: each strategy can be taken by one Doctor only",
@@ -1844,7 +1844,7 @@
   "额外 4 回合": "4 Extra Rounds",
   "所有模式的回合数由 14 回合变为 18 回合，新增的 4 回合都是普通回合，Boss 回合相应后移到第 18 回合": "Every mode runs 18 rounds instead of 14; the four new rounds are ordinary, so the Boss round moves to round 18",
   "定向甄选": "Targeted Pick",
-  "三个相同干员合为进阶干员时，奖励的高阶干员三选一改为从当前已激活最高层数的盟约旗下的干员中随机": "When three copies merge into an elite, its one-of-three operator reward is drawn from the operators of your highest-layer active bond instead",
+  "三个相同干员合为进阶干员时，奖励的高阶干员三选一里，当前已激活最高层数盟约旗下的干员各多占 20% 的出现概率（其余干员照常出现）": "When three identical operators merge into an elite one, each operator of your highest-layer ACTIVE bond takes a 20 % larger share of the 3-way promotion roll (everyone else keeps their normal odds).",
   "机变随机分配": "Random Improv allocation",
   "所有模式的机变阶段都可以投票「随机分配」：过半即由系统随机发放（悬赏决策除外）": "Every mode's Improv Phase offers the \"Random allocation\" vote: once half the players have voted, the system hands the cards out at random (Bounty drafts excluded).",
   "作弊菜单": "Cheat Menu",
@@ -2207,5 +2207,7 @@
   "在备战阶段显示一个可拖动的悬浮球，用来开启仅对自己生效的作弊开关。默认关闭，开启需要激活码。": "Shows a draggable floating ball during prep that turns on cheats affecting you alone. Off by default; turning it on asks for an activation code.",
   "激活码": "Activation code",
   "输入激活码": "Enter the activation code",
-  "激活码不正确。": "That activation code is not correct."
+  "激活码不正确。": "That activation code is not correct.",
+  "开启后同一份策略可被多位博士各选一次；关闭时官方规则：每个策略只能由一位博士选择": "On: several doctors may each take the same strategy. Off: the official rule — one doctor per strategy.",
+  "Forge 工坊": "Forge workshop"
 }

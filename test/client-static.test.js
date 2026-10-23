@@ -1532,10 +1532,11 @@ describe('explicit local match recovery (#431)', () => {
     assert.match(teamSrc, /bubble \? html`<\$\{EmoteBubble\}/, 'the bubble renders whenever there is one');
     assert.equal(typeof emotes.PREF_TEN_PULL, 'string');
     assert.equal(typeof emotes.PREF_BARRAGE, 'string');
-    // both default off and follow the local pref (per device). The harness has no localStorage, so one is faked here:
-    // loadPref/savePref read globalThis.localStorage on every call, and it is removed again in the finally block.
+    // 一键十连 still defaults OFF; 弹幕 默认 ON since 需求方 2026-10-23 (「将弹幕功能设置为默认开启」).
+    // The harness has no localStorage, so one is faked here: loadPref/savePref read globalThis.localStorage on every
+    // call, and it is removed again in the finally block.
     assert.equal(emotes.tenPullOn(), false);
-    assert.equal(emotes.barrageOn(), false);
+    assert.equal(emotes.barrageOn(), true, '弹幕 defaults ON');
     const store = new Map();
     globalThis.localStorage = {
       getItem: (k) => (store.has(k) ? store.get(k) : null),
@@ -1551,7 +1552,12 @@ describe('explicit local match recovery (#431)', () => {
       savePref(emotes.PREF_TEN_PULL, false);
       savePref(emotes.PREF_BARRAGE, false);
       assert.equal(emotes.tenPullOn(), false);
-      assert.equal(emotes.barrageOn(), false);
+      // ★ 一次性迁移：一台**存过 false** 的老设备，在迁移标记还没写过时会被翻成 true（新默认），之后再关就保持关。
+      assert.equal(emotes.barrageOn(), true, 'the one-time migration turns a stored false into the new default once');
+      store.clear();
+      savePref(emotes.PREF_BARRAGE, false);
+      savePref(emotes.PREF_BARRAGE_MIGRATED, true);   // 已经迁移过 ⇒ 玩家自己的选择生效
+      assert.equal(emotes.barrageOn(), false, 'after the migration the player owns the switch');
     } finally {
       delete globalThis.localStorage;
     }

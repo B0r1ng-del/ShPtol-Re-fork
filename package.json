@@ -34,6 +34,7 @@
     "postinstall": "node tools/vendor.mjs",
     "setup": "node tools/setup.mjs",
     "doctor": "node tools/doctor.mjs",
+    "editor": "node scripts/editor.mjs",
     "launch": "node scripts/launch.mjs",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit --checkJs -p jsconfig.json",
