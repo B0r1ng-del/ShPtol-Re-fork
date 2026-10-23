@@ -389,6 +389,7 @@ test('表面清单：一行的字段齐、id 不重复、层次合法', () => {
       `表面 "${s.id}" 没写 requires —— 「这一格不是白给的」必须落在纸上`);
     assert.ok(Array.isArray(s.files) && s.files.length > 0, `表面 "${s.id}" 没有实现文件`);
     assert.ok(Array.isArray(s.tests) && s.tests.length > 0, `表面 "${s.id}" 没有钉它的测试`);
-    assert.match(s.spec, /^§34\.\d+$/, `表面 "${s.id}" 的 spec 要写成 §28.NN`);
+    // 二.3: mod-layer 从 §34 迁到 §35（上游 0.3.1 占用了 §34）。
+    assert.match(s.spec, /^§35\.\d+$/, `表面 "${s.id}" 的 spec 要写成 §35.NN`);
   }
 });

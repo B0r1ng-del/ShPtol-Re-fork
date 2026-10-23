@@ -10,6 +10,19 @@ import { tileKey, inField, parseDir, freeSlot } from '../board.js';
 import { offsetTile } from '../../sim/dir.js';
 import { itemKey } from '../gamedata.js';
 import { OK, fail } from './common.js';
+import { behaviourIsDefault } from '../../../shared/behaviour.js';
+
+/**
+ * 装备拆卸 (behaviour , DESIGN §35.43.2):  档才允许把已装备的道具收回手牌。
+ * 两条通道：（upstream 插件规则开关）优先，缺省回落到 behaviour 声明 —— 与 matchSlotPolicy 同形。
+ * @param {Array<{ switch: string, option: string }>|null} decl behaviour 声明
+ * @param {Record<string,string>|null} [rules] 插件规则开关
+ * @returns {boolean}
+ */
+export function unequipAllowed(decl, rules = null) {
+  if (rules && ruleOption(rules, 'unequip') === 'allow') return true;
+  return !behaviourIsDefault(decl, 'unequip');
+}
 
 export class PlayerItems {
   /**
@@ -190,7 +203,7 @@ export class PlayerItems {
    */
   unequip(itemUid) {
     const g = this._gate(); if (g) return g;
-    if (ruleOption(this.m?.rules, 'unequip') !== 'allow') return fail(ERR.BAD_TARGET, 'equipped items are locked');
+    if (!unequipAllowed(this.m && this.m.behaviour, this.m && this.m.rules)) return fail(ERR.BAD_TARGET, 'equipped items are locked');
     const loc = this.find(itemUid);
     if (!loc || loc.piece.kind !== 'item' || loc.area !== 'equipped') return fail(ERR.BAD_TARGET);
     const handAt = freeSlot(this.hand);

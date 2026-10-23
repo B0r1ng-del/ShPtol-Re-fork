@@ -115,6 +115,9 @@ export function loadWorkshop(dir = WORKSHOP_DIR, { log = null, c2s = C2S } = {})
     try {
       rawManifest = JSON.parse(fs.readFileSync(path.join(packDir, 'pack.json'), 'utf8'));
     } catch (e) {
+      // 上游 0.3.1: docs/examples/ 里同时住着 PLUGIN（plugin.json）与 工坊包（pack.json）两种目录。
+      // 一个只有 plugin.json 的目录是插件、不是包装箱 —— 跳过，别把它记成 `pack.json is missing` 的错。
+      if (e && e.code === 'ENOENT' && fs.existsSync(path.join(packDir, 'plugin.json'))) continue;
       errors.push({ pack: name, reason: e && e.code === 'ENOENT' ? 'pack.json is missing' : `pack.json is unreadable: ${e.message}` });
       continue;
     }
