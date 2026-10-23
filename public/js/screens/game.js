@@ -125,7 +125,7 @@ import {
   mergeTarget, modeOffBonds, readyFundsPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, roundStartReplay,
 } from '../ui/gameLogic.js';
 // 整备阶段改技能（三.2）：提交走既有的 room.loadout —— 只改技能，不动模组。
-import { loadoutStore, setEntries } from '../ui/loadoutSync.js';
+import { loadoutStore, setEntries, prepLoadoutAllowed } from '../ui/loadoutSync.js';
 import { loadoutOptions } from '../../../shared/protocol.js';
 import { toast } from '../ui/toasts.js';
 import { researchRange } from '../../../shared/rhineRange.js';
@@ -316,7 +316,18 @@ function MatchScreen() {
   const roomRules = useStore((s) => s.room?.content?.rules ?? null);
   const morphMode = ruleOption(roomRules, 'morphPairing');
   const unequipAllow = ruleOption(roomRules, 'unequip') === 'allow';
-  const prepLoadoutOpen = ruleOption(roomRules, 'prepLoadout') === 'prep';
+  /**
+   * 整备阶段改技能的**客户端闸门**。★ 这里不能直接用 `ruleOption(roomRules, 'prepLoadout') === 'prep'`：
+   * 那条读的是**插件规则表**，而它的默认值（`RULE_SWITCHES.prepLoadout.options[0]`）是 `'locked'`；
+   * fork 的 behaviour 层默认值却是 `'prep'`（需求方 2026-10-23「允许玩家在局内的整备阶段修改干员的技能」）。
+   * 两套默认值相反 ⇒ 没装任何插件的普通房间会算出 `locked`，技能格永远不出现（需求方 2026-10-24 报的
+   * 「你没有实现整备改技能」就是这个）。
+   *
+   * 判据必须与**服务端**同一条：`server/match/match/platform.js` 的 `loadoutPhasesFor()` 是
+   * 「插件规则优先，没声明就回落到 behaviour 的生效档（现在是 prep）」。客户端读同一个落点 ——
+   * `loadoutSync` 已经把它算好了（`prepLoadoutAllowed()`，由 `roomMods.js` 的 `setPrepLoadout` 写入）。
+   */
+  const prepLoadoutOpen = prepLoadoutAllowed();
   const hasOffers = !!pub?.offers?.length;
   const editable = !offerBlocksPrep(pub?.offers) && phase === PHASE.PREP && !!priv && alive && !priv.ready && !watchingOther && !hasPersonalChoice;
   const showShop = !!priv && alive && (phase === PHASE.PREP || phase === PHASE.SP_DRAFT || phase === PHASE.ROUND_START) && !watchingOther;

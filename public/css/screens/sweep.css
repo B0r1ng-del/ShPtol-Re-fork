@@ -4,15 +4,19 @@
    right), a detail column at the left and sections of dark tiles at the right; the enemy codex is a second full-screen
    Modal over it. Read-only: nothing here changes a setting or the loadout. Every font size follows 设置 → 文字大小
    (`--t`, css/theme.css), floored in px for phones.
-   ========================================================================================== */
+   ==========================================================================================
+   ★ 容器类名是 `swp`，不是 `sw`：`components.css` 的 `.sw` 是**开关按钮**组件（PR #23，44×24 的
+   flex:none 盒子）。上游 0.3.1 的 S.W.E.E.P. 报告把容器也叫 `sw` —— 上游没有那个开关类，所以没事；本 fork
+   有，于是容器的宽高被压成 44×24，`sw-body`（flex:1）塌成 0，症状是「顶栏进去了、下方一片空白」。
+   子元素类名 `.sw-*` / `.sw__*` 保持不动（它们不冲突）。 */
 /* the report and the codex are full-screen Modals (ui/components.js Modal: focus trap, Esc, focus restored) */
-.modal__box.sw, .modal__box.sw-codex { position: fixed; inset: 0; width: auto; max-height: none; border: 0; box-shadow: none; animation: sw-in 200ms var(--ease-out) backwards; }
-.modal__box.sw::after, .modal__box.sw-codex::after, .sw > .modal__stripe, .sw-codex > .modal__stripe { display: none; }
-.sw > .modal__body, .sw-codex > .modal__body {
+.modal__box.swp, .modal__box.sw-codex { position: fixed; inset: 0; width: auto; max-height: none; border: 0; box-shadow: none; animation: sw-in 200ms var(--ease-out) backwards; }
+.modal__box.swp::after, .modal__box.sw-codex::after, .swp > .modal__stripe, .sw-codex > .modal__stripe { display: none; }
+.swp > .modal__body, .sw-codex > .modal__body {
   position: relative; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
   padding: var(--sa-t, 0px) var(--sa-r, 0px) var(--sa-b, 0px) var(--sa-l, 0px); color: #f1f4f3; overscroll-behavior: contain;
 }
-.sw { --sw-ink: #161b1a; --sw-tile: #262c2b; --sw-tile-2: #1a1f1e; --sw-panel: rgba(20, 25, 24, .8); background: #9aa3a2; }
+.swp { --sw-ink: #161b1a; --sw-tile: #262c2b; --sw-tile-2: #1a1f1e; --sw-panel: rgba(20, 25, 24, .8); background: #9aa3a2; }
 @keyframes sw-in { from { opacity: 0; } }
 .sw__bg { position: absolute; inset: 0; pointer-events: none; overflow: hidden;
   background:
@@ -31,7 +35,7 @@
     linear-gradient(90deg, rgba(255, 255, 255, .07) 1px, transparent 1px) 0 0 / 1.2rem 1.2rem;
   -webkit-mask-image: linear-gradient(180deg, transparent, #000 20%, #000 70%, transparent);
           mask-image: linear-gradient(180deg, transparent, #000 20%, #000 70%, transparent); }
-.sw > .modal__body > :where(:not(.sw__bg)) { position: relative; }
+.swp > .modal__body > :where(:not(.sw__bg)) { position: relative; }
 /* ---- top bar ---- */
 .sw-top { flex: none; display: flex; align-items: center; justify-content: space-between; gap: .3rem; height: max(1rem, 50px); padding: 0 .34rem 0 .26rem; }
 .sw-top__left { display: flex; align-items: center; gap: .12rem; }

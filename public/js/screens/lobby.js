@@ -434,12 +434,12 @@ export function LobbyScreen() {
       </div>
       <div class="topbar__right">
         <${ResumeMatchButton} />
-        <${LoadoutButton} from="lobby" class="lobby-loadout" label=${t('干员调配')} />
         ${/* Mod 菜单 (fork, 需求方 2026-10-16): the 内容包 switches' own dialog, beside 干员调配 as asked. The five
              game-rule switches are NOT here — they live in 房主配置 → 对局选项. */
           html`<${ModMenuButton} class="lobby-modmenu" />`}
         <${Button} variant="secondary" size="sm" icon="book" class="lobby-sweep" onClick=${() => setSweepOpen(true)}
           title=${t('S.W.E.E.P.报告：盟约、策略与敌方资料')}>S.W.E.E.P.<//>
+        ${null /* 干员调配：上游 0.3.1 的顶栏只此一个。合并时 fork 那一份重复插了一次（图二），2026-10-24 去掉 */}
         <${LoadoutButton} from="lobby" size="sm" class="lobby-loadout" label=${t('干员调配')} />
         <button type="button" class="me-chip me-chip--btn stats-entry" onClick=${openStats} title=${t('统计数据')} aria-label=${t('统计数据')}>
           <${AvatarFrame} size="sm" name=${me.name} seat=${0} self=${true} />

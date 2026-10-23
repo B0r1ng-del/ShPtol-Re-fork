@@ -84,12 +84,22 @@ test('codexEnemies: one per 图鉴 number, no summon-only enemy, by number; boss
 
 test('the report is read-only and a full-screen Modal; the lobby opens it (source contract)', () => {
   const src = read('public/js/screens/sweep.js');
-  assert.match(src, /<\$\{Modal\} open=\$\{true\} onClose=\$\{onClose\} class="sw"/);
+  // The report's Modal class is `swp`, NOT `sw`: components.css's `.sw` is the fork's 44×24 switch button (PR #23), so a
+  // report container named `sw` was squeezed to 44×24 and its flex:1 body collapsed — the top bar drew, nothing below it.
+  // The `.sw-*` / `.sw__*` children keep their names (no clash); only the container had to move.
+  assert.match(src, /<\$\{Modal\} open=\$\{true\} onClose=\$\{onClose\} class="swp"/);
   assert.match(src, /<\$\{Modal\} open=\$\{true\} onClose=\$\{onClose\} class="sw-codex"/);
+  assert.doesNotMatch(src, /<\$\{Modal\} open=\$\{true\} onClose=\$\{onClose\} class="sw"/, 'the container must not be the switch class');
   assert.doesNotMatch(src, /openLoadout|savePref\((?!TAB_PREF)|net\.|room\./, 'nothing but the remembered tab is written');
   assert.doesNotMatch(src, /name="box"|name="dice"/, 'only icons of the project\'s set');
   const lobby = read('public/js/screens/lobby.js');
   assert.match(lobby, /import \{ SweepReport \} from '\.\/sweep\.js';/);
   assert.match(lobby, /\$\{sweepOpen \? html`<\$\{SweepReport\} onClose=\$\{\(\) => setSweepOpen\(false\)\} \/>` : null\}/);
   assert.match(read('public/index.html'), /<link rel="stylesheet" href="\/css\/screens\/sweep\.css" \/>/);
+  // both sides must agree: the JS container class and the CSS rules that size it
+  const css = read('public/css/screens/sweep.css');
+  assert.match(css, /\.modal__box\.swp, \.modal__box\.sw-codex \{ position: fixed; inset: 0;/);
+  assert.match(css, /^\.swp > \.modal__body, \.sw-codex > \.modal__body \{/m);
+  assert.doesNotMatch(css, /^\.sw \{/m, 'the report must not restyle the switch button');
+  assert.doesNotMatch(css, /^\.modal__box\.sw, /m);
 });
