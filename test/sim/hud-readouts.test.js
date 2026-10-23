@@ -174,7 +174,8 @@ test('only a 秘术师 has the row — 隐现 (a 速射手) never does — and a
 test('a 秘术师 whose kit keeps a store of its own (维伊\'s 转置能量) reports no `energy` row: her count is not the trait\'s', () => {
   const h = makeBattle({
     defs: { enemies: { e: enemyRec({ key: 'e', hp: 1e9, speed: 0 }) } }, timeLimit: 300, autoFinish: false, seed: 5,
-    units: [{ uid: 1, diy: { slot: 'chess_char_5_diy1_a', charId: VEEN, skillIndex: 0, uniEquipId: null }, elite: false, row: 10, col: 5 }],
+    // 二.3 / 二.4: 维伊 is a 东国/乌萨斯 chess, so she left the 自选 pool — field the chess record.
+    units: [{ uid: 1, chessId: 'chess_char_5_99_a', elite: false, row: 10, col: 5 }],
   });
   const u = h.unit(1);
   assert.ok(h.runUntil(() => (u.trait.veen?.t ?? 0) > 0, 60), 'she stores 转置能量 with no target on the field');

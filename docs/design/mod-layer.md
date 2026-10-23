@@ -1,30 +1,30 @@
-# DESIGN §34 — The mod layer: identity, loading, isolation, versioning, distribution
+# DESIGN §35 — The mod layer: identity, loading, isolation, versioning, distribution
 
 Part of [DESIGN.md](../DESIGN.md) (the index; section numbers are global).
 
 This section is the design for the middle layer between "content a pack can add" and "code a pack can run". It began as
 a proposal and is now partly implemented: identity and its wire-level verification
-(§34.2, §34.6), load-order arbitration with attribution (§34.3), the override surface (§34.5), operator packs
-(§34.10), the kit import whitelist (§34.12) and the four capability declarations of §34.13 (A 段: the schema, its
+(§35.2, §35.6), load-order arbitration with attribution (§35.3), the override surface (§35.5), operator packs
+(§35.10), the kit import whitelist (§35.12) and the four capability declarations of §35.13 (A 段: the schema, its
 refusals and its hash participation — the behaviour is B 段) all carry code and tests behind them. Sections that are
-still design say so in their own text (§34.8 says it outright) — read a section's status from the section, not from
-this header. §34.11 collects what is deliberately left out.
+still design say so in their own text (§35.8 says it outright) — read a section's status from the section, not from
+this header. §35.11 collects what is deliberately left out.
 
 Every `file:line` below was read at the revision this section was written against (`main` `1283050`, `APP_VERSION`
 `0.9.4`, `shared/constants.js:9`). A line number is a **snapshot, not a contract** — where a sentence is load-bearing it
-also names the symbol, because §34.5 is precisely about what happens when a line number rots (it has happened three
+also names the symbol, because §35.5 is precisely about what happens when a line number rots (it has happened three
 times in this repository already, once in the header of the module that teaches authors to write hooks).
 
-## 34. Mod layer: A content, B server logic, C client UI
+## 35. Mod layer: A content, B server logic, C client UI
 
-### 34.1 The ruling, and what is already there
+### 35.1 The ruling, and what is already there
 
 The owner's ruling of 2026-10-09 fixes three layers:
 
 | layer | what it is | who executes it | when it may change a battle result |
 |---|---|---|---|
 | **A** content | declarative data, no code: the workshop pack of today (`shared/workshop.js:3394` `applyWorkshop`) | nobody — it is merged into the data every consumer reads (`server/data.js:92`) | always, and never detectably by the golden corpus (the corpus is generated from the official `data/*.json`, `test/golden/README.md:8-10`) |
-| **B** server logic | hooks and kits: the code of `workshop/<pack>/kits/<id>.js` (`server/workshop.js:390` `loadWorkshopKits`) — one file-name rule over **two key spaces**, operator and summon (§34.12.1) | **the server only** — this is new | only through the hooks it registers, and only after a declared intent passes deterministic verification |
+| **B** server logic | hooks and kits: the code of `workshop/<pack>/kits/<id>.js` (`server/workshop.js:390` `loadWorkshopKits`) — one file-name rule over **two key spaces**, operator and summon (§35.12.1) | **the server only** — this is new | only through the hooks it registers, and only after a declared intent passes deterministic verification |
 | **C** client UI | rendering, themes, panels | the player's tab | never |
 
 Two sentences in the repository already fix the constraints this design must satisfy at once, and they are currently
@@ -38,7 +38,7 @@ written as if they conflicted:
 
 The ruling resolves them: **B runs on the server, so the `docs/PACKS.md:137-138` objection no longer applies** (the
 owner has now taken that separate decision), and the `docs/WORKSHOP.md:612` warning stops being a permanent hazard
-because a room containing a B pack is no longer simulated in the player's tab (§34.4). The three-channel distribution
+because a room containing a B pack is no longer simulated in the player's tab (§35.4). The three-channel distribution
 (`docs/WORKSHOP.md:612`) stays.
 
 What already exists, and must not be rebuilt: the two event buses (`server/sim/battle/hooks.js:17` `on`, `:57` `emit`;
@@ -48,7 +48,7 @@ What already exists, and must not be rebuilt: the two event buses (`server/sim/b
 author-side validator (`tools/workshop-validate.mjs:11-14`). The middle layer is the **seam** between them: who a pack
 is, who wins when two of them want the same id, and what has to be true before its code is allowed to run.
 
-### 34.2 Identity (gap 1)
+### 35.2 Identity (gap 1)
 
 Today a pack has an `id` (the directory name, `shared/workshop.js:377-379`) and free-text metadata
 (`shared/workshop.js:700-703`), and the BattleSpec carries only `SPEC_VERSION = 1` (`server/sim/spec.js:39`, written at
@@ -61,7 +61,7 @@ in the wire, in the data or in the match for "which content is this room running
 { id: 'abyss', hash: '<64 lowercase hex>', api: '>=1 <2', layer: 'B', combat: true }
 ```
 
-`hash` is the sha256 of the pack's **content manifest**, `api` is the declared API range (§34.5), `layer` is the
+`hash` is the sha256 of the pack's **content manifest**, `api` is the declared API range (§35.5), `layer` is the
 artifact kind, `combat` is the declared intent ("this pack can change a battle result"). A room's identity is the
 **digest** of its sorted list: `sha256` of the canonical JSON of `[{id, hash}, …]` sorted by `id`. That single string is
 what `welcome`, `/healthz`, the BattleSpec and a bug report all quote, so four different places cannot disagree.
@@ -84,7 +84,7 @@ over exactly the bytes the loader reads and the browser will be served:
 function, `server/packFiles.js listPackFiles` (`:42`): recursive, sorted by path, symlinks neither followed nor listed,
 `[]` when the directory is not there. `identifyPack` (`server/workshop.js:911`) builds the manifest from it, and
 `server/modCatalog.js catalogFiles` (`:174`) refuses to publish a row the same call does not return. **The list the pack
-hash is taken over IS the client's download list** (`GET /mods/catalog.json`, §34.9): one list, two consumers, so the two
+hash is taken over IS the client's download list** (`GET /mods/catalog.json`, §35.9): one list, two consumers, so the two
 cannot drift. The failure B was decided to remove is not "the digest is a little off": a file that a declared module
 imports and that neither list names is a file a clean client never downloads — the pack runs on the server and cannot
 even resolve its imports in the browser.
@@ -102,7 +102,7 @@ turn the download list into a reader for the game's own tree. The loader itself 
 (`fs.statSync`), so a pack must not ship one — that mismatch is deliberate and errs toward not serving bytes from outside
 the pack.
 
-**The one row that is not a file.** A pack that declares `assets` (§34.13.5) contributes the container's sha256 under the
+**The one row that is not a file.** A pack that declares `assets` (§35.13.5) contributes the container's sha256 under the
 reserved path `assets.container.sha256` (`server/packFiles.js ASSETS_DIGEST_PATH` `:28`). It has no bytes on disk, so
 `listPackFiles` cannot return it and `catalogFiles` derives it from the container's own row instead of copying it — and
 publishes it, with the digest text (64 bytes, `server/packFiles.js containerDigestBytes` `:77`) served by
@@ -120,7 +120,7 @@ matters and is the answer for the third file the ruling names:
   record a unit actually fights with from `data/chess.json` plus the player's picks — `resolveRecordLoadout` (`:18`),
   `composeStats` (`:37`), `composeTalents` (`:48`), `loadoutRecord` (`:79`). If the pack hash covered *derived* records,
   every engine change would change every pack's hash and no pack could prove it was the same pack as yesterday. So: the
-  hash covers a pack's own bytes; the **engine** half of the identity is `api` (§34.5). One consequence has to be
+  hash covers a pack's own bytes; the **engine** half of the identity is `api` (§35.5). One consequence has to be
   designed for rather than discovered later: a loadout pick is validated against the **merged** data
   (`shared/protocol.js:235` `checkLoadout`, `:266` `resolveLoadout`), and an id that exists on the server can be an
   unknown id in a client that has a different pack set — where `lookup` returns `null` (`server/data.js:156-159`) and
@@ -176,7 +176,7 @@ matters and is the answer for the third file the ruling names:
   the plain-install path is untouched. `lobby.stats()` carries the digest into `/healthz`; `Match.mods` carries it into
   every spec.
 
-### 34.3 Loading (gap 2): one rule for "who wins", and attribution that names the pack
+### 35.3 Loading (gap 2): one rule for "who wins", and attribution that names the pack
 
 **Decided by the owner on 2026-10-09 and refined the same day, and implemented** (the points below are the ruling in
 substance; the first step of the slice carries them, `docs/WORKSHOP.md` §1.2 states them for authors):
@@ -218,7 +218,7 @@ pack id that holds the record, or the string `official`. The text says the same 
 
 - official: `"<id>" already exists in the official data — add "<file>:<id>" to pack.json overrides to replace it` (`OFFICIAL_ID_COLLISION`)
 - against another pack: `"<id>" is already contributed by pack "<X>" — the pack with the smaller id keeps it (DESIGN
-  §34.3). Rename this record, or let "<X>" drop it; an "overrides" entry does not win against another pack` (`PACK_ID_COLLISION`)
+  §35.3). Rename this record, or let "<X>" drop it; an "overrides" entry does not win against another pack` (`PACK_ID_COLLISION`)
 - kit: `kit "<id>" is already defined by pack "<X>"` (`KIT_ID_COLLISION`, `server/workshop.js:1249-1253`)
 - icon / art: `another pack (<X>) already ships …` (`ASSET_COLLISION`, with `definedBy` as well)
 
@@ -311,7 +311,7 @@ The entry points are the official-record lists the operator and monster pages al
 `data/chess.json` field for field, with a pack loaded the author's number wins and the key count is unchanged, and the
 0.2.2 potential chain survives an editor save for both the normal and the elite record.
 
-### 34.4 Isolation (gap 3)
+### 35.4 Isolation (gap 3)
 
 **Server authority.** The behaviour layer runs in the player's browser by default today (`server/match/Match.js:107`, `:202-203`),
 and `docs/WORKSHOP.md:612` records the consequence honestly. Under the ruling, a room whose mod set contains any
@@ -331,7 +331,7 @@ now runs those fields itself, sliced by the existing wall-clock budget (`server/
 That is the price of the guarantee, and it is why `combat: false` packs matter: they keep the cheap path.
 
 **No file system, no network.** `KIT_IMPORT` is an error for anything outside the kit import whitelist
-(`shared/kitImports.js`, §34.12) and the environment globals are already scanned for (`shared/kitAuthoring.js`
+(`shared/kitImports.js`, §35.12) and the environment globals are already scanned for (`shared/kitAuthoring.js`
 `KIT_FORBIDDEN_GLOBALS`, checked inside `validateKit`) — but as **warnings**
 (`KIT_NONDETERMINISTIC`). Under server-only execution a `Date.now()` is no longer excusable as "both sides ran
 it"; it is a direct threat to the recomputation the match depends on. Design: **`KIT_NONDETERMINISTIC` becomes an
@@ -357,18 +357,18 @@ while the result is still accepted. Two decisions:
 and they are only reachable through `m.simErrorLog` (`server/match/Match.js:127-129`) or `tools/matchrun.mjs --errors`. The cap is
 right (it is a memory and wire budget) so the design keeps it and adds what the cap omits: **per-owner counters** —
 `battle.errorCounts` keyed by owner label, unbounded in keys but bounded in memory, so the *summary* is complete even
-when the detail log is truncated. The counters are what reaches the author (§34.7).
+when the detail log is truncated. The counters are what reaches the author (§35.7).
 
 **Time budget.** There is no timeout that can interrupt a handler: a tick is one synchronous call
 (`server/sim/battle/lifecycle.js:70`), so a loop in a pack hangs a battle in the browser and, for a server-run field,
 a scheduler callback. The design does not pretend to add preemption (that is a runtime change, not a middle-layer one).
-What it does is make the budget visible and enforceable at load: a pack's verification run (§34.6) measures the wall
+What it does is make the budget visible and enforceable at load: a pack's verification run (§35.6) measures the wall
 clock of the fixed scenario list with and without the pack, and a `combat: false` pack whose cost exceeds a declared
 budget is refused. On the client side, layer C is the only place a mod touches rendering, and B never reaches a tab
-(§34.4 first paragraph) — so the "no budget in the browser" hole is closed by removing browser execution rather than by
+(§35.4 first paragraph) — so the "no budget in the browser" hole is closed by removing browser execution rather than by
 inventing a timer.
 
-### 34.5 Versioning (gap 4)
+### 35.5 Versioning (gap 4)
 
 `gameVersion` is metadata and nothing reads it (`docs/WORKSHOP.md:610` records version alignment, dependency
 declaration and content addressing as unimplemented), while the editor writes the string `'0.2.2'` in seven places
@@ -383,7 +383,7 @@ the intended policy — *outside the range the pack still loads, what it lacks f
 
 - `api` — the **mod-layer API** range, compared against a new constant in `shared/constants.js` next to `APP_VERSION`
   (`:9`): the version of the hook bus and the kit contract. This is the half that covers engine code, and it is the
-  reason a pack's hash does not have to (§34.2).
+  reason a pack's hash does not have to (§35.2).
 - `game` — the **upstream game version** range, compared against the value `pack.json.gameVersion` means today. The port
   already needs that number to exist as a constant (today the upstream half "lives only in release tags, docs and
   `pack.json`"), so this is a field the middle layer spends rather than invents.
@@ -436,7 +436,7 @@ exists and is not blank" guard (`docs/prompts/README.md:252` was the one that fi
 follows: after touching a file that any document cites, run the citation sweep, and prefer naming a symbol over a line
 number whenever the sentence can carry the symbol.
 
-### 34.6 Deterministic verification (the enforcement mechanism)
+### 35.6 Deterministic verification (the enforcement mechanism)
 
 The golden corpus cannot be the check, and saying why is the design: it is generated from the official `data/*.json`
 (`test/golden/README.md:8-10`), it deliberately ignores exactly the things a pack adds, and "a new engine hook, event or
@@ -477,7 +477,7 @@ pack "abyss": roster/chess_char_3_18_a diverged from vanilla at game s 42.3 (tic
 bond, one match), prints the list it used, and runs both arms in one process. A pack that is expensive to verify is a
 pack whose author will run the verifier less often, which is the failure mode to design against, not the cost.
 
-### 34.7 Author debugging (gap 5)
+### 35.7 Author debugging (gap 5)
 
 The inventory's conclusion is that failure is silent by default, and the middle layer multiplies it. One design response
 per row:
@@ -485,13 +485,13 @@ per row:
 | silent failure today | the design's answer |
 |---|---|
 | a hook name nothing emits never fires and nothing reports it (`server/sim/battle/hooks.js:17-25`, `:57-59`) | the static check already suggests a near miss (`HOOK_UNKNOWN_EVENT`, `shared/kitAuthoring.js:235-237`), but it is text analysis. Add a **runtime** report: `on` keeps the registration in `this._hooks[name]` (`server/sim/battle/hooks.js:20`), so at `battleEnd` the bus can name every pack-owned hook that was registered and never emitted. A typo then costs one battle instead of one bug report. |
-| non-determinism is a warning (`shared/kitAuthoring.js:222-227`) | an error for layer B (§34.4), and the refusal quotes the construct *and* its source line, so it stops being "a reason that looks nothing like 'you used Math.random'" (`shared/kitAuthoring.js:13-17`). |
+| non-determinism is a warning (`shared/kitAuthoring.js:222-227`) | an error for layer B (§35.4), and the refusal quotes the construct *and* its source line, so it stops being "a reason that looks nothing like 'you used Math.random'" (`shared/kitAuthoring.js:13-17`). |
 | a kit that returns no `skill` leaves the operator with no skill (`docs/WORKSHOP.md:2571`) | the loader knows both facts — a kit was injected *and* `skillSource` says where the skill came from (`server/sim/content/index.js:214`, `:219`). A pack kit with no skill becomes a validation error the editor shows before saving, not a live surprise. |
 | a `chess.assets.spine` that points at an uninstalled model draws a flat portrait and logs nothing (`shared/workshop.js:3385-3417`) | already solved by `report.looks` (logged at `server/data.js:97`) — generalise it: every field that degrades silently gets a `looks`-style check, and the editor surface must show it, not only the server log. |
-| the editor deliberately does not import author files (`editor/server.mjs:428-431`) | **do not change this.** An HTTP endpoint that executes author code is a code-execution surface. Instead expose the verifier of §34.6 as an explicit action that runs in the **playtest subprocess** (`server/index.js:72-76` `SP_WORKSHOP`), which is already a separate process. |
-| runtime errors land in a 100-entry array reachable only through `m.simErrorLog` (`server/match/Match.js:127-129`, `server/sim/battle/hooks.js:167-185`) | per-owner counters (§34.4), plus the room's mod digest on every error line, so a player's bug report carries the identity of the content it came from. |
+| the editor deliberately does not import author files (`editor/server.mjs:428-431`) | **do not change this.** An HTTP endpoint that executes author code is a code-execution surface. Instead expose the verifier of §35.6 as an explicit action that runs in the **playtest subprocess** (`server/index.js:72-76` `SP_WORKSHOP`), which is already a separate process. |
+| runtime errors land in a 100-entry array reachable only through `m.simErrorLog` (`server/match/Match.js:127-129`, `server/sim/battle/hooks.js:167-185`) | per-owner counters (§35.4), plus the room's mod digest on every error line, so a player's bug report carries the identity of the content it came from. |
 
-### 34.8 Layer C and the client: a minimal registration point
+### 35.8 Layer C and the client: a minimal registration point
 
 The client has no plugin surface: `public/js/main.js:75` is a frozen `SCREENS` object, `:311` resolves a route as
 `SCREENS[route] || LobbyScreen`, and the routes themselves come from `selectRoute` (`public/js/store.js:118-128`). What
@@ -503,7 +503,7 @@ is `pack.json.client.panels[]`, and the module travels over the HTTP route `/wor
 (`server/http/workshop.js workshopPanelFilesFor`, served by `server/http/static.js`). **The browser learns the list in a
 frame the server already sends**: `welcome.modPanels` (`server/lobby.js welcomeInfo`), so a server whose packs declare
 no `client` produces no new request, no new DOM and no new global — the same "a JSON-safe module list, built by the
-server" shape `spec.workshopKits` has for kits (§34.13), and the reason the list is not fetched.
+server" shape `spec.workshopKits` has for kits (§35.13), and the reason the list is not fetched.
 
 - **Nine slots, in two kinds, and no container exists until something needs one.** The first four are 0.11.0's fixed
   overlays: the registry creates the `[data-mod-slot]` container on demand (`browserSlotHost`, styled by
@@ -517,20 +517,20 @@ server" shape `spec.workshopKits` has for kits (§34.13), and the reason the lis
   `client` still adds **no DOM at all** (`display: contents` on a host that mounts nothing, `pointer-events: none` on an
   idle panel), so an installed pack cannot eat a click on a shop card.
 - **`order`, then pack id, then panel id.** `order` (default 0) decides the mount sequence, ties break on the smaller
-  pack id — DESIGN §34.3's rule, applied to a list, so the order never depends on the discovery order or the wire order.
+  pack id — DESIGN §35.3's rule, applied to a list, so the order never depends on the discovery order or the wire order.
 - **`gate` is a dotted path into the client store**, read-only (`session.preloadRequired`, `session.entered`). A panel
   mounts the first time its gate is truthy and is never unmounted; a gate naming a path the store does not have is
-  **refused by name** instead of never appearing (the discipline §34.13.3 states for the pack side, applied to the one
+  **refused by name** instead of never appearing (the discipline §35.13.3 states for the pack side, applied to the one
   judgement only the client can make — the store is the client's truth, and copying a path list into `shared/` would be
   a second truth that drifts).
 - **`client.requires` is a capability check, not a promise.** `serviceWorker` / `cacheStorage` / `webCrypto`; a missing
   one refuses that pack's panels **and says so** (a named console error and a toast), because "installed but silently
-  doing nothing" is the failure mode §34.13 named.
+  doing nothing" is the failure mode §35.13 named.
 - **The registry is filled only from the server's data** — the list arrives in `welcome`, a module URL is a same-origin
   `/workshop-panels/…` path or it is refused, and a URL no loader registered answers 404 (the same stance
   `workshopKitFilesFor` takes, `server/http/workshop.js:49-64` used to state it for kits).
 - **A C module is part of its pack's hash** (`server/workshop.js identifyPack` hashes the declared `module` bytes), and
-  the pack is marked in the UI like any other (§34.9) — a pack that only mounts a panel derives as layer **C**.
+  the pack is marked in the UI like any other (§35.9) — a pack that only mounts a panel derives as layer **C**.
 - **The boundary is enforced by what is not passed in.** A panel's factory receives a frozen
   `{ id, pack, slot, order, gate, log, host, session, net }`: `host` is a plain element the registry owns,
   `session.setPreload({ required, ready })` is the only store write, and `net.{ on, sendResourceMessage }` is the only
@@ -538,7 +538,7 @@ server" shape `spec.workshopKits` has for kits (§34.13), and the reason the lis
   wrong in the rendering sense and cannot be wrong in the result sense — which is the whole content of "does not change
   battle results".
 - **A declaration that cannot be used refuses the whole pack** (`CLIENT_BAD_PANEL_MODULE`): the module must exist in the
-  pack, be a `.js`, and resolve inside it. See §34.13.3.
+  pack, be a `.js`, and resolve inside it. See §35.13.3.
 
 Two client prerequisites landed with it, both named by the community resource-pack mod's reconnaissance and both
 previously missing: `net.sendResourceMessage` (`public/js/net.js`) sends `resource.proof` /
@@ -548,7 +548,7 @@ previously missing: `net.sendResourceMessage` (`public/js/net.js`) sends `resour
 existing `session` instead of replacing it) give a pack an entry gate that the localStorage "already entered" flag
 cannot bypass.
 
-### 34.9 Distribution (the 5th gap)
+### 35.9 Distribution (the 5th gap)
 
 Two channels, already decided (`docs/WORKSHOP.md:612`): the official bundle stays clean (`docs/PACKS.md:133-134`,
 `:139`), workshop content ships separately through the existing zip path (`shared/zip.js`,
@@ -559,7 +559,7 @@ surfaces quoting one string:
 2. `/healthz` (`server/http/routes.js:24`) — the same digest for a bug report and for the client's build guard;
 3. the BattleSpec (`server/sim/spec.js:79-81`) — what *this field* ran with;
 4. the room/lobby UI — the "modded" mark, and the refusal when a client cannot confirm the digest (`room.join.mods`,
-   §34.2).
+   §35.2).
 
 Two vocabulary decisions belong here because they are cheap now and expensive later:
 
@@ -593,10 +593,10 @@ safe to add without a flag day:
 
 Finally, `tools/package.mjs:13-14` and `:174-175` (the `git ls-files` allowlist) mean a mod-layer file that is not
 committed does not ship. A hash computed from the manifest could describe content no player has; a hash computed from
-the files really on disk (or, in a release, from the files really in the archive) cannot. That is the reason §34.2
+the files really on disk (or, in a release, from the files really in the archive) cannot. That is the reason §35.2
 computes from bytes.
 
-### 34.10 Operator packs: `units`, `operators`, and the two flat icon tables
+### 35.10 Operator packs: `units`, `operators`, and the two flat icon tables
 
 The B-段 channel for "a pack adds ONE operator" (`docs/WORKSHOP.md` §1.2). Before it, a community mod could ship an
 operator's RECORD, media and voice lines as a pack but the operator still did not exist where a player meets one: the
@@ -652,7 +652,7 @@ records' `status`), never a hardcoded `2/60/7/3`: a data change that adds a slot
 record's own shape is checked just as narrowly: six fields, everything else copied verbatim, because re-stating the
 official schema would create a second truth that drifts (the same stance `ART_TABLES` takes for art).
 
-Ordering follows §34.3 unchanged: packs merge in `byPackId` order, so the smaller pack id keeps a contested `charId`
+Ordering follows §35.3 unchanged: packs merge in `byPackId` order, so the smaller pack id keeps a contested `charId`
 and the loser is named (`contributors` + `PACK_ID_COLLISION`). Two faces report it, because the loser's *declaration*
 is refused one layer later — it has no record to declare.
 
@@ -677,35 +677,35 @@ reference census** (it names `data/backups.json`'s record keys, `diy.operators`'
 complementary — the guard says "these positions must not move", this section says "and here is the supported way to
 reach the same content".
 
-### 34.11 What this section does not decide
+### 35.11 What this section does not decide
 
 - **No sandbox for layer B.** The ruling is "the server executes it", not "untrusted code executes safely". A pack with
-  a `while(true)` is refused by the load-time budget check (§34.4), not contained.
+  a `while(true)` is refused by the load-time budget check (§35.4), not contained.
 - **No hot reload.** The pack set is fixed for the process; a digest that can change mid-match is worse than a restart.
 - **No code signing, no author identity.** `pack.json`'s `author` stays metadata (`shared/workshop.js:700-703`); the
   hash proves *which* bytes, not *whose*.
 - **No WASM kernel decision.** That is the performance benchmark's call, and it is a different layer: a faster kernel is
-  a `combat: false` change and would be verified by §34.6 like any other.
+  a `combat: false` change and would be verified by §35.6 like any other.
 - **The section number is contended.** `test/docs-paths.test.js:96-113` requires every `## N.` block to live exactly
-  once and to run without gaps (no duplicate, no hole). The in-flight upstream 0.2.2 port claims §34 for its own
+  once and to run without gaps (no duplicate, no hole). The in-flight upstream 0.2.2 port claims §35 for its own
   revision section, and it also rewrites the same index table row area in `docs/DESIGN.md`. Whichever lands second
-  renumbers; if the port lands first, this section becomes §34 and its subsections renumber with it. Its index row is
+  renumbers; if the port lands first, this section becomes §35 and its subsections renumber with it. Its index row is
   appended at the bottom of that table for exactly this reason.
 - **Not everything here is implemented.** The gaps that closed (identity, load-order arbitration, the override
   surface, operator packs, kit import, the two middle-layer declarations `server.preDispatch` / `routes`, and since
-  B2 段 the client registration point §34.8) have code and tests named in their sections; the rest are still design —
+  B2 段 the client registration point §35.8) have code and tests named in their sections; the rest are still design —
   `assets` (the container, the Service Worker policy) is B3 段 — and each such section says so in its own text.
-- **Theme variables and panel stylesheets — both, per the owner's ruling of 2026-10-10.** §34.8's draft sketched a
+- **Theme variables and panel stylesheets — both, per the owner's ruling of 2026-10-10.** §35.8's draft sketched a
   `registerTheme({ id, pack, vars })`; that half is now `client.theme.vars` — CSS custom properties, **additive**,
   written by `public/js/ui/extensions.js applyTheme` and restored on `dispose`. The same ruling added the other half,
   because variables cannot express *a whole new component's styles*: `client.panels[].styles[]` injects the pack's own
   `.css` over the same registered route (`/workshop-panels/<pack>/<file>.css`, `text/css`), appended to `<head>` so it
   lands after the engine's styles, and removed on `dispose`. The variable namespace is arbitrated like every other
   collision in this layer — the **smaller pack id** holds a variable and a later pack writing the same name is refused
-  by name (`CLIENT_THEME_VAR_TAKEN`, §34.3). This supersedes the earlier "no theme registration" stance: the reference
+  by name (`CLIENT_THEME_VAR_TAKEN`, §35.3). This supersedes the earlier "no theme registration" stance: the reference
   community pack needed both halves (chat 21 KB / devices 11.7 KB / title 22 KB of component stylesheets).
 
-### 34.12 The kit import surface (gap ④): a whitelist, resolved on both ends
+### 35.12 The kit import surface (gap ④): a whitelist, resolved on both ends
 
 **The defect, stated as the code states it.** A pack kit is one file with two loaders:
 
@@ -742,17 +742,17 @@ generated by `kitImportMap()` and pinned to the table by `test/kitImports.test.j
 added to the map is a red test rather than a 404 in a player's browser.
 
 The shared verdict is the part that matters for this design: `validateKit` and `loadWorkshopKits` both call
-`kitImportIssues()`, so **the editor cannot pass a kit the loader then refuses** — the property §34.3 states for the
+`kitImportIssues()`, so **the editor cannot pass a kit the loader then refuses** — the property §35.3 states for the
 data overlay, now true for the behaviour layer's imports as well. The loader's error keeps the validator's `code` and
 its exact `reason`, and `test/kitImports.test.js` asserts that equality on a refused kit.
 
 **What deliberately did not change.**
 
-- **The pack hash.** §34.2 hashes `kits/*.js` from the bytes on disk (`identifyPack` → `[path, sha256]`). The rewrite
+- **The pack hash.** §35.2 hashes `kits/*.js` from the bytes on disk (`identifyPack` → `[path, sha256]`). The rewrite
   happens in memory and never touches a file, so both ends still describe the same bytes — a hash taken over the
   rewritten text would be a hash of something no author wrote and no browser receives.
 - **The determinism rules.** `Math.random` / `Date.now` / `fetch` / `document` … keep their existing verdict
-  (a warning today, §34.4's pending error for `layer: B`); this section only moves the import line.
+  (a warning today, §35.4's pending error for `layer: B`); this section only moves the import line.
 - **The module set is closed.** There is no "import anything under `server/sim/`" escape hatch: `@sim/` opens three
   files, not a directory. Widening it is a one-line change to a table that a test reads, which is the point — the
   boundary should be visible in a diff, not implied by a path.
@@ -774,9 +774,9 @@ itself is the browser's job; `test/ui/kitimports.e2e.test.js` is the opt-in chec
 asserts the export-name floor, and asserts a specifier outside the whitelist does not resolve there either), and until
 someone runs it on a machine with Chrome this remains the standing gap recorded in `docs/WORKSHOP.md` §4.4.
 
-### 34.12.1 The second key space: a kit may target an OPERATOR or a SUMMON (2026-10-11)
+### 35.12.1 The second key space: a kit may target an OPERATOR or a SUMMON (2026-10-11)
 
-**The defect, stated as the code states it.** §34.12 closed the kit *import* surface. The kit **key** surface was still
+**The defect, stated as the code states it.** §35.12 closed the kit *import* surface. The kit **key** surface was still
 one-sided: `server/sim/content/index.js setupUnitKit()` resolves an operator's kit through `kitOf()` (keyed by
 `def.charId` for a 补位 / 自选 piece, else `def.baseId` / `def.id`), and a **summon's** kit through a second, entirely
 separate table — `tokens.kits?.[def.id]` (`server/sim/content/tokens.js:1624` builds it from `RAW_KITS`, one entry per official token).
@@ -791,7 +791,7 @@ per spawn, the honest answer would have been to stop and report, because a chann
 missing one.)
 
 **The design: one file-name rule, two independently arbitrated spaces.** A pack kit is still `<packDir>/kits/<id>.js`
-and still a top-level `.js` whose basename does not start with `_` (§34.18) — no new suffix, no subdirectory, no second
+and still a top-level `.js` whose basename does not start with `_` (§35.18) — no new suffix, no subdirectory, no second
 loader rule to keep in sync. What changed is that the id is judged in **two** spaces:
 
 | space | how the engine resolves it | which targets the pack owns |
@@ -809,7 +809,7 @@ to eliminate. The same rule is reproduced in `shared/kitAuthoring.js` (`ambiguou
 the loader reach one verdict.
 
 **Independent arbitration, both halves.** Each space owns its own registry, its own holder map and its own refusal, so an
-operator kit and a summon kit of the same name never hide each other; the collision rule is unchanged (§34.3: the
+operator kit and a summon kit of the same name never hide each other; the collision rule is unchanged (§35.3: the
 smaller pack id wins, the loser is named) and is applied **once per space**. Both spaces travel to the browser in the
 **same** `spec.workshopKits` list, with a summon module marked `kind: 'token'` and an operator module unchanged
 (absent marker ⇒ operator), so every existing reader of that list keeps its exact meaning. The server injects the two
@@ -841,18 +841,18 @@ maps, and `setupUnitKit` prefers the injected summon kit while falling back to t
 an ambiguous id is refused. The token record id is asserted to equal the key the engine looks up, so the channel cannot
 rot into a silent no-op without a red test.
 
-**复算与真跑必须用同一份 kit 表 (2026-10-12).** The server assembles a Battle in two places, and §34.12.1's two key
+**复算与真跑必须用同一份 kit 表 (2026-10-12).** The server assembles a Battle in two places, and §35.12.1's two key
 spaces have to reach **both**: `MatchCombat.newBattle` (server/match/match/combat.js — the battle the server really runs)
 takes `this.workshopKits` / `this.workshopTokenKits`, and `MatchClientCombat._specBattle` (server/match/match/
 clientCombat.js — the headless run, a takeover and **the `SP_VERIFY` re-computation** of a client's result) takes them
 too. Both read the same fields, which come from **one** source: `lobby.js` hands `roomAssets.forRoom(room.modSet)`
-(W-B, §34.16 — the room's declared packs are what this match runs) to `Match opts`, and `Match.js` stores them verbatim
+(W-B, §35.16 — the room's declared packs are what this match runs) to `Match opts`, and `Match.js` stores them verbatim
 (`assets ? assets.kits : this.workshop.kits`). So the sentence is exact: the re-computation must use *that* map — the one
 the room's declared set was trimmed down to — not the process-wide one and not a fresh copy.
 
 **What the missing half did.** Until this was closed, `_specBattle` passed only `BattleClass` / `sharedBoss` / `logger` /
 `recordEvents` / `battleInstallers`, never `kits` / `tokenKits`. In a room with a kit-carrying pack, the client simulated
-with the pack's behaviour layer (it rebuilds both maps from `spec.workshopKits`, §34.12.1) while the server re-computed
+with the pack's behaviour layer (it rebuilds both maps from `spec.workshopKits`, §35.12.1) while the server re-computed
 with the **built-in registry** — two different battles by construction. `_verifyResult` then compares result digests
 (`resultDigest`), so the mismatch surfaced as a false "client result differs from the server's simulation" (the honest
 player's real result replaced by the server's), and a genuinely wrong result could pass when both sides happened to agree
@@ -868,7 +868,7 @@ The discipline is unchanged: each key is spread only when the match really has i
 before: `setupUnitKit` consults `opts.kits` / `opts.tokenKits` only on a hit, so the battle is unchanged (the existing
 "no packs: no maps vs EMPTY maps produce identical results" test pins that).
 
-**What is verified.** `test/workshopKits.test.js` (复算与真跑, §34.12.1): with a kit-carrying pack,
+**What is verified.** `test/workshopKits.test.js` (复算与真跑, §35.12.1): with a kit-carrying pack,
 `_specBattle(f.spec)` carries the match's own map by **identity** (`battle.opts.kits === match.workshopKits`, and the
 pack's kit function itself), the same for `tokenKits`; on a no-pack install neither key appears and the `Battle opts` of
 two same-seed runs are field-for-field equal; and the real-run assembly (`newBattle`) versus the re-computation
@@ -877,9 +877,9 @@ two spreads to empty objects turns two of those tests red. `test/battleOpts.test
 instead: the helper's own truth table (a key only when the match has it, an explicit per-battle option wins), and — on a
 real match driven to COMBAT — that both paths' `Battle opts` are field-for-field equal and are what the helper returned.
 
-### 34.12.2 按文件开放官方 ops kit：`@ops/` 是命名空间，准入判据仍是那张表（2026-10-14）
+### 35.12.2 按文件开放官方 ops kit：`@ops/` 是命名空间，准入判据仍是那张表（2026-10-14）
 
-**The defect, stated as the code states it.** §34.12 的表把包能 import 的东西收成两类：kit SDK（`@kit/tier1..6` +
+**The defect, stated as the code states it.** §35.12 的表把包能 import 的东西收成两类：kit SDK（`@kit/tier1..6` +
 `@kit/summoner.js`）与三个纯函数模块（`@sim/constants` `dir` `targeting`）。它**没有**给「复用引擎自带的官方 ops kit」
 留路，而工坊包 `rimbilliton`（雷姆必拓）正是这一类：它的 4 张棋子卡就是 4 名官方干员换皮，作者的 kit 是极薄的委派 ——
 
@@ -916,7 +916,7 @@ export default (bb, chess, def) => {
 否则作者看到的是「这个命名空间不存在」，真相却是「它在，只是这个文件没开」。**准入判据始终是 `KIT_IMPORT_FILES`**：
 `kitImportIssues` 走的是 `targets.has(specifier)`，所以 `@ops/op-siege.js`、`@ops/op-chen.js` 这类**同前缀、未列名**
 的文件今天仍然被拒。这条界线由 `test/kitImports.test.js` §⑥ 钉住（其中一条就断言那几个文件仍被拒、且理由说的是
-「前缀合法」）。这正是 §34.12 那句「the boundary should be visible in a diff, not implied by a path」的同一个做法：
+「前缀合法」）。这正是 §35.12 那句「the boundary should be visible in a diff, not implied by a path」的同一个做法：
 开的是 **4 行**，不是 1 个前缀。
 
 **为什么这 4 行两端都不需要改写文件（所以也别去改写它）。** 靠的是同一个性质：**两端都是按真实位置加载它**。
@@ -929,7 +929,7 @@ export default (bb, chess, def) => {
   `server/sim/body.js` 是同一个文件。
 
 ⚠️ 所以 `@ops/` 这一族**不做任何 import 改写**：`rewriteKitImports` 只重写它认得的白名单 specifier，给 ops kit 做
-内部改写会把它的相对路径弄坏（`data:` 模块没有目录 —— 正是 §34.12 那条理由的反面）。
+内部改写会把它的相对路径弄坏（`data:` 模块没有目录 —— 正是 §35.12 那条理由的反面）。
 
 **What deliberately did not change.**
 
@@ -939,7 +939,7 @@ export default (bb, chess, def) => {
 - **`@sim/` 那三个文件的门、`@battle/` 的门都没动。** 唯一跟着变的是**说清拒绝理由**那一处：
   `KNOWN_IMPORT_PREFIXES` 现在从两份前缀常量算出来，不再在 `kitImportUnavailableReason` 里抄第二份 ——
   抄了就会在前缀表变动时给出错的那一句（`@ops/` 进表时正是这条分支要跟着改）。
-- **包的哈希与 `./…` 规则一字未动**，与 §34.12 逐条相同。
+- **包的哈希与 `./…` 规则一字未动**，与 §35.12 逐条相同。
 
 **What is verified.** `test/kitImports.test.js` §⑥（5 条）：这 4 条逐条在表里、指向真实文件、浏览器 URL 落在 `/sim/`
 上；`@ops/` 下 5 个**未列名**的文件仍被拒且理由是「前缀合法」；`kitImportMap()` 为 `@ops/` 给出的前缀与
@@ -954,7 +954,7 @@ kit，断言零 error），且同前缀未列名的夹具仍被拒（`test/works
 （失败信息就是 `@ops/op-shwaz.js 必须在 KIT_IMPORT_FILES 里…` 与 `未知前缀 "@ops/"`）；加完之后整个文件
 `pass 41 / fail 0`（含这一段 5 条）。
 
-### 34.13 The four capability declarations: `assets`, `client`, `server.preDispatch`, `routes` + the top-level key closure and `i18n` (A 段 + B1 段 + B2 段 + B3a 段 + B4 段 + B5 段)
+### 35.13 The four capability declarations: `assets`, `client`, `server.preDispatch`, `routes` + the top-level key closure and `i18n` (A 段 + B1 段 + B2 段 + B3a 段 + B4 段 + B5 段)
 
 **The gap, stated by its own verdict.** A third-party mod ("full resource pack: import, verify, server admission") was
 rewritten into this repository's pack format and then judged by the REAL validator, on both this branch and the middle
@@ -965,17 +965,17 @@ the reasons are in `_up/mod4-pack/pack/README.md` §4, and the two verdicts are 
 `_up/mod4-pack/pack/validator-verdict.json`.
 
 **Two stages, and the line between them.** A 段 is the schema (`shared/workshop.js`): the four groups parse, refuse and
-hash (§34.2), and nothing executed them. **B1 段 is the behaviour of two of them**: the `server.preDispatch` hook is
+hash (§35.2), and nothing executed them. **B1 段 is the behaviour of two of them**: the `server.preDispatch` hook is
 registered on the dispatch path and `routes` are served, both wired in `server/index.js` and both documented for
 authors in `docs/WORKSHOP.md` §1.9.1 / §1.9.2. **B2 段 landed the third one**: `client` panels are registered on the
 module route `/workshop-panels/`, mount in the browser from `welcome.modPanels`, and a declared module that is not
-usable refuses the whole pack (§34.13.3). **B3a 段 landed the fourth and paid off the debt B2 named**: the declared
+usable refuses the whole pack (§35.13.3). **B3a 段 landed the fourth and paid off the debt B2 named**: the declared
 container and manifest are served on their own pack-scoped route, `serverPolicy` decides whether `/assets/` and
 `/fonts/` answer at all, `verify` is checked at load time, and `server.preDispatch` was **aligned** to the
-"unusable declaration refuses the whole pack" rule it had been exempt from (§34.13.4). **B4 段 closed the two things
-B3a left open**, both named in the last paragraph of §34.13.4: the owner made the ruling about the root-scope worker
-(the Service Worker is the **engine's**, a pack only declares — §34.13.5), and the one remaining hole in §34.13.3
-(a hook module that only `import` can judge) is closed on the startup assembly path (§34.13.5).
+"unusable declaration refuses the whole pack" rule it had been exempt from (§35.13.4). **B4 段 closed the two things
+B3a left open**, both named in the last paragraph of §35.13.4: the owner made the ruling about the root-scope worker
+(the Service Worker is the **engine's**, a pack only declares — §35.13.5), and the one remaining hole in §35.13.3
+(a hook module that only `import` can judge) is closed on the startup assembly path (§35.13.5).
 
 **B5 段 closed the two remaining "declared, but silent" holes**, and the second one is the reason this section now has a
 fifth row in the table below:
@@ -1005,22 +1005,22 @@ fifth row in the table below:
 | group | shape | the decision it encodes |
 |---|---|---|
 | `assets` | `{ container, manifest, serverPolicy?, verify? }` | `container` must be a pack-relative `.spresources` path (the container format is defined by `tools/make-spresources.mjs`), `manifest` must be a pack-relative `.json` (the flat file table the client validates), defaults `serverPolicy: 'serve'` / `verify: 'sha256'` |
-| `client` | `{ panels: [{ id, slot, module, order?, gate? }], requires? }` | `slot` is a **closed enum** — the four hosts §34.8 already names (`root.overlays`, `root.guide`, `screen.game.aside`, `screen.result.footer`); `module` is a pack-relative **`.js`** path, never a URL (B2 段: this channel serves code, so the shape layer refuses a `.html` the same way the serving side does); `order` decides the mount sequence, `gate` names a client-store path that must be truthy; `requires` is the closed capability list (`serviceWorker`, `cacheStorage`, `webCrypto`), because "the browser does not support it" and "it is installed but silently does nothing" are different answers |
+| `client` | `{ panels: [{ id, slot, module, order?, gate? }], requires? }` | `slot` is a **closed enum** — the four hosts §35.8 already names (`root.overlays`, `root.guide`, `screen.game.aside`, `screen.result.footer`); `module` is a pack-relative **`.js`** path, never a URL (B2 段: this channel serves code, so the shape layer refuses a `.html` the same way the serving side does); `order` decides the mount sequence, `gate` names a client-store path that must be truthy; `requires` is the closed capability list (`serviceWorker`, `cacheStorage`, `webCrypto`), because "the browser does not support it" and "it is installed but silently does nothing" are different answers |
 | `server` | `{ preDispatch: { module, policy, intercepts } }` | `intercepts` must name types that exist in `shared/protocol.js C2S` — the list is derived from the protocol, not copied here, so an author cannot declare an interception the bus never delivers (the original mod's `match.queue` / `queue.join` do not exist in this repository) |
 | `routes` | `[{ path, file, cache? }]` | deliberately narrow: an absolute path, a pack-relative **`.json`** file (never `.js` / `.html`: this channel is data, not code, the same line `/workshop-assets` draws), `cache` one of `no-cache` / `no-store` / `public` |
-| `i18n` | `{ "<lang code>": "<pack-relative .json>" }` | the language code must be canonical (`shared/i18nPacks.js`) and never the source language `zh` (the msgids themselves have no file); the value is a pack-relative `.json` whose entries merge into an EXISTING language without replacing any key (§34.13.6) |
+| `i18n` | `{ "<lang code>": "<pack-relative .json>" }` | the language code must be canonical (`shared/i18nPacks.js`) and never the source language `zh` (the msgids themselves have no file); the value is a pack-relative `.json` whose entries merge into an EXISTING language without replacing any key (§35.13.6) |
 
 **One refusal per way to be wrong, and they name the field.** Unknown keys are refused rather than ignored
 (`ASSETS_UNKNOWN_FIELD`, `CLIENT_PANEL_UNKNOWN_FIELD`, `PREDISPATCH_UNKNOWN_FIELD`, `ROUTE_UNKNOWN_FIELD`): a `container`
 misspelled as `containers` must not produce "the pack is valid but the resources never load". Every path must be
 pack-relative (`ASSETS_BAD_CONTAINER`, `CLIENT_BAD_PANEL_MODULE`, `PREDISPATCH_BAD_PATH`, `ROUTE_BAD_FILE`) — a
-declaration is part of the identity, and an absolute path erases which pack the behaviour came from (§34.2). Enums are
+declaration is part of the identity, and an absolute path erases which pack the behaviour came from (§35.2). Enums are
 refused by name (`ASSETS_BAD_SERVER_POLICY`, `CLIENT_BAD_PANEL_SLOT`, `CLIENT_UNKNOWN_REQUIRE`, `ROUTE_BAD_CACHE`), and
 `intercepts` is judged against `C2S` (`PREDISPATCH_UNKNOWN_TYPE`). The full list with the exact code for each case is
 pinned by `test/packAssets.test.js`; the author-facing table is `docs/WORKSHOP.md` §1.9.
 
 **Submission order is normalized, so the bytes cannot depend on how the author wrote it.** Panels sort by `id`,
-`intercepts` is de-duplicated and sorted, and `requires` follows the closed enum's order — the same rule §34.2's
+`intercepts` is de-duplicated and sorted, and `requires` follows the closed enum's order — the same rule §35.2's
 `canonicalJson` already applies to keys, now applied to the lists inside a declaration.
 
 **`EMPTY_PACK` after this change.** The four groups are contributions **when they declare something**; `routes: []` is
@@ -1030,7 +1030,7 @@ behaviour rather than content. The two consequences are both load-bearing and bo
 `playtest` is still refused (`test/playtestDirectToHand.test.js`) — is untouched. No assertion was relaxed to make a new
 case pass.
 
-**The hash, and the one way this could have gone wrong.** §34.2 says a declaration that can change one end's behaviour
+**The hash, and the one way this could have gone wrong.** §35.2 says a declaration that can change one end's behaviour
 must be in the content hash, or one digest names two behaviours. `identifyPack` hashes `canonicalJson(pack)` — the
 NORMALIZED manifest — so the declaration is covered for free *if* it is in that object. The trap is the opposite
 direction: adding four keys unconditionally would put them into **every** existing pack's normalized manifest, changing
@@ -1040,7 +1040,7 @@ every content hash and making the room digest gate (`modSetOf`, `welcome.mods.di
 shipped example packs still hash to their pre-change digests (`96ebc2d4…` clementia, `15092019…` demo-workshop,
 `77b80c6e…` kit-demo), and a declared pack's hash does change and does move the wire digest.
 
-**`MOD_API_VERSION`, and the comparison §34.5 said was missing.** §34.5 declared `api` as the mod-layer range
+**`MOD_API_VERSION`, and the comparison §35.5 said was missing.** §35.5 declared `api` as the mod-layer range
 "compared against a new constant in `shared/constants.js` next to `APP_VERSION`", and recorded that the constant did not
 exist yet — so `api` could be written but not judged. It now exists (`MOD_API_VERSION = 1`, a whole number like
 `PROTOCOL_VERSION`, deliberately not `APP_VERSION`), and the comparison is **declaration-only**: a pack that declares no
@@ -1078,7 +1078,7 @@ sends them.
    without the factory, or an `intercepts` entry the *loaded* protocol does not know
    (`PREDISPATCH_BAD_MODULE` / `PREDISPATCH_BAD_POLICY` / `PREDISPATCH_UNKNOWN_TYPE` / `PREDISPATCH_BAD_PATH`, the same
    names A 段 fixed) are all named refusals. **What they refuse changed twice and both changes were deliberate**: B1
-   refused only *that hook* and let the pack load; B3a aligned it to §34.13.3's rule (a declaration that cannot be used
+   refused only *that hook* and let the pack load; B3a aligned it to §35.13.3's rule (a declaration that cannot be used
    refuses the whole pack), and B4 closed the last box by running the import-only judgements on the startup assembly
    path. A hook that throws *later* is still logged and treated as "did not consume": a gate that failed closed on its
    own bug would lock every player out, and refusing a hook is the load-time job.
@@ -1111,7 +1111,7 @@ file + cache policy, and served from `server/http/static.js` **before** the core
   declared path wins over a core file at the same path, on purpose", the `server/http/static.js` stance that a declared
   path *is* that path. `static.js` still asks this table before the core mounts, but `workshopRoutesFor` now judges
   every declaration with the **same** core reserved table the dynamic channel uses (`coreRouteShadow` in
-  `server/http/routeMount.js`, §34.35): a declaration that would shadow a path the engine really serves is **dropped
+  `server/http/routeMount.js`, §35.35): a declaration that would shadow a path the engine really serves is **dropped
   from the map**, so the core mount answers exactly as if the pack had declared nothing. The pack is **not** refused
   (a published pack carrying such a declaration still installs and runs, only that one declaration stops taking
   effect) and the drop is **named twice**, never silent: one `errors` entry on the load report and one `log.warn` line
@@ -1131,7 +1131,7 @@ file + cache policy, and served from `server/http/static.js` **before** the core
   core static mount happens to have at that path (that is why the route stays in the map, with a warning naming the
   missing file). That half is unchanged and is the converse of "the core wins": the pack that **owns** a path must not
   silently serve the core's file at it.
-* **Two packs, one path**: the smaller pack id wins (DESIGN §34.3's rule, the same one the data overlay and the kit
+* **Two packs, one path**: the smaller pack id wins (DESIGN §35.3's rule, the same one the data overlay and the kit
   loader use) and the loser is reported.
 
 #### 34.13.3 A declaration that cannot be used refuses the whole pack
@@ -1167,7 +1167,7 @@ What is judged, per group, and where:
   the pack and be readable files. Failure keeps the **shape layer's** names (`ASSETS_BAD_CONTAINER` /
   `ASSETS_BAD_MANIFEST`) rather than adding a second pair, because all three ways to be wrong there have one repair —
   point `assets.container` at a `.spresources` that is really in the pack — and because B2 already set that precedent
-  for `.js`. In the editor, for both groups, is where they are named: §34.12's "the editor cannot pass what the loader
+  for `.js`. In the editor, for both groups, is where they are named: §35.12's "the editor cannot pass what the loader
   refuses".
 * **The serving side** (`server/http/workshop.js workshopResourceFilesFor` / `workshopPanelFilesFor` +
   `static.js`): only a registered URL is answered, and only a declared path ever enters those maps. Defence in depth,
@@ -1244,7 +1244,7 @@ while that group was declaration-only.
   core game**, so one pack declaring it changes what the whole server serves. It is therefore said out loud once at
   boot, naming the pack(s) that asked for it, and the reference implementation of the mod says the same thing
   (`_up/mod4-pack`, gap ⑥).
-* **The client half is §34.13.5, not here.** Serving the bytes and refusing to serve them are decidable on their own, so
+* **The client half is §35.13.5, not here.** Serving the bytes and refusing to serve them are decidable on their own, so
   they landed first; what the browser does with a container it has — import it into `CacheStorage`, answer `/assets/…`
   from it, and answer **412, never the origin**, when it has nothing — is the Service Worker half, and it waited on the
   owner's ruling about a pack registering a root-scope worker (`_up/mod4-resource-pack-recon.md` §8.2 lists the models).
@@ -1333,7 +1333,7 @@ and pinned: a pack that declares no `assets` gains no entry and keeps its bytes,
 still hash to `96ebc2d4…` / `15092019…` / `77b80c6e…` and the set digest is still `eacd0485…` (both re-asserted in
 `test/modAssets.test.js`, next to the stricter pre-existing pins in `test/packAssets.test.js`).
 
-**The last hole in §34.13.3, and the shape of the fix.** B3a moved every *filesystem* judgement into `loadWorkshop`, so
+**The last hole in §35.13.3, and the shape of the fix.** B3a moved every *filesystem* judgement into `loadWorkshop`, so
 a declaration whose files are missing refuses the whole pack. Two judgements cannot go there: "does the module import"
 and "does it export `createPreDispatch`" need a dynamic `import`, and `loadWorkshop` is synchronous (`server/data.js`
 calls it while building the overlay, and a dozen tools and tests call it synchronously). B4 therefore does the pruning
@@ -1442,12 +1442,12 @@ from disk byte for byte.
 `tools/i18n.mjs check` still does not flag a msgid a pack declares and the code never uses. Both are recorded as open in
 the B5 report rather than implied by the field's existence.
 
-### 34.14 `server.modules`: the server-module payload (implemented)
+### 35.14 `server.modules`: the server-module payload (implemented)
 
 **The defect, as the community pack states it.** Three of its files — `server/ops.js` (shutdown announcement + a snapshot
 archive under `var/state`), `server/stats.js` (anonymous match/emote counters under `var/stats`) and `server/healthz.js`
 (three extra fields on `/healthz`) — cannot be expressed by any declaration this layer has. Each is the exact opposite of
-what §34.4 requires of a kit ("no file system, no network"): they write files, mount a startup hook and extend an
+what §35.4 requires of a kit ("no file system, no network"): they write files, mount a startup hook and extend an
 existing HTTP endpoint. Today the only way to ship them is to **hand-patch engine files**, which is what the pack's own
 `② 共享层补丁` folder does.
 
@@ -1468,7 +1468,7 @@ than from banning things:
 - **`matchClass` is the only mount point that can reach a match**, so it alone requires `combat: true`
   (`MODULES_NEED_COMBAT`): a `MatchClass` wrapper can in principle change a result, and "a pack that can change a result
   declares it" is the owner's ruling. `boot` / `shutdown` / `healthz` / `metrics` / `route` cannot, and do not need it
-  (§34.31 / §34.32: one hands back a frozen scalar snapshot, the other answers a read-only GET). The layer derivation
+  (§35.31 / §35.32: one hands back a frozen scalar snapshot, the other answers a read-only GET). The layer derivation
   counts such a pack as **B**, while `combat`'s *derived* value still looks only at `kits/`.
 
 **Where it is enforced.** The declaration is `shared/workshop.js parseServerModulesDecl` (shape, closed enums, caps:
@@ -1519,10 +1519,10 @@ It is a heuristic, not a sandbox: `globalThis['pro'+'cess']` slips past this sca
 
   | mount | what it hands over | why it cannot reach a core path / a match |
   |---|---|---|
-  | `metrics` (§34.31) | a **deep-frozen object of scalars** (`uptimeSec`, `rss`, `heapUsed`, `elu`, `loopP*`, `sampleAgeMs`, `state`) | it is a *value*, not a handle: no `process`, no histogram, no timer, no function. A read cannot change a result |
-  | `route` (§34.32) | a synchronous callback answering a JSON value | the path **must** live under `/mod/<pack id>/…`, a namespace the engine reserves for exactly this; `GET`/`HEAD` only; `no-store`/`no-cache` only; bounded body. A pack has no position to name `/data/support.json`, so the "core reserved path table" is the second line of defence rather than the first |
+  | `metrics` (§35.31) | a **deep-frozen object of scalars** (`uptimeSec`, `rss`, `heapUsed`, `elu`, `loopP*`, `sampleAgeMs`, `state`) | it is a *value*, not a handle: no `process`, no histogram, no timer, no function. A read cannot change a result |
+  | `route` (§35.32) | a synchronous callback answering a JSON value | the path **must** live under `/mod/<pack id>/…`, a namespace the engine reserves for exactly this; `GET`/`HEAD` only; `no-store`/`no-cache` only; bounded body. A pack has no position to name `/data/support.json`, so the "core reserved path table" is the second line of defence rather than the first |
 
-  The static `pack.json.routes` channel (§34.13.2) also asks this same reserved table before it mounts anything, so a
+  The static `pack.json.routes` channel (§35.13.2) also asks this same reserved table before it mounts anything, so a
   declaration can no longer shadow a core path either — but it asks a **narrower** question than the dynamic channel's
   prefix test: it requires a real collision (a file the core would actually serve at that exact path), which is what
   keeps a published pack declaring `/data/<its own name>.json` working. The dynamic channel stays strict by prefix:
@@ -1549,7 +1549,7 @@ once per **accepted** message, **after the rate limit and before the fan-out**:
   exactly as before. `playerId` may be a **spectator**: unlike `room.chat` (`ERR.SPECTATOR`), `pack.msg` has no
   spectator criterion and this change does not add one, so a hook that cares must judge for itself.
 
-### 34.15 `notices`: plain text as a declaration (implemented, server + declaration)
+### 35.15 `notices`: plain text as a declaration (implemented, server + declaration)
 
 **The gap was a missing product surface first.** The community pack's `public/js/ui/announcementData.js` and
 `titlePanels.js` (`CREDITS_TOP` / `CREDITS_REFS` / `CREDITS_LINE`) carry a structured announcement and a credits list.
@@ -1586,9 +1586,9 @@ route and no new static path.
 `CHANGELOG.md`). The panel exists (`public/js/ui/notices.js`, title screen) and reads the merged body through the
 ordinary data layer; translating pack announcements and engine credits is a `data/i18n/` slice of its own.
 
-### 34.16 A room runs its own set (W-B) and aligning to it (W-D)
+### 35.16 A room runs its own set (W-B) and aligning to it (W-D)
 
-§34.9 declared a room's set and shipped it to the clients; by its own words it did **not** decide anything — every room
+§35.9 declared a room's set and shipped it to the clients; by its own words it did **not** decide anything — every room
 still ran the process data, the process kits and the process `server.meta` modules, and this section is the cut that
 makes the declaration true. `server/roomAssets.js` is the whole mechanism:
 
@@ -1619,7 +1619,7 @@ makes the declaration true. `server/roomAssets.js` is the whole mechanism:
   `/data/`'s file whitelist. An unregistered digest or file name is a 404 — a client cannot make the server merge a
   combination no room declared, and the number of caches stays bounded by the number of rooms. `/data/*.json` keeps
   serving "official + every installed pack", unchanged.
-- **The entry gate is still the process set**, on purpose (§34.9): a joiner cannot know the room's set before it is in
+- **The entry gate is still the process set**, on purpose (§35.9): a joiner cannot know the room's set before it is in
   the room, so `room.join` proves "same catalogue, same pack bytes", `room.state.mods` tells members and spectators what
   the room runs, and aligning to that set is the client's job before it readies up (W-D): the room cannot start with an
   unready member, and a spectator is never asked to ready.
@@ -1632,14 +1632,14 @@ makes the declaration true. `server/roomAssets.js` is the whole mechanism:
   page that plays in a subset room and later in a plain one never mixes the two. The room screen shows the set, the
   per-pack state, a 「补齐模组」 button driven by `sync`'s progress events, and **withholds the Ready button** while the
   client is not aligned — the server's own rule stays what it was (a room starts only when every human is ready).
-- Asymmetries kept on purpose: `server.modules` stays process-wide (§34.14) and a `matchClass` wrapper still wraps every
+- Asymmetries kept on purpose: `server.modules` stays process-wide (§35.14) and a `matchClass` wrapper still wraps every
   match the process builds. A room's set decides what a **match** runs, not what the **process** boots.
 
 Tests: `test/roomAssets.test.js`.
 
-### 34.17 `server.battle`: a pack's battle-level logic (implemented)
+### 35.17 `server.battle`: a pack's battle-level logic (implemented)
 
-**Why `kits/` is not enough.** §34.12's behaviour layer is one file per operator (`kits/<chessId>.js`): a kit sees its
+**Why `kits/` is not enough.** §35.12's behaviour layer is one file per operator (`kits/<chessId>.js`): a kit sees its
 own unit and the battle through the public API. A real community mod's whole "personality" is not per-operator — its
 `bonds/custom.js` (331 lines) and `garrisons/custom.js` (336 lines) say things like *"every member of this bond deals
 more damage to enemies that are stunned / bound / immobile"*, *"at 6 distinct members every member gains attack speed
@@ -1657,7 +1657,7 @@ and one file per operator would mean rewriting the mod's 42 operators by hand (g
 The module exports `install(battle)` — **the same shape official content uses** (`content/bonds/custom.js` and
 friends). Like `server.meta` (§29) the declaration is a hard gate: without `combat: true` the pack is refused whole
 (`BATTLE_NEEDS_COMBAT`), because a pack that cannot state that its code changes results must not ship battle logic.
-The module's bytes enter the content hash (§34.2) — the same reason kits, panels, `server.meta` and `server.modules`
+The module's bytes enter the content hash (§35.2) — the same reason kits, panels, `server.meta` and `server.modules`
 do: one digest must not describe two behaviours.
 
 **The import surface is a whitelist, and it is a different one from a kit's.** A battle module may import
@@ -1682,14 +1682,14 @@ cannot take a whole field down — the same isolation kits get per unit.
 URL list (`opts.workshopBattleModules`) into every BattleSpec (`spec.workshopBattle`, the twin of `spec.workshopKits`);
 `public/js/battle/runner.js loadSpecBattleInstallers` imports those URLs and hands the result to
 `createBattleFromSpec`. `/workshop-battle/<pack>/<path>` serves only URLs the loader registered (the discipline every
-pack-scoped route here follows). W-B applies (§34.16): a room that declares a subset assembles only **its** packs'
+pack-scoped route here follows). W-B applies (§35.16): a room that declares a subset assembles only **its** packs'
 installers, so "the declared set decides what runs" holds for this payload too.
 
 Tests: `test/packBattle.test.js`.
 
-### 34.18 Pack-relative imports: `./…` inside `kits/`
+### 35.18 Pack-relative imports: `./…` inside `kits/`
 
-**The defect §34.12 left behind.** §34.12 opened the engine's library to a pack kit, and that was the half the community
+**The defect §35.12 left behind.** §35.12 opened the engine's library to a pack kit, and that was the half the community
 kit `op-clemnt.js` needed — but it is not the half a real pack needs next. The reference community mod ships **one**
 `kits/custom.js` of 1138 lines covering many operators, and a pack that wants one file per operator cannot have it:
 there is no way to reach a shared helper. The whitelist (`shared/kitImports.js KIT_IMPORT_FILES`) opens engine files
@@ -1715,33 +1715,33 @@ levels and always land on different files. `..` therefore stays refused (`kitImp
 starts with `./`, ends with `.js`, has no `..` segment, no backslash, no `%` (any percent-encoding is refused outright —
 that is how `%2e%2e` gets in), no NUL, no `?` / `#`, no empty segment (`./`), and is not a bare `x.js`. It feeds both
 readers unchanged: `loadWorkshopKits` and `shared/kitAuthoring.js validateKit` still call `kitImportIssues()`, so the
-editor cannot pass what the loader refuses (§34.12's property, kept). Every existing refusal keeps its `KIT_IMPORT` code,
+editor cannot pass what the loader refuses (§35.12's property, kept). Every existing refusal keeps its `KIT_IMPORT` code,
 and every refusal now ends by naming **both** the whitelist and the new legal form — a refusal that only says "no" is
 what makes an author collapse everything back into one file.
 
-**The loader rewrites accepted relative specifiers to real `file:` URLs.** §34.12 loads an importing kit from a `data:`
+**The loader rewrites accepted relative specifiers to real `file:` URLs.** §35.12 loads an importing kit from a `data:`
 module, and a `data:` module has no base directory; the same is true of a helper reached *through* a relative specifier,
 so the rewrite is done **once per source the loader loads**, against that source's own directory
 (`rewriteKitImports`'s new `resolveRelative`). A `kits/_shared.js` and a `kits/<id>.js` therefore get different answers
 for the same string — exactly what the browser does (it resolves against the importing module's URL). The rewrite is
-still in-memory only: §34.2 hashes the bytes on disk, so the pack digest is unaffected. A kit with **no** import keeps
+still in-memory only: §35.2 hashes the bytes on disk, so the pack digest is unaffected. A kit with **no** import keeps
 the real-path fast path byte for byte.
 
 **The route is widened, and only as far as `kits/`.** `/workshop-kits/<pack>/<rel>` used to serve exactly the URLs the
 loader registered; it now maps `<pack>/<rel>` to `<packDir>/kits/<rel>`, where `<pack>` must be a **loaded** pack (the
-table comes from `loadWorkshop`'s result, §34.3) and the resolved absolute path must be a `.js` regular file under
+table comes from `loadWorkshop`'s result, §35.3) and the resolved absolute path must be a `.js` regular file under
 `<packDir>/kits/`. The discipline is unchanged and explicit: exactly one percent-decode (the request path is already
 decoded once before the route sees it, so `%2e%2e` arrives as `..` and is refused as a segment — a second decode is how
 `%252e%252e` becomes `..`); empty / `.` / `..` segments and backslashes refused; containment decided by `path.resolve` +
 `path.relative`, never by string prefix matching (a prefix test accepts `<packDir>/kits-evil/x.js`); and a non-`.js`
 file, an unknown pack, a traversal and a missing file all answer the **same 404 body** — never reveal existence. The
 registered kit URLs keep working unchanged. `/workshop-battle/` deliberately does **not** get this treatment: a battle
-module is loaded on the server from a `data:` URL (§34.17), where a relative specifier cannot resolve, so the form is
+module is loaded on the server from a `data:` URL (§35.17), where a relative specifier cannot resolve, so the form is
 refused for that payload and the route keeps its registration table as the whole of its entry surface (`@battle/` is
 what its authors use).
 
 **The identity hash covers every `.js` under `kits/`, recursively.** A shared helper's bytes decide how a battle plays
-out exactly like the kit file's do, and the digest is what W-D alignment compares (§34.16: the bytes on a client must
+out exactly like the kit file's do, and the digest is what W-D alignment compares (§35.16: the bytes on a client must
 rebuild every pack the room declared). Hashing only `kits/*.js` would let two clients whose `kits/lib/bonds.js` bytes
 differ share one digest — the one thing that digest exists to prevent. The manifest path in a **flat** `kits/` directory
 is still `kits/<name>`, so no existing pack's hash moves (asserted against the three shipped example packs in
@@ -1764,9 +1764,9 @@ Tests: `test/packRelativeImports.test.js`; the whitelist and its two readers: `t
 
 
 
-### 34.19 组件级改写：面板可以包裹或替换一个具名引擎组件
+### 35.19 组件级改写：面板可以包裹或替换一个具名引擎组件
 
-**槽位表达不了「这一屏长得不一样了」。** §34.8 的九个 `[data-mod-slot]` 宿主说的是「插进这个位置」：包在**引擎已经
+**槽位表达不了「这一屏长得不一样了」。** §35.8 的九个 `[data-mod-slot]` 宿主说的是「插进这个位置」：包在**引擎已经
 渲染出来的容器**里画自己的东西。参考社区插件包的十个客户端文件干的是另一件事 —— **整屏重画**，改的是引擎自己那个
 组件。所以 C 层补上最后一块：面板除了挂槽位，还可以对引擎的**具名组件**声明 `wrap`（包一层，链条下方那一份作为
 `orig` 交给它）或 `replace`（整段换掉）。两者可以同时出现在一个面板上，也可以只改写不挂载。
@@ -1783,8 +1783,8 @@ Tests: `test/packRelativeImports.test.js`; the whitelist and its two readers: `t
 ] }
 ```
 
-三条判据、三个码，全是**整包**级别的拒绝（与 §34.13.3 同一条纪律：一个用不了的声明不许变成「装了但静默不工作」；
-与 §34.12 的 import 白名单同一个做法 —— 一份闭枚举，两个读者各判一次）：
+三条判据、三个码，全是**整包**级别的拒绝（与 §35.13.3 同一条纪律：一个用不了的声明不许变成「装了但静默不工作」；
+与 §35.12 的 import 白名单同一个做法 —— 一份闭枚举，两个读者各判一次）：
 
 | 坏在哪里 | 码 | 判在哪 |
 |---|---|---|
@@ -1793,10 +1793,10 @@ Tests: `test/packRelativeImports.test.js`; the whitelist and its two readers: `t
 | 不是数组 / 空数组 / 条目不是 `{ component, mode }` / 同一个组件两条 / 条数超过组件数 | `CLIENT_WRAP_BAD_SHAPE` | 同上 |
 
 装载期再补两条：模块 import 不了 = `CLIENT_PANEL_IMPORT_FAILED`（与槽位那条**同一个码**：坏的是这个字段，不是
-「在哪一层被发现的」，§34.13.3），模块没有 `wrap` 导出 = `CLIENT_WRAP_NO_EXPORT`，**整个面板**不落地（连它声明的
+「在哪一层被发现的」，§35.13.3），模块没有 `wrap` 导出 = `CLIENT_WRAP_NO_EXPORT`，**整个面板**不落地（连它声明的
 槽位也不挂）。**声明了 `wraps` 的模块不再必须导出 `mount`**：一个只改写的模块声明一个它用不到的槽位就行（`slot`
 仍是闭枚举里的必填项，形状层一个字没改 —— `[ASSUMED]`：让 `slot` 可选会是第二条规则，而这一步要的只是「能改写」）。
-`wraps` 只在清单真的写了这个键时才进归一化结果，所以没声明它的包内容哈希**逐字节不变**（§34.2）；声明了的包，
+`wraps` 只在清单真的写了这个键时才进归一化结果，所以没声明它的包内容哈希**逐字节不变**（§35.2）；声明了的包，
 `mode` 不同就是两个摘要。
 
 **注册表：一个组件 id 就是一处 `modComponent(id, impl)`。** 引擎的具名组件渲染**经过**
@@ -1825,7 +1825,7 @@ function ModComponent(props) {
 `test/modPanelWraps.test.js` 钉的就是这条：返回同一个 vnode、props 同一性、四个空断言（不 import 包模块、不建
 DOM、不重画、组件树里没有多出来的那一层）。
 
-**链的次序就是既有面板比较器**（§34.3）：`order` → 包 id → 面板 id。注册点在每次 `apply` 之后按 `panels` 已经排好
+**链的次序就是既有面板比较器**（§35.3）：`order` → 包 id → 面板 id。注册点在每次 `apply` 之后按 `panels` 已经排好
 的次序重建每个组件的链 —— `panels[0]` 的那一条贴着引擎组件（**内层**），最后一条在**最外面**；与数组次序、发现
 次序、加载次序都无关。求值也是确定的：
 
@@ -1854,7 +1854,7 @@ for (const link of links) {                       // 内层 → 外层
 | `props` | 这个组件**这一帧**的 props 的冻结深拷贝（改它改不到引擎那份） |
 
 **没有** store 句柄、没有 store 切片、没有 engine、没有 `Match` / `Battle`、没有对局状态 —— 边界由**没给什么**决定
-（§34.8）。所以一次改写能画错，**改不了对局结果**。
+（§35.8）。所以一次改写能画错，**改不了对局结果**。
 
 **失败隔离，两个码，各点名一次。** 链条上任何一环：
 
@@ -1866,7 +1866,7 @@ for (const link of links) {                       // 内层 → 外层
 
 **传输与重画。** 服务端不判 `wraps`（形状层已经在装载期判死），只把 `component` + `mode` **原样**放进
 `welcome.modPanels`；模块 URL / 注册路径**一字不动**（`/workshop-panels/<包>/<模块>?v=<摘要>`，
-`server/http/workshop.js workshopPanelFilesFor`，§34.8）。链是**渲染期**生效的，所以注册成功之后注册点调用一次
+`server/http/workshop.js workshopPanelFilesFor`，§35.8）。链是**渲染期**生效的，所以注册成功之后注册点调用一次
 `main.js` 注入的 `onWrapsChanged`（再 `render` 同一个 `<App/>`：Preact 就地 diff，状态不丢）；没有包声明 `wraps`
 时它一次都不被调用，页面上不多一次渲染、不多一个新全局。
 
@@ -1875,14 +1875,14 @@ Tests: `test/modPanelWraps.test.js`（声明 / 装载期 / 传输 / 链的次序
 （既有 C 层行为一字未改）。
 
 
-### 34.20 `server.room`: the room-level hooks (implemented)
+### 35.20 `server.room`: the room-level hooks (implemented)
 
-**Why a fifth server payload.** After §34.14 and §34.17 a pack has four server-side payloads — `server.modules` (process
+**Why a fifth server payload.** After §35.14 and §35.17 a pack has four server-side payloads — `server.modules` (process
 start), `server.preDispatch` (one HTTP request), `server.meta` (a match's shop/economy), `server.battle` (the
 battlefield) — and **none of them covers the LOBBY/ROOM lifecycle**: a room being created, a member joining or leaving,
 a spectator joining, a match starting or ending, a room being disposed. That is not a hypothetical gap: the reference
 community plugin pack hand-patched `server/lobby.js` (**+687 / −14 lines**) to get exactly these behaviours, and every
-one of those edits is a rule this layer has to state instead. §34.4's boundary is not violated by opening the seam —
+one of those edits is a rule this layer has to state instead. §35.4's boundary is not violated by opening the seam —
 it is tested by what the seam hands out.
 
 **The declaration is one field, parallel to `server.battle`** (`shared/workshop.js parseRoomDecl`):
@@ -1896,7 +1896,7 @@ otherwise, and the refusal lists it), the shape is `{ module }` and nothing else
 traversal (`ROOM_BAD_PATH`) and end in `.mjs` (`ROOM_BAD_MODULE` — this module is server-only, unlike `server.battle`
 which both ends run). Named refusals mirror `BATTLE_*` exactly: `ROOM_BAD_SHAPE` / `ROOM_UNKNOWN_FIELD` /
 `ROOM_BAD_PATH` / `ROOM_BAD_MODULE` / `ROOM_NO_INSTALL` / `ROOM_BAD_SOURCE` / `ROOM_BAD_IMPORT` / `ROOM_IMPORT_FAILED`.
-It is a **contribution** (§34.13's `EMPTY_PACK` list names `server.room`), the module's **bytes enter the content hash**
+It is a **contribution** (§35.13's `EMPTY_PACK` list names `server.room`), the module's **bytes enter the content hash**
 (`server/workshop.js identifyPack` — the same reason kits, panels, `server.meta`, `server.battle` and `server.modules`
 do: one digest must not describe two behaviours), a declaration whose file is not in the pack **refuses the whole pack**
 at the same prune point (`server/workshop.js roomIssues` → `loadWorkshop` → `dropUnavailablePreDispatchPacks`), and the
@@ -1915,13 +1915,13 @@ never used" failure this section keeps removing. Reusing `@sim/` costs nothing: 
 server, so it needs no two-end resolution at all. `@battle/` is deliberately **not** on the list either: those are
 battlefield helpers (`battleStore`, `passiveBuff`, …) and a room hook is an observation surface.
 
-**The hook API is bounded, and the boundary is what is NOT passed in** (§34.8's rule, applied to the lobby). What
+**The hook API is bounded, and the boundary is what is NOT passed in** (§35.8's rule, applied to the lobby). What
 `install(room)` receives, one line of justification each:
 
 | Member | What it is | Why it is there |
 |---|---|---|
 | `room.id` | the 4-letter room code | a pack must be able to name the room its logs/broadcasts belong to |
-| `room.modIds` | the pack ids this room declared (frozen), or `null` when it declared none | after §34.16 "which packs does this room run" is the room's most important fact |
+| `room.modIds` | the pack ids this room declared (frozen), or `null` when it declared none | after §35.16 "which packs does this room run" is the room's most important fact |
 | `room.players` | frozen **seat snapshot** at `install` time: `{ playerId, name, seat, isBot, ready, connected, left }` | a read-only roster: bots are distinguishable from humans, and the pack never holds a live seat object |
 | `room.spectators` | the spectator snapshot (`{ playerId, name, connected }`) | spectating is a real seat class here (header of `server/lobby.js`), and 播报/statistics must be able to count it |
 | `room.player(seat)` | one entry of the above by seat index (an empty seat yields an empty object, never `undefined`) | saves the author a `find`; one accessor is safer than teaching them to walk internals |
@@ -1951,7 +1951,7 @@ fields minus the wire `t` and minus `mods`, which is static per room and already
 `combat: true`, and the shape layer therefore has no `ROOM_NEEDS_COMBAT`. The rule is about **capability, not intent**:
 
 > A payload that can change **who plays**, **what set is loaded**, or **a match's outcome** must declare `combat: true`
-> (that is what puts it into the room digest gate and the golden corpus — §34.13.1, and §34.14's `matchClass` case). A
+> (that is what puts it into the room digest gate and the golden corpus — §35.13.1, and §35.14's `matchClass` case). A
 > payload that can only **observe and announce** must not, because forcing the declaration would either refuse honest
 > packs or dilute the gate into a slogan.
 
@@ -1968,7 +1968,7 @@ same prune point as `server.preDispatch` / `server.meta` / `server.modules` / `s
 every event listener run inside **their own** `try/catch` (`server/roomPack.js createRoomHooks`): a throw is named once
 as `ROOM_HOOK_THREW` with the **pack and the hook**, the pack's remaining hooks stay silent for that event, and room
 creation, a join and a match end all complete normally. The asymmetry with the load-time stance is deliberate and is the
-same one §34.16's per-room materialisation makes: at load time no human is in the room yet, so refusing is free; at run
+same one §35.16's per-room materialisation makes: at load time no human is in the room yet, so refusing is free; at run
 time real players are sitting in it, so the room must survive. One log line per event, never a broken lobby.
 
 **W-B applies the way it does everywhere else.** `Lobby.create` calls `roomHooks.install(room)` once per room, and only
@@ -1983,7 +1983,7 @@ are ignored — a pack can neither admit nor remove anybody); it cannot change w
 the only way in is `room.create`'s `modIds`, and that is the client's request, not a pack's); it cannot touch the file
 system or the network (the static scan refuses `process` / `require` / `fetch` / `setTimeout` / `Date.now` /
 `Math.random` / `globalThis`, and the import surface is three pure-function modules); it is **not protocol**: it cannot
-add or intercept a client message (that is `server.preDispatch`, §34.13.1, and the C-layer pack channels, §1.9.6) and
+add or intercept a client message (that is `server.preDispatch`, §35.13.1, and the C-layer pack channels, §1.9.6) and
 it cannot send a frame to a player (there is no `send`).
 
 **Where this seam sits relative to the two engine features it must not block.** Quick match (野排匹配) and room
@@ -2000,7 +2000,7 @@ order `create → join → matchStart → matchEnd → dispose`, a throwing hook
 only the declared pack's hooks are installed).
 
 
-### 34.21 The surface list: what a pack may depend on, frozen and guarded
+### 35.21 The surface list: what a pack may depend on, frozen and guarded
 
 Every section above adds one more thing a pack may write. This one names the set, because the question the owner asked
 on 2026-10-10 has no shape until it does: **「如果改动引擎，我们的中间层可能又被覆盖，那怎么办呢」**.
@@ -2020,7 +2020,7 @@ guard also requires that **every** pack-declarable list in the schema (`PACK_FIE
 doc anchor and a test — which is the only way this file stays true a year from now.
 
 **Generations, not releases.** The table belongs to an ABI **generation**: `shared/constants.js MOD_API_VERSION`, the
-number `pack.json.api` is compared against (§34.5). Two rules decide whether it moves:
+number `pack.json.api` is compared against (§35.5). Two rules decide whether it moves:
 
 | change | generation | why |
 |---|---|---|
@@ -2035,7 +2035,7 @@ itself is tested, not only today's data.
 **Negotiation already exists, and it is loud.** A surface this build does not implement is not ignored: `pack.json`'s
 top-level keys and `server`'s members are closed sets, so the pack is refused at load time by name
 (`PACK_UNKNOWN_FIELD` / `SERVER_UNKNOWN_FIELD`), and a `layer: B` pack whose `api` range excludes this build is refused
-outright (§34.5). The table adds the half an author needs to *avoid* that: which generation carries which surface, and
+outright (§35.5). The table adds the half an author needs to *avoid* that: which generation carries which surface, and
 what else that surface requires (`requires` in every row — the `combat: true` gate, determinism, both ends running the
 same bytes).
 
@@ -2048,9 +2048,9 @@ no pack and requiring no declaration. The full list lives in `docs/MOD-SURFACE.m
 Tests: `test/modSurface.test.js` (the second half of that file; the first half pins the generic names that *in-place
 patch* mods depend on — those mods never pass through our validator, so they need their own guard).
 
-### 34.22 `ctx.me`: one read-only session cell, and the one host key that was missing
+### 35.22 `ctx.me`: one read-only session cell, and the one host key that was missing
 
-Two small additions closed six "half-done" items at once (§34.8's C layer had every mount point and data table, but a
+Two small additions closed six "half-done" items at once (§35.8's C layer had every mount point and data table, but a
 panel still could not answer two questions about itself).
 
 **`ctx.me` — read-only session facts.** A panel's ctx now carries exactly three readings plus one helper:
@@ -2069,7 +2069,7 @@ Three properties, each deliberate:
 * **The returned objects are frozen.** A panel can read them, cannot write them, and therefore cannot write the
   engine's state through them.
 * **The boundary is still what is NOT here.** No store handle, no `match`, no `battle`, no `battleRunner`, no `audio` —
-  the same rule §34.8 states. This is a *read-only fact*, not a capability.
+  the same rule §35.8 states. This is a *read-only fact*, not a capability.
 
 **Deliberately NOT included: `search` (quick-match state).** That reading lives in the **lobby screen's own
 `useState`** today (`public/js/screens/lobby.js` subscribes `room.queued`); the store has no such field. Surfacing it
@@ -2118,12 +2118,12 @@ pack is refused. The two tests that pin the ctx key set (`test/modClientPanels.t
 Tests: `test/modClientPanels.test.js` — the ctx surface, the frozen-snapshot rule, and the three room states (not in a
 room / seated / spectating), plus "a later store change is visible through the same ctx".
 
-### 34.23 `server.modules[].channels`: the declaration surface of a pack channel (declaration + delivery landed)
+### 35.23 `server.modules[].channels`: the declaration surface of a pack channel (declaration + delivery landed)
 
 **The asymmetry this closes.** §1.9.6 gave a pack a channel of its own (`client.panels[].messages` → `pack.msg`): the
 engine fixes the wire type, the pack names the channel, the server validates, rate-limits and relays it. The receiving
 half of that feature is the **match**, and `matchClass` is the only mount point this layer ever granted the power to
-touch one (§34.14) — the hook `handlePackMsg(playerId, msg)` is that inlet. What was missing is not the inlet but the
+touch one (§35.14) — the hook `handlePackMsg(playerId, msg)` is that inlet. What was missing is not the inlet but the
 **declaration**: nothing in `pack.json` said *which* channels a module receives in a match, so the only statement
 available was the module's whole `matchClass` mount.
 
@@ -2150,7 +2150,7 @@ Four rules, each one a rule this layer already states elsewhere:
    (`MODULES_DUPLICATE_CHANNEL`), non-empty when present (`MODULES_BAD_CHANNELS` — drop the key instead of writing
    `[]`).
 4. **Undeclared ⇒ byte-for-byte unchanged.** `channels` enters the normalized manifest **only when declared**, and is
-   sorted, so two spellings are one pack (§34.2's hash rule: an undeclared key must not move a pack's identity). The
+   sorted, so two spellings are one pack (§35.2's hash rule: an undeclared key must not move a pack's identity). The
    module's bytes were already in the digest.
 
 **What landed here.** The declaration surface is the shape layer (`shared/workshop.js`), the loader carrying the
@@ -2163,7 +2163,7 @@ whole feature, not half of it:
    every pack published before this cut and the path is byte for byte what it was.
 2. The lobby (`server/lobby.js` `packMsg`) consults that table: `handlePackMsg(playerId, msg)` is called — still after
    the rate bucket and before the relay, still under `callMatch`'s try/catch and its naming log — **only when this
-   pack's module declared this channel**. Everything else about §34.14 is unchanged: `true` / `{ consumed: true }`
+   pack's module declared this channel**. Everything else about §35.14 is unchanged: `true` / `{ consumed: true }`
    consumes the frame, every other return value and a throw relay as before.
 3. A channel that only a panel declares (`client.panels[].messages`) is still **sendable and still relayed** — that
    half is §1.9.6's, and this cut does not touch it — but it is not an inlet, so the match never sees it.
@@ -2172,18 +2172,18 @@ whole feature, not half of it:
    static check can see, so refusing would reject a legal pack.
 
 Nothing here changes the relay, the rate bucket, the wire type or `welcome`; `MOD_API_VERSION` does not move (an added
-optional field, §34.39 / §34.43 precedent).
+optional field, §35.39 / §35.43 precedent).
 
 Tests: `test/modMatchChannels.test.mjs` — the shared name regex, the five named refusals, the sorted
 "only-when-declared" manifest rule, and the loader carrying `channels` out while a module without it grows no key.
 `test/packMatchMsg.test.js` — the delivery cut itself, with a channel that only the panel declares: the frame still
 reaches the room and the match is never called (removing the table lookup turns that assertion red).
 
-### 34.24 ctx.net.status(): the connection reading a panel cannot take itself
+### 35.24 ctx.net.status(): the connection reading a panel cannot take itself
 
-A panel can see a room and its own identity (§34.22), but it could not answer **「这条连接现在怎么样」**. That reading
+A panel can see a room and its own identity (§35.22), but it could not answer **「这条连接现在怎么样」**. That reading
 cannot be derived in the panel: the panel gets no `WebSocket`, no heartbeat round-trip and no reconnect counter — the
-boundary of §34.8 is exactly "what is not passed in is not reachable". The engine already holds all of it.
+boundary of §35.8 is exactly "what is not passed in is not reachable". The engine already holds all of it.
 
 **The reading.** `ctx.net.status()` returns the **same fact** the engine publishes as its `'status'` event
 (`public/js/net.js` `Net.snapshot()`, fed by every `_setStatus` and every `pong`), as a frozen copy:
@@ -2209,13 +2209,13 @@ Three properties, each deliberate:
   is asserted mechanically, not by promise: `test/modClientNetReads.test.js` wraps every exit of a real `Net`
   (`send` / `request` / `sendResourceMessage` / `_sendRaw`) in a counter and requires zero calls.
 
-### 34.25 ctx.net.welcome(): the handshake frame the client already received
+### 35.25 ctx.net.welcome(): the handshake frame the client already received
 
-> **编号注记（只说明，不改号）。** 本仓库这里的 §34.24 / §34.25 是**本节新增的面板读面规范**
-> （`ctx.net.status()` / `ctx.net.welcome()`；只在包内 `PROVENANCE.md` 与代码里同样写作 §34.24 / §34.25，
+> **编号注记（只说明，不改号）。** 本仓库这里的 §35.24 / §35.25 是**本节新增的面板读面规范**
+> （`ctx.net.status()` / `ctx.net.welcome()`；只在包内 `PROVENANCE.md` 与代码里同样写作 §35.24 / §35.25，
 > 故两个号一律保持不动，mod 作者才对得上）。`docs/design/engine.md:214` 那个
-> 「Community corrections (2026-10-10, §34.25)」是**另一处松引用标签**，`docs/design/client.md:150` 引的
-> §34.25、`docs/design/network.md:23` 引的 §34.27 同为松引用（`test/docs-paths.test.js` 只判「号是否出现过」，
+> 「Community corrections (2026-10-10, §35.25)」是**另一处松引用标签**，`docs/design/client.md:150` 引的
+> §35.25、`docs/design/network.md:23` 引的 §35.27 同为松引用（`test/docs-paths.test.js` 只判「号是否出现过」，
 > 不核对所指内容）。**二者不是同一节**，互不替代。
 
 The second half of the same gap. The `welcome` frame (`shared/protocol.js` S2C; assembled in `server/net.js:797` from
@@ -2241,7 +2241,7 @@ reached the page — no fields renamed, trimmed or defaulted — so a panel read
 * **Nothing when there is nothing.** Title screen, a rejected handshake, a plain install: `null`, no error.
 
 **Cost and blast radius.** Both cells are *additions* to an object that already exists: `MOD_API_VERSION` does **not**
-move (§34.21's table, the first row) and no published pack is refused. A page whose packs declare no panel behaves as
+move (§35.21's table, the first row) and no published pack is refused. A page whose packs declare no panel behaves as
 before — the two cells are defined on the facade, which is only built for a mounted panel — and the one extra
 `welcome` listener caches a private copy without adding a frame, a request or a DOM node. The two tests that pin the ctx
 key set had to learn nothing: `net` is still one key, and the pinned nets in `test/modClientPanels.test.js` /
@@ -2254,11 +2254,11 @@ depth of the freeze, and a later frame not rewriting an earlier snapshot; `null`
 
 ---
 
-### 34.28 工坊时装（§34.28）：一个开关，加「提供者先说话」
+### 35.28 工坊时装（§35.28）：一个开关，加「提供者先说话」
 
 `pack.json.skins`（表面 `skins`）是 A 层的一格，形状与 art 同形并复用同一个解析器（`SKIN_FIELDS`，
 `shared/workshop.js`；A 层只判形状，拒绝码全部点名）。**数据和引擎都不认识「皮肤」** —— 这一段说的正是
-§34.2 那条边界落地之后剩下来的那一件事：**一个包声明了一套外观，谁来回答「这位玩家现在要哪一套」**。
+§35.2 那条边界落地之后剩下来的那一件事：**一个包声明了一套外观，谁来回答「这位玩家现在要哪一套」**。
 
 **1. 声明与落点。** 包的声明归一化成 `pack.skins` 并**并进清单**：`assets.skins[<charId>] = [{ pack, id,
 name, series?, desc?, art?, voices? }, …]`（`mergeWorkshopSkins`）—— 按干员分组的一列，客户端要问的问题
@@ -2266,7 +2266,7 @@ name, series?, desc?, art?, voices? }, …]`（`mergeWorkshopSkins`）—— 按
 `SKIN_COLLISION`（与 `ASSETS_COLLISION` 同一条纪律）。`skins` 同时是贡献项：只带时装、`content: []` 的包合法。
 
 **2. 谁决定「哪一套生效」。** 不是引擎。引擎侧只有一个中间层接口，既有的**外观提供者**
-（`client.panels[].appearance(ctx)` → `{ lookup(kind, charId, id) }`，§34.8，`public/js/ui/extensions.js`）：
+（`client.panels[].appearance(ctx)` → `{ lookup(kind, charId, id) }`，§35.8，`public/js/ui/extensions.js`）：
 一个进程最多一个，后注册者被拒；它返回**被问的那一条 kind** 的一张图（`{ portrait }` 或 `{ avatar }`；
 老写法「整套 `portrait` / `avatar` / `portraitE2` / `avatarE2`」在步骤 0 与步骤 4 都仍然能用 —— 链只取
 自己那一条 kind 的字段）或者 `null`。**引擎不知道那个 `id` 是一套时装、一个包名还是一串随机字符** ——
@@ -2319,7 +2319,7 @@ name, series?, desc?, art?, voices? }, …]`（`mergeWorkshopSkins`）—— 按
 与 `docs/MOD-SURFACE.md`；`test/modSurface.test.js` 的 `SURFACE_LISTS` 里加了 `SKIN_FIELDS`，所以「字段表被
 挪走」与「新加一格没进清单」两头都红。加一格对已发布的包是纯增量，`MOD_API_VERSION` **不动**。
 
-### 34.29 形态（clip set）与静态相位：两条**行为增量**通道
+### 35.29 形态（clip set）与静态相位：两条**行为增量**通道
 
 这一节回答业主那一条要求：「做不了的我们就加接口，做到完美兼容。」有两件事今天包做不了，而两件都不是数据、
 是**渲染器的行为常量**：
@@ -2353,7 +2353,7 @@ formsFor(FORMS, info.spine || info.defId)?.[form]   // 第一方在前、包只�
 | 两个包声明同一个 `spine id + 形态名` | `FORM_COLLISION` 点名；**包 id 小的赢**（与 art / skins 同一条） |
 
 **为什么第一方优先，而不是「包可以覆盖」**（取舍，请业主过目）：覆盖会让「第一方干员长什么样」变成
-**取决于装了哪个包**，而同一份摘要下的行为必须唯一（§34.2）。一个包真想改一个第一方干员的形态，它需要的
+**取决于装了哪个包**，而同一份摘要下的行为必须唯一（§35.2）。一个包真想改一个第一方干员的形态，它需要的
 其实是「新 spine id + 新形态名」，那条路一直是通的。反过来，若允许覆盖，作者写下一个不会生效的声明却拿不到
 任何提示 —— 那正是这一层存在的全部理由要消灭的方向，所以这里选择**大声拒绝**而不是悄悄让步。
 
@@ -2402,7 +2402,7 @@ formsFor(FORMS, info.spine || info.defId)?.[form]   // 第一方在前、包只�
 * `public/js/assets.js` 在**清单被采纳的那一刻**装这两份声明（`adopt`，以及构造时就带清单的那一支），
   不在每个视图上重复。
 
-**7. 没声明这两条的包：逐字相同。** 归一化清单里不会多出 `forms` / `fx` 键（「写了才进」那条纪律，§34.13），
+**7. 没声明这两条的包：逐字相同。** 归一化清单里不会多出 `forms` / `fx` 键（「写了才进」那条纪律，§35.13），
 `formsFor` 在没有包增量时返回的就是 `FORMS[spine]` **本身**（`test/packForms.test.js` 断言对象同一性），
 `silentPhase` 在没有包增量时只认第一方那两个。所以老包的哈希与第一方的行为都不动，`MOD_API_VERSION` **不动**。
 
@@ -2419,7 +2419,7 @@ node --test test/modSurface.test.js
 ```
 
 
-### 34.30 伤害看板（投稿 30498a468a0f 那一格）：今天能读什么，读不到什么
+### 35.30 伤害看板（投稿 30498a468a0f 那一格）：今天能读什么，读不到什么
 
 业主点名的那一格是「让包在**客户端**自己算 DPS 与总伤」。查完的结论**分成两半**，两半都写在下面 ——
 因为把「总伤今天就能读」与「逐单位 / 逐场 DPS 今天读不到」混成一句，作者就会照着一个不存在的读数写代码。
@@ -2464,30 +2464,30 @@ export function mount(ctx) {
   服务器只把它折进 `m.public` / `b.pool`，**从不原帧广播**），所以面板 `ctx.net.on('b.progress', …)` 会被
   `CLIENT_CHANNEL_UNDECLARED` **点名拒绝** —— 那条路上连订阅都不成立。
 
-**三、要真 DPS，需要什么（本批**已实现**，见 §34.38）。** 「面板可以画错、但不能算错」在这里的落点是：**没有读数就
+**三、要真 DPS，需要什么（本批**已实现**，见 §35.38）。** 「面板可以画错、但不能算错」在这里的落点是：**没有读数就
 不造读数**。一个能算逐单位 DPS 的读面至少要有三件事，缺一条就不该做：
 
-1. **数据源**：**§34.38 已落地**，而且不是这里当初设想的那两条路（把 `on('ev')` 转出去、或由 runner 自己再累计
+1. **数据源**：**§35.38 已落地**，而且不是这里当初设想的那两条路（把 `on('ev')` 转出去、或由 runner 自己再累计
    一份）—— 查下来**伤害早就在模拟里算好了**（`server/sim/damage.js` 每次命中写 `source.stats.dmg` 与
    `battle._perPlayer[ownerId].damageDealt`），所以那一格只是 runner 里的一个**只读读者**：碰的文件确实还是
    `public/js/battle/runner.js` 与 `public/js/main.js`，但**没有第二份累计**，`step()` / `drainEvents()` / `emit`
    一行都不动。
-2. **形状**：**不再是** `ctx.net.damage()`（模拟事实不该挂在 `net` 上，见 §34.38 的理由）；落地的是
+2. **形状**：**不再是** `ctx.net.damage()`（模拟事实不该挂在 `net` 上，见 §35.38 的理由）；落地的是
    **`ctx.battle.damage()`** → 一次读一份冻结副本
    `{ battleId, fieldId, kind, authoritative, own, gt, t0, players, units }`，`null` = 当前没有正在跑的战斗 / 没有
    注入战斗运行时 —— 与 `status()` / `welcome()` / `transport()` 同一套「拿不到就是 `null`，不抛、不编造」。
 3. **判据**：它只读已经在那儿的数字，**不许**让 runner 多算一步 / 改一条帧 / 碰模拟输入 ——
    可执行的判据是「同一 seed 的战斗结果摘要逐字节相同」，模板就在 `test/modClientSettings.test.js` 的
-   「模拟侧零副作用」那一条（§34.38 又加了一份专门的守卫：`test/modClientBattleReads.test.js`）。
+   「模拟侧零副作用」那一条（§35.38 又加了一份专门的守卫：`test/modClientBattleReads.test.js`）。
 
-**四、表面与守卫。** 这一节当时没有新代码，所以没有新表面：与 §34.24 / §34.25 同一先例（纯读数不新增
+**四、表面与守卫。** 这一节当时没有新代码，所以没有新表面：与 §35.24 / §35.25 同一先例（纯读数不新增
 `pack.json` 声明，没有 schema 符号可锚，故不进 `shared/modSurface.js`）。守卫是 `test/modClientSettings.test.js`
 里「伤害看板」那一组：`m.result` 原样透传、结算帧里没有 `unitStats`、`b.progress` 订阅被点名、runner 的元组
 不进 `net`、以及面板活着时战斗摘要不变。**`MOD_API_VERSION` 不动**（今天这一半是零改动）。
-**逐单位那一半后来落地了**：见 **§34.38**（`ctx.battle.damage()`），它把「这一点读不到」补成「读得到，但只给
+**逐单位那一半后来落地了**：见 **§35.38**（`ctx.battle.damage()`），它把「这一点读不到」补成「读得到，但只给
 本场」，并把上面这三条判据写成了可执行的守卫 `test/modClientBattleReads.test.js`。
 
-### 34.31 `ctx.me.voice` 与 `ctx.session.setVoiceLang`：一格配音读数，加一个**唯一**的设置写口
+### 35.31 `ctx.me.voice` 与 `ctx.session.setVoiceLang`：一格配音读数，加一个**唯一**的设置写口
 
 面板答不出「这台机器现在用哪套配音」：那个值住在**另一个** store（`public/js/ui/settings.js:50`
 `settingsStore`，与 `ctx.me` 读的 `public/js/store.js` 不是同一个），而注入面里没有 store 句柄。
@@ -2539,14 +2539,14 @@ export function mount(ctx) {
 `test/modClientPanels.test.js` 的 `Object.keys(ctx.me)`（多 `voice`）；两处**严格度不变**（仍然断言「不多不少」），
 这正是那两条断言存在的意义。新守卫是 `test/modClientSettings.test.js`。
 
-### 34.32 `ctx.net.transport()`：只有服务端知道的那一格
+### 35.32 `ctx.net.transport()`：只有服务端知道的那一格
 
 同一条「面板推不出来、只有引擎答得出来」的清单又加一格：**这条 WebSocket 实际跑在什么参数上**。浏览器侧的
 `WebSocket` API **不暴露** `Sec-WebSocket-Extensions`（也没有 `maxPayload`），panel 与引擎都推不出来 —— 而这正是
 `permessage-deflate` 那种会让「帧大小 / 延迟 / CPU」一起变的配置最容易被误判的地方。
 
 **来源。** 服务端知道它自己启动时用的参数，于是在 `welcome` 里带一格**只读**字段 `transport`
-（与 §34.24 / §34.25 同一份快照：`ctx.net.welcome()` 与 `ctx.net.transport()` 读的是**同一条帧**）。
+（与 §35.24 / §35.25 同一份快照：`ctx.net.welcome()` 与 `ctx.net.transport()` 读的是**同一条帧**）。
 字段名与本批服务端那一格的约定就是 `welcome.transport`。
 
 | 字段 | 含义 | 读不到时 |
@@ -2572,9 +2572,9 @@ export function mount(ctx) {
 `send` / `request` / `sendResourceMessage` / `_sendRaw` 各套一个计数器，要求 0），加上 `test/modClientNetReads.test.js`
 那张「不多不少」的枚举表。**`MOD_API_VERSION` 不动**（加法）。
 
-### 34.33 `pack.json.server.transport`：声明式的启动期传输配置（服务端那一半）
+### 35.33 `pack.json.server.transport`：声明式的启动期传输配置（服务端那一半）
 
-§34.32 说的是客户端那一格读数（`ctx.net.transport()`）；这一节说的是**它读的那个字段从哪来**。
+§35.32 说的是客户端那一格读数（`ctx.net.transport()`）；这一节说的是**它读的那个字段从哪来**。
 
 **问题。** WebSocket 的 `perMessageDeflate` **从前**写死在 `server/http/websocket.js`（`false`；0.2.6 起引擎缺省自己开着，`WS_DEFLATE`）。参考包
 `ws-compression-reference` 想开压缩，唯一办法是手改引擎那一行 —— 正是这一层到处在消灭的东西。
@@ -2594,7 +2594,7 @@ serverNoContextTakeover?, clientNoContextTakeover?, serverMaxWindowBits?, client
 
 **落实（与 `assets.serverPolicy` 的 `resourceServerPolicy` 逐字同一条三件套）。** 读声明 →
 `transportPolicy(policies, { log })` 收敛成**一个进程级**的值（`perMessageDeflate` 是 `WebSocketServer` 的构造
-选项，不是某个房间的属性）→ **启动日志点名**。多包声明时按 DESIGN §34.3「包 id 小的赢」，其余每一包**点名**
+选项，不是某个房间的属性）→ **启动日志点名**。多包声明时按 DESIGN §35.3「包 id 小的赢」，其余每一包**点名**
 说明被谁盖住了。没有任何包声明时是 `false`，与这一刀之前逐字节相同。
 
 **`welcome.transport`。** 生效值随既有的 `welcome` 帧送到客户端，形状
@@ -2607,11 +2607,11 @@ serverNoContextTakeover?, clientNoContextTakeover?, serverMaxWindowBits?, client
   **`MOD_API_VERSION` 不动**。
 
 **包只能观察，不能设值。** `pack.json` 里没有任何字段能往启动变量里写东西；`onBoot` 收到的是一份**深冻结**的
-只读快照（见 §34.34）。
+只读快照（见 §35.34）。
 
-### 34.34 `uses: ["metrics"]`：只读指标快照，加 `boot(config)` 的冻结快照
+### 35.34 `uses: ["metrics"]`：只读指标快照，加 `boot(config)` 的冻结快照
 
-**为什么在这一刀里。** §34.14 的源码扫描从这一批起**真的会拒 `process`**（见上面那一段）。一条只有禁令没有替代
+**为什么在这一刀里。** §35.14 的源码扫描从这一批起**真的会拒 `process`**（见上面那一段）。一条只有禁令没有替代
 品的规则会逼作者绕路（`globalThis['pro'+'cess']`），而「给 `/healthz` 加几个字段报内存 / 事件循环延迟」正是那三件
 原始社区需求里的一条。`host.metrics()` 就是那个替代品。
 
@@ -2632,9 +2632,9 @@ serverNoContextTakeover?, clientNoContextTakeover?, serverMaxWindowBits?, client
 `SP_STATE_DIR` / `SP_WORKSHOP` —— 引擎源码里读过的**全部** `SP_*`，`test/packServerSurface.test.js` 用反射钉住），
 其余环境变量看不见。**包只能观察不能设值**：改一个冻结属性在严格模式 ESM 里直接抛。
 
-### 34.35 `uses: ["route"]`：动态只读端点（`host.route(path, fn)`）
+### 35.35 `uses: ["route"]`：动态只读端点（`host.route(path, fn)`）
 
-`pack.json.routes`（§34.13）能让包把一个**包内写死的 `.json` 文件**挂到一条绝对路径上，但「内容随运行时状态变」
+`pack.json.routes`（§35.13）能让包把一个**包内写死的 `.json` 文件**挂到一条绝对路径上，但「内容随运行时状态变」
 表达不出来（今天的在线数、这一局的归档标签、包自己攒的计数）。这一格就是那条不手改的通道：一个**同步返回
 JSON 可序列化值**的回调。
 
@@ -2647,7 +2647,7 @@ JSON 可序列化值**的回调。
    `/ws`、`/data`、`/shared`、`/sim`、`/i18n`、`/mods`、`/media`、`/packs`、`/assets`、`/fonts`、`/workshop-*`、
    `/room-data` 按前缀比。这是**纵深防御**：将来谁放宽了第 1 条，第 2 条还在。分成两份是因为判据本来就不同 ——
    `/healthz` 是一条**路径**（`/healthz/x` 不是它），`/data` 是一棵**树**（`/data/x` 是它）；混成一张扁平表只能靠
-   派生去猜哪条是哪条。**这张表只此一处真相**：动态通道与静态 `pack.json.routes` 通道（§34.13.2）读的是同一份。
+   派生去猜哪条是哪条。**这张表只此一处真相**：动态通道与静态 `pack.json.routes` 通道（§35.13.2）读的是同一份。
 3. **只有 GET / HEAD**（别的动词在 `server/http/routes.js` 就已经 405）。
 4. **缓存只有 `no-store` / `no-cache`**，默认 `no-store`。刻意**没有** `public`：一个现算的端点说「可以公开缓存
    一天」几乎总是错的（静态 `routes` 有 `public`，因为它挂的是一个**文件**）。
@@ -2657,8 +2657,8 @@ JSON 可序列化值**的回调。
    理由是实在的：单进程单事件循环，一个 `await` 的处理器就是一条能拖住整台服务器的路，而这一格**不**做每请求隔离。
    四种失败（`Promise` / `undefined` / 不可序列化 / 超限）各自点名并回 500，**不**回落到空体 200。
 
-**与 §34.13 静态通道的关系。** 两条通道都声明同一条路径时**静态的赢**（`static.js` 里静态那一半先查）；
-一条路径若与**核心**相撞，则**核心先吃**，两条通道都不得顶掉它（§34.13.2 写下静态那一半的判据）。
+**与 §35.13 静态通道的关系。** 两条通道都声明同一条路径时**静态的赢**（`static.js` 里静态那一半先查）；
+一条路径若与**核心**相撞，则**核心先吃**，两条通道都不得顶掉它（§35.13.2 写下静态那一半的判据）。
 
 **静态 `pack.json.routes` 这一半在 0.15.2 收紧了（本节的立场原来写着「本批未动」）。** 旧立场是 `static.js` 里那句
 「声明过的路径就是声明过的路径」，即一条声明能回答一条与核心挂载同名的路径。现在：`static.js` 仍然先查包声明，
@@ -2694,7 +2694,7 @@ JSON 可序列化值**的回调。
   只预告将来让位）；`null` ⇒ 不吭声。**校验器里不许再抄一份保留名单**（`test/workshopValidateRoutes.test.js`
   有一条源码级断言钉住这一点，另有一条把三档判词与 `coreRouteShadow` 的返回值逐条对照）。
 
-### 34.36 作者自备 CDN 的语音素材（`{ url, sha256, file }`）
+### 35.36 作者自备 CDN 的语音素材（`{ url, sha256, file }`）
 
 **业主口径（2026-10-11）：「分发官方语音不行，但应该留出下载作者语音素材的 CDN 链接支持」。** 所以这一格做的事
 永远只有一件：按**作者在 `pack.json` 里写下的地址**把字节取回来。
@@ -2734,7 +2734,7 @@ JSON 可序列化值**的回调。
 既有的 `/workshop-assets/` 送出；③ **`VOICE_LANG_*` 一个字没放宽**：语种闭枚举（`shared/constants.js`）、槽位闭
 枚举、以及「默认语种不能写进 `voiceLangs`」三条都没动，也没有任何便于拿官方语音的新通道。
 
-### 34.37 `/healthz` 的只读字段：确认可用，以及两件**做不到**的事
+### 35.37 `/healthz` 的只读字段：确认可用，以及两件**做不到**的事
 
 挂点**今天就有**，不是本批新增的：`uses: ["healthz"]` 的回调返回一个**扁平对象**（值只能是字符串 / 数字 / 布尔 /
 `null`，≤ 12 字段 / 2048 字符，`server/modModules.js HEALTHZ_LIMITS`），落在
@@ -2750,13 +2750,13 @@ JSON 可序列化值**的回调。
   不 ok 就 503？前者给不出信息，后者等于**一个第三方包可以决定整台服务器被判死**（负载均衡/容器编排会照它摘流量）
   —— 那正是本层一直在拒绝的能力形态。所以这一格只报事实，判断留给运维。
 
-### 34.38 `ctx.battle.damage()`：逐单位伤害读数，让包自己算 DPS
+### 35.38 `ctx.battle.damage()`：逐单位伤害读数，让包自己算 DPS
 
-§34.30 把「伤害看板」拆成了两半：总伤今天就能读（`m.result` 的原样透传），逐单位 / 逐场那一半「今天读不到」。
+§35.30 把「伤害看板」拆成了两半：总伤今天就能读（`m.result` 的原样透传），逐单位 / 逐场那一半「今天读不到」。
 这一节补上后半：一格**只读**的逐单位 / 逐人累计伤害，加一个**时间基准**，让包自己算 DPS。
 
 **为什么引擎必须给，而不是包自己算。** 默认路径下战斗在**这台机器**上跑（`public/js/battle/runner.js`），
-伤害元组走 runner **自己的** listener map（`:282` 的 `emit`），**根本不进 `net`** —— 面板订阅不到（§34.30 已经
+伤害元组走 runner **自己的** listener map（`:282` 的 `emit`），**根本不进 `net`** —— 面板订阅不到（§35.30 已经
 查明）。包要想自己算，只能再去订阅一条它拿不到的通道，或者自己维护第二份累计；而**第二份账与引擎那份必然会对不
 上**（`m.result` 报的是服务端按 `_perPlayer` 累出来的数）—— 那正是「面板可以画错、但不能算错」要消灭的东西。
 所以这一格只能由引擎给，而且给的是**同一本账**。
@@ -2797,7 +2797,7 @@ JSON 可序列化值**的回调。
 **只给本场 —— 这是边界，不是缺陷。** 读的就是**屏上这一场**（与 `battleRunner.unitStats()` 同一语义，含正在播的
 显示副本）。**队友那几场不在这一格里**（一次战斗只有一个 `battleId`），正在准备的下一场也不在。`ctx.battle` 那一格
 **不合并**多场 —— 合并会把「别的玩家同一场」算成另一份，也会把副本重复计入。面板要**全队总伤**时走 `m.result`
-（`players[].stats.dmgDealt`，服务端按每个玩家累出来的全队口径；§34.30 那张表）。
+（`players[].stats.dmgDealt`，服务端按每个玩家累出来的全队口径；§35.30 那张表）。
 
 **只读语义。** 每次调用都是**一份新的、冻结到第二层的副本**（外层对象、两个数组、以及每个单位 / 每个人那一行都
 `Object.freeze`）：面板写它当场 `TypeError`，引擎之后的新伤害也不会回溯进**已经发出去**的那一份。
@@ -2831,7 +2831,7 @@ JSON 可序列化值**的回调。
 | `uid` / `defId` / `ownerId` / `kind` 供对名单 | 任何写入、任何订阅、任何帧 |
 
 **表面与守卫。** 这一格**不新增 `pack.json` 声明**（纯读数，没有 schema 符号可锚）⇒ **不进 `shared/modSurface.js`**，
-与 §34.24 / §34.25 / §34.32 同一先例；**`MOD_API_VERSION` 不动**（加能力不加版本）。守卫是
+与 §35.24 / §35.25 / §35.32 同一先例；**`MOD_API_VERSION` 不动**（加能力不加版本）。守卫是
 `test/modClientBattleReads.test.js` 那一组：
 
 * **数字是真的**：逐单位 / 逐人与模拟自己那本账（`u.stats.dmg`、`battle._perPlayer[pid]`）逐个相同，含 `uid` 映射与
@@ -2844,7 +2844,7 @@ JSON 可序列化值**的回调。
 * **零副作用**：面板活着、真的消费这一格去算 DPS / 总伤 / 领袖伤时，同一场战斗的结算账与不变量照旧
   （`test/modClientSettings.test.js` 的「模拟侧零副作用」那一条现在也读这一格）。
 
-### 34.39 `pack.json.variants`：变体 / 口径层（闭枚举，不是数值覆盖通道）
+### 35.39 `pack.json.variants`：变体 / 口径层（闭枚举，不是数值覆盖通道）
 
 **要解决的那面墙**逐字记在 `shared/workshop.js` 的 `PACK_FIELDS` 注释里：`variants` 是 0.10.0 时代三个社区 mod
 「写了等于没写」的键之一 —— `normalizePackManifest` 从没读过它，`{content:["chess","variants"]}` 归一化之后
@@ -2855,7 +2855,7 @@ JSON 可序列化值**的回调。
 **它不是什么，比它是什么更重要。** 一个能指定任意文件覆盖、或让包直接写数值的包格式**就是安装器**：
 `official` / `config` / `meta` / `shared` / `theme` / `serverModules` 那六格「刻意没有通道」的判断逐字适用
 （`AGENTS.md`「Official first … the maintainer's decision only」）。所以这一层收成**闭枚举的口径声明**：
-包说的是**「哪一套」，不是「改成几」**。值由引擎自己给，且**一个数只有一个真相**（§34.35 那条口径之外的又一处：
+包说的是**「哪一套」，不是「改成几」**。值由引擎自己给，且**一个数只有一个真相**（§35.35 那条口径之外的又一处：
 从前 `12` 硬编码在 `server/match/effectsMeta.js` 的 `setDeployCapAtLeast` 里，本刀把它提成
 `shared/constants.js` 的 `DEPLOY_CAP_MAX`，两处都读它）。
 
@@ -2875,14 +2875,14 @@ JSON 可序列化值**的回调。
 1. **闭枚举、响亮失败**。`VARIANTS_BAD_SHAPE`（不是数组 / 条目不是对象 / 未知字段 / `name`·`desc` 写坏）·
    `VARIANTS_UNKNOWN_AXIS`（轴名不在表里，文案列出全部轴）· `VARIANTS_UNKNOWN_OPTION`（`default` 不在那个轴的
    选项里，文案列出该轴全部选项）· `VARIANTS_BAD_DEFAULT`（`default` 是 `null` / 数字 / `false` 这类「不是选项名」
-   的东西 —— 与 §34.5 的 `BAD_API_TYPE` 同一条理由：非字符串会被读成「用了轴的缺省」，即**静默不是作者写的那个**）·
+   的东西 —— 与 §35.5 的 `BAD_API_TYPE` 同一条理由：非字符串会被读成「用了轴的缺省」，即**静默不是作者写的那个**）·
    `VARIANTS_DUPLICATE_AXIS`。**每一条都是整包拒绝**，不是忽略、也不是回落。
 2. **缺省逐字节不变**。不声明 `variants` 的包归一化清单里**不长出这个键**（无条件写进去会让**所有**已发布包的
-   内容哈希改变，房间的摘要闸门随即误判，§34.2）—— 与 `skins` / `voiceCdn` / `assets` 同一条纪律。
+   内容哈希改变，房间的摘要闸门随即误判，§35.2）—— 与 `skins` / `voiceCdn` / `assets` 同一条纪律。
    `GameData` 拿不到口径时 `deployCap` 逐字是 `posIntOr(economy.deployCap, DEFAULTS.deployCap)`。
 3. **声明了必须进身份哈希**。`identifyPack` 哈希的是归一化清单的 `canonicalJson`（`server/workshop.js:920`），
    所以只要第 2 条那条「写了才进清单」成立，这一条自动成立 —— 而它**必须**成立：只差口径的两份包摘要若相同，
-   同一个摘要下就有两种对局行为（§34.2）。
+   同一个摘要下就有两种对局行为（§35.2）。
 4. **必须 `combat: true`**（`VARIANTS_NEED_COMBAT`）。判据是**能力**而不是意图，与 `server.meta`
    （`META_NEEDS_COMBAT`）/ `server.battle`（`BATTLE_NEEDS_COMBAT`）/ `modules[].uses: ["matchClass"]`
    （`MODULES_NEED_COMBAT`）同一条线：一条**能**改结果的口径声明必须进房间摘要闸门与 golden 语料。
@@ -2891,7 +2891,7 @@ JSON 可序列化值**的回调。
 **不是贡献项**：与 `support` / `playtest` 同一个语义 —— 口径选的是引擎已有的一套表现，不是内容。所以
 `contributesDecl` 不数它，一个只带 `variants` 的包照旧 `EMPTY_PACK`（文案里点名 `"variants" is NOT a contribution`）。
 
-**多包抢同一个轴**：按既有的「包 id 字典序小的赢」（§34.3，与数据记录 / kit / 图标同一条），由
+**多包抢同一个轴**：按既有的「包 id 字典序小的赢」（§35.3，与数据记录 / kit / 图标同一条），由
 `mergeVariantDecls` 合成，输的一方进 `overridden` 供调用方点名报告。
 
 **执行点**：口径**不写进 `data/*.json`**（那张离线重建表要能逐字节复现 `data/`，§数据契约）。它在**这一局**生效，
@@ -2915,15 +2915,15 @@ JSON 可序列化值**的回调。
 （§1.1 那句「不认识的声明必须响亮失败」），只是位置从「顶层键」挪到了「这张表的成员」。本刀改成
 `UNKNOWN_CONTENT_FILE` 点名整包拒绝（`config` 与 `variants` 都在文案里被点名说明它们**没有** content 通道）。
 
-**`MOD_API_VERSION` 不动**（仍是 `1`）：`api` 是**可选项**（§34.5），没声明 `api` 的包一个字节都不受影响，
+**`MOD_API_VERSION` 不动**（仍是 `1`）：`api` 是**可选项**（§35.5），没声明 `api` 的包一个字节都不受影响，
 而加一格字段不抬版本有 `:434` 的先例。**不新增协议消息**：口径是服务端的判据，客户端读到的仍然是它一直在读的
 `priv.deployCap`。
 
 **已做的**：`training` 落在引擎已有的练度开关（`room.loadout.ops`）上；把一名**普通**干员的精锐形态
 数值投影给它（投稿 `training` 一段真正想做的那件事：`_a` 拿到 `_b` 的 `stats`/`skills`/`talents`，
-258 条 + 19 个召唤物）落在 §34.41 的 `form` 轴上（第 6 刀落地）—— 它是「形态投影」这条新规则，不是数值覆盖通道。
+258 条 + 19 个召唤物）落在 §35.41 的 `form` 轴上（第 6 刀落地）—— 它是「形态投影」这条新规则，不是数值覆盖通道。
 
-### 34.40 素材加载源（`assets.mirrors[]` + `sources(ctx)`）：让包真的换掉取字节的主机
+### 35.40 素材加载源（`assets.mirrors[]` + `sources(ctx)`）：让包真的换掉取字节的主机
 
 投稿 `2a031cf0f869`（「CDN 源选择」）的作者在 `note` 里把话说得很直：**做不到改素材加载源**，因为 `assets.json`
 里的地址是死的。这一节补上那一格，而它由**两半**组成 —— 拆开任一半都不成立：`pack.json.assets.mirrors[]` 定义
@@ -2947,7 +2947,7 @@ JSON 可序列化值**的回调。
 **以 `/` 结尾** —— 拼的是 `<base><包内文件名>`，少一个斜杠会拼出一个看起来对、取不到的地址）、
 `ASSETS_MIRROR_BAD_DIGEST`、`ASSETS_MIRROR_TOO_MANY`（`ASSETS_MIRROR_MAX` = 4）。声明了 `mirrors` 的包**必须**写
 `license`（`ASSETS_MIRROR_NEEDS_LICENSE`）：素材的再分发者是作者，授权问题不因为换了一台主机就消失 —— 与
-§34.36 的 `VOICE_CDN_NEEDS_LICENSE` 逐字同一条理由。`mirrors` **只在声明过时才进归一化结果**（与 `skins` /
+§35.36 的 `VOICE_CDN_NEEDS_LICENSE` 逐字同一条理由。`mirrors` **只在声明过时才进归一化结果**（与 `skins` /
 `voiceCdn` / `variants` 同一条纪律）：没声明它的包哈希逐字节不变。
 
 **A 半为什么只能镜像「本包自己的容器」。** 这一格改的是「**这份容器的字节**从哪台主机取」，不是「整棵 `/assets`
@@ -2960,12 +2960,12 @@ JSON 可序列化值**的回调。
 **装载期（`server/workshop.js assetsMirrorIssues`）：比对，不下载。** 每条的 `sha256` 必须等于**刚从包内文件
 算出来的**容器摘要（`assetsIssues.digest`）。对不上的那条 **停用**（`ASSETS_MIRROR_DIGEST_MISMATCH`，在
 `errors` 里逐条点名、启动日志一行）而**不是拒绝整个包** —— 包本身完整可用，服务端算出来的摘要才是真相。这是
-§34.35「宁少不拒」在装载期的同一条姿态。拿不到容器摘要时如实报 `ASSETS_MIRROR_NO_DIGEST`，不假装通过。
-**服务端一条网络请求都不发**（与 §34.36 的 `voiceCdn` 相反）：取字节的是客户端，所以这一格没有服务端超时、
+§35.35「宁少不拒」在装载期的同一条姿态。拿不到容器摘要时如实报 `ASSETS_MIRROR_NO_DIGEST`，不假装通过。
+**服务端一条网络请求都不发**（与 §35.36 的 `voiceCdn` 相反）：取字节的是客户端，所以这一格没有服务端超时、
 没有服务端缓存目录、没有启动期阻塞；一台 CDN 挂掉只影响想用它的人。身份哈希仍然哈希**声明**（含被停用的那条）：
 一条镜像某天失效不该静默换掉包身份、让房间摘要跟着漂。
 
-**B 半：`sources(ctx)`。** 与外观提供者（`client.panels[].appearance(ctx)`，§34.28）**逐条同构**：模块导出、
+**B 半：`sources(ctx)`。** 与外观提供者（`client.panels[].appearance(ctx)`，§35.28）**逐条同构**：模块导出、
 `import` 之后 `mount` 之前注册、进程内**最多一个**（`CLIENT_SOURCES_TAKEN`）、抛错 `CLIENT_SOURCES_THREW`、
 形状不对 `CLIENT_SOURCES_BAD_SHAPE`、只提供它而不 `mount` **不是错**。它返回 `{ order(mirrors) }`，`mirrors` 是
 **已声明**镜像的只读列表。
@@ -2973,7 +2973,7 @@ JSON 可序列化值**的回调。
 **它结构上不可能引入主机名**，这是这一格存在的全部价值：`order()` 只许回那些 id 的一个**排列或子集**。
 不是数组、含未声明的 id、含非字符串 ⇒ `CLIENT_SOURCES_BAD_ORDER`，**整条顺序作废**（不半信半疑地采用一半 ——
 那会让「哪台先说话」变成没人能复现的事）并回落声明顺序；返回 thenable ⇒ `CLIENT_SOURCES_ASYNC`（这是一条**同步**
-读物，与 §34.35 拒 `Promise` 同一条理由）；`null` / `undefined` = 「我没什么可排的」，不是失败。于是「包能改
+读物，与 §35.35 拒 `Promise` 同一条理由）；`null` / `undefined` = 「我没什么可排的」，不是失败。于是「包能改
 加载源」与「包不能指名任意主机」同时成立，而后者不是一句承诺：**注册面没有位置写下地址**。
 
 **导入次序（硬性，`public/js/resources/host.js importFromServer`）。** ① 逐条镜像：取清单 → 取容器 →
@@ -2984,7 +2984,7 @@ SHA-1[0:12] 导入与写缓存；② 任何一步不过 ⇒ **那条镜像作废
 `checked: false`（容器大于 `verifyContainerBytes` 的 256 MiB 上限）**等于不能用** —— 镜像是不受信的一方，而
 `crypto.subtle` 没有流式接口。所以**如实写在这里**：超过 256 MiB 的容器用不了镜像，那类包只能走包内；不设这条
 线就等于「不核摘要也导入」，那是「不能算错」的直接反面。跨源只发生在「取容器与清单」这一步：缓存键与 SW 送出
-仍然是**同源站点路径**，所以引擎自带的 SW（§34.13.5）一个字节都没改。
+仍然是**同源站点路径**，所以引擎自带的 SW（§35.13.5）一个字节都没改。
 
 **一键回退。** 设置里新增「工坊素材源」（`settings.workshopSources`，默认 `true`）。关掉 ⇒ `importFromServer`
 走的与「这个包没声明 `mirrors`」**完全同一条**路径（连返回值的形状都一样，没有 `via` / `refusals`），镜像那条 URL
@@ -2997,27 +2997,27 @@ SHA-1[0:12] 导入与写缓存；② 任何一步不过 ⇒ **那条镜像作废
 不注册 SW）完全不变。
 
 **`MOD_API_VERSION` 不动**（仍是 `1`）：加一格字段是纯增量，抬数字会让所有写 `api: "1.x"` 的老包被判
-`MOD_API_INCOMPATIBLE`（§34.5 与 `shared/modSurface.js` 的版本政策）。**不强制 `combat: true`**：判据是**能力**
+`MOD_API_INCOMPATIBLE`（§35.5 与 `shared/modSurface.js` 的版本政策）。**不强制 `combat: true`**：判据是**能力**
 而不是意图 —— 这一格改的是「哪台主机送**同一份已校验字节**」，改不了谁在玩、装了什么、这一局的结果；容器摘要
 本来就在包的内容哈希里（`identifyPack`），房间摘要闸门与 golden 语料一个字都没动。`MOD_SURFACE_FROZEN['1']`
 **只加不改**（新表面 `client.sources` 进表，账本那串字面量一个字母都不动）。
 
 <!-- 第 6 刀（干员形态投影）在此后追加：`### 28.41`。上面那段「还没做的」在第 6 刀里已经做了，
-     所以 §34.41 开头会点名它；集成时若与本文件尾部的其它刀内容相邻，按小节标题顺序摆即可。 -->
+     所以 §35.41 开头会点名它；集成时若与本文件尾部的其它刀内容相邻，按小节标题顺序摆即可。 -->
 
-### 34.41 口径轴 `form`：干员形态投影（`_a` 按 `_b` 的战斗职能出战）
+### 35.41 口径轴 `form`：干员形态投影（`_a` 按 `_b` 的战斗职能出战）
 
-**它补上 §34.39 那段「还没做的」。** 投稿 `e4fe4d5cf0a0`（「干员满练mod」）的 `training` 一段真正想要的是这件
+**它补上 §35.39 那段「还没做的」。** 投稿 `e4fe4d5cf0a0`（「干员满练mod」）的 `training` 一段真正想要的是这件
 事：**把普通干员投影成精锐形态** —— 每条普通形态（`_a`）拿它精锐兄弟（`_b`）的职能。它不是练度开关能表达的：
 `shared/potential.js` 的潜能 1–6 与练度 0–3 **都改不了** `phase` / `equipLevel`，也开不出精锐的技能 2 与模组天赋
-（`shared/potential.js:29-39`）。所以它是一条**新规则**，走**声明通道**、默认关：§34.39 的轴表加第三条轴
+（`shared/potential.js:29-39`）。所以它是一条**新规则**，走**声明通道**、默认关：§35.39 的轴表加第三条轴
 `form`（`official` / `elite`，**缺省 `official`** = 引擎今天的行为）。
 
 **它为什么不是「数值覆盖通道」。** 投稿把这件事实现成安装器：`payload/data/official.json` 里 258 条记录各写一份
 绝对数值。**本刀不采纳那些数，而且是刻意不采纳** —— 那套数比引擎今天**低**：投稿给 `chess_char_1_01_a` 的
 `atk` 是 497，而引擎自己的 `_b` 是 531（129 条里**一条都不相等**，投稿是官方口径、引擎是满潜能口径）。照搬会
 **静默降级** 129 名干员。所以：包只说「这一局用 `form: "elite"`」，**值全部从引擎自己的 `_b` 记录读**
-（`shared/formProjection.js`）—— 与 `deploy` 那条口径同一条纪律（§34.39 判据 2）。
+（`shared/formProjection.js`）—— 与 `deploy` 那条口径同一条纪律（§35.39 判据 2）。
 
 **投影什么、不投影什么**（`shared/formProjection.js`）：
 
@@ -3049,7 +3049,7 @@ SHA-1[0:12] 导入与写缓存；② 任何一步不过 ⇒ **那条镜像作废
 两个房间，一个声明 `elite`、一个不声明，各拿各的 `DataSource`（共用就是面板与战斗对同一条 `_a` 给出两套数值）。
 召唤物的 token 缓存键也把 owner 形态算进去。
 
-**`combat: true` 是硬闸门**：沿用 §34.39 的 `VARIANTS_NEED_COMBAT`（`shared/workshop.js`），**本刀没有新增闸门** ——
+**`combat: true` 是硬闸门**：沿用 §35.39 的 `VARIANTS_NEED_COMBAT`（`shared/workshop.js`），**本刀没有新增闸门** ——
 判据是「能改结果的口径必须进房间摘要闸门与 golden 语料」，与 `server.meta` / `server.battle` /
 `modules[].uses: ["matchClass"]` 同一条线。**不新增协议消息**，`MOD_API_VERSION` 仍是 `1`。
 
@@ -3077,7 +3077,7 @@ SHA-1[0:12] 导入与写缓存；② 任何一步不过 ⇒ **那条镜像作废
 
 
 
-### 34.42 房间目录的公开面：`GET /api/rooms` —— **一个数，不是列表**（投稿 `7ca51de6f346` 的收窄）
+### 35.42 房间目录的公开面：`GET /api/rooms` —— **一个数，不是列表**（投稿 `7ca51de6f346` 的收窄）
 
 **投稿 `7ca51de6f346`（作者 Leiothrix，GPL-3.0-or-later，来源 `NeoPecos/Stronghold-Protocol 2cadc618`）要的是什么**：
 C2S `room.list` + `user.activity` 与 S2C `room.list` —— 大厅直接列出**公开合作房间**，每条含房号、房主代号、难度、
@@ -3118,7 +3118,7 @@ C2S `room.list` + `user.activity` 与 S2C `room.list` —— 大厅直接列出*
 该房号或房主名）、HEAD 200 无 body、POST 405、以及 `roomCounts()` 与 `stats()` 同源（`publicRooms === total ===
 `/healthz` 的 `rooms`）。
 
-### 34.43 `pack.json.behaviour`：行为开关（闭枚举、引擎自烘），**不是安装器**
+### 35.43 `pack.json.behaviour`：行为开关（闭枚举、引擎自烘），**不是安装器**
 
 **要解决的那面墙**：投稿 `ac8c9821f5ba`（「卫戍协议mod-跨版本一键安装包-v1.4.8-适配0.2.4」）把「改一条规则」
 做成了**安装器** —— `install.mjs`（43,658 B）按 `files.json` 的 `copy` 清单**整份覆盖** `data/{chess,config,items,
@@ -3138,10 +3138,10 @@ gets the whole file gets the whole feature.」** —— 这一句就是 `docs/WO
 **与 `variants` 逐字同构** —— 两张表读起来是同一套东西（`label` / `optionLabels` 中文、`effect` 英文、文件头
 i18n-ignore），差别只在**表是另一张**、每格多一个 `actions`。
 
-**为什么另开一格而不是塞进 `VARIANT_AXES`**：两层的**入场券不同**。口径（`variants`，§34.39）是「同一份数据的
+**为什么另开一格而不是塞进 `VARIANT_AXES`**：两层的**入场券不同**。口径（`variants`，§35.39）是「同一份数据的
 另一套表现」，每条轴**必有**「官方那一档」，缺省＝引擎今天的行为，落点是引擎**已经实现**的那套开关；行为开关是
 「引擎里本来没有、现在由维护者实现的规则」，它**不要求**有「官方那一档」。判据不同 ⇒ 拒绝码与 `combat` 披露口径
-必须分开，而且混进 `VARIANT_AXES` 会把 `variantDataPatch`（§34.39 的唯一执行点，今天只返回一个 `config` 标量）
+必须分开，而且混进 `VARIANT_AXES` 会把 `variantDataPatch`（§35.39 的唯一执行点，今天只返回一个 `config` 标量）
 逼成一个**通用 patch 分发器** —— 那正是本节要拦的形态。**`VARIANT_AXES` 一字不动**。
 
 **它就是 `docs/WORKSHOP.md` §1.1 那句建议的落点**：那条 `giveBondBiasOnly`（改一局的商店出货概率）当时被两路挡
@@ -3154,7 +3154,7 @@ i18n-ignore），差别只在**表是另一张**、每格多一个 `actions`。
    是「**通道 + 守卫**」本身，**首格与它的引擎实现点一起落**（业主裁决 2026-10-13）。所以当时任何一条 `behaviour`
    声明都被 `BEHAVIOUR_UNKNOWN_SWITCH` **点名整包拒** —— 空表不是「不认识的开关一律忽略」，而是**一个都不认识**，
    文案里还写明「本版一个开关都没有，因为没有实现点」。**加一格的门槛**：那一格必须**已经在引擎里有实现点**，
-   比 `VARIANT_AXES` 的「只在被一份真实投稿要求时才加轴」更严。**第 8 刀按这条落了前三格**（§34.43.1）：表里
+   比 `VARIANT_AXES` 的「只在被一份真实投稿要求时才加轴」更严。**第 8 刀按这条落了前三格**（§35.43.1）：表里
    每一格都有一处具名读取点、一个测试文件与一节文档；`behaviourSwitchIssues(BEHAVIOUR_SWITCHES)` 逐格为 `[]`
    就是那三格「不是塞进去就算」的判据。**站上的实测需求**：空表真的挡过投稿 —— `e3a5d09eb6d3`（跨版本安装包）
    按 `pack.json.behaviour` 声明时拿到 `BEHAVIOUR_UNKNOWN_SWITCH`（文案即「Known switches: none yet …」）。
@@ -3166,7 +3166,7 @@ i18n-ignore），差别只在**表是另一张**、每格多一个 `actions`。
    键，理由里写清「一条行为声明只说一个开关与它的一个选项 —— 它永远不带模块、文件、路径或数字」。**没有 `$del`
    语义**：这一层没有「删官方键」的表达能力。
 4. **缺省逐字节不变**。不声明 `behaviour` 的包，归一化清单里**不长出这个键**（无条件写 `behaviour: []` 会让
-   **所有已发布包**的内容哈希改变，房间的摘要闸门随即误判，§34.2）—— 与 `skins` / `voiceCdn` / `variants` 同一条。
+   **所有已发布包**的内容哈希改变，房间的摘要闸门随即误判，§35.2）—— 与 `skins` / `voiceCdn` / `variants` 同一条。
    而**声明了就必须进身份哈希**：只差一个开关的两份包摘要必须不同（同一个摘要下两种对局行为是不允许的）。
 5. **必须 `combat: true`**（第五条硬闸门 `BEHAVIOUR_NEEDS_COMBAT`）。位置与 `VARIANTS_NEED_COMBAT` 同序：
    `BAD_COMBAT`（类型）之后、`EMPTY_PACK` 之后。判据是**能力**而不是意图 —— 一格的入场券本就是「它改一条规则」
@@ -3175,7 +3175,7 @@ i18n-ignore），差别只在**表是另一张**、每格多一个 `actions`。
 6. **不是贡献项**：与 `support` / `playtest` / `variants` 同一个语义 —— 开关选的是引擎已实现的一条规则，不是内容。
    所以一个只带 `behaviour` 的包照旧 `EMPTY_PACK`（文案里点名 `"behaviour" is NOT a contribution`）。
 
-**多包抢同一格**：按既有的「包 id 字典序小的赢」（§34.3，与数据记录 / kit / 图标 / 口径同一条），由
+**多包抢同一格**：按既有的「包 id 字典序小的赢」（§35.3，与数据记录 / kit / 图标 / 口径同一条），由
 `mergeBehaviourDecls` 合成，输的一方进 `overridden` 供调用方点名报告。
 
 **执行点**：`behaviourActions(decl)` 把归一化声明翻成**引擎具名动作** `{ kind, value }`。表空 ⇒ 动作数组空；选了
@@ -3188,7 +3188,7 @@ i18n-ignore），差别只在**表是另一张**、每格多一个 `actions`。
 `variantIsDefault` 同一个分工；`actions(option)` 是那一格的**声明**（给编辑器、错误文案与守卫读），
 **不是**一个通用分发器 —— 这一层永远不是 patch 分发器。
 
-### 34.43.1 第 8 刀：逐格加开关（`shopBias` 起）
+### 35.43.1 第 8 刀：逐格加开关（`shopBias` 起）
 
 | 开关 | 选项 / 缺省 | 引擎侧读取点 | 投稿 |
 |---|---|---|---|
@@ -3239,7 +3239,7 @@ bug（`server/match/invariants.js` 写的是收棋子的形状、其余写的是
 最容易出的事就是「声明了、装上了、什么都没发生」。
 
 **`MOD_API_VERSION` 不动**（仍是 `1`）：`api` 是可选项，没声明 `api` 的包一个字节都不受影响，而**加一格字段不抬
-版本**有 §34.39 / §34.33 / `server.modules` 的 `metrics`·`route` 三处先例（`shared/modSurface.js` 的版本政策）。
+版本**有 §35.39 / §35.33 / `server.modules` 的 `metrics`·`route` 三处先例（`shared/modSurface.js` 的版本政策）。
 抬世代只有三种情形：**已有声明改语义** / **新声明复用老引擎已认识且会按旧语义执行的键** / **删改名任何一格**。
 本刀是「新键 + 老引擎 `PACK_UNKNOWN_FIELD` **响亮拒**」—— 老引擎不是静默走错，是点名拒绝，所以第三种也不成立。
 **「老引擎优雅降级」明确不做**：那会让「写了等于没写」复活；作者该知道的是自己该跑哪一版。
@@ -3247,7 +3247,7 @@ bug（`server/match/invariants.js` 写的是收棋子的形状、其余写的是
 **披露**：`welcome.mods[].behaviour` 与 `variants` **并列投影**（`server/index.js`，**只在声明过时才存在这个键**）；
 **不进 `modDigest`**（它只哈希 `[id, hash]` 对，`shared/modIdentity.js`），但**必须进包身份哈希**
 （`server/workshop.js` 的 `canonicalJson(pack)`）。漏掉投影 = `Match` 读到 `undefined`、开关**静默不生效**
-（§34.39 把这一处记成「这一层最容易做坏的地方」）。
+（§35.39 把这一处记成「这一层最容易做坏的地方」）。
 
 **站侧含义（照实写）**：投稿原件在站点 `flagged/ac8c9821f5ba/`，`meta.json` 的 `flags` 含 `EXECUTABLE`(blocker) /
 `NO_PACK_JSON` / `WRAPPED`（全部文件套在 `跨版本安装包/` 一层下 ⇒ 做成兼容包上传必须先**扁平化**）。它**不是**
@@ -3262,11 +3262,11 @@ bug（`server/match/invariants.js` 写的是收棋子的形状、其余写的是
 （走装载器同一份 `identifyPack`）、投影那一行真的在 `server/index.js` 里（源码级断言）、以及 `PACK_FIELDS` 的闭集
 计数就地延长。**不需要 `golden:update`**：缺省路径一个字节不动。
 
-### 34.43.2 第 8 刀：第四格 `unequip`（装备拆卸）与**新增一条 C2S 意图**的完整落点
+### 35.43.2 第 8 刀：第四格 `unequip`（装备拆卸）与**新增一条 C2S 意图**的完整落点
 
 投稿 `79de9ff03518`（「装备拆卸mod」）把这件事做成了安装器：`files.json.copy` **整份覆盖** `shared/protocol.js`、
 `server/match/match/intents.js`、`server/match/player/items.js` 与六个客户端文件，并自己加了一个
-`g.unequip {itemUid}` 意图与 `PlayerState.unequip()`。本刀照 §34.43 收成一格：
+`g.unequip {itemUid}` 意图与 `PlayerState.unequip()`。本刀照 §35.43 收成一格：
 
 | 开关 | 选项 / 缺省 | 引擎侧读取点 | 投稿 |
 |---|---|---|---|
@@ -3326,9 +3326,9 @@ bug（`server/match/invariants.js` 写的是收棋子的形状、其余写的是
 （用 `test/match/morph-bonds.test.js` 的「变形同构体 + 一件授予盟约的装备」配方，1 → 0）、客户端源码级断言
 （发送点 / 缺省 `unequipOn = false` / 按钮判据 / 官方那句提示还在 / 游戏屏接线）。
 
-### 34.43.3 第二格 `prepLoadout` 的**客户端半**：一句写了很久的谎话，与两处同类的写死相位
+### 35.43.3 第二格 `prepLoadout` 的**客户端半**：一句写了很久的谎话，与两处同类的写死相位
 
-第 8 刀第二格（§34.43.1）只落了**服务端**那一半：`Match.setLoadout` 读 `LOADOUT_PHASES`，`locked`（缺省）只收
+第 8 刀第二格（§35.43.1）只落了**服务端**那一半：`Match.setLoadout` 读 `LOADOUT_PHASES`，`locked`（缺省）只收
 `INFO_CHECK`，`prep` 另收 `PREP`。**客户端那一半一直没落**，而它的缺失形态不是"少一个发送点"，是**客户端在撒谎**：
 
 * 发送链路**整套早就有** —— `public/js/ui/loadoutSync.js` 的 `installLoadoutSync` 早就在发
@@ -3357,7 +3357,7 @@ bug（`server/match/invariants.js` 写的是收棋子的形状、其余写的是
 `locked` 那两处的旧表达式与新判据**逐相位遍历同一个布尔**，`shouldAutoClose` 那一处也**逐相位同判** ⇒
 一个不声明这一格的房间，界面一个字节不变，**没有任何 `golden:update`**。
 
-**还没做的那一件（如实披露，见 §34.43.4）**：`PREP` 里**没有入口**能打开干员调配面板 —— `LoadoutButton` 只在
+**还没做的那一件（如实披露，见 §35.43.4）**：`PREP` 里**没有入口**能打开干员调配面板 —— `LoadoutButton` 只在
 大厅（`from="lobby"`）、房间（`room`）与简报（`briefing`，只活在 `INFO_CHECK`）里出现，`screens/game.js` 里
 **一个都没有**。所以在贴一个 `PREP` 入口之前，"服务端开了"与"玩家改得了"之间还差最后一步。
 
@@ -3370,16 +3370,16 @@ bug（`server/match/invariants.js` 写的是收棋子的形状、其余写的是
 | `ui/gameLogic/placement.js` 的 `if (targetPiece.items.length < 2) return false;` | 同上（拖拽配发的预判） | **同上，已处理**（判据收在 `equipReplaces` 一处） |
 | `ui/detailPanel.js` 的 `EQUIP n/2` 与"最多 2 件"文案 | 纯显示 | **第 7 段已处理**：分子换成 `slotPolicy().slotsUsed`（`plus` 档不数那件不占位的），分母 `slotCap`；`plus` 档另外给那一行画一个「不占装备格」标签（`dtag-slotless`，缺省档不画） |
 
-### 34.43.4 待办（本轮**刻意不做**）：`PREP` 里的干员调配入口
+### 35.43.4 待办（本轮**刻意不做**）：`PREP` 里的干员调配入口
 
-§34.43.3 把客户端的相位判据扶正之后，**"服务端收得下"与"玩家改得了"之间还差最后一步**：`PREP` 里没有入口。
+§35.43.3 把客户端的相位判据扶正之后，**"服务端收得下"与"玩家改得了"之间还差最后一步**：`PREP` 里没有入口。
 
 **证据**：`LoadoutButton` 只有三个宿主 —— `screens/lobby.js`（`from="lobby"`）、`screens/room.js`（`from="room"`）、
 `screens/briefing.js`（`from="briefing"`，而简报只活在 `INFO_CHECK`）。`screens/game.js`（对局的屏）里**没有**
 任何入口；`shouldAutoClose` 的 `lobby`/`room` 那一支又会在对局开始时把面板收走。⇒ 声明 `prepLoadout: "prep"` 的
 房间，玩家仍然没有地方点开那个面板。
 
-**为什么不在 §34.43.3 里顺手加**：那是**在对局屏上新增一个可见控件**（不是修一句判据），属于"新渲染分支"，
+**为什么不在 §35.43.3 里顺手加**：那是**在对局屏上新增一个可见控件**（不是修一句判据），属于"新渲染分支"，
 要单独裁。两个候选形状：
 
 1. **贴一个入口**：`screens/game.js` 加一个 `<LoadoutButton from="game" />`，**只在 `prepLoadoutAllowed()` 且
@@ -3390,10 +3390,10 @@ bug（`server/match/invariants.js` 写的是收棋子的形状、其余写的是
    `prep` 档渲染分支。
 
 **状态**：**未做，记账在此**（业主"站上 8 条全部做"的口径由"记账 + 待办"满足，不让它悄悄丢掉）。做的时候
-**必须**遵守 §34.43.1 那三条（缺省 = 引擎今天的行为、非缺省档由引擎实现、一格一个测试文件 + 一节文档）与
-§34.43.2 的「加意图清单」（若同时要发送新的东西）。
+**必须**遵守 §35.43.1 那三条（缺省 = 引擎今天的行为、非缺省档由引擎实现、一格一个测试文件 + 一节文档）与
+§35.43.2 的「加意图清单」（若同时要发送新的东西）。
 
-### 34.44 The upgrade-path table: a second protocol on the same port (implemented)
+### 35.44 The upgrade-path table: a second protocol on the same port (implemented)
 
 **The gap, stated as a hard-coded comparison.** `server/http/websocket.js` answered exactly one WebSocket path — the
 line was `if (!parts || parts.rawPath !== '/ws') { reject(404, …) }` — because one server ran one game and one
@@ -3432,30 +3432,30 @@ Four properties, each one closing a way this could quietly go wrong:
 
 **What this does *not* open — read this before proposing the next cell.** A lane is registered by **the host process,
 from code the operator installed**. Nothing here gives a **pack** a socket, a port, a route or a listener: packs
-still get no `fetch`/`WebSocket`, no timers and no child processes (`shared/kitAuthoring.js`, §34.13.1), the static
-channels stay `.json`-only (§34.13), and `C2S` is still a closed set a pack cannot extend (`server/net.js`). Letting
+still get no `fetch`/`WebSocket`, no timers and no child processes (`shared/kitAuthoring.js`, §35.13.1), the static
+channels stay `.json`-only (§35.13), and `C2S` is still a closed set a pack cannot extend (`server/net.js`). Letting
 a pack declare a lane is a separate ruling with its own surface cell, its own abuse analysis (a lane is a network
 listener owned by untrusted code) and its own version policy — it is deliberately not folded into this one.
 
 **Cost and blast radius.** One new file (`server/http/wsLanes.js`), one call site in `server/index.js`
 (`lanes: opts.wsLanes`), and the guard plus hand-over in `websocket.js`. Per `docs/MOD-SURFACE.md`'s policy this
 adds no pack-facing surface at all, so `MOD_API_VERSION` does not move and no published pack is refused.
-Numbering: `main` 到 0.15.1 那一刀写到 **§34.37**（§34.30–§34.37 是「服务端四格能力 + 面板第二批读面」那一批），
-**本仓库此后又往后落了若干格，现存最大是 §34.43.4**；而 §34.23（#2）与 §34.26–§34.27（#3）仍在两个待审 PR 手里，
-所以这一格往后接 **§34.44**，不插进那条被占用的连号 —— 与 §34.28/29 当年的放法同一条。
+Numbering: `main` 到 0.15.1 那一刀写到 **§35.37**（§35.30–§35.37 是「服务端四格能力 + 面板第二批读面」那一批），
+**本仓库此后又往后落了若干格，现存最大是 §35.43.4**；而 §35.23（#2）与 §35.26–§35.27（#3）仍在两个待审 PR 手里，
+所以这一格往后接 **§35.44**，不插进那条被占用的连号 —— 与 §35.28/29 当年的放法同一条。
 
 Tests: `test/wsLanes.test.js` (8) — the shape layer (`isLanePath`, the five refusals by name, the empty-table
 identity, exact-match resolution) and, unlike a pure shape-layer test, **a real `http.Server` with real `ws`
 handshakes**: a lane answers its own path while `/ws` still reaches `Network.handleConnection`; a refused admission
 never reaches the lane's handler; a throwing lane closes its socket, is named, and does not become a game connection.
 
-### 34.45 The request-path table: a mode's own page and its own POST (implemented)
+### 35.45 The request-path table: a mode's own page and its own POST (implemented)
 
 **The gap, stated as three fates.** `server/http/routes.js` knew exactly three outcomes for a request: 405 for any
 method but `GET`/`HEAD`, the engine's own exact paths (`/healthz`, the mods catalogue), and the static files. A
 self-contained game mode needs things none of those provide — a page of its own under a namespace, its own assets
 behind that namespace, and usually a **POST** endpoint (a report, a receipt). The only way to get them was to edit the
-method gate, which is the same trap §34.44 describes for the upgrade path: every fork owns a private copy of the rule
+method gate, which is the same trap §35.44 describes for the upgrade path: every fork owns a private copy of the rule
 that guards the front door.
 
 **The ruling.** A second table, held by the host process, decided before the response is written:
@@ -3468,7 +3468,7 @@ Four properties, and the first one is what makes a *prefix* table safe to have a
 
 1. **A lane cannot overlap the engine's URL space, and that is checked against the engine's own constants.**
    `ENGINE_HTTP_RESERVED` is a **union of two imported truths**: `RESERVED_ROUTE_PREFIXES` + `DYNAMIC_ROUTE_PREFIX`
-   (`server/http/routeMount.js` — the engine's own top-level namespaces, which §34.35 already keeps as one reusable
+   (`server/http/routeMount.js` — the engine's own top-level namespaces, which §35.35 already keeps as one reusable
    list, `/mod/` `/i18n` `/data.js` `/shared` `/ws` `/healthz` included), and the constants the handlers actually serve:
    `MODS_CATALOG_URL` / `MOD_FILE_PREFIX` (`server/http/mods.js`), `PACKS_URL`
    (`shared/packs.js`), `MEDIA_PREFIX` (`shared/media.js`), `ROOM_DATA_PREFIX` / `WORKSHOP_BATTLE_PREFIX`
@@ -3482,15 +3482,15 @@ Four properties, and the first one is what makes a *prefix* table safe to have a
    parsing and before the method gate, so `POST /healthz` is still the 405 it always was (a lane can never own that
    path, rule 1), and an unknown path still ends in the static handler. No lanes — the default, and the only shape a
    plain `npm start` has — is the same table as an empty one.
-3. **Only three methods exist here.** `GET`/`HEAD`/`POST` (§34.13's static channels stay `.json`-only; this is not a
+3. **Only three methods exist here.** `GET`/`HEAD`/`POST` (§35.13's static channels stay `.json`-only; this is not a
    way to smuggle a write API into the game's own surface). Anything else is still the flat 405.
 4. **A lane owns its response and its own failures.** It reads any body, sets its own content type; a throw is caught
    by the listener, answers 500 only if nothing was written yet, and is logged **by lane id** — it never falls through
    into the game's static space. The security headers (`common.js`) are set before the lane is asked, so a lane cannot
-   drop them. A bad table fails at boot, naming every problem — §34.44's rule, same reason.
+   drop them. A bad table fails at boot, naming every problem — §35.44's rule, same reason.
 
-**What this does *not* open.** Same boundary as §34.44: a lane is code **the operator installed**, not something a
-pack declares. A pack's `routes` stay `.json`-only (§34.13), packs still get no `fetch`/`WebSocket`, no timers, no
+**What this does *not* open.** Same boundary as §35.44: a lane is code **the operator installed**, not something a
+pack declares. A pack's `routes` stay `.json`-only (§35.13), packs still get no `fetch`/`WebSocket`, no timers, no
 child processes (`shared/kitAuthoring.js`), and `C2S` is still the engine's closed set. Whether a pack may register a
 lane is a separate ruling — a lane is a network listener handed to untrusted code, and that needs its own abuse
 analysis and version policy rather than being folded in here.
@@ -3498,9 +3498,9 @@ analysis and version policy rather than being folded in here.
 **Cost and blast radius.** One new file (`server/http/httpLanes.js`), the table lookup in `routes.js` (which keeps the
 single `handleRequest` and therefore the single order of decisions), and one option threaded through `startServer`.
 Nothing is added to the pack-facing surface, so `MOD_API_VERSION` does not move and no published pack is refused.
-Numbering: `main` 到 0.15.1 那一刀写到 **§34.37**，**本仓库此后又往后落了若干格，本格之前现存最大是 §34.44（姊妹格升级路径表），再往前是 §34.43.4**；
-而 §34.23（#2）与 §34.26–§34.27（#3）仍在待审 PR 手里，所以这一格接 **§34.45**，紧挨着它的姊妹格升级路径表
-（**§34.44**）—— 两条都不插进那条被占用的连号。
+Numbering: `main` 到 0.15.1 那一刀写到 **§35.37**，**本仓库此后又往后落了若干格，本格之前现存最大是 §35.44（姊妹格升级路径表），再往前是 §35.43.4**；
+而 §35.23（#2）与 §35.26–§35.27（#3）仍在待审 PR 手里，所以这一格接 **§35.45**，紧挨着它的姊妹格升级路径表
+（**§35.44**）—— 两条都不插进那条被占用的连号。
 
 Tests: `test/httpLanes.test.js` (9) — every reserved URL proven unclaimable from the imported list, the
 `publicDir` overlap, the method closure and the five refusals by name, then **real `fetch` requests against a real
@@ -3508,9 +3508,9 @@ server**: a lane answers its subtree including POST, `POST /healthz` is still 40
 static handler, and a throwing lane answers a named 500 without reaching the game.
 
 
-### 34.46 `pack.json.target`：一份清单，两个宿主读得懂（`forge` 缺省 / `stardust` 声明型）
+### 35.46 `pack.json.target`：一份清单，两个宿主读得懂（`forge` 缺省 / `stardust` 声明型）
 
-**要解决的问题。** `pack.json` 的顶层键是**闭集**（§34.1 那条最硬的纪律：不认识的键点名拒绝，绝不读过去）。这条纪律对
+**要解决的问题。** `pack.json` 的顶层键是**闭集**（§35.1 那条最硬的纪律：不认识的键点名拒绝，绝不读过去）。这条纪律对
 Forge 自己的包是对的，但对**同一份清单要给两个宿主读**的场景是一个死结：Stardust 宿主认识的键（`type` / `capabilities` /
 `englishName` / `authors` / `app`，以及能力自己认领的 `announcements`）在 Forge 这一侧会被 `PACK_UNKNOWN_FIELD` 整包拒。
 作者于是被迫维护两份几乎一样的清单 —— 而那正是「同一份 pack.json 两端各自读得懂」要消灭的东西。
@@ -3531,12 +3531,12 @@ Forge 自己的包是对的，但对**同一份清单要给两个宿主读**的�
 **三条裁决（本刀的口径）。**
 
 1. **不抬版本**：加一格字段、且缺省路径逐字节不变 ⇒ `MOD_API_VERSION` 仍是 `1`、`PROTOCOL_VERSION` 仍是 `2`。
-   先例是 §34.39 / §34.43 / `server.modules` 的 `metrics`·`route`。抬世代的三种情形（已有声明改语义 / 新声明复用
+   先例是 §35.39 / §35.43 / `server.modules` 的 `metrics`·`route`。抬世代的三种情形（已有声明改语义 / 新声明复用
    老引擎会按旧语义执行的键 / 删改名任何一格）一条都不成立。
 2. **闭集就地延长**：`PACK_FIELDS` 32 → 33（`test/packBehaviour.test.js` 的计数与 `docs/STANDARD-PACK.md` 同步）。
    副作用要如实说：`PACK_UNKNOWN_FIELD` 的错误文案里**列出全部键**，所以每一个未知键的报错文案都变了 —— 那是文案，
    不是判据。
-3. **`stardust` 包的作者可见面（本刀未接线，已由紧随其后的一刀接上）**：§34.46 落地时本引擎只在**启动日志**里
+3. **`stardust` 包的作者可见面（本刀未接线，已由紧随其后的一刀接上）**：§35.46 落地时本引擎只在**启动日志**里
    具名说一句 —— `tools/workshop-validate.mjs` 不读 `loaded.foreign` ⇒ 一个 stardust 包在验证器报告里**完全不出现**
    （既不报错、也不列出）；`tools/workshop-pack.mjs list` 把它打成 `REFUSED（null）`（`packSummary` 没有这一支）。
    那是**已知缺口**，而复刻的正是 §1.1 那条教训（「磁盘上在、编辑器里在、却永远进不了游戏，没有任何报错」），
@@ -3552,7 +3552,7 @@ Forge 自己的包是对的，但对**同一份清单要给两个宿主读**的�
 
 ---
 
-### 34.47 mod registry：一份登记册，装过什么 / 操作者启停过什么
+### 35.47 mod registry：一份登记册，装过什么 / 操作者启停过什么
 
 **要解决的问题。** 一个包**在磁盘上**、清单**一字不错**、却什么都没装载 —— 这是本仓库反复判过死刑的结局
 （§1.1）。在「管理器」出现之前，包只有「装」与「没装」两种状态，所以没有第三种可能。管理器一旦能**启用 / 禁用**
@@ -3606,7 +3606,7 @@ CLI、编辑器、服务器读的都是这一个文件，**谁都不留第二份
   `uninstall` 拒绝，被拒的目录（含引擎的 `data/gamedata.json`）一字节不变，连 `.mod-backups/` 都不该被建出来。
 
 **与作者可见面的衔接。** 一个被禁用的包在 `tools/workshop-pack.mjs list` 里带 `· DISABLED（不装载）` 后缀 ——
-它与 `FOREIGN`（§34.46）那一格**正交**：禁用的包**可以**同时是 `VALID`（清单没问题，是操作者把它关掉了），
+它与 `FOREIGN`（§35.46）那一格**正交**：禁用的包**可以**同时是 `VALID`（清单没问题，是操作者把它关掉了），
 所以两个后缀分开说。不说出来就是又一次「在磁盘上、在列表里、却永远进不了游戏、没有报错」。
 
 **不抬版本**：`MOD_API_VERSION` 仍是 `1`、`PROTOCOL_VERSION` 仍是 `2`。这一节**没有**动 `PACK_FIELDS`，
@@ -3618,7 +3618,7 @@ disabled 具名离开集合 / import 记录 install / `--force` 升级留底 + `
 
 ---
 
-### 34.48 `pack.json.dependencies` / `conflicts`：装载期的跨包裁决
+### 35.48 `pack.json.dependencies` / `conflicts`：装载期的跨包裁决
 
 **要解决的问题。** 一个包声明「我依赖 `lib`」「我和 `beta` 互斥」时，这句话**只有在真的装了哪些包之后**才成立。
 作者交上来的是一份 `pack.json`，他看不到别人的 `workshop/` 里有什么。所以「缺依赖」不是他写错了，而是
@@ -3632,10 +3632,10 @@ disabled 具名离开集合 / import 记录 install / `--force` 升级留底 + `
 错误码：`DEPENDENCIES_` / `CONFLICTS_` 前缀的 `BAD_SHAPE` / `BAD_ENTRY` / `UNKNOWN_FIELD` / `BAD_ID` /
 `BAD_RANGE` / `CONFLICTING_RANGES`。
 
-**与 `content` 白名单无关、不是贡献项。** 两个键都进 `PACK_FIELDS` 闭集（§34.1），都**不在**
+**与 `content` 白名单无关、不是贡献项。** 两个键都进 `PACK_FIELDS` 闭集（§35.1），都**不在**
 `WORKSHOP_CONTENT_FILES` 里，都进 `notContributions` —— 一个只声明依赖的包自己**不带来任何内容**，与
 `support` / `playtest` / `variants` / `behaviour` 同一条，照旧 `EMPTY_PACK`（文案里逐字点名它）。
-「写了才进归一化结果」照旧：没声明的包哈希逐字节不变（§34.2）。
+「写了才进归一化结果」照旧：没声明的包哈希逐字节不变（§35.2）。
 
 **五条裁决规则（在 `adjudicatePackGraph`，纯函数、确定性、全部具名）。**
 
@@ -3659,8 +3659,8 @@ disabled 具名离开集合 / import 记录 install / `--force` 升级留底 + `
 不改输入。`kept` 就是真正装载的集合，`refused` 由 `server/index.js` 变成具名的启动日志，并**同时进
 `excludePacks`** —— 数据叠加层与装载器是同一次裁剪，否则被拒的包会留下一个「谁都不认识的干员」。
 
-**裁剪点的顺序（`server/index.js` 的装配流水线）。** 登记册（§34.47）在最上游，紧接着是这一节的裁决，
-二者都排在**任何载荷装载之前**（hooks / meta / server modules / battle / room）。理由与 §34.13 那些裁剪点
+**裁剪点的顺序（`server/index.js` 的装配流水线）。** 登记册（§35.47）在最上游，紧接着是这一节的裁决，
+二者都排在**任何载荷装载之前**（hooks / meta / server modules / battle / room）。理由与 §35.13 那些裁剪点
 同一条：一个「包照旧加载、只是它的效果不在」的结局，会让运维以为自己有一道不存在的闸门。
 
 **不抬版本**：`MOD_API_VERSION` 仍是 `1`、`PROTOCOL_VERSION` 仍是 `2`。闭集就地延长：顶层键 33 → 35
@@ -3670,7 +3670,7 @@ disabled 具名离开集合 / import 记录 install / `--force` 升级留底 + `
 
 **测试**：`test/modDependencies.test.mjs` —— 形状（去重 / 排序 / 六种点名拒）、归一化纪律（没写就不长键）、
 五条规则逐条、级联迭代到不动点、循环具名成链、纯函数（输入不改、顺序无关、拒绝表按 id 排序）。
-### 34.49 `trait.grantsBonds`：把「特质 → 盟约成员资格」写成数据
+### 35.49 `trait.grantsBonds`：把「特质 → 盟约成员资格」写成数据
 
 **业主原话**：「我们的 forge 能不能做出游戏内的『特质』效果，即一般是用来**叠加盟约层数**的固有天赋」。
 
@@ -3680,12 +3680,12 @@ disabled 具名离开集合 / import 记录 install / `--force` 升级留底 + `
 count +1 ⇒ **层数自然上去**。这是一条**纯数据**通道：不需要模块、不需要 `server.meta`、不需要一行脚本 ——
 一个不懂代码的作者也能落这条天赋。
 
-**为什么是「加一格记录字段」而不是「加一条 `behaviour` 开关」。** `behaviour`（§34.43）是**安装器**：选项由引擎
+**为什么是「加一格记录字段」而不是「加一条 `behaviour` 开关」。** `behaviour`（§35.43）是**安装器**：选项由引擎
 写死、包只能声明「要哪一档」。这里要的是「**记录自己**说它授哪几个盟约」—— 那是**内容**（与记录自己的 `bonds`、
 与装备的 `giveBondId` 同类），所以它落在**记录**上、落在 A 层，且**不占** `behaviour` 表。
 
 **一处判据、三处同源（本格真正的价值）。** 成员资格有三个读取点：prep 的 `bondsMeta.pieceBonds`、战斗里的
-`support/index.js unitBonds`、客户端的 `gameLogic/bonds.js`。在 §34.43.1 之前，三处**各自**写了一遍「自己的
+`support/index.js unitBonds`、客户端的 `gameLogic/bonds.js`。在 §35.43.1 之前，三处**各自**写了一遍「自己的
 `bonds` + 装备授予」的合并循环；那正是这条规则历史上最容易分叉的地方（一份改了、另两份没改 ⇒「服务端数了、
 卡片没显示」）。本格把两件事都收进 `shared/morph.js`：
 
@@ -3722,18 +3722,18 @@ count +1 ⇒ **层数自然上去**。这是一条**纯数据**通道：不需�
 形状不对时一律回 `[]`，`memberBonds` 在缺省输入下逐字等于从前那条算式 ⇒ `test/golden/*.json` 不需要
 `golden:update`，`MOD_API_VERSION` 仍 = 1、`PROTOCOL_VERSION` 仍 = 2、版本号不动（**加一格字段不抬版本**）。
 
-**Numbering.** 本仓此前最高是 §34.45；§34.46（`pack.json.target`）/ §34.47（mod registry）/ §34.48（依赖与冲突
-裁决）由另一条并行线占号 —— 它们与本格一起并入 main，所以本格接 **§34.49**，不插进那串连号。
+**Numbering.** 本仓此前最高是 §35.45；§35.46（`pack.json.target`）/ §35.47（mod registry）/ §35.48（依赖与冲突
+裁决）由另一条并行线占号 —— 它们与本格一起并入 main，所以本格接 **§35.49**，不插进那串连号。
 
 **Tests.** `test/traitGrants.test.js` —— 缺省不变（官方 266 条逐条）、真生效（`loadWorkshop` + `applyWorkshop` +
 `GameData` + `computeBonds`：`egirShip` 2 名 ⇒ tier 0、补上探针棋子 3 名 ⇒ tier 1；4 名 ⇒ tier 1、5 名 ⇒ tier 2）、
 三处同源（行为级对照 + 源码级断言）、坏 id / 坏形状逐种点名且计数不动、作者侧校验器的 warning（`spawnSync` 真跑
 `tools/workshop-validate.mjs`）。
 
-### 34.50 启用声明 `pack.json.enabled`：**装好 ≠ 生效**
+### 35.50 启用声明 `pack.json.enabled`：**装好 ≠ 生效**
 
-> 来源：上游 PR#8（作者 jingjiangze）的 `shared/enabled.js` + `test/packEnabled.test.js`。上游把这一格编到 **§34.46**，
-> 而本仓库的 §34.46 已经是 `pack.json.target`（§34.46–§34.49 已占用），所以本仓库按**下一个空号**落成 **§34.50**；
+> 来源：上游 PR#8（作者 jingjiangze）的 `shared/enabled.js` + `test/packEnabled.test.js`。上游把这一格编到 **§35.46**，
+> 而本仓库的 §35.46 已经是 `pack.json.target`（§35.46–§35.49 已占用），所以本仓库按**下一个空号**落成 **§35.50**；
 > 正文、判据与断言逐条对齐后随本刀落地。
 
 **要解决的那面墙**：今天 `loadWorkshop`（`server/workshop.js`）遍历工坊目录，**每一个**能通过
@@ -3757,7 +3757,7 @@ count +1 ⇒ **层数自然上去**。这是一条**纯数据**通道：不需�
 2. **缺省 = 引擎今天的行为**：不写 `enabled` 的包与今天**逐字相同**；写了 `"enabled": true` 也**逐字相同**。
    所以**只有 `false` 进归一化清单的 `declared` 数组** —— 无条件写进去会让 `identifyPack` 哈希的
    `canonicalJson(pack)`（`server/workshop.js` step 1）为**所有**已发布包换掉包身份，房间摘要闸门随即误判
-   （§34.2 的老账，`variants` / `behaviour` / `skins` 同一条）。写 `true` 的包与没写的包**在数据上必须不可区分**。
+   （§35.2 的老账，`variants` / `behaviour` / `skins` 同一条）。写 `true` 的包与没写的包**在数据上必须不可区分**。
 3. **跳过必须响亮**：`false` 的包**不进入** `packs`，而是进 `loadWorkshop` 的 `errors`（`ENABLED_FALSE`），
    `loadWorkshop` 的调用方逐条 warn 点名。一个**静默消失**的包比一个报错的包难查得多 —— 这正是「一个用不了的声明
    拒绝整个包」的同一个姿态，只是这里的裁决是**跳过**而不是拒绝（包本身没有坏）。跳过发生在**归一化之后、读任何
@@ -3767,10 +3767,10 @@ count +1 ⇒ **层数自然上去**。这是一条**纯数据**通道：不需�
 5. **进包身份哈希，不进 `modDigest`**：`enabled: false` 进包身份哈希（因为 `declared` 里有它），但**不进
    `modDigest`**（它只哈希 `[id, hash]` 对，`shared/modIdentity.js`）—— 与 `behaviour` 逐字同一条：一个开关不开
    不改变这一局跑的内容，只改变这一局**有没有**这个包。
-6. **不是热更新**：`enabled` 在**装载期读一次**，改它要重启（§34.4 的「No hot reload」不受影响，本节不碰那条
+6. **不是热更新**：`enabled` 在**装载期读一次**，改它要重启（§35.4 的「No hot reload」不受影响，本节不碰那条
    裁决）。本格与热更新的关系只有一条：它是**重启级**的第三态，不是**运行期**的第三态。
 
-**`MOD_API_VERSION` 不动**（仍是 `1`）：加一格字段不抬版本有 §34.39 / §34.43 / §34.33 与 `server.modules` 的
+**`MOD_API_VERSION` 不动**（仍是 `1`）：加一格字段不抬版本有 §35.39 / §35.43 / §35.33 与 `server.modules` 的
 `metrics`·`route` 多处先例。本刀是「新键 + 老引擎 `PACK_UNKNOWN_FIELD` **响亮拒**」—— 老引擎不是静默走错，是点名
 拒绝，所以「新声明复用老引擎已认识且会按旧语义执行的键」也不成立。**「老引擎优雅降级」明确不做**：那会让「写了
 等于没写」复活。
@@ -3785,9 +3785,9 @@ count +1 ⇒ **层数自然上去**。这是一条**纯数据**通道：不需�
 `identifyPack` 摘要三档对照（`false` ≠ 缺席 = `true`，走装载器同一份 `identifyPack`）。
 **不需要 `golden:update`**：缺省路径一个字节不动。
 
-### 34.51 口径数据通道：`variants.json`（已有记录的**另一套数值**）
+### 35.51 口径数据通道：`variants.json`（已有记录的**另一套数值**）
 
-**它补上 §34.39 剩下的那半个缺口。** §34.39 把「哪一套口径」收成闭枚举声明（`pack.json.variants`），并立下判据 2：
+**它补上 §35.39 剩下的那半个缺口。** §35.39 把「哪一套口径」收成闭枚举声明（`pack.json.variants`），并立下判据 2：
 **包里没有数值**，值由引擎自己写。那条判据对**官方记录**成立（`data/chess.json` 266 条按 `shared/potential.js`
 的 `potDown` 反推），但对**包自己带来的记录**不成立：一个包新增的棋子 / 召唤物是它手写的，引擎没有它们的
 「另一套口径」—— `potDown` 只能从满潜**往下降**，一个按官方口径写就的记录没有任何东西能把它抬上去。
@@ -3797,7 +3797,7 @@ count +1 ⇒ **层数自然上去**。这是一条**纯数据**通道：不需�
 该投稿自己的 `dataVariants.js`（安装器那一半的 patch 语义）：**patch 格式 `{ [switch]: { [section]: patch } }`，叶子是 `{ $: value }`，
 对象递归、数组与其余整块替换；开关打开时合到同名数据节上。**
 
-**它为什么不是 §34.39 判据 2 的例外。** 那一条要挡住的是「包可以覆盖任意数值」（＝把安装器做进引擎）。
+**它为什么不是 §35.39 判据 2 的例外。** 那一条要挡住的是「包可以覆盖任意数值」（＝把安装器做进引擎）。
 本刀开的通道**三条守卫**逐条对上那个危险，而且三条都是**具名整条拒绝**，不是忽略：
 
 1. **不能发明记录**（`VARIANTS_TARGET_MISSING`）：目标 `<文件>:<id>` 必须在**合并后**的数据里已经存在。要新增一条
@@ -3811,9 +3811,9 @@ count +1 ⇒ **层数自然上去**。这是一条**纯数据**通道：不需�
 **七个码就是这一刀的全部**（`shared/workshop.js` 里出现的每一个 `VARIANTS_*`；闭枚举，加一个都要先改这里）。
 数据文件那一半：`VARIANTS_BAD_SHAPE`（形状 —— 不是对象 / 某一层不是对象或为空 / 记录 id 不合法 / 补丁不是非空
 对象）、`VARIANTS_UNKNOWN_AXIS`、`VARIANTS_UNKNOWN_FILE`、`VARIANTS_TARGET_MISSING`、`VARIANTS_UNKNOWN_KEY`、
-`VARIANTS_UNDECLARED_AXIS`；声明那一半：`VARIANTS_NEED_COMBAT`（声明了轴就必须标 `combat: true`，§34.39）。
+`VARIANTS_UNDECLARED_AXIS`；声明那一半：`VARIANTS_NEED_COMBAT`（声明了轴就必须标 `combat: true`，§35.39）。
 声明形状自己的那三个码（`VARIANTS_UNKNOWN_OPTION` / `VARIANTS_BAD_DEFAULT` / `VARIANTS_DUPLICATE_AXIS`）属于
-§34.39，不在这一刀里。
+§35.39，不在这一刀里。
 
 **形状**（判据只有一份：`shared/workshop.js` 的 `normalizeVariantDataFile`，与投稿原件**逐层 1:1**）：
 
@@ -3835,7 +3835,7 @@ count +1 ⇒ **层数自然上去**。这是一条**纯数据**通道：不需�
   **逐层浅复制**，所以 `data/` 的冻结对象一个字节都不动，路径之外的同层兄弟原样留着。
 * 补丁走**同一份** `mergeRecord`（字段级：对象递归、`OVERRIDE_REPLACE_KEYS` 与数组整块替换、
   `OVERRIDE_KEYED_LISTS` 按身份键合）—— 一条判据只有一份实现。
-* **生效条件**：该轴在 `mergeVariantDecls`（既有规则：**包 id 字典序小的赢**，§34.3）里落到**这个包**头上。
+* **生效条件**：该轴在 `mergeVariantDecls`（既有规则：**包 id 字典序小的赢**，§35.3）里落到**这个包**头上。
   别的包赢了同一个轴 ⇒ 这张表**不应用**，但**具名**记进 `report.variantPatches`（`status: 'overridden'`，
   与 `mergeVariantDecls.overridden` 同一条「输的一方必须看到一行字」的纪律）；启动日志里「写进去的」与
   「被抢掉的」分开数（`workshopSummary`）。
@@ -3865,7 +3865,7 @@ count +1 ⇒ **层数自然上去**。这是一条**纯数据**通道：不需�
 **不需要 `golden:update`**：不声明 `variants.json` 的包与不装包的两条路径，数据逐字节相同、记录是同一个对象。
 
 
-### 34.52 调用预算 `pack.json.callBudget`：每局每插件的次数上限（沙箱档的运行时保护）
+### 35.52 调用预算 `pack.json.callBudget`：每局每插件的次数上限（沙箱档的运行时保护）
 
 **这一格补的缺口是「闸门 ≠ 上限」。** 我们只有 `combat: true` 这一道**闸门** —— 它回答「这个包能不能改对局
 结果」，那是一句**意图声明**。它回答不了「它这一局能跑多久、能被调多少次」。于是一个诚实声明了 `combat: true`
@@ -3894,7 +3894,7 @@ count +1 ⇒ **层数自然上去**。这是一条**纯数据**通道：不需�
 
 **它必须进内容摘要。** `callBudget` 是 `pack.json` 的顶层键（`PACK_FIELDS`），且**只在声明过时才进**归一化清单
 （与 `variants` / `behaviour` 逐字同形）—— 后半条是硬性的：给每个包补一个 `callBudget: { max: 8000 }` 会让
-**所有已发布包的内容哈希全变**，而哈希是房间身份与 W-D 对齐的依据（§34.2）。进了清单就有两件事同时成立：
+**所有已发布包的内容哈希全变**，而哈希是房间身份与 W-D 对齐的依据（§35.2）。进了清单就有两件事同时成立：
 **不声明 ⇒ 逐字节等于今天**；**两份只差预算的包是两个身份**（一个会截断回调、一个不截，共用摘要就等于房间闸门
 放行两种玩法）。**不是贡献项**：只带 `callBudget` 的包照旧 `EMPTY_PACK`（文案里点名它）。
 
@@ -3959,9 +3959,9 @@ count +1 ⇒ **层数自然上去**。这是一条**纯数据**通道：不需�
 **不需要 `golden:update`**：不声明 `callBudget` 的包归一化清单不长键、`BattleHooks` 的记账对没有账的回调立刻放行，
 所以不装包与不声明预算两条路径的**战果逐字节相同**（实测见交付说明）。
 
-### 34.53 房间同意 + 服主 pin：把「信任」从作者自觉挪到**每名真人的表态**与**字节**上
+### 35.53 房间同意 + 服主 pin：把「信任」从作者自觉挪到**每名真人的表态**与**字节**上
 
-我们的信任原来压在「审查 + 作者自觉」上：`checkModSet`（§34.9）让客户端回一个**进程集合**的摘要，回了就放行。
+我们的信任原来压在「审查 + 作者自觉」上：`checkModSet`（§35.9）让客户端回一个**进程集合**的摘要，回了就放行。
 那是一个**握手**（客户端证明它读到了服务器装着哪些包），不是**表态** —— 一位博士可以在一句提示都没看到的情况下
 进到一个跑别人写的战斗逻辑的房间里。这一节补两件事，**都不换掉既有守卫**，是在它们旁边加一道：
 
@@ -3980,7 +3980,7 @@ count +1 ⇒ **层数自然上去**。这是一条**纯数据**通道：不需�
 * **观战者不算**：他们不走 `join`、不占玩家座位、不参与开局门槛（`activeHumans`）。他们不跑这一房的内容。
 
 **② 服主 pin = 房间的字节指纹。** pin 不是一个新的对象：**`room.modSet.digest` 就是它**（`modSetOf` 算的
-`[id, hash]` 排序对 sha256，§34.2）。「指纹变了」只有两种形态，两种都复用**早就在这台机器上**的那两道守卫：
+`[id, hash]` 排序对 sha256，§35.2）。「指纹变了」只有两种形态，两种都复用**早就在这台机器上**的那两道守卫：
 
 | 漂移 | 判据（`shared/modIdentity.js modSetDrift`） | 复用哪个码 |
 |---|---|---|
@@ -4010,9 +4010,9 @@ count +1 ⇒ **层数自然上去**。这是一条**纯数据**通道：不需�
 
 ---
 
-### 34.54 `pack.json.matchKinds`：第二种对局的声明面（管理器不认玩法名）
+### 35.54 `pack.json.matchKinds`：第二种对局的声明面（管理器不认玩法名）
 
-**要解决的问题**：§34.14 的 `matchClass` 是**唯一**能碰到对局的挂载点，而它的检查只有「返回值是个函数」——
+**要解决的问题**：§35.14 的 `matchClass` 是**唯一**能碰到对局的挂载点，而它的检查只有「返回值是个函数」——
 一个包装器原则上可以把 `Match` 换成任何行为完全不同的类。今天真要做这件事的包（另一种玩法，不是塔防的
 一套数值）只能靠「这个包被装进了房间」这一句隐式信号来表达「这一局归我算」。隐式信号在两个方向上都是坏的：
 装了包、但这一局不是我的玩法时，包装器仍然要跑；反过来，作者写了「我这包提供 3v3 足球」这句话，管理器里
@@ -4022,20 +4022,20 @@ count +1 ⇒ **层数自然上去**。这是一条**纯数据**通道：不需�
 不是分派表 —— 管理器不认玩法名，判定住在包自己的模块里（`host.matchKinds()` 交出冻结的只读数据）。四条判据：
 
 1. **必须有接收人**：合法的 `matchKinds` 要求本包至少有一个 `server.modules` 条目挂 `matchClass`
-   （`MATCHKINDS_NEED_MATCH_CLASS`）。形状照 §34.23 的 `MODULES_CHANNELS_NEED_MATCH` —— 一句没有执行者的话
+   （`MATCHKINDS_NEED_MATCH_CLASS`）。形状照 §35.23 的 `MODULES_CHANNELS_NEED_MATCH` —— 一句没有执行者的话
    点名拒，而不是让它哑着通过。`combat: true` **不在这里重复判**：有 `matchClass` 就必须认 `combat`，那是
-   §34.14 已经拦住的一条线，再写一遍就是永远不会命中的死格子（这一点由测试钉住，见下）。
+   §35.14 已经拦住的一条线，再写一遍就是永远不会命中的死格子（这一点由测试钉住，见下）。
 2. **只在写出来时才进归一化结果**（与 `variants` / `behaviour` / `callBudget` 逐字同一条纪律）：`identifyPack`
    哈希的就是这份归一化清单的 `canonicalJson`，所以给每个包都加一个 `matchKinds: []` 会把**所有已发布包的摘要**
    改掉。它又**必须**进摘要：这一格决定「这一局由谁算什么」，两份只差种类声明的包共用同一个摘要，房间摘要闸门
-   就放行两种行为（§34.2）。
+   就放行两种行为（§35.2）。
 3. **种类 id 排序，不按书写顺序**：两份书写顺序不同的清单必须是同一份字节（与 `requires` / `registers` 同一条）。
    id 的字符集**与包通道共用**（`MATCH_KIND_ID_RE` = `PACK_CHANNEL_RE` 那一套 `^[a-z][a-z0-9_-]{0,63}$`）——
    两条通道说的是同一件事（作者起的、有界的名字），不该各定一套拼法。
    ⚠️ 这一条不是美化：排序决定的是摘要，**书写顺序能改摘要就是摘要闸门能被绕过**。
 4. **有界**：每包最多 4 种（`MAX_PACK_MATCH_KINDS`），座位 1..12（`MATCH_KIND_SEATS_MAX` —— 比宿主最大房间还宽的
    「玩法」没人能组局），`label` ≤ 60 且是**作者可见**文本（编辑器/清单里的名字），因此**不占 i18n 词条**：
-   它不经过 `t()`，不是玩家界面串（§34.15 那条「给作者读的规则说明不进语言包」的同一条口径）。
+   它不经过 `t()`，不是玩家界面串（§35.15 那条「给作者读的规则说明不进语言包」的同一条口径）。
 
 **包装器怎么用（这一节最需要写下来的部分，因为坑不在形状层）**：`MatchClass` 是**进程级一次**包装的
 （`server/index.js` 在装载时把类换掉一次，之后所有房间都用同一份），所以包装器**不能**按房间换类 —— 只能在
@@ -4043,33 +4043,33 @@ count +1 ⇒ **层数自然上去**。这是一条**纯数据**通道：不需�
 
 * `opts.mods.packs[].id`（房间自己的 mod 集合，由 `room.create.modIds` 经 `server/lobby.js` 的
   `resolveRoomModSet` 解析进来）；
-* 开局之后的包通道投递（`handlePackMsg`，§34.23）—— 适合「同一批包里选具体哪一种 kind」。
+* 开局之后的包通道投递（`handlePackMsg`，§35.23）—— 适合「同一批包里选具体哪一种 kind」。
 
 **`opts.mods` 里读不到 `variants`**：房间自己声明集合时 `resolveRoomModSet` 重建条目只留
-`{id,hash,layer,combat,api}`（§34.47 的那半边），所以把 kind 藏进口径轴是行不通的 —— 这也是本格不提供
+`{id,hash,layer,combat,api}`（§35.47 的那半边），所以把 kind 藏进口径轴是行不通的 —— 这也是本格不提供
 「轴」而只提供「种类清单」的原因。
 
 **这一格明确不给的东西**：不新增 `C2S` 意图、不动 `PROTOCOL_VERSION` / `MOD_API_VERSION`、不开新的消息类型。
-玩法自己的输入走既有的 `pack.msg`（≤4096 B / 每会话 5 每秒 / burst 20 / ≤8 条通道，§34.23），下行复用
+玩法自己的输入走既有的 `pack.msg`（≤4096 B / 每会话 5 每秒 / burst 20 / ≤8 条通道，§35.23），下行复用
 `m.public` 的自定义顶层键。结局仍要按既有形状产出：`m.result` + `onEnd(summary)`，且 `summary.players`
 非空数组才写战绩，塔防专属读数缺失按 0 降级、不抛。客户端那半边今天能用的最大挂载面是 `client.panels` 的
-**10** 个槽（`root.overlays` 是全屏层，§34.8）。
+**10** 个槽（`root.overlays` 是全屏层，§35.8）。
 
 **判据与证据**：`test/modMatchKinds.test.mjs`（合法形状与排序稳定性、未声明时逐字节不变、`MATCHKINDS_*`
 每条拒绝码逐条走、**以及「`combat` 这一格不该重复判」那条可执行的注记** —— 它断言的是
 `MODULES_NEED_COMBAT` 先命中，而不是我自己的码命中）、`test/packBehaviour.test.js` 的 `PACK_FIELDS` 闭集计数
-（**37 → 38**：那 38 是两条线各自加的一格 —— 我们的 `callBudget`（§34.52）与这一格 —— 相加而来，
+（**37 → 38**：那 38 是两条线各自加的一格 —— 我们的 `callBudget`（§35.52）与这一格 —— 相加而来，
 **不是**「数字一样取一边」）、`test/modSurface.test.js` 的锚点。
 
-**节号说明（我方口径）**：本节内容吸收自下游 fork，在那里编号是 §34.52；它与我方既有的 §34.52
-（`callBudget`）撞号，所以按「我们是上游、编号以我方为准」排到我方现有最大号之后，定为 **§34.54**。
-代码与文档里对它的引用一律按**能力**归一到 §34.54，不做机械的号段平移。
+**节号说明（我方口径）**：本节内容吸收自下游 fork，在那里编号是 §35.52；它与我方既有的 §35.52
+（`callBudget`）撞号，所以按「我们是上游、编号以我方为准」排到我方现有最大号之后，定为 **§35.54**。
+代码与文档里对它的引用一律按**能力**归一到 §35.54，不做机械的号段平移。
 
 ---
 
-### 34.55 `client.screens`：整屏替换（路由闭枚举 = 引擎真的有的那四个）
+### 35.55 `client.screens`：整屏替换（路由闭枚举 = 引擎真的有的那四个）
 
-**要解决的问题**：§34.8 的面板槽位是**插进引擎已经渲染的组件**里的十格，它换不掉那一屏本身。第三方界面包
+**要解决的问题**：§35.8 的面板槽位是**插进引擎已经渲染的组件**里的十格，它换不掉那一屏本身。第三方界面包
 （整套大厅 / 房间 / 对局界面）要落地，只有两条路：改本体拥有的 `public/js/screens/*.js`，或者由引擎提供一个
 「这一屏由包出」的注册面。这一格选后者，并且**闭枚举只收引擎真的存在的路由**。
 
@@ -4077,7 +4077,7 @@ count +1 ⇒ **层数自然上去**。这是一条**纯数据**通道：不需�
 两处都只有 `title | lobby | room | game`。结算与干员调配是**路由内部**的视图（`selectRoute` 只看
 `match.public.phase` 与 `room.inMatch`），不是路由。所以 `CLIENT_SCREEN_ROUTES` 与客户端的
 `MOD_SCREEN_ROUTES` 都是这四条 —— 加一条 `result` 或 `loadout` 就是造一个永远不会命中的死声明，
-正是本层到处在拒的那一类（两份名单必须同源，由 `test/modClientScreens.test.mjs` 钉住，与 §34.8 那两张表同一条纪律）。
+正是本层到处在拒的那一类（两份名单必须同源，由 `test/modClientScreens.test.mjs` 钉住，与 §35.8 那两张表同一条纪律）。
 
 **形状**：`client.screens[] = { id, route, module, order?, styles?, data?, messages? }`。字段与面板**共用判据**：
 `module` 必须是包内相对 `.js`、`styles` 同一条装载期判据（`server/workshop.js panelModuleIssues` 现在同时收
@@ -4110,7 +4110,7 @@ C1 控制码）。`#` 与零宽字符的合法性归**服务端**判 —— 前�
 的正则（`@-^` 是反向区间）—— 它会拒掉所有含**大写字母或下划线**的面板 id。合并时**保留我方正确的
 `[\s\u0000-\u001f]`**，不吸收那一处。
 
-**这一格与 §34.54 的分工**：§34.54 管「这一局由谁算」（服务端对局的种类），这一格管「这一屏由谁画」。两者互不
+**这一格与 §35.54 的分工**：§35.54 管「这一局由谁算」（服务端对局的种类），这一格管「这一屏由谁画」。两者互不
 依赖：换屏不换协议，换种类不开新消息类型。
 **不需要 `golden:update`**：这一格完全不进模拟。
 
@@ -4118,21 +4118,21 @@ C1 控制码）。`#` 与零宽字符的合法性归**服务端**判 —— 前�
 以及「没声明 `screens` 的包归一化结果里不长这个键」）、`test/modClientPanels.test.js`（面板那半未受影响）、
 `test/modSurface.test.js` 的锚点。
 
-**节号说明（我方口径）**：本节内容吸收自下游 fork，在那里编号是 §34.53；按「我们是上游、编号以我方为准」
-排到我方现有最大号之后，定为 **§34.55**。代码与文档里对它的引用一律按**能力**归一到 §34.55，
+**节号说明（我方口径）**：本节内容吸收自下游 fork，在那里编号是 §35.53；按「我们是上游、编号以我方为准」
+排到我方现有最大号之后，定为 **§35.55**。代码与文档里对它的引用一律按**能力**归一到 §35.55，
 不做机械的号段平移。
 
 ---
 
-### 34.56 `server.modules[].lane`：包自带一条 WebSocket 通道（宿主开、按声明开、替它记账）
+### 35.56 `server.modules[].lane`：包自带一条 WebSocket 通道（宿主开、按声明开、替它记账）
 
-**要解决的问题**：§34.44 把升级路径做成了一张表，但那张表**只有宿主进程自己**能登记 —— 文件头逐字写着
+**要解决的问题**：§35.44 把升级路径做成了一张表，但那张表**只有宿主进程自己**能登记 —— 文件头逐字写着
 「这一格不是给内容包开端口或跑自己的服务器的通道」。于是一个自带玩法的包（另一种对局、另一种协议、自己的
-房间语义）今天只有两条路：把权威塞进宿主的 `Match`（§34.54 那条），或者在宿主之外再跑一个进程（那就是运维
+房间语义）今天只有两条路：把权威塞进宿主的 `Match`（§35.54 那条），或者在宿主之外再跑一个进程（那就是运维
 多一个进程、多一套 TLS/域名/准入，不是 mod）。这一格开第三条：**包声明一条路径，宿主替它开**。
 
 **结构性保证一个字没改**：包仍然拿不到监听套接字、新端口、定时器或子进程。改的是「谁能登记一条 lane」和
-「登记要走什么判据」。lane 的 `onUpgrade(req, socket, head, ctx)` 签名与 §34.44 那张表的行**逐字相同**（外加
+「登记要走什么判据」。lane 的 `onUpgrade(req, socket, head, ctx)` 签名与 §35.44 那张表的行**逐字相同**（外加
 `ctx.lane` 这条行自己的 `{ id, path, summary }`），所以宿主那一侧的准入、背压、心跳透传、消息顺序、按名字
 记日志的口径全都沿用现成的，没有第二条实现。
 
@@ -4144,7 +4144,7 @@ C1 控制码）。`#` 与零宽字符的合法性归**服务端**判 —— 前�
 
 两条各自的失败方向都是响的：没挂上就升级 ⇒ `ctx.reject(503, 'pack lane not ready')` 并按名字记一条 warn；
 认领失败（坏语法 / 抢 `/ws` / 与别的模块撞同一条路径 / 一个模块认领两条 / 表满）⇒ **整包在装载期被拒并点名**，
-照 §34.44 那句「一条安静地从不应答的 lane 比没有 boot 更糟」。
+照 §35.44 那句「一条安静地从不应答的 lane 比没有 boot 更糟」。
 
 **判据只有一份**：路径语法与保留名不在这个包里再抄一遍 —— `claimPackLane` 直接调 `server/http/wsLanes.js` 的
 `isLanePath` / `LANE_RESERVED` / `MAX_WS_LANES`。形状层（`shared/workshop.js`）只管另一件事：**命名空间**。
@@ -4155,9 +4155,9 @@ C1 控制码）。`#` 与零宽字符的合法性归**服务端**判 —— 前�
 **形状层的四条互拒**：`lane` 而无 `uses:['lane']` ⇒ `MODULES_LANE_UNDECLARED`；挂了 `lane` 而无路径 ⇒
 `MODULES_LANE_NEEDS_PATH`；路径不是字符串 / 空白 summary / 未知字段 ⇒ `MODULES_LANE_BAD_PATH` /
 `MODULES_LANE_BAD_SUMMARY` / `MODULES_BAD_LANE`。`lane` 与 `summary` **只在声明时**才进归一化清单 ⇒ 没用它
-的包摘要逐字节不变；用了就进摘要（同一份房间摘要必须对应同一份会被连上的路径，§34.2 同一条）。
+的包摘要逐字节不变；用了就进摘要（同一份房间摘要必须对应同一份会被连上的路径，§35.2 同一条）。
 
-**闭枚举的性质（这一格与 §34.54 / §34.55 不是同一种加法）**：它是**往允许集合里增成员** ——
+**闭枚举的性质（这一格与 §35.54 / §35.55 不是同一种加法）**：它是**往允许集合里增成员** ——
 `SERVER_MODULE_USES` **6 → 7**（末尾 + `lane`）、`SERVER_MODULE_FIELDS` **5 → 6**（+ `lane`），另新引入一个只属于
 它的字段闭枚举 `MODULE_LANE_FIELDS = ['path','summary']`。对**在册老包零影响**：不写 `lane` ⇒ 既不触碰那个新
 枚举、也不进归一化清单。`MOD_API_VERSION` **不动**（加一格不抬世代，抬了只会把写了 `api: "1.x"` 的老包判成
@@ -4180,7 +4180,7 @@ C1 控制码）。`#` 与零宽字符的合法性归**服务端**判 —— 前�
 里免得后人误读。所以缺省 `SP_HOT_RELOAD` 未设 ⇒ `report`（**只报告、不动服务**），要生效用 `restart` 交给外部
 supervisor 拉起；**缺省路径的行为与字节零变化**，且任何异常一律只记日志（一个坏包绝不能让服务器变成起不来）。
 
-**这一格与 §34.54 / §34.55 的分工**：§34.54 换「这一局由谁算」，§34.55 换「这一屏由谁画」，这一格给「这一种
+**这一格与 §35.54 / §35.55 的分工**：§35.54 换「这一局由谁算」，§35.55 换「这一屏由谁画」，这一格给「这一种
 玩法自己怎么说话」。三者互不依赖，也都**不新增 `C2S` 意图、不动 `PROTOCOL_VERSION` / `MOD_API_VERSION`**。
 **不需要 `golden:update`**：不进模拟。
 
@@ -4191,38 +4191,38 @@ supervisor 拉起；**缺省路径的行为与字节零变化**，且任何异�
 **判据与证据**：`test/modPackLane.test.mjs`（闭枚举逐字取值、形状层每条拒绝码逐条走、以及「纯的那半」——
 认领 / 撞车 / 限额 / 处理器还没就位时 503 / 处理器就位后转发并多带 `ctx.lane`）、
 `test/mod-hot-reload.test.mjs`（防抖合并、精确 diff、坏包不炸、`restart` 只在 `mode=restart` 时调用）、
-`test/wsLanes.test.js`（§34.44 那份语法判据没被改）、`test/modSurface.test.js` 的锚点。
+`test/wsLanes.test.js`（§35.44 那份语法判据没被改）、`test/modSurface.test.js` 的锚点。
 
 **⚠️ 来源分支的四处错标（合并时抓到，记在这里免得再踩）**：成员树的 `shared/workshop.js` 有**四处**把 lane 的
-设计稿节号写成 **§34.53**（那是 `client.screens` 的号）—— 分别是 `MODULE_LANE_FIELDS` 的文档注释、形状层
-`lane` 那一段、归一化清单那一段、以及命名空间闸门那一段。合并时**按能力归一到 §34.56**，不做机械的号段平移
-（机械 +2 会得到 §34.55，那是 client.screens 的号 —— 正好错位）。同一次合并里还抓到 `public/js/ui/extensions.js`
-的 `isPanelId` 也把控制码写成 caret 记法（见 §34.55 末尾那条），**未吸收**。
+设计稿节号写成 **§35.53**（那是 `client.screens` 的号）—— 分别是 `MODULE_LANE_FIELDS` 的文档注释、形状层
+`lane` 那一段、归一化清单那一段、以及命名空间闸门那一段。合并时**按能力归一到 §35.56**，不做机械的号段平移
+（机械 +2 会得到 §35.55，那是 client.screens 的号 —— 正好错位）。同一次合并里还抓到 `public/js/ui/extensions.js`
+的 `isPanelId` 也把控制码写成 caret 记法（见 §35.55 末尾那条），**未吸收**。
 
-**节号说明（我方口径）**：本节内容吸收自下游 fork，在那里编号是 §34.54；按「我们是上游、编号以我方为准」
-排到我方现有最大号之后，定为 **§34.56**。代码与文档里对它的引用一律按**能力**归一到 §34.56。
+**节号说明（我方口径）**：本节内容吸收自下游 fork，在那里编号是 §35.54；按「我们是上游、编号以我方为准」
+排到我方现有最大号之后，定为 **§35.56**。代码与文档里对它的引用一律按**能力**归一到 §35.56。
 
 ---
 
-### 34.57 `server.room.hold`：空席房间的回收裁决（谁同意把这一局留着）
+### 35.57 `server.room.hold`：空席房间的回收裁决（谁同意把这一局留着）
 
-**要解决的问题**：§34.20 那一层的契约是**观察与声明**，它改不了对局 —— 这一条到今天仍然成立。但它旁边有一件
+**要解决的问题**：§35.20 那一层的契约是**观察与声明**，它改不了对局 —— 这一条到今天仍然成立。但它旁边有一件
 事确实不在这一层里，而在大厅里：真人全部退出、而对局还在跑（等重连、或等「志愿者冻结」里那些还没回来的队友）时，
 宿主默认直接把房间销毁 —— `server/lobby.js` 的两处 `if (room.activeHumans().length === 0) this.disposeRoom(room, 'empty')`。
-一个自带玩法的包（§34.54 那种）要「人走空了但这一局不作废」，就必须能参与**这一个**决定。这一格只开这一个决定权，
+一个自带玩法的包（§35.54 那种）要「人走空了但这一局不作废」，就必须能参与**这一个**决定。这一格只开这一个决定权，
 别的什么都没开。
 
 **默认路径与从前逐字相同**：没有任何包登记 ⇒ `holdDecision()` 返回 `{ hold: false, until: 0 }` ⇒ `reapEmptyRoom`
-落回原来那一行 `disposeRoom(room, 'empty')`。一个包都没声明 `server.room` 时，进程里连一张表都不建（与 §34.16
+落回原来那一行 `disposeRoom(room, 'empty')`。一个包都没声明 `server.room` 时，进程里连一张表都不建（与 §35.16
 「干净安装与从前逐字节相同」同一条不变量）。
 
 **申请必须显式**：只有 `pack.json.server.room.hold = true` 的包能调 `room.canHold(fn)`；没声明就调 ⇒
 `ROOM_HOLD_UNDECLARED` 点名（**不是**静默收下 —— 静默收下就是「写了等于没写」那一类）。`hold` **只在写出来时**
-才进归一化清单，所以没用它的那些包摘要逐字节不变；写出来就进摘要（同一份房间摘要必须对应同一份回收语义，§34.2 同一条）。
+才进归一化清单，所以没用它的那些包摘要逐字节不变；写出来就进摘要（同一份房间摘要必须对应同一份回收语义，§35.2 同一条）。
 
-**能力判据 ⇒ 这一格要 `combat: true`**：§34.20 明说房间钩子不是 combat 闸门，因为它的契约里没有任何一条能改对局。
-`hold` 破的就是那条前提 —— 它能决定一局会不会因为「没真人了」而被回收掉，那是对局结果的一部分。所以按 §34.14 /
-§34.54 同一条纪律要求包声明 `combat: true`（`ROOM_HOLD_NEEDS_COMBAT`，闸门在 `normalizePackManifest`，因为它要读
+**能力判据 ⇒ 这一格要 `combat: true`**：§35.20 明说房间钩子不是 combat 闸门，因为它的契约里没有任何一条能改对局。
+`hold` 破的就是那条前提 —— 它能决定一局会不会因为「没真人了」而被回收掉，那是对局结果的一部分。所以按 §35.14 /
+§35.54 同一条纪律要求包声明 `combat: true`（`ROOM_HOLD_NEEDS_COMBAT`，闸门在 `normalizePackManifest`，因为它要读
 包级声明）。判据仍然是**能力**而不是意图：`isOverridableContentFile` 那套「谁能改数值谁进摘要」的口径在这里换成
 「谁能决定回收谁进 combat 闸门」。
 
@@ -4232,9 +4232,9 @@ supervisor 拉起；**缺省路径的行为与字节零变化**，且任何异�
 的那一票 —— 最早到点就该重新判一次，而不是让一个包把房间锁满 15 分钟。到点重新判时若已空 ⇒ 销毁，若有人回来了 ⇒
 什么都不做（加入路径本来就会广播状态）。
 
-**失败方向全是响的**：谓词抛异常 ⇒ 这一票作废并 `ROOM_HOOK_THREW` 点名（别的包照算，与 §34.20 逐钩子 try/catch
+**失败方向全是响的**：谓词抛异常 ⇒ 这一票作废并 `ROOM_HOOK_THREW` 点名（别的包照算，与 §35.20 逐钩子 try/catch
 同一个口径）；谓词返回 `{hold:true}` 以外的一切 ⇒ 视为不留。裁决表按**房间码**存，`disposeRoom` 里 `releaseRoomHolds(code)`
-与定时器一起收回 —— 房间码会被复用，留着条目就是让下一个同码房间继承上一个的裁决（§34.20 对钩子表逐字相同的理由）。
+与定时器一起收回 —— 房间码会被复用，留着条目就是让下一个同码房间继承上一个的裁决（§35.20 对钩子表逐字相同的理由）。
 定时器 `unref()`：一个等重连的房间不该把进程吊住（与 `startGrace` 同一个口径）。
 
 **为什么这里动 `server/lobby.js`**：回收那句话住在大厅，没有别的挂载点 —— `server.modules` 的 `boot` 拿不到房间
@@ -4249,8 +4249,8 @@ supervisor 拉起；**缺省路径的行为与字节零变化**，且任何异�
 它还是那个等着重连的房间）。判据在 `test/modRoomHold.test.mjs`（形状层 4 条 + 聚合语义 5 条，含「不声明 `hold` 的包
 归一化结果**逐字节不变**」）与 `test/modSurface.test.js` 的锚点。
 
-**节号说明（我方口径）**：本节内容吸收自下游 fork，在那里编号是 §34.55；按「我们是上游、编号以我方为准」
-排到我方现有最大号之后，定为 **§34.57**。代码与文档里对它的引用一律按**能力**归一到 §34.57。
+**节号说明（我方口径）**：本节内容吸收自下游 fork，在那里编号是 §35.55；按「我们是上游、编号以我方为准」
+排到我方现有最大号之后，定为 **§35.57**。代码与文档里对它的引用一律按**能力**归一到 §35.57。
 
 ⚠ **来源分支那一格的两段引用没有带进来**：成员把这一格登记在 `.github/overlay.json` 的 `bodyPaths` 里，由
 `.github/game-overlap-check.mjs` 逐条核对。那两个文件是**他们那条分支**的受控例外机制，我方树里没有 ——

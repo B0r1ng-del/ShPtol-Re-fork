@@ -1,4 +1,4 @@
-// 管理器合同的依赖 / 冲突那一半（DESIGN §34.48）：清单**形状**（`shared/workshop.js` 的 `parseModRefsDecl`）
+// 管理器合同的依赖 / 冲突那一半（DESIGN §35.48）：清单**形状**（`shared/workshop.js` 的 `parseModRefsDecl`）
 // 与**装载期裁决**（`adjudicatePackGraph`）。
 //
 // 覆盖：形状（收下的 / 逐条点名拒的、去重、同 id 不同 range）、五条裁决（缺失 / 版本不合 / 互斥按 id 大者败 /

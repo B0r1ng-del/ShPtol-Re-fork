@@ -1,4 +1,4 @@
-// 模组管理器的登记册 + CLI 动词（`server/modRegistry.js`、`tools/workshop-pack.mjs`，DESIGN §34.47）。
+// 模组管理器的登记册 + CLI 动词（`server/modRegistry.js`、`tools/workshop-pack.mjs`，DESIGN §35.47）。
 //
 // 覆盖三件东西：
 //   ① 登记册本身：一份状态文件（装了/从哪来/摘要/上一版留底）——「一份真实 registry 为准」，不留第二份副本；
@@ -213,7 +213,7 @@ test('a registry file that does not exist reads as empty, and writes are atomic 
   assert.ok(fs.existsSync(registryPath(STATE)), 'the registry file exists');
 });
 
-// ---- 越界删除被拦（DESIGN §34.47 的三条硬边界） ---------------------------------------------------------------
+// ---- 越界删除被拦（DESIGN §35.47 的三条硬边界） ---------------------------------------------------------------
 //
 // ⚠️ 这一节是**有牙**的那一半，而且它故意**不只测入口**：`PACK_ID_RE`（`findPackDir`）确实是第一道闸，
 // 但它挡的是「id 里有 `/` 或 `..`」这一种写法。真正要证明的是**即使 id 合法、即使登记册被人手改过，

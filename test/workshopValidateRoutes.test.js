@@ -38,7 +38,7 @@ function validate(workshopDir) {
   return { status: r.status, report, codes, stdout: r.stdout, stderr: r.stderr };
 }
 
-describe('routes 声明与核心先吃：校验器与服务器同判据（DESIGN §34.35）', () => {
+describe('routes 声明与核心先吃：校验器与服务器同判据（DESIGN §35.35）', () => {
   let tmp;
   test('撞上核心真在服务的文件 ⇒ error，整轮失败（服务器会丢掉这条声明）', () => {
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-vroute-'));

@@ -529,7 +529,7 @@ describe('伤害看板（业主点名那一格）：今天能读什么、读不�
 
     // ② 面板注册点活着：订阅 m.result / b.pool / b.ev，并**真的消费**它们去算一块「伤害看板」
     const damageReads = { reads: 0, dmg: 0, gt: 0 };
-    // 这一格（§34.38）由引擎给：这里注入一个**与 runner 同形**的只读读者，确认「面板活着、并且真的读这一格」
+    // 这一格（§35.38）由引擎给：这里注入一个**与 runner 同形**的只读读者，确认「面板活着、并且真的读这一格」
     // 也不会动模拟一根毫毛（真正的 runner 读者由 `test/modClientBattleReads.test.js` 单独钉住）
     const battleStub = {
       damage: () => {
@@ -553,7 +553,7 @@ describe('伤害看板（业主点名那一格）：今天能读什么、读不�
     net.emit('b.ev', { fieldId: 'test', gt: 3, ev: [[EV.DMG, 1, 500, 'phys'], [EV.ATK, 1, 2, 'arrow']] });
     net.emit('m.result', { players: [{ playerId: 'p1', stats: { dmgDealt: 5000 } }] });
     for (let i = 0; i < 3; i++) { ctx.me.voice; ctx.net.status(); ctx.net.welcome(); ctx.net.transport(); board.voice++; }
-    // §34.38 那一格也一起读、一起消费（DPS = dmg / (gt - t0)）—— 它同样不许碰模拟、不许发帧
+    // §35.38 那一格也一起读、一起消费（DPS = dmg / (gt - t0)）—— 它同样不许碰模拟、不许发帧
     for (let i = 0; i < 3; i++) {
       const d = ctx.battle.damage();
       assert.ok(d, '这一格读得到');

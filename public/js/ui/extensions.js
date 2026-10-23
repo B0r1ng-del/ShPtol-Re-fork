@@ -60,7 +60,7 @@ import { t } from '../../../shared/i18n.js';
 import { C2S, validateC2S } from '../../../shared/protocol.js';
 // 立绘解析链的**唯一 hook**（皮肤层第 1 步）：核心只认识「有一个函数可能回答这个 id」，不认识「皮肤」。
 import { setAppearanceLookup, clearAppearanceLookup } from './portraitChain.js';
-// 素材加载源的**排序面**（DESIGN §34.40）：与外观提供者逐字同构的一条注册链 —— 一个提供者、最多一个、点名拒绝。
+// 素材加载源的**排序面**（DESIGN §35.40）：与外观提供者逐字同构的一条注册链 —— 一个提供者、最多一个、点名拒绝。
 // 这个模块没有依赖（不 import common.js/bundle.js），所以面板这条路不因为多了它而变重。
 import { setSourceOrder, clearSourceOrder } from '../resources/sources.js';
 // 引擎已经定义好的服务端→客户端类型（`shared/protocol.js S2C`）。**不在这里抄一份**：抄一份就是第二个会漂的真相，
@@ -105,7 +105,7 @@ export const MOD_PANEL_SLOTS = Object.freeze([
  */
 export const MOD_PANEL_REPEATABLE = Object.freeze(['screen.game.shopCard']);
 /**
- * 整屏能替换的**路由闭枚举**：镜像形状层的 `CLIENT_SCREEN_ROUTES`（DESIGN §34.55）。
+ * 整屏能替换的**路由闭枚举**：镜像形状层的 `CLIENT_SCREEN_ROUTES`（DESIGN §35.55）。
  * 为什么必须只有四条：`selectRoute` 与 `main.js` 的 `SCREENS` 都只到这四个值，结算与干员调配是路由**内部**的
  * 视图 —— 多写一条就是永远不会命中的死格子。两份名单由 `test/modClientScreens.test.mjs` 钉在一起，
  * 各说各话就是第二个会漂的真相。
@@ -394,7 +394,7 @@ export function createPanelRegistry(deps) {
    */
   const settingsApi = deps.settings || null;
   /**
-   * **战斗运行时的注入面**（业主裁决 2026-10-11 的第二批：`ctx.battle.damage()`，DESIGN §34.38）：注入的是
+   * **战斗运行时的注入面**（业主裁决 2026-10-11 的第二批：`ctx.battle.damage()`，DESIGN §35.38）：注入的是
    * **一个函数**（`battleRunner.damage`），不是 runner 句柄 —— 与 `settings` / `data` 同一条理由：这个文件必须能在
    * Node 下整套跑，而 `public/js/battle/runner.js` 拖进 `/sim/` 加载器、渲染帧调度与 `net`/`store` 单例。
    *
@@ -497,7 +497,7 @@ export function createPanelRegistry(deps) {
   }
 
   /**
-   * `ctx.battle.damage()`（DESIGN §34.38）拿不到读数时的那**一行**日志，每种原因一次（`transportGapsLogged`
+   * `ctx.battle.damage()`（DESIGN §35.38）拿不到读数时的那**一行**日志，每种原因一次（`transportGapsLogged`
    * 的同一条规矩、同一个理由：面板每秒可能读一次，「这一格没接上」是一个**引擎级安装事实**，刷屏的日志与没有日志
    * 一样没用）。走注册点的 `log`，不走进面板自己的 `ctx.log` —— 那是按包分区的，而这件事只发生一次。
    *
@@ -638,7 +638,7 @@ export function createPanelRegistry(deps) {
 
   /**
    * 已经注册的**素材加载源**提供者（`<包>/<面板id>`）或 null；`sourcesRefused` 记「有人想注册但被拒」。
-   * 与上面那一对逐条同构，理由见 `registerSources`。见 DESIGN §34.40。
+   * 与上面那一对逐条同构，理由见 `registerSources`。见 DESIGN §35.40。
    */
   let sourcesProvider = null;
   let sourcesRefused = false;
@@ -682,7 +682,7 @@ export function createPanelRegistry(deps) {
   }
 
   /**
-   * **素材加载源**的提供者（`sources(ctx)`，DESIGN §34.40）—— 与 `registerAppearance` **逐条同构**，因为它们是同一
+   * **素材加载源**的提供者（`sources(ctx)`，DESIGN §35.40）—— 与 `registerAppearance` **逐条同构**，因为它们是同一
    * 张表面的两半：`pack.json.assets.mirrors[]` 说「哪些镜像被允许」，这个提供者只说「先试哪一条」。
    *
    * 四条性质，逐条照抄外观那条（差异只有一处，写在最后）：
@@ -1113,7 +1113,7 @@ export function createPanelRegistry(deps) {
       },
     });
     /**
-     * **战斗读数**（DESIGN §34.38，业主裁决 2026-10-11 的第二批）：这一场战斗的**逐单位伤害累计**，连同一个
+     * **战斗读数**（DESIGN §35.38，业主裁决 2026-10-11 的第二批）：这一场战斗的**逐单位伤害累计**，连同一个
      * **时间基准**，让包自己算 DPS（「伤害看板」点名的那一格）。
      *
      * **为什么引擎必须给**：默认路径下战斗在这台机器上跑（`public/js/battle/runner.js`），伤害元组走 runner
@@ -1626,7 +1626,7 @@ export function createPanelRegistry(deps) {
     // 外观提供者（皮肤层第 2 步）：**在 mount 之前**接进解析链，否则首帧画原版、下一帧才跳过去。
     // 它不依赖宿主是否渲染出来，所以放在 factory 判定之前 —— 一个只提供外观、不挂任何界面的模块也该生效。
     registerAppearance(rec, mod);
-    // 素材加载源提供者（§34.40）：同一条理由、同一个位置 —— 「先试哪一条镜像」要在**第一次导入之前**就位，
+    // 素材加载源提供者（§35.40）：同一条理由、同一个位置 —— 「先试哪一条镜像」要在**第一次导入之前**就位，
     // 否则第一次导入走的是声明顺序、第二次才按玩家选的来（同一件事两个结果）。
     registerSources(rec, mod);
     const factory = mod && typeof mod.mount === 'function' ? mod.mount
@@ -1843,7 +1843,7 @@ export function createPanelRegistry(deps) {
      */
     appearance: () => ({ providedBy: appearanceProvider, refused: appearanceRefused }),
     /**
-     * 素材加载源的提供者（`sources(ctx)`，DESIGN §34.40）。三条与 `appearance` 逐字相同：
+     * 素材加载源的提供者（`sources(ctx)`，DESIGN §35.40）。三条与 `appearance` 逐字相同：
      *   * **进程内最多一个**：后注册者被**点名拒绝**（`CLIENT_SOURCES_TAKEN`）——「哪台主机先说话」不能有歧义；
      *   * **注册进排序面的唯一 hook**（`resources/sources.js setSourceOrder`）：那个模块认识「一个函数」，**不**
      *     认识「有哪些主机」—— 主机只在 `pack.json.assets.mirrors[]`，且每一条都在装载期与包内容器摘要比对过；

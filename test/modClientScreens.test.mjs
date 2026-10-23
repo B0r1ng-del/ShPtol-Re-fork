@@ -1,10 +1,10 @@
-// test/modClientScreens.test.mjs — DESIGN §34.55 的 `client.screens`：形状层的每条拒绝码 + 两份路由名单同源。
+// test/modClientScreens.test.mjs — DESIGN §35.55 的 `client.screens`：形状层的每条拒绝码 + 两份路由名单同源。
 //
 // 与 test/modClientPanels.test.js 同一套打法：合成 pack.json 喂 `normalizePackManifest`，逐个失败分支走一遍。
 // 路由名单那条是这一格最容易出事的地方：形状层的 `CLIENT_SCREEN_ROUTES` 与客户端的 `MOD_SCREEN_ROUTES`
 // 一旦各说各话，作者就会写出「声明了合法路由、客户端永远不调用」的死格子 —— 判据只许有一份真相。
 //
-// 节号：本格吸收自下游 fork（在那里是 §34.53），我方按能力归一到 §34.55。
+// 节号：本格吸收自下游 fork（在那里是 §35.53），我方按能力归一到 §35.55。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

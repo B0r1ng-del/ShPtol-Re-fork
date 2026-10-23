@@ -420,7 +420,7 @@ describe('workshop: the overlay', () => {
   test('an unknown top-level key refuses the whole pack, and the reason lists the known fields', () => {
     // `skins` 曾经在这张名单里（0.10.0 时代「静默丢」的三个键之一）—— 皮肤层落地后它是**真字段**了，
     // 所以从这里移出，改由它自己的形状判据覆盖（见 workshopArt.test.js 的 skins 一节）。
-    // `variants` 同样在 2026-10-13 的变体 / 口径层落地后成为**真字段**（DESIGN §34.39，形状见
+    // `variants` 同样在 2026-10-13 的变体 / 口径层落地后成为**真字段**（DESIGN §35.39，形状见
     // test/workshopVariants.test.js），所以它也移出这张名单 —— 留着它会让这条测试钉住一个已经过期的判决。
     for (const key of ['official', 'config', 'meta', 'shared', 'theme', 'serverModules', 'hasAssets']) {
       const r = normalizePackManifest({ id: 'p', content: ['chess'], [key]: {} }, 'p', {});

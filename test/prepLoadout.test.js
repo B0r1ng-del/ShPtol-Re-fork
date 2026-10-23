@@ -1,4 +1,4 @@
-// 行为开关 `prepLoadout`（DESIGN §34.43.1，投稿 `8b4e5da55c58`「休整期可更换技能和模组」）。
+// 行为开关 `prepLoadout`（DESIGN §35.43.1，投稿 `8b4e5da55c58`「休整期可更换技能和模组」）。
 //
 // 投稿把它做成了**安装器**（`files.json.copy` 整份覆盖 `shared/protocol.js`、`server/match/match/{intents,platform}.js`
 // 与四个客户端文件，外加它自己的 `g.loadout` 意图）。本刀**不新增协议消息**：既有的 `room.loadout { entries, ops? }`
@@ -169,7 +169,8 @@ test('协议面一个字节都不动：`room.loadout` 仍登记在 C2S，lobby �
   // （原稿用 `setSupport` 当右边界 —— room.support 助战是另一项引擎功能，不在 MOD_SURFACE 里，本仓没有它。）
   const body = platform.slice(platform.indexOf('  setLoadout('), platform.indexOf('  onDisconnect('));
   assert.ok(body.length > 200, '必须真的切到 setLoadout 那一段');
-  assert.match(body, /loadoutPhasesFor\(this\.behaviour\)/, '相位闸门必须读这一格的声明，而不是写死 INFO_CHECK');
+  // 二.3 合并后 loadoutPhasesFor 多接一个 rules（upstream 插件规则开关），两条通道都要认。
+  assert.match(body, /loadoutPhasesFor\(this\.behaviour(?:,\s*this\.rules)?\)/, '相位闸门必须读这一格的声明，而不是写死 INFO_CHECK');
   assert.equal(/phase\s*!==\s*PHASE\.INFO_CHECK/.test(body), false, 'setLoadout 里写死的相位判据必须已经被那格开关取代');
   // 别的闸门不受影响：`start()` 仍写死它自己的相位判据（LOBBY — 它不是这一格）。
   assert.match(platform, /start\(\) \{[\s\S]{0,300}this\.phase !== PHASE\.LOBBY/,

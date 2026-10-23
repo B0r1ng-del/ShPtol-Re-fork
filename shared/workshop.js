@@ -23,29 +23,29 @@
 // The behaviour layer (a pack's `kits/*.js`, wired to the battle.on(...) hook bus) is deliberately NOT part of this
 // module: it is code, it is loaded by the server only, and it is documented in docs/WORKSHOP.md.
 
-// 变体 / 口径层（DESIGN §34.39）：轴的闭枚举与解析只有一份，`shared/variants.js`。这一层**不**在这里重新判一遍
+// 变体 / 口径层（DESIGN §35.39）：轴的闭枚举与解析只有一份，`shared/variants.js`。这一层**不**在这里重新判一遍
 // —— 一个轴表有两份实现，就是一个「哪个才算数」的问题。
-// 口径**数据**通道（DESIGN §34.51）把同一张轴表当**闭枚举**用：`variants` 内容文件的表名必须是这里的一个轴，
+// 口径**数据**通道（DESIGN §35.51）把同一张轴表当**闭枚举**用：`variants` 内容文件的表名必须是这里的一个轴，
 // 生效与否由 `variantValue` / `mergeVariantDecls`（同一份「包 id 字典序小的赢」）裁决 —— 依然只有一份实现。
 import { parseVariantsDecl, isVariantAxis, VARIANT_AXIS_NAMES, variantValue, mergeVariantDecls } from './variants.js';
-// 行为开关层（DESIGN §34.43）：与口径**同一形状、不同一张表**，判据只有一份在 `shared/behaviour.js`。同样不在这里
+// 行为开关层（DESIGN §35.43）：与口径**同一形状、不同一张表**，判据只有一份在 `shared/behaviour.js`。同样不在这里
 // 重判一遍闭枚举 —— 这里只调它的解析器（`parseBehaviourDecl`）与**具名读取器**（`behaviourValue`）。那张表今天有
 // 5 格（`shopBias` / `prepLoadout` / `morphPairing` / `unequip` / `diyPoolOverlap`）。
 import { parseBehaviourDecl, behaviourValue } from './behaviour.js';
-// 启用声明（DESIGN §34.50）：装好 ≠ 生效。判据只有一份在 `shared/enabled.js`（`parseEnabledDecl`）。
+// 启用声明（DESIGN §35.50）：装好 ≠ 生效。判据只有一份在 `shared/enabled.js`（`parseEnabledDecl`）。
 import { parseEnabledDecl } from './enabled.js';
-// 调用预算（DESIGN §34.52，沙箱档的运行时保护）：每局每插件的次数上限。判据与常量只有一份在
+// 调用预算（DESIGN §35.52，沙箱档的运行时保护）：每局每插件的次数上限。判据与常量只有一份在
 // `shared/callBudget.js` —— 形状层（这里）、运行层（`server/sim/battle/hooks.js`，两端同一段字节）与装载层
 // （`server/battlePack.js`）读的是同一个 `parseCallBudgetDecl` / `PACK_CALL_BUDGET_DEFAULT`。
 import { parseCallBudgetDecl } from './callBudget.js';
-// 特质授予的盟约（`trait.grantsBonds`，DESIGN §34.49）：装载期那一条点名走**同一份判据**（`traitGrantIssues`），
+// 特质授予的盟约（`trait.grantsBonds`，DESIGN §35.49）：装载期那一条点名走**同一份判据**（`traitGrantIssues`），
 // 作者侧的点名在 `shared/chessAuthoring.js` 的 `validateChessRecord` 里读同一个函数。
 import { traitGrantIssues } from './morph.js';
 
 /** Data files a pack may contribute to. Deliberately a conservative subset of data/: `config` is excluded because a
  * pack that rewrote the economy or the round schedule would change the rules rather than the content.
  *
- * `variants`（DESIGN §34.51）**在这张表里，但它不是一张数据表** —— 它是**口径数据通道**：文件里没有一条新记录，
+ * `variants`（DESIGN §35.51）**在这张表里，但它不是一张数据表** —— 它是**口径数据通道**：文件里没有一条新记录，
  * 只有「给**已经存在**的记录写一份**字段级补丁**」的表，归属到 `pack.json.variants` 声明的那条口径轴上。
  * 三条守卫让它不是「包可以覆盖任意数值」那条通道（`docs/WORKSHOP.md` §1.1 对 `official` / `config` 的判断）：
  *   1. **不能发明记录**：目标 `<文件>:<id>` 必须已经在合并后的数据里（官方或别的包贡献的）⇒ 否则点名拒；
@@ -151,22 +151,22 @@ export const PACK_FIELDS = Object.freeze([
   'notices',
   // 行为开关（**不是**贡献项）
   'playtest',
-  // 启用声明（DESIGN §34.50）：装好 ≠ 生效。`false` = 装载期跳过（见 `shared/enabled.js`）。**不是**贡献项。
+  // 启用声明（DESIGN §35.50）：装好 ≠ 生效。`false` = 装载期跳过（见 `shared/enabled.js`）。**不是**贡献项。
   'enabled',
-  // 调用预算（DESIGN §34.52，沙箱档的运行时保护）：每局每插件的调用次数上限，与 `combat` **同一级**（都是顶层
+  // 调用预算（DESIGN §35.52，沙箱档的运行时保护）：每局每插件的调用次数上限，与 `combat` **同一级**（都是顶层
   // 声明、都进身份哈希）。**不是**贡献项；不要求 `combat: true`（它只收紧、不授权，见下面那一处的注释）。
   'callBudget',
-  // 变体 / 口径声明（DESIGN §34.39）：这个包要哪一套口径（练度 / 部署位）。**不是**贡献项，也**不是**一条
+  // 变体 / 口径声明（DESIGN §35.39）：这个包要哪一套口径（练度 / 部署位）。**不是**贡献项，也**不是**一条
   // 数值覆盖通道 —— 它只能声明轴的闭枚举里有的选项名，值由引擎自己给（`shared/variants.js`）。
   'variants',
-  // 行为开关声明（DESIGN §34.43）：这个包要哪一格开关、哪一档。**不是**贡献项，也**不是**一条数值 / 文件覆盖
+  // 行为开关声明（DESIGN §35.43）：这个包要哪一格开关、哪一档。**不是**贡献项，也**不是**一条数值 / 文件覆盖
   // 通道 —— 它只能声明开关的闭枚举里有的选项名，**动作由引擎构造**（`shared/behaviour.js`）。那张表今天有 5 格
   // （`shopBias` / `prepLoadout` / `morphPairing` / `unequip` / `diyPoolOverlap`，每格与实现点同刀落地），
   // 声明表里没有的仍被点名拒。
   'behaviour',
   // 中间层四组能力声明（DESIGN §34.13）
   'assets', 'client', 'server', 'routes',
-  // 对局种类声明（DESIGN §34.54，第二种对局的**声明面**）：这个包的 `matchClass` 包装器**在什么条件下**把一局
+  // 对局种类声明（DESIGN §35.54，第二种对局的**声明面**）：这个包的 `matchClass` 包装器**在什么条件下**把一局
   // 换成另一种玩法。它是声明与协商面，不是分派表 —— 管理器**不认玩法名**，判定住在包自己的模块里
   // （`server/modModules.js` 的 `host.matchKinds()`）。
   //
@@ -174,11 +174,11 @@ export const PACK_FIELDS = Object.freeze([
   // 它是「顶层键闭集多一个合法键」**加上**一个新引入的、只属于它自己的字段闭枚举（`MATCH_KIND_FIELDS`）。
   // 对**在册老包**零影响：不写这个键 ⇒ 既不触碰那个新枚举、也不进归一化清单（见下面 `matchKindsParsed` 那段）。
   'matchKinds',
-  // 目标引擎（DESIGN §34.46）：`forge`（缺省，本引擎自己装）或 `stardust`（给 Stardust 宿主的**声明型包** ——
+  // 目标引擎（DESIGN §35.46）：`forge`（缺省，本引擎自己装）或 `stardust`（给 Stardust 宿主的**声明型包** ——
   // 本引擎不装载它，但认识它、不拒绝它、也不把它算进数据叠加层；同一份 pack.json 两端各自读得懂）。
   // `target: "stardust"` 的包额外允许 Stardust profile 的几格（见 `STARDUST_TARGET_FIELDS`）。
   'target',
-  // 管理器合同（DESIGN §34.48）：对**其它工坊包**的依赖与互斥声明，形状是 `[{ id, range? }]` —— `id` 是另一个
+  // 管理器合同（DESIGN §35.48）：对**其它工坊包**的依赖与互斥声明，形状是 `[{ id, range? }]` —— `id` 是另一个
   // 工坊包的 id（同一套字符集），`range` 是那个包 `version` 的区间（`shared/packs.js` 的同一套语法，缺省 = 任意
   // 版本）。这里只管**形状**；**语义在装载期裁决**（`adjudicatePackGraph`：缺失依赖 / 版本不合 / 互斥 / 级联 /
   // 循环，全部具名拒绝）。与 `target` 同一条纪律：**只在写出来时**才进归一化结果 —— 没声明的包哈希逐字节不变。
@@ -339,7 +339,7 @@ const ASSETS_FIELDS = Object.freeze(['container', 'manifest', 'serverPolicy', 'v
 const SPRESOURCES_EXT = '.spresources';
 
 /**
- * `assets.mirrors[]` —— **作者自备 CDN 承载本包自己的容器**（DESIGN §34.40）。它是「素材加载源」这一格的唯一入口，
+ * `assets.mirrors[]` —— **作者自备 CDN 承载本包自己的容器**（DESIGN §35.40）。它是「素材加载源」这一格的唯一入口，
  * 三条边界写在这里，一处也不在别处：
  *
  *   * **只镜像本包自己的容器。** 这条通道改的是「这份容器的字节从哪台主机取」，**不是**「整棵 `/assets` 树指向谁」。
@@ -348,7 +348,7 @@ const SPRESOURCES_EXT = '.spresources';
  *     **一个包自己的那份容器**，不是全站素材（`server/http/static.js` 的 `/assets` 分支一行都没动）。
  *   * **`base` 只认绝对 `https://`**，且必须写出尾斜杠：拼的是 `<base><包内文件名>`，少一个斜杠会拼出一个看起来
  *     对、取不到的地址。`http:` / `data:` / `file:` / 协议相对 / URL 里带凭据一律拒 —— 与 `VOICE_CDN_BAD_URL`
- *     （§34.36）逐字同一条口径。
+ *     （§35.36）逐字同一条口径。
  *   * **`sha256` 必须等于装载期算出来的容器摘要**（`assetsIssues.digest`）：镜像里的字节是不是「同一份容器」由这
  *     一步判定，它**不是**包自己的一句话 —— 服务端先按包内文件算出摘要，再拿它去比每一条镜像的声明
  *     （`server/workshop.js`），对不上的那条**不生效**并点名。于是「镜像换了内容」在装载期就被抓住。
@@ -431,13 +431,13 @@ export const CLIENT_WRAP_MODES = Object.freeze(['wrap', 'replace']);
  *  + `wraps`（它要包裹 / 替换的引擎组件）。 */
 const CLIENT_PANEL_FIELDS = Object.freeze(['id', 'slot', 'module', 'order', 'gate', 'styles', 'data', 'messages', 'wraps']);
 /**
- * 整屏声明的字段（`client.screens[]`，DESIGN §34.55）：`id` / `route` / `module` 三格必填，其余四格可选，
+ * 整屏声明的字段（`client.screens[]`，DESIGN §35.55）：`id` / `route` / `module` 三格必填，其余四格可选，
  * 与面板**共用同一批判据**（同一条装载期文件判据、同一批数据表闭枚举、同一套通道名形状）。
  * 刻意**没有** `wraps`：整屏替换的是**整条路由**，不是包裹引擎的某个组件 —— 那是面板那一格的活。
  */
 export const CLIENT_SCREEN_FIELDS = Object.freeze(['id', 'route', 'module', 'order', 'styles', 'data', 'messages']);
 /**
- * 整屏能替换的**路由闭枚举**（DESIGN §34.55）。
+ * 整屏能替换的**路由闭枚举**（DESIGN §35.55）。
  *
  * 为什么只有四条：`selectRoute`（`public/js/store.js`）与 `main.js` 的 `SCREENS` 都只到这四个值 ——
  * 结算与干员调配是路由**内部**的视图，不是路由。所以写成自由字符串没有意义：第五条不是「以后再支持」，
@@ -547,7 +547,7 @@ const BATTLE_MODULE_EXT = '.mjs';
  * 没有文件系统，返回值被忽略。判据是**能力**而不是意图：等哪一天这一层真的交出一件能改「谁在玩 / 装了什么 / 这一局
  * 的结果」的东西，那件东西必须 `combat: true`（§34.20 的闸门分类规则）。
  *
- * 那一天到了，就是 `hold`（§34.57）：它能决定「空席的房间还留不留」= 能决定一局会不会被回收 ⇒ 单独要求
+ * 那一天到了，就是 `hold`（§35.57）：它能决定「空席的房间还留不留」= 能决定一局会不会被回收 ⇒ 单独要求
  * `combat: true`（`ROOM_HOLD_NEEDS_COMBAT`，见 `normalizePackManifest` 那道门）。同一份契约里的其余成员
  * （快照 / 访问器 / 订阅）照旧不受 combat 闸门 —— 被 gate 的是那一件能力，不是整格载荷，正是上面那句话的口径。
  *
@@ -577,12 +577,12 @@ export const SERVER_MODULE_USES = Object.freeze(['boot', 'shutdown', 'matchClass
 /** `server.modules[*]` 的字段，一个不多一个不少。 */
 const SERVER_MODULE_FIELDS = Object.freeze(['id', 'entry', 'uses', 'write', 'channels', 'lane']);
 /**
- * 一条 lane 的声明字段（DESIGN §34.56）：刻意只两格。路径**语法**不在这里判 —— 那份判据只有
+ * 一条 lane 的声明字段（DESIGN §35.56）：刻意只两格。路径**语法**不在这里判 —— 那份判据只有
  * `server/http/wsLanes.js` 的 `isLanePath` / `validateLanes` 一处，装载期由 `server/modLanes.js` 调它；
  * 这里再抄一遍就是第二个会漂的真相。限额（每进程 lane 总数、每包 lane 数）也归宿主的表管 —— 作者能声明的
  * 只有「我要哪条路径」与「后面跑的是什么」。
  *
- * ⚠️ 来源分支里这一格的注释写的是 §34.53（那是 `client.screens` 的号）—— 合并时按**能力**归一到 §34.56，
+ * ⚠️ 来源分支里这一格的注释写的是 §35.53（那是 `client.screens` 的号）—— 合并时按**能力**归一到 §35.56，
  * 不做机械的号段平移（同一份来源文件里有四处同样的错标，都改了）。
  */
 const MODULE_LANE_FIELDS = Object.freeze(['path', 'summary']);
@@ -662,7 +662,7 @@ function parseAssetsDecl(raw) {
   if (!ASSETS_VERIFY_ALGORITHMS.includes(verify)) {
     return fail('ASSETS_BAD_VERIFY', `assets.verify must be one of: ${ASSETS_VERIFY_ALGORITHMS.join(', ')}`);
   }
-  // `mirrors`（DESIGN §34.40）是**可选的**一格，而且与 `skins` / `voiceCdn` / `variants` 同一条纪律：
+  // `mirrors`（DESIGN §35.40）是**可选的**一格，而且与 `skins` / `voiceCdn` / `variants` 同一条纪律：
   // **只在真的声明过时才进归一化结果**。没声明它的包（今天所有的包）哈希逐字节不变；`identifyPack` 哈希的是
   // 这份清单的 `canonicalJson`，给每个包都加一个 `mirrors: []` 会换掉每一个已发布包的身份。
   const mirrorsParsed = raw.mirrors === undefined ? null : parseAssetsMirrors(raw.mirrors);
@@ -677,7 +677,7 @@ function parseAssetsDecl(raw) {
 }
 
 /**
- * `assets.mirrors[]` 的形状（DESIGN §34.40）。判据与理由见 `ASSETS_MIRROR_FIELDS` 上面那一段；这里只说两件
+ * `assets.mirrors[]` 的形状（DESIGN §35.40）。判据与理由见 `ASSETS_MIRROR_FIELDS` 上面那一段；这里只说两件
  * 实现上的事：
  *
  *   * **一条镜像不成立就拒整个 `assets`**，不做「丢掉坏的那条、留下好的」：形状层的既有纪律是「作者写下的东西
@@ -919,7 +919,7 @@ function parseClientDecl(raw) {
     }
     panels.push(clean);
   }
-  // 整屏声明（`client.screens[]`，DESIGN §34.55）：与面板**共用同一批判据**，因为两者在客户端走同一条投递路径
+  // 整屏声明（`client.screens[]`，DESIGN §35.55）：与面板**共用同一批判据**，因为两者在客户端走同一条投递路径
   // （`welcome.modPanels` 一份线表，服务端只多给一个 `kind: 'screen'`）。刻意共用的还有 `seen`：`id` 是**一个**
   // 包内命名空间 —— 面板与整屏同名就是两份声明抢一个 key，客户端只会挂上其中一份，而作者以为挂了两份。
   const screens = [];
@@ -1102,12 +1102,12 @@ function parseServerModulesDecl(raw) {
         return fail('MODULES_CHANNELS_NEED_MATCH', `server.modules["${mod.id}"].channels is delivered to the running match (Match.handlePackMsg, DESIGN §34.23), so this module must also declare the "matchClass" mount point — channels without matchClass have no receiver`);
       }
     }
-    // `lane`（DESIGN §34.56）：这个模块向宿主认领一条 WebSocket 升级路径 —— 另一种玩法的联机面。这里只判
+    // `lane`（DESIGN §35.56）：这个模块向宿主认领一条 WebSocket 升级路径 —— 另一种玩法的联机面。这里只判
     // **形状**与「有没有声明挂载点」；路径语法与建表裁决住在 `server/http/wsLanes.js` + `server/modLanes.js`
     // （一份真相，不在这一层抄第二遍）。
     if (mod.lane !== undefined) {
       if (!isPlainObj(mod.lane)) {
-        return fail('MODULES_BAD_LANE', `server.modules["${mod.id}"].lane must be an object: { path, summary? } — one lane per module (the table is process-wide, exact-match and bounded, DESIGN §34.44)`);
+        return fail('MODULES_BAD_LANE', `server.modules["${mod.id}"].lane must be an object: { path, summary? } — one lane per module (the table is process-wide, exact-match and bounded, DESIGN §35.44)`);
       }
       for (const key of Object.keys(mod.lane)) {
         if (!MODULE_LANE_FIELDS.includes(key)) {
@@ -1138,7 +1138,7 @@ function parseServerModulesDecl(raw) {
       // 只在**声明了的时候**进清单（声明进身份哈希，没声明的包逐字节不变），并且排序：两个书写顺序不同的
       // 写法必须是同一个包（与 `uses` 按闭枚举次序同一条纪律）。
       ...(mod.channels === undefined ? {} : { channels: [...mod.channels].sort() }),
-      // lane 同样**只在声明时**才进清单（§34.56）：路径是行为声明，两份只差路径的包共用同一个摘要，
+      // lane 同样**只在声明时**才进清单（§35.56）：路径是行为声明，两份只差路径的包共用同一个摘要，
       // 客户端就会连到一条服务端根本没有的进程上（§34.2 同一条理由）。字段顺序固定，`summary` 没写就不存在。
       ...(mod.lane === undefined ? {} : { lane: mod.lane.summary === undefined
         ? { path: mod.lane.path }
@@ -1437,8 +1437,8 @@ function parseRoomDecl(raw) {
   if (!raw.module.endsWith(ROOM_MODULE_EXT) || raw.module.length <= ROOM_MODULE_EXT.length) {
     return fail('ROOM_BAD_MODULE', `server.room.module must be a "${ROOM_MODULE_EXT}" module — the server loads it, the browser never does (unlike server.battle, which both ends run)`);
   }
-  // `hold`（DESIGN §34.57）：这个包要**申请**「空席房间先别销毁」。它不改对局内部，但它能决定一局会不会
-  // 因为「没真人了」而被回收 —— 那是对局结果的一部分，所以按 §34.14 / §34.52 同一条纪律要求 `combat: true`
+  // `hold`（DESIGN §35.57）：这个包要**申请**「空席房间先别销毁」。它不改对局内部，但它能决定一局会不会
+  // 因为「没真人了」而被回收 —— 那是对局结果的一部分，所以按 §34.14 / §35.52 同一条纪律要求 `combat: true`
   // （闸门在 `normalizePackManifest` 里，因为它要读包级声明）。**只在写出来时**才进清单：没写的包逐字节不变。
   if (raw.hold !== undefined && raw.hold !== true && raw.hold !== false) {
     return fail('ROOM_BAD_HOLD', `server.room.hold must be true or false (may this pack ask the host to keep an emptied room alive), got ${typeof raw.hold}`);
@@ -1447,7 +1447,7 @@ function parseRoomDecl(raw) {
 }
 
 /**
- * 对局种类声明（DESIGN §34.54）的闭字段与上界。
+ * 对局种类声明（DESIGN §35.54）的闭字段与上界。
  *
  * ⚠️ 符号名以**实物**为准：`MATCH_KIND_FIELDS` 是**单数** `KIND`（曾有一次笔误写成复数
  * `MATCH_KINDS_FIELDS`，以这一行为准），因为 `shared/modSurface.js` 的能力条目按这个名字登记符号，
@@ -1464,7 +1464,7 @@ export const MAX_PACK_MATCH_KINDS = 4;
 export const MATCH_KIND_SEATS_MAX = 12;
 
 /**
- * `pack.json.matchKinds` —— 这个包的 `matchClass` 包装器**在什么条件下**把一局换成另一种玩法（DESIGN §34.54）。
+ * `pack.json.matchKinds` —— 这个包的 `matchClass` 包装器**在什么条件下**把一局换成另一种玩法（DESIGN §35.54）。
  *
  * 它是**声明与协商面，不是分派表**：管理器**不认玩法名**，判定住在包自己的模块里（`host.matchKinds()`）。
  * 两条判据都照本层既有的形状，因为它们的失败方向都是「写了等于没写」：
@@ -1591,7 +1591,7 @@ function parseRoutesDecl(raw) {
  * @returns {{ ok: true, decl: Record<string, string> } | { ok: false, error: string, detail: string }}
  */
 /**
- * `pack.json.dependencies` / `pack.json.conflicts` —— 管理器合同（DESIGN §34.48）的形状：`[{ id, range? }]`。
+ * `pack.json.dependencies` / `pack.json.conflicts` —— 管理器合同（DESIGN §35.48）的形状：`[{ id, range? }]`。
  *
  * `id` 是**另一个工坊包**的 id（`PACK_ID_RE` 同一套字符集 —— 一个 `../escape` 在这里就被点名拒，绝不留到
  * 装载期去拼路径），`range` 是那个包 `version` 的区间（`shared/packs.js` 的同一套语法，缺省 = 任意版本）。
@@ -2090,7 +2090,7 @@ export function normalizePackManifest(raw, dirName = '', opts = {}) {
     if (typeof f === 'string' && WORKSHOP_CONTENT_FILES.includes(f)) continue;
     const shown = typeof f === 'string' ? (f.length > MAX_KEY_SHOWN ? `${f.slice(0, MAX_KEY_SHOWN)}…` : f) : (Array.isArray(f) ? 'an array' : typeof f);
     return fail('UNKNOWN_CONTENT_FILE',
-      `content: "${shown}" is not a data file of this pack format (${WORKSHOP_CONTENT_FILES.join(', ')}). A name this loader does not know is never read: a pack that wrote it would ship a file nothing merges — "config" in particular has NO content channel (see docs/WORKSHOP.md §1.1), and a 口径 is declared as pack.json.variants (its VALUES go in the "variants" content file, DESIGN §34.51)`);
+      `content: "${shown}" is not a data file of this pack format (${WORKSHOP_CONTENT_FILES.join(', ')}). A name this loader does not know is never read: a pack that wrote it would ship a file nothing merges — "config" in particular has NO content channel (see docs/WORKSHOP.md §1.1), and a 口径 is declared as pack.json.variants (its VALUES go in the "variants" content file, DESIGN §35.51)`);
   }
   const content = Array.isArray(raw.content)
     ? [...new Set(raw.content.filter((f) => typeof f === 'string' && WORKSHOP_CONTENT_FILES.includes(f)))].sort()
@@ -2500,7 +2500,7 @@ export function normalizePackManifest(raw, dirName = '', opts = {}) {
   const assetsParsed = raw.assets === undefined ? null : parseAssetsDecl(raw.assets);
   if (assetsParsed && !assetsParsed.ok) return assetsParsed;
   // 镜像也是**再分发**：同一份字节从作者的域名上发给别人时，授权问题不因为换了一台主机就消失 —— 与
-  // `VOICE_CDN_NEEDS_LICENSE`（§34.36）逐字同一条理由。`ASSETS_NEED_LICENSE` 判的是「包里有没有 `assets/`
+  // `VOICE_CDN_NEEDS_LICENSE`（§35.36）逐字同一条理由。`ASSETS_NEED_LICENSE` 判的是「包里有没有 `assets/`
   // 文件夹」，而容器路径不一定要落在那棵树下，所以这里单独判一条，并且只对**声明了 mirrors 的包**生效
   // （今天一个都没有 ⇒ 已发布包的哈希与判据一字不变）。
   if (assetsParsed && assetsParsed.decl.mirrors && !license) {
@@ -2538,7 +2538,7 @@ export function normalizePackManifest(raw, dirName = '', opts = {}) {
   // 结果」的纪律 —— 没声明 notices 的包哈希逐字节不变。
   const noticesParsed = raw.notices === undefined ? null : parseNoticesDecl(raw.notices);
   if (noticesParsed && !noticesParsed.ok) return noticesParsed;
-  // 管理器合同（DESIGN §34.48）：对**其它工坊包**的依赖与互斥声明 —— 形状在这里，**语义在装载期裁决**
+  // 管理器合同（DESIGN §35.48）：对**其它工坊包**的依赖与互斥声明 —— 形状在这里，**语义在装载期裁决**
   //（`adjudicatePackGraph`：缺失 / 版本不合 / 互斥 / 级联 / 循环，全部具名拒绝）。与 `notices` 同一条
   // 「写了才进归一化结果」的纪律 —— 没声明的包哈希逐字节不变（DESIGN §34.2）。
   const depsParsed = raw.dependencies === undefined ? null : parseModRefsDecl(raw.dependencies, 'dependencies');
@@ -2559,26 +2559,26 @@ export function normalizePackManifest(raw, dirName = '', opts = {}) {
   }
   const fxParsed = raw.fx === undefined ? null : parseFxDecl(raw.fx);
   if (fxParsed && !fxParsed.ok) return fxParsed;
-  // 变体 / 口径声明（DESIGN §34.39）：形状与闭枚举都在 `shared/variants.js` 判，这里只负责「写了才进清单」。
+  // 变体 / 口径声明（DESIGN §35.39）：形状与闭枚举都在 `shared/variants.js` 判，这里只负责「写了才进清单」。
   // **不是贡献项**（与 `playtest` 同一个语义）：一个只声明了 `variants: [{ axis: "deploy" }]` 的包什么都没带来
   // —— 口径选的是引擎已有的另一套表现，不是内容。所以它不进 `contributesDecl`，一个只带它的包照旧 `EMPTY_PACK`。
   const variantsParsed = raw.variants === undefined ? null : parseVariantsDecl(raw.variants);
   if (variantsParsed && !variantsParsed.ok) return variantsParsed;
-  // 对局种类声明（DESIGN §34.54）：形状（数组 / 闭字段 / 上界 / 去重 / 排序）都在 `parseMatchKindsDecl` 判。
+  // 对局种类声明（DESIGN §35.54）：形状（数组 / 闭字段 / 上界 / 去重 / 排序）都在 `parseMatchKindsDecl` 判。
   // 接收人闸门（`MATCHKINDS_NEED_MATCH_CLASS`）判在下面归一化流程里 —— 它要读**已解析完的** `server.modules`。
   const matchKindsParsed = raw.matchKinds === undefined ? null : parseMatchKindsDecl(raw.matchKinds);
   if (matchKindsParsed && !matchKindsParsed.ok) return matchKindsParsed;
-  // 行为开关声明（DESIGN §34.43）：形状与闭枚举都在 `shared/behaviour.js` 判，这里只负责「写了才进清单」。
+  // 行为开关声明（DESIGN §35.43）：形状与闭枚举都在 `shared/behaviour.js` 判，这里只负责「写了才进清单」。
   // **不是贡献项**（与 `variants` / `playtest` 同一个语义）：行为开关改的是引擎里**已经实现**的一条规则，
   // 它自己不带来任何内容。所以一个只带 `behaviour` 的包照旧 `EMPTY_PACK`（文案里点名它）。
   const behaviourParsed = raw.behaviour === undefined ? null : parseBehaviourDecl(raw.behaviour, opts.behaviourSwitches);
   if (behaviourParsed && !behaviourParsed.ok) return behaviourParsed;
-  // 启用声明（DESIGN §34.50）：`false` = 这个包装好了但现在不参与。**不是贡献项**（与 `variants` 同一个语义）：
+  // 启用声明（DESIGN §35.50）：`false` = 这个包装好了但现在不参与。**不是贡献项**（与 `variants` 同一个语义）：
   // 一个只写 `"enabled": true` 的包什么都没带来，照旧 `EMPTY_PACK`；而 `"enabled": false` 的包连装载都不进
   // （`server/workshop.js loadWorkshop` 在归一化之后读它），所以它也到不了 `EMPTY_PACK` 那一行。
   const enabledParsed = raw.enabled === undefined ? null : parseEnabledDecl(raw.enabled);
   if (enabledParsed && !enabledParsed.ok) return enabledParsed;
-  // 调用预算（DESIGN §34.52，沙箱档的运行时保护）：`{ max? }`，缺省 8000，**只许收紧不许放宽**。
+  // 调用预算（DESIGN §35.52，沙箱档的运行时保护）：`{ max? }`，缺省 8000，**只许收紧不许放宽**。
   // 这一格**不是贡献项**（与 `variants` / `behaviour` / `enabled` 同一个语义）：它不带来任何内容，也不改引擎的规则
   // ——它给的是**上限**，一个只带 `callBudget` 的包照旧 `EMPTY_PACK`。它**也**不要求 `combat: true`：与
   // `variants` / `behaviour` 那两条 `*_NEEDS_COMBAT` 的区别是**方向** —— 那两格授予能力（所以必须声明意图），
@@ -2586,7 +2586,7 @@ export function normalizePackManifest(raw, dirName = '', opts = {}) {
   // 内容包挡在沙箱档外面。但它**必须**进身份哈希：一个会截断回调、一个不截，是两种对局行为（见下面的归一化位置）。
   const callBudgetParsed = raw.callBudget === undefined ? null : parseCallBudgetDecl(raw.callBudget);
   if (callBudgetParsed && !callBudgetParsed.ok) return callBudgetParsed;
-  // 目标引擎（`target`，DESIGN §34.46）：缺省 `forge`（本引擎自己装）。`stardust` 的包是**声明型**的 ——
+  // 目标引擎（`target`，DESIGN §35.46）：缺省 `forge`（本引擎自己装）。`stardust` 的包是**声明型**的 ——
   // 本引擎认识它、不装载它（server/workshop.js 记一行 foreign），所以它不需要任何 Forge 贡献项
   // （EMPTY_PACK 对它不适用），`type` / `capabilities` 两格按 Stardust profile 校验。写了才进归一化结果。
   const target = raw.target === undefined ? 'forge' : raw.target;
@@ -2617,7 +2617,7 @@ export function normalizePackManifest(raw, dirName = '', opts = {}) {
   if (conflictsParsed) declared.push(['conflicts', conflictsParsed.decl]);
   if (formsParsed) declared.push(['forms', formsParsed.decl]);
   if (fxParsed) declared.push(['fx', fxParsed.decl]);
-  // `enabled` 比 `variants` / `behaviour` 多一条约束（§34.50 的判据 2：**缺省 = 引擎今天的行为**）：
+  // `enabled` 比 `variants` / `behaviour` 多一条约束（§35.50 的判据 2：**缺省 = 引擎今天的行为**）：
   // 无条件写进去会让 `"enabled": true` 与「没写」在**数据上**不再等价 —— 而 `identifyPack` 哈希的正是
   // `canonicalJson(pack)`（`server/workshop.js` step 1），于是写了 `true` 的包会换掉包身份、房间摘要跟着漂，
   // 而它做的事与没写一字不差。所以**只有 `false` 才进清单**：那是这一格唯一真正改变行为的取值，
@@ -2651,7 +2651,7 @@ export function normalizePackManifest(raw, dirName = '', opts = {}) {
     && !Object.keys(orderedOperators).length && !declared.some(contributesDecl)) {
     // 这份清单里「声明了也不算贡献」的字段**都要点名**：`support` / `playtest`（当初只有这两个），
     // 以及后加的 `variants` / `behaviour`（它们只是「这一局按哪一套跑」的声明，自己不往对局里带任何东西），
-    // 以及管理器合同的 `dependencies` / `conflicts`（DESIGN §34.48：它们说的是「和别的包什么关系」，
+    // 以及管理器合同的 `dependencies` / `conflicts`（DESIGN §35.48：它们说的是「和别的包什么关系」，
     // 一个只声明依赖的包自己不带来任何内容 —— 与 `support` 同一条）。
     // 只声明助战的包今天整包被拒（plugin-pack G6：一个 `support: [...]` + `content: []` 的包得到的就是这一条），
     // 而原来的文案里**没有** `support` 这个词，作者只能对着 `EMPTY_PACK` 猜。`support` 只决定**助战卡池**里放谁，
@@ -2715,7 +2715,7 @@ export function normalizePackManifest(raw, dirName = '', opts = {}) {
   const layer = raw.layer === undefined || raw.layer === null ? null : String(raw.layer).trim().toUpperCase();
   if (layer !== null && !MOD_LAYERS.includes(layer)) return fail('BAD_LAYER', `"layer": "${raw.layer}" is not one of ${MOD_LAYERS.join(' / ')}`);
   if (raw.combat !== undefined && typeof raw.combat !== 'boolean') return fail('BAD_COMBAT', '"combat" must be true or false (may this pack change a battle result?)');
-  // `matchKinds`（DESIGN §34.54）的接收人闸门，形状照 `MODULES_CHANNELS_NEED_MATCH`：种类声明说的是「这一局换成
+  // `matchKinds`（DESIGN §35.54）的接收人闸门，形状照 `MODULES_CHANNELS_NEED_MATCH`：种类声明说的是「这一局换成
   // 另一种玩法」，而全场只有 `matchClass` 包装器能换掉对局（`server/index.js` 用它包住 `MatchClass`）；没有它，
   // 这句话没有执行者，所以点名拒 —— 不许留一条**永远不会发生**的效果（本层到处在消灭的形态）。
   //
@@ -2745,16 +2745,16 @@ export function normalizePackManifest(raw, dirName = '', opts = {}) {
   if (serverParsed && (serverParsed.decl.modules || []).some((m) => m.uses.includes('matchClass')) && raw.combat !== true) {
     return fail('MODULES_NEED_COMBAT', 'a server module whose uses includes "matchClass" wraps the match itself, so this pack must declare "combat": true — that is what puts it into the room digest gate and the golden corpus (DESIGN §34.14); a module that only mounts boot / shutdown / healthz does not need it');
   }
-  // lane 的**命名空间**（DESIGN §34.56）：一条 lane 是全进程精确匹配的，两个包抢同一条路径必须在建表之前就
+  // lane 的**命名空间**（DESIGN §35.56）：一条 lane 是全进程精确匹配的，两个包抢同一条路径必须在建表之前就
   // 分开，而不是靠先到先得。规则只有一条、且只需要包 id：路径必须是 `/mod-ws/<本包id>` 或它的直接子路径。
   // 语法本身不在这里判（`isLanePath` / `LANE_RESERVED` 那份判据只在 `server/http/wsLanes.js` 一处）。
   if (serverParsed) {
-    // `server.room.hold: true` 要 `combat: true`（§34.57）：能决定「空席的房间还留不留」就是能决定一局
+    // `server.room.hold: true` 要 `combat: true`（§35.57）：能决定「空席的房间还留不留」就是能决定一局
     // 会不会被回收掉 —— 与 `matchClass` / `matchKinds` 同一条「能力判据而非意图」。位置在这里是因为它要读
     // **包级**的 `combat`，而 `server` 的形状已经解析完了。
     const holdDecl = serverParsed.decl.room && serverParsed.decl.room.hold === true;
     if (holdDecl && raw.combat !== true) {
-      return fail('ROOM_HOLD_NEEDS_COMBAT', 'server.room.hold lets this pack keep an emptied room alive, which decides whether a running match is reclaimed at all, so the pack must declare "combat": true — that is what puts it into the room digest gate and the golden corpus (DESIGN §34.57)');
+      return fail('ROOM_HOLD_NEEDS_COMBAT', 'server.room.hold lets this pack keep an emptied room alive, which decides whether a running match is reclaimed at all, so the pack must declare "combat": true — that is what puts it into the room digest gate and the golden corpus (DESIGN §35.57)');
     }
     const lanePrefix = `/mod-ws/${id}`;
     for (const m of serverParsed.decl.modules || []) {
@@ -2765,18 +2765,18 @@ export function normalizePackManifest(raw, dirName = '', opts = {}) {
       }
     }
   }
-  // 变体 / 口径（DESIGN §34.39）**也**要 `combat: true`，理由与上面三条逐字同构：一个口径改的就是**对局的结果**
+  // 变体 / 口径（DESIGN §35.39）**也**要 `combat: true`，理由与上面三条逐字同构：一个口径改的就是**对局的结果**
   // —— `deploy: "max"` 把 `config.economy.deployCap` 从官方的 8 抬到 12（场上同时多站四个人），
   // `training` 说的是这一局用哪一套练度。判据是**能力**而不是意图：一条**能**改结果的口径声明，必须进房间摘要
   // 闸门与 golden 语料，否则「不声明 combat 的包改不了结果」这句话就从结构性保证退化成一句口号。
-  // `form`（第 6 刀，DESIGN §34.41）同样：`form: "elite"` 让每条普通干员按精锐形态的职能出战，改的就是对局结果。
+  // `form`（第 6 刀，DESIGN §35.41）同样：`form: "elite"` 让每条普通干员按精锐形态的职能出战，改的就是对局结果。
   //
   // 位置在 `EMPTY_PACK` 之**后**（一个只声明了口径、什么都没带来的包照旧先得到 `EMPTY_PACK` —— 那才是它的真
   // 问题），并且在上面三条 `combat` 类型检查之后：`BAD_COMBAT` 先报，作者才知道该改的是类型而不是缺一个 `true`。
   if (variantsParsed && raw.combat !== true) {
-    return fail('VARIANTS_NEED_COMBAT', 'a pack that declares "variants" pins a 口径 that changes match results (deploy slots / operator training / operator form), so it must declare "combat": true — that is what puts it into the room digest gate and the golden corpus (DESIGN §34.39, §34.41); a pack that cannot state that must not pin a 口径');
+    return fail('VARIANTS_NEED_COMBAT', 'a pack that declares "variants" pins a 口径 that changes match results (deploy slots / operator training / operator form), so it must declare "combat": true — that is what puts it into the room digest gate and the golden corpus (DESIGN §35.39, §35.41); a pack that cannot state that must not pin a 口径');
   }
-  // 行为开关（DESIGN §34.43）**也**要 `combat: true`，理由与上面四条逐字同构 —— 第五道同一条线。一格的入场券本就是
+  // 行为开关（DESIGN §35.43）**也**要 `combat: true`，理由与上面四条逐字同构 —— 第五道同一条线。一格的入场券本就是
   // 「它改一条规则」（`docs/WORKSHOP.md` §1.1 的 `giveBondBiasOnly` 就是活例子：它改的是一局的商店出货概率＝改对局
   // 结果）。判据是**能力**而不是意图：一条**能**改结果的开关声明，必须进房间摘要闸门与 golden 语料，否则「不声明
   // combat 的包改不了结果」这句话就从结构性保证退化成一句口号。
@@ -2785,7 +2785,7 @@ export function normalizePackManifest(raw, dirName = '', opts = {}) {
   // 之后。将来若有一格**明确改不了结果**的开关（例如纯客户端规则），它必须**不**要求 `combat: true`，并把
   // 「不改结果」写进那一格的 `effect` —— 判据是能力，不是意图（§34.20 的闸门分类规则）。
   if (behaviourParsed && raw.combat !== true) {
-    return fail('BEHAVIOUR_NEEDS_COMBAT', 'a pack that declares "behaviour" pins a rule switch that changes how the engine plays, which can change match results, so it must declare "combat": true — that is what puts it into the room digest gate and the golden corpus (DESIGN §34.43); a pack that cannot state that must not pin a behaviour switch');
+    return fail('BEHAVIOUR_NEEDS_COMBAT', 'a pack that declares "behaviour" pins a rule switch that changes how the engine plays, which can change match results, so it must declare "combat": true — that is what puts it into the room digest gate and the golden corpus (DESIGN §35.43); a pack that cannot state that must not pin a behaviour switch');
   }
   // `server.room` **不在**上面这条线里（DESIGN §34.20）：它的契约是「观察与声明」——`install(room)` 拿到的是一个只读
   // 观察面（成员快照 / 阶段 / 事件 / 一条日志），没有 store、没有战场句柄、没有 socket、没有文件系统，返回值被忽略。
@@ -2824,22 +2824,22 @@ export function normalizePackManifest(raw, dirName = '', opts = {}) {
       support: supportIds,
       operators: orderedOperators,
       playtest: { directToHand },
-      // 变体 / 口径声明（DESIGN §34.39）：**只在声明过时才存在**，与 `skins` / `voiceCdn` 同一条纪律、理由逐字
+      // 变体 / 口径声明（DESIGN §35.39）：**只在声明过时才存在**，与 `skins` / `voiceCdn` 同一条纪律、理由逐字
       // 相同 —— `identifyPack` 哈希的就是这份归一化清单的 `canonicalJson`（`server/workshop.js`），给每个包都加
       // 一个 `variants: []` 会让**所有已发布包的哈希全部改变**。而它**必须**进哈希：一个口径改的是对局结果，
       // 两份只差口径的包共用同一个摘要，房间的摘要闸门就会放行两种不同的行为（DESIGN §34.2）。
       ...(variantsParsed ? { variants: variantsParsed.decl } : {}),
-      // 行为开关声明（DESIGN §34.43）：**只在声明过时才存在**，与 `variants` / `skins` / `voiceCdn` 同一条纪律、
+      // 行为开关声明（DESIGN §35.43）：**只在声明过时才存在**，与 `variants` / `skins` / `voiceCdn` 同一条纪律、
       // 理由逐字相同 —— `identifyPack` 哈希的就是这份归一化清单的 `canonicalJson`（`server/workshop.js`），给每个
       // 包都加一个 `behaviour: []` 会让**所有已发布包的哈希全部改变**。而它**必须**进哈希：一条开关改的是引擎的
       // 规则，两份只差开关的包共用同一个摘要，房间的摘要闸门就会放行两种不同的行为（DESIGN §34.2）。
       ...(behaviourParsed ? { behaviour: behaviourParsed.decl } : {}),
-      // 调用预算（DESIGN §34.52）：**只在声明过时才存在**，与 `variants` / `behaviour` / `skins` 同一条纪律、
+      // 调用预算（DESIGN §35.52）：**只在声明过时才存在**，与 `variants` / `behaviour` / `skins` 同一条纪律、
       // 理由逐字相同 —— `identifyPack` 哈希的就是这份归一化清单的 `canonicalJson`（`server/workshop.js`），给每个
       // 包都补一个 `callBudget: { max: 8000 }` 会让**所有已发布包的哈希全部改变**；而它**必须**进哈希：一份会截断
       // 回调的包与一份不截的包是两种对局行为，共用同一个摘要就等于房间闸门放行两种玩法（DESIGN §34.2）。
       ...(callBudgetParsed ? { callBudget: callBudgetParsed.decl } : {}),
-      // 对局种类声明（DESIGN §34.54）：**只在声明过时才存在**，与 `variants` / `behaviour` / `callBudget` 同一条
+      // 对局种类声明（DESIGN §35.54）：**只在声明过时才存在**，与 `variants` / `behaviour` / `callBudget` 同一条
       // 纪律、理由逐字相同 —— `identifyPack` 哈希的就是这份归一化清单的 `canonicalJson`（`server/workshop.js`），
       // 给每个包都补一个 `matchKinds: []` 会让**所有已发布包的哈希全部改变**。
       // ⚠️ 而它**必须**进哈希：种类声明决定「这一局由谁算」（换玩法 = 换对局结果），两份只差种类声明的包共用
@@ -2887,7 +2887,7 @@ export function playtestUnknownIds(declared, overrides, ownChessIds) {
 }
 
 /**
- * **口径数据通道**（DESIGN §34.51）：解析一个包的 `variants.json`。这是**唯一**一份形状判据（装载器
+ * **口径数据通道**（DESIGN §35.51）：解析一个包的 `variants.json`。这是**唯一**一份形状判据（装载器
  * `server/workshop.js`、编辑器与 `npm run workshop:validate` 都走 `normalizeContentFile` 这一个入口）。
  *
  * 收的形状 —— 与投稿 `c26a6ed4c1e7` 的原件（`payload/packs/fanpack/variants.json`）**逐层 1:1**，只把它的
@@ -2923,7 +2923,7 @@ export function normalizeVariantDataFile(json) {
   for (const axis of axes) {
     if (!isVariantAxis(axis)) {
       const shown = axis.length > MAX_KEY_SHOWN ? `${axis.slice(0, MAX_KEY_SHOWN)}…` : axis;
-      return fail('VARIANTS_UNKNOWN_AXIS', `variants.json["${shown}"] is not an axis of this 口径 format. Known axes: ${VARIANT_AXIS_NAMES.map((a) => `"${a}"`).join(', ')} — a table the loader does not know is never applied, so it is refused instead of ignored (declare the axis in pack.json.variants and name it here, DESIGN §34.51)`);
+      return fail('VARIANTS_UNKNOWN_AXIS', `variants.json["${shown}"] is not an axis of this 口径 format. Known axes: ${VARIANT_AXIS_NAMES.map((a) => `"${a}"`).join(', ')} — a table the loader does not know is never applied, so it is refused instead of ignored (declare the axis in pack.json.variants and name it here, DESIGN §35.51)`);
     }
     const byFile = json[axis];
     if (!isPlainObj(byFile) || !Object.keys(byFile).length) {
@@ -2963,7 +2963,7 @@ export function normalizeVariantDataFile(json) {
  * `units`（新干员的干员记录）**另外**要过一遍「下游用得上吗」：见 `UNIT_REQUIRED_FIELDS` 的长注释 —— 我们只查那
  * 六个字段，其余一律照抄，不复制官方 schema。
  *
- * `variants`（口径数据通道，DESIGN §34.51）**不是** `{ [id]: record }`：它的形状判据只有一份，就是
+ * `variants`（口径数据通道，DESIGN §35.51）**不是** `{ [id]: record }`：它的形状判据只有一份，就是
  * `normalizeVariantDataFile`，这里只负责转发 —— 一个形状有两份判据，就是一个「哪个才算数」的问题。
  * @param {string} file data file basename, e.g. 'chess'
  * @param {any} json parsed file
@@ -3168,7 +3168,7 @@ export function workshopI18nFiles(packs, readFile, readBase) {
  *
  * 摘除因此有**两条通道**，落到同一个动作上：
  *   ① **维护者总开关** `{ apply: true }`（今天的口径，语义一字未动）；
- *   ② **包级声明** `behaviour: [{ switch: 'diyPoolOverlap', option: 'strip' }]`（DESIGN §34.43 的第 5 格）——
+ *   ② **包级声明** `behaviour: [{ switch: 'diyPoolOverlap', option: 'strip' }]`（DESIGN §35.43 的第 5 格）——
  *      作者自己说「把**本包**做成棋子的那几名干员从自选池摘掉」。**通道②刻意按包读取**：合并成一个全局值之后
  *      「A 包声明 strip」会连 B 包的重叠一起摘掉，而 B 从没声明过（理由写在 `shared/behaviour.js` 那一格的注释里）。
  * 不声明的包（今天的 golden 语料）落 `report` 那一档 ⇒ 逐字节不变。
@@ -3620,7 +3620,7 @@ function baseContainerFor(base, file) {
 }
 
 /**
- * **口径数据通道的执行点**（DESIGN §34.51）：把每个包 `variants.json` 的表合到**已经并完**的数据上。这一层
+ * **口径数据通道的执行点**（DESIGN §35.51）：把每个包 `variants.json` 的表合到**已经并完**的数据上。这一层
  * 一条记录都不新增 —— 它只改**已经在 `out` 里**的记录，所以它是「字段级补丁」而不是「第二条 content 通道」。
  *
  * 三条判据，每条都点名（绝不静默丢）：
@@ -3748,7 +3748,7 @@ export function applyWorkshop(base, packs) {
     const declared = new Set(Array.isArray(pack.overrides) ? pack.overrides : []);
     const entry = { id: pack.id, name: pack.name || pack.id, files: {} };
     for (const [file, records] of Object.entries(pack.files || {})) {
-      // 口径数据通道（DESIGN §34.51）：`variants` **不是**一张记录表，所以它不走这一层。它必须等**所有包**的
+      // 口径数据通道（DESIGN §35.51）：`variants` **不是**一张记录表，所以它不走这一层。它必须等**所有包**的
       // 内容都并完之后才应用（目标可能是另一个包贡献的记录），见下面 `applyVariantDataPatches`。漏掉这一句的后果
       // 很具体：`overlayContentFile` 会把 `{chess:{…}}` 当成「一条 id 叫 chess 的记录」并进 `out.variants`。
       if (file === 'variants') continue;
@@ -3800,7 +3800,7 @@ export function applyWorkshop(base, packs) {
     }
     report.packs.push(entry);
   }
-  // 口径数据通道（DESIGN §34.51）：必须在**所有包**的内容都并完之后 —— 它的目标可以是另一个包贡献的记录。
+  // 口径数据通道（DESIGN §35.51）：必须在**所有包**的内容都并完之后 —— 它的目标可以是另一个包贡献的记录。
   // 也必须在 `linkWorkshopStages` 之前：那一步读 `stages` 记录之间的引用，补丁改的是那些记录本身。
   applyVariantDataPatches(out, packs, report);
   linkWorkshopStages(out, report);
@@ -3834,7 +3834,7 @@ export function applyWorkshop(base, packs) {
   // 「我明明勾了」和「试玩里没有」之间反复，而日志一句话都不说。
   for (const e of workshopPlaytestIndex(packs).errors) report.errors.push({ pack: e.pack, file: 'playtest', id: e.id, code: e.code, definedBy: e.definedBy, reason: e.reason });
   report.looks = [...chessLookIssues(out, looked), ...enemyLookIssues(out, lookedEnemies)];
-  // 特质授予的盟约（`trait.grantsBonds`，DESIGN §34.49）：与 `looks` 并列的一条**只读**点名通道（它查的不是外观，
+  // 特质授予的盟约（`trait.grantsBonds`，DESIGN §35.49）：与 `looks` 并列的一条**只读**点名通道（它查的不是外观，
   // `workshopSummary` 也分开数）。必须排在内容文件那一层之后 —— 它要读**合并后**的 `out.chess` 与 `out.bonds`
   // （盟约可能是另一个包加进来的）。**不改数据、不拒包**：坏 id 由读取点的 `hasBond` 挡在计数之外。
   report.traitGrants = traitGrantWarnings(out, looked);
@@ -3842,7 +3842,7 @@ export function applyWorkshop(base, packs) {
   // 以前没有任何地方说出来；而「真的把他摘出池」会改变自选槽能挑到的干员（= 改对局结果）——所以**默认不摘**，
   // 这是 `stripPackOperators` 的缺省档（理由与实测数字见它的注释）。
   // 摘除有两条通道：① 维护者总开关 `{ apply: true }`（这条装载路径**不**传它）；② 包自己声明
-  // `behaviour: [{ switch: 'diyPoolOverlap', option: 'strip' }]`（DESIGN §34.43 的第 5 格）—— 这条路径**走**，
+  // `behaviour: [{ switch: 'diyPoolOverlap', option: 'strip' }]`（DESIGN §35.43 的第 5 格）—— 这条路径**走**，
   // 因为那正是「通道通了」：作者声明了，装载出来的池子就该是他声明的样子。不声明的包逐字节不变。
   // 报告三样照实带出来：`overlaps` 逐条点名、`strippedPool`（如果按维护者开关摘会是哪些）、
   // `strippedByPack`（**被声明**摘掉的，可点名到 char id）、`poolStripped`（这一次到底改没改）。
@@ -3859,7 +3859,7 @@ export function applyWorkshop(base, packs) {
 }
 
 /**
- * `trait.grantsBonds` 写歪了的地方 —— 一条 chess 记录的「特质授予哪些盟约」（DESIGN §34.49）。
+ * `trait.grantsBonds` 写歪了的地方 —— 一条 chess 记录的「特质授予哪些盟约」（DESIGN §35.49）。
  *
  * **为什么单独一趟、为什么只读**：`unknownOverrideKeys` 只比**顶层**键（`Object.keys`），所以往 `trait` 里加子键
  * **天然通得过装载器** —— 一个拼错的盟约 id、或一个写歪的形状，会安安静静地变成「这条特质什么都不授予」。
@@ -4860,7 +4860,7 @@ export function workshopSummary(report) {
     if (support) bits.push(`助战 +${support.length}`);
     const operators = report.operators && report.operators[p.id];
     if (operators) bits.push(`自选池 +${operators.length}`);
-    // 口径数据通道（DESIGN §34.51）：**写进去的**与**被别的包抢掉的**分开数 —— 一个 `variants.json` 被抢掉时
+    // 口径数据通道（DESIGN §35.51）：**写进去的**与**被别的包抢掉的**分开数 —— 一个 `variants.json` 被抢掉时
     // 启动日志里只剩 "nothing"，读日志的人会去查一个其实装对了的包。两边都点名。
     const patched = (report.variantPatches || []).filter((v) => v.pack === p.id && v.status === 'applied');
     const patchedOver = (report.variantPatches || []).filter((v) => v.pack === p.id && v.status === 'overridden');
@@ -4870,7 +4870,7 @@ export function workshopSummary(report) {
       bits.push(`口径数值 ${[...byAxis].map(([a, n]) => `${a} ${n}`).join(', ')} 条`);
     }
     if (patchedOver.length) bits.push(`${patchedOver.length} 张口径表被别的包抢掉了（该轴由更小的包 id 声明）`);
-    // 特质授予的盟约写歪了 / 指向不存在的盟约（`trait.grantsBonds`，DESIGN §34.49）：与「没有模型」分开数 ——
+    // 特质授予的盟约写歪了 / 指向不存在的盟约（`trait.grantsBonds`，DESIGN §35.49）：与「没有模型」分开数 ——
     // 把两件事糊成一句 `N 个干员…`，读日志的人会去 assets.chars 里找一个盟约 id。
     const grantIssues = (report.traitGrants || []).filter((g) => g.pack === p.id).length;
     if (grantIssues) bits.push(`${grantIssues} 处 trait.grantsBonds 无效（启动日志逐条点名）`);
@@ -4888,7 +4888,7 @@ export function workshopSummary(report) {
 }
 
 /**
- * 管理器合同的**装载期裁决**（DESIGN §34.48）—— 对一份**已加载的包集合**按 `dependencies` / `conflicts`
+ * 管理器合同的**装载期裁决**（DESIGN §35.48）—— 对一份**已加载的包集合**按 `dependencies` / `conflicts`
  * 声明做跨包裁决。形状由 `parseModRefsDecl` 在前面判过；这里判的是**语义**（形状合法、语义照样可以死）。
  *
  * 为什么必须在装载期判而不是校验期：一个包声明了什么，只有在**本机上真的装了哪些包**之后才成立。作者交上来的
@@ -5010,7 +5010,7 @@ export function adjudicatePackGraph(packs) {
  *
  * **只此一份**：装载期那条 `VARIANTS_UNKNOWN_FILE` 的判据、编辑器读取端（`readPackMeta` 的 `isContentFile`）
  * 与写入端（`writePackOverrides`）都调它。三处各写一遍 `.filter((f) => f !== 'variants')` 的代价不是多打几个
- * 字：界面会说「这条没问题」而写入端说「拒」—— 同一件事两个答案，作者按哪个都错（DESIGN §34.51）。
+ * 字：界面会说「这条没问题」而写入端说「拒」—— 同一件事两个答案，作者按哪个都错（DESIGN §35.51）。
  *
  * `variants` 是**内容文件，但不是可覆盖目标**：它装的是给已有记录写的字段级补丁，没有 `<文件>:<id>` 这种
  * 「一条记录」可以被覆盖，所以它一律不算（与 `VARIANTS_UNKNOWN_FILE` 的文案同一条理由）。

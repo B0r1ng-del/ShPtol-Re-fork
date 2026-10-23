@@ -408,9 +408,11 @@ test('a placeable 自选 summon comes to the hand like any operator\'s, places, 
   m.dispose();
 });
 
-test('a DIY 鸿雪 (her operator kit): her 打字机 piece comes to the hand in prep, places, fields with its kit; it leaves with her', REAL, () => {
-  const SNOW = 'char_4055_bgsnow';
-  const TYPEWRITER = 'token_10026_bgsnow_subbow';
+test('a DIY 白面鸮 (her operator kit): her 羽毛 piece comes to the hand in prep, places, fields with its kit; it leaves with her', REAL, () => {
+  // 二.3: 鸿雪 (char_4055_bgsnow) became a 东国/乌萨斯 chess, so she left the 自选 pool (the 2026-10-23 fix keeps a chess
+  // out of ownedPool). 白面鸮 is on the pool and has a summon of her own — same test, same shape.
+  const SNOW = 'char_179_cgbird';
+  const TYPEWRITER = 'token_10003_cgbird_bird';
   if (!KITTED_CHARS.includes(SNOW)) return; // (her kit is on feedback5 since O6)
   const h = diyMatch().start();
   const m = h.m;

@@ -1,4 +1,4 @@
-// test/modPackLane.test.mjs — DESIGN §34.56：包声明的 WebSocket lane。
+// test/modPackLane.test.mjs — DESIGN §35.56：包声明的 WebSocket lane。
 // 两半各自钉住：形状层（pack.json 里那句声明的每条拒绝码）与纯的那半（`server/modLanes.js` 的认领 / 撞车 /
 // 限额 / 「处理器还没就位」）。这一格最怕的失败方向是「包合法、表里没这行、客户端连过去永远没反应」，
 // 所以每一条都判它响不响。
@@ -123,7 +123,7 @@ describe('纯的那半：认领、撞车、限额、处理器还没就位', () =
     assert.equal(destroyed, 0, '有 reject 就不该直接掐连接：客户端要能看清是 503');
   });
 
-  test('处理器就位后转发，并多带一个 lane 身份；抛错就关连接（§34.44 的口径）', () => {
+  test('处理器就位后转发，并多带一个 lane 身份；抛错就关连接（§35.44 的口径）', () => {
     const row = claimPackLane({ packId: 'p', moduleId: 'm', path: '/mod-ws/p/duel' }).row;
     const seen = [];
     assert.equal(attachPackLaneHandler('p', 'm', (req, socket, head, ctx) => { seen.push(ctx.lane.path); }).ok, true);

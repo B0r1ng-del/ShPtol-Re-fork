@@ -32,7 +32,7 @@ import { kitImportDeclarations, kitImportIssues, packRelativePath, rewriteKitImp
 // 公告 / 鸣谢的装载期判据（DESIGN §34.15）：声明的 `.json` 在不在、是不是 JSON。合并体在 `server/index.js` 里经
 // 既有的合并数据通道送出 —— 形状与判据只有一份，这个 import 就是那一份。
 import { noticesIssues } from './notices.js';
-// 启用声明（DESIGN §34.50）：**装好 ≠ 生效**。判据只有一份在 `shared/enabled.js`（`packEnabled`）—— 这里只负责
+// 启用声明（DESIGN §35.50）：**装好 ≠ 生效**。判据只有一份在 `shared/enabled.js`（`packEnabled`）—— 这里只负责
 // 把它的裁决接进装载器那份 `errors` 报告，不在这里重判一遍布尔。
 import { packEnabled } from '../shared/enabled.js';
 import { effectivePackCallBudget } from '../shared/callBudget.js';
@@ -98,7 +98,7 @@ export function loadWorkshop(dir = WORKSHOP_DIR, { log = null, c2s = C2S } = {})
   /** @type {Array<{ pack: string, reason: string }>} */
   const errors = [];
   /** @type {Array<{ pack: string, reason: string }>} */
-  const foreign = []; // target "stardust" 的包：认识、不装载（它们属于 Stardust 宿主，DESIGN §34.46）
+  const foreign = []; // target "stardust" 的包：认识、不装载（它们属于 Stardust 宿主，DESIGN §35.46）
   let names = [];
   try {
     names = fs.readdirSync(dir, { withFileTypes: true })
@@ -125,13 +125,13 @@ export function loadWorkshop(dir = WORKSHOP_DIR, { log = null, c2s = C2S } = {})
       errors.push({ pack: name, reason: `${manifest.error}: ${manifest.detail}` });
       continue;
     }
-    // target "stardust"（DESIGN §34.46）：声明型包，本引擎只**认识**它 —— 不进 packs、不进数据叠加层、不装载
+    // target "stardust"（DESIGN §35.46）：声明型包，本引擎只**认识**它 —— 不进 packs、不进数据叠加层、不装载
     // 任何载荷，只在启动日志里说一句它在（那是 Stardust 宿主的包）。
     if (manifest.pack.target === 'stardust') {
       foreign.push({ pack: name, reason: 'target "stardust" — declaration-only, loaded by the Stardust host (not by this engine)' });
       continue;
     }
-    // 启用声明（DESIGN §34.50）：`pack.json.enabled === false` = 这个包装好了但现在不参与。放在这里 ——
+    // 启用声明（DESIGN §35.50）：`pack.json.enabled === false` = 这个包装好了但现在不参与。放在这里 ——
     // **归一化之后、读任何内容文件之前** —— 所以一个被关掉的包连 `chess.json` 都不读：它今天不贡献任何东西，
     // 为它报「缺文件」是噪声。判据只有一份（`shared/enabled.js packEnabled`），这里只负责把它接进同一个
     // `errors` 报告：一个静默消失的包比一个报错的包更难查，所以跳过必须响亮（与坏包同一个裁剪点）。
@@ -240,9 +240,9 @@ export function loadWorkshop(dir = WORKSHOP_DIR, { log = null, c2s = C2S } = {})
         errors.push({ pack: name, reason: `${gateIssues[0].code}: ${gateIssues[0].reason}` });
         continue;
       }
-      // `assets.mirrors[]`（DESIGN §34.40）：作者自备 CDN 承载**本包自己的容器**，所以每条镜像声明的 `sha256`
+      // `assets.mirrors[]`（DESIGN §35.40）：作者自备 CDN 承载**本包自己的容器**，所以每条镜像声明的 `sha256`
       // 必须等于**刚才从包内文件算出来的**那一份摘要。不相等的那条**停用**，而不是拒绝整个包 —— 包本身完整
-      // 可用，服务端算出来的摘要才是真相，这正是 §34.35「宁少不拒」在装载期的同一条姿态（静态 routes 撞上核心
+      // 可用，服务端算出来的摘要才是真相，这正是 §35.35「宁少不拒」在装载期的同一条姿态（静态 routes 撞上核心
       // 时也不拒包）。停用必须响亮：进 `errors`，`loadWorkshop` 的调用方逐条 warn 点名。
       //
       // **服务端一次网络请求都不发**：这里只做「声明与字节是否同一份」的比对，取字节的是客户端。所以没有服务端
@@ -296,7 +296,7 @@ export function panelModuleIssues(pack, packDir) {
   const out = [];
   const client = pack && pack.client;
   const panels = client && Array.isArray(client.panels) ? client.panels : [];
-  // 整屏与面板走**同一条**装载期文件判据（DESIGN §34.55）：两者在客户端是同一份线表，一条声明读不到的文件
+  // 整屏与面板走**同一条**装载期文件判据（DESIGN §35.55）：两者在客户端是同一份线表，一条声明读不到的文件
   // 就是「签了名却拿不出东西」—— 面板那一半本来就这么判，整屏没有理由更松。
   const screens = client && Array.isArray(client.screens) ? client.screens : [];
   if ((!panels.length && !screens.length) || typeof packDir !== 'string' || !packDir) return out;
@@ -468,14 +468,14 @@ export function assetsIssues(pack, packDir) {
 }
 
 /**
- * The **load-time half of the `assets.mirrors` declaration** (DESIGN §34.40): every mirror's declared `sha256` must
+ * The **load-time half of the `assets.mirrors` declaration** (DESIGN §35.40): every mirror's declared `sha256` must
  * equal the digest of the container **inside the pack**.
  *
  * The asymmetry with `assetsIssues` above is deliberate and is the whole point of this channel:
  *   * a wrong container path or an unverifiable container refuses **the whole pack** (§34.13.3 — the pack believes it
  *     ships resources and it does not);
  *   * a mirror whose digest does not match refuses **only that mirror** — the pack is intact, the bytes it ships are
- *     intact, and the author simply pointed one download address at the wrong bytes. §34.35 took the same posture for a
+ *     intact, and the author simply pointed one download address at the wrong bytes. §35.35 took the same posture for a
  *     `pack.json.routes` declaration that collides with a core mount: name it loudly, drop the declaration, keep the pack.
  *
  * No network request is made here and none is made anywhere else on the server for this channel: whether those bytes
@@ -816,7 +816,7 @@ export function loadWorkshopPanels(loaded, { log = null, baseUrl = WORKSHOP_PANE
   const base = String(baseUrl).replace(/\/+$/, '');
   for (const pack of ((loaded && loaded.packs) || []).slice().sort(byPackId)) {
     const decl = pack && pack.client;
-    // 面板与整屏合成同一份线表（DESIGN §34.55）：客户端只有一条分派路径，屏条目靠 `kind: 'screen'` 认。
+    // 面板与整屏合成同一份线表（DESIGN §35.55）：客户端只有一条分派路径，屏条目靠 `kind: 'screen'` 认。
     // 不新开 wire 字段、不新开通道 —— 老客户端读到未知 kind 会点名拒绝，而不是静默挂错。
     const declaredPanels = decl && Array.isArray(decl.panels) ? decl.panels : [];
     const declaredScreens = decl && Array.isArray(decl.screens) ? decl.screens : [];
@@ -989,7 +989,7 @@ export function identifyPack(packDir, pack, files, { assetsDigest = null } = {})
   //    字节同样能 —— 不把面板源码算进身份，两份不同的面板就会共用同一个摘要（那份摘要将不再描述浏览器真的会
   //    执行的代码）。两个面板共用同一个文件时只算一次（按声明路径去重），并且只有在包真的声明了面板时才加：
   //    没声明 `client` 的包（今天所有的包）哈希逐字节不变。
-  //    整屏声明（`client.screens[]`，DESIGN §34.55）与面板合在同一个集合里：屏模块同样决定浏览器真的执行什么，
+  //    整屏声明（`client.screens[]`，DESIGN §35.55）与面板合在同一个集合里：屏模块同样决定浏览器真的执行什么，
   //    不算进去就是让两份不同的整屏共用同一个摘要（而那份摘要声称「同一份界面」）。没声明的包逐字节不变。
   const clientPanels = (pack.client && Array.isArray(pack.client.panels)) ? pack.client.panels : [];
   const clientScreens = (pack.client && Array.isArray(pack.client.screens)) ? pack.client.screens : [];
@@ -1242,7 +1242,7 @@ export async function loadWorkshopKits(loaded, { log = null, baseUrl = '/worksho
   const errors = [];
   /** kit id → the pack that loaded it, so a collision can name the holder instead of "another pack" (DESIGN §34.3). */
   const kitOwner = new Map();
-  /** 包 id → **生效**的每局调用上限（`pack.json.callBudget.max`，DESIGN §34.52）：只装**带 kit 的**包。
+  /** 包 id → **生效**的每局调用上限（`pack.json.callBudget.max`，DESIGN §35.52）：只装**带 kit 的**包。
    *  @type {Map<string, number>} */
   const budgets = new Map();
   /** token kit id → the pack that loaded it; the two spaces arbitrate **independently** (a token id is never an operator kit). */
@@ -1265,7 +1265,7 @@ export async function loadWorkshopKits(loaded, { log = null, baseUrl = '/worksho
   for (const pack of ((loaded && loaded.packs) || []).slice().sort(byPackId)) {
     const kitDir = path.join(pack.dir, 'kits');
     if (!fs.existsSync(kitDir)) continue;
-    // 这个包的**生效调用预算**（`pack.json.callBudget`，DESIGN §34.52）的 kit 那一半：只带 `kits/`、没有
+    // 这个包的**生效调用预算**（`pack.json.callBudget`，DESIGN §35.52）的 kit 那一半：只带 `kits/`、没有
     // `server.battle` 的包过去建不了账（开账只发生在 installer 那一趟），它的逐单位回调因此不归账 —— 这一行把
     // 那半补上。「包 → 生效 max」只有一份实现（`effectivePackCallBudget`），`server/battlePack.js` 读同一个符号。
     const budget = effectivePackCallBudget(pack);
@@ -1374,7 +1374,7 @@ export async function loadWorkshopKits(loaded, { log = null, baseUrl = '/worksho
         // the browser is supposed to be served, not just where to fetch them from. `kind: 'token'` marks the summon half
         // for the SECOND loader (`public/js/battle/runner.js loadSpecKits` rebuilds both maps from this one list); an
         // operator kit keeps the historical shape with no `kind`, so every existing reader of `modules` is untouched.
-        // 调用预算（`pack.json.callBudget`, DESIGN §34.52）的 **kit 那一半**：一个包的另一半战斗行为住在 `kits/`，
+        // 调用预算（`pack.json.callBudget`, DESIGN §35.52）的 **kit 那一半**：一个包的另一半战斗行为住在 `kits/`，
         // 它的 `install(battle, unit)` / `talents[].install` 是「每 tick 触发一次」最自然的落点，所以生效 max 必须
         // 随**这一份模块清单**一起交出去 —— 服务端按 `budgets` 开账，浏览器按同一份清单上的同一个数字开账
         // （`spec.workshopKits` → `loadSpecKits`）。没声明 ⇒ 这个键不长（KEY DISCIPLINE，与 `server.battle` 那份逐字同形）。

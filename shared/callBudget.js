@@ -1,4 +1,4 @@
-// shared/callBudget.js — 每局每插件的**调用预算**（`pack.json.callBudget`，DESIGN §34.52，沙箱档的运行时保护）。
+// shared/callBudget.js — 每局每插件的**调用预算**（`pack.json.callBudget`，DESIGN §35.52，沙箱档的运行时保护）。
 // (i18n-ignore-file: 工坊作者层的校验与推导文本 —— 给作者、编辑器与 AI 读的规则说明，不是客户端界面文案)
 //
 // 为什么要有这一格：我们只有 `combat: true` 这一道**闸门** —— 它回答的是「这个包能不能改对局结果」（一个**意图
@@ -9,7 +9,7 @@
 //
 // 与 module 档的关系（业主口径 §4b 的「并存沙箱档」）：**module 档保留现状**（内容文件 + kit 白名单 +
 // `server.meta` / `server.battle` 全能力），沙箱档**新增运行时保护**。所以预算**按档启用** —— **只有声明了
-// `pack.json.callBudget` 的包才建账**（`server/battlePack.js` 在装载期把它挂到 installer 上，见 §34.52 的
+// `pack.json.callBudget` 的包才建账**（`server/battlePack.js` 在装载期把它挂到 installer 上，见 §35.52 的
 // 「怎么启用」）。没声明的包一行都不多跑，与今天逐字节相同。哪几个包进沙箱档由**声明**决定，本刀只把机制做出来。
 //
 // 三条工程硬约束（业主已定，写在这里免得下一刀忘掉）：
