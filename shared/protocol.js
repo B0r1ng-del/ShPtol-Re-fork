@@ -9,6 +9,12 @@ import { isContentHash } from './plugins/identity.js';
 import { isPluginId } from './plugins/manifest.js';
 import { isTestCommand } from './testMode.js';
 import { PLUGIN_OFFER_SLOTS } from './plugins/limits.js';
+import { isModDigest, isModId, MOD_LIMITS } from './modIdentity.js';
+
+// The mod-identity shapes are declared in `shared/modIdentity.js` and re-exported here, because THIS file is the
+// normative protocol contract — one implementation, two doors. `pack.msg` / the room digest gate read them from this
+// module, never from a second copy. (fork 工坊 mod 层, kept across the 0.3.1 merge.)
+export { MOD_LIMITS, isModId, isModEntry, isModList, isModDigest, modDigest, modSetOf } from './modIdentity.js';
 
 // ---- tiny validators -------------------------------------------------------
 const isInt = (v, lo = -Infinity, hi = Infinity) => Number.isInteger(v) && v >= lo && v <= hi;

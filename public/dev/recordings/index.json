@@ -8,10 +8,10 @@
   "frames": 550,
   "maxUnits": 29,
   "file": "normal-m01.json",
-  "bytes": 419568,
+  "bytes": 466781,
   "result": {
    "reason": "timeout",
-   "killed": 13,
+   "killed": 8,
    "total": 32
   }
  },
@@ -22,12 +22,12 @@
   "stageId": "act2autochess_m02",
   "duration": 85,
   "frames": 850,
-  "maxUnits": 27,
+  "maxUnits": 26,
   "file": "normal-m02.json",
-  "bytes": 628577,
+  "bytes": 705955,
   "result": {
    "reason": "timeout",
-   "killed": 15,
+   "killed": 16,
    "total": 35
   }
  },
@@ -38,12 +38,12 @@
   "stageId": "act2autochess_m03",
   "duration": 90,
   "frames": 900,
-  "maxUnits": 38,
+  "maxUnits": 35,
   "file": "normal-m03.json",
-  "bytes": 831200,
+  "bytes": 912172,
   "result": {
    "reason": "timeout",
-   "killed": 13,
+   "killed": 8,
    "total": 46
   }
  },
@@ -56,10 +56,10 @@
   "frames": 700,
   "maxUnits": 36,
   "file": "normal-m04.json",
-  "bytes": 623925,
+  "bytes": 664033,
   "result": {
    "reason": "timeout",
-   "killed": 22,
+   "killed": 23,
    "total": 39
   }
  },
@@ -70,12 +70,12 @@
   "stageId": "act2autochess_m03",
   "duration": 84.23,
   "frames": 843,
-  "maxUnits": 31,
+  "maxUnits": 30,
   "file": "late-m03-r12.json",
-  "bytes": 641750,
+  "bytes": 695092,
   "result": {
    "reason": "cleared",
-   "killed": 11,
+   "killed": 12,
    "total": 57
   }
  },
@@ -84,14 +84,14 @@
   "title": "常规作战 · 源石流发生装置 · R13（官方波次）",
   "kind": "normal",
   "stageId": "act2autochess_m01",
-  "duration": 110,
-  "frames": 1100,
+  "duration": 109.53,
+  "frames": 1096,
   "maxUnits": 32,
   "file": "late-m01-r13.json",
-  "bytes": 878821,
+  "bytes": 977163,
   "result": {
-   "reason": "timeout",
-   "killed": 6,
+   "reason": "cleared",
+   "killed": 8,
    "total": 55
   }
  },
@@ -102,12 +102,12 @@
   "stageId": "act2autochess_m01",
   "duration": 60,
   "frames": 600,
-  "maxUnits": 37,
+  "maxUnits": 35,
   "file": "unite-m01.json",
-  "bytes": 635055,
+  "bytes": 635743,
   "result": {
    "reason": "timeout",
-   "killed": 18,
+   "killed": 21,
    "total": 40
   }
  },
@@ -120,11 +120,11 @@
   "frames": 750,
   "maxUnits": 25,
   "file": "boss-m02.json",
-  "bytes": 699249,
+  "bytes": 769537,
   "result": {
    "reason": "forced",
-   "killed": 13,
-   "total": 18
+   "killed": 14,
+   "total": 11
   }
  },
  {

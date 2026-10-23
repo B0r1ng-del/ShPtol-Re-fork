@@ -11,6 +11,8 @@ import { syntheticResult } from '../fields.js';
 import { FLOW_TICKER_PRIORITY, OK, fail } from './common.js';
 import { msg } from '../../../shared/i18n.js';
 import { ruleOption } from '../../../shared/plugins/rules.js';
+// 工坊 mod 层移植 (2026-10-16): the behaviour layer's `prepLoadout` switch decides which phases accept room.loadout.
+import { behaviourIsDefault } from '../../../shared/behaviour.js';
 
 const GAME_TYPES = new Set(Object.keys(C2S).filter((t) => Object.hasOwn(C2S, t) && (t.startsWith('g.') || t.startsWith('b.'))));
 

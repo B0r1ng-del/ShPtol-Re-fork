@@ -162,8 +162,8 @@
 //     a player seat (the seat is kept and given back on resume).
 
 import { randomBytes, randomInt } from 'node:crypto';
-import { DIFFICULTIES, ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor } from '../shared/constants.js';
-import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks, charPotentialChanges, checkSkinSelection, operatorCharIds } from '../shared/protocol.js';
+import { DIFFICULTIES, ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, HOST_CONFIG_KEYS, HOST_CONFIG_DEFAULTS, HOST_CONFIG_SOLO_KEYS, HOST_ENEMY_KEYS, HOST_ENEMY_DEFAULTS, HOST_ENEMY_MAX_STEPS, MOD_KEYS, MOD_DEFAULTS, normalizeMods, roomSeatCap, ULTIMATE_DIFFICULTY, modeIdFor } from '../shared/constants.js';
+import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks, charPotentialChanges, checkSkinSelection, operatorCharIds, PACK_MSG_LIMITS } from '../shared/protocol.js';
 import { encode, isDroppable, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
 import { Match as DefaultMatch } from './match/Match.js';
@@ -171,6 +171,8 @@ import { KITTED_CHARS } from './sim/content/kits/index.js';
 
 const VANILLA_KITTED = new Set(KITTED_CHARS);
 import { isContentHash } from '../shared/plugins/identity.js';
+import { modSetOf, isModDigest, modDigest } from '../shared/modIdentity.js';
+import { createRoomHooks } from './roomPack.js';
 import { ruleOption } from '../shared/plugins/rules.js';
 import { msg, wireMessage } from '../shared/i18n.js';
 import { parseTestModeEnv, testModeGate, unrecognizedTestMode } from './testMode.js';

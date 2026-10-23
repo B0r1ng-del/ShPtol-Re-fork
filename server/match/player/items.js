@@ -14,7 +14,8 @@ import { OK, fail, TEMP_SIZE } from './common.js';
 import { behaviourIsDefault } from '../../../shared/behaviour.js';
 // 装备位语义（第 7 段 · 工坊 mod 层移植 2026-10-17）：策略对象来自 `shared/morph.js`（**同一格开关 `morphPairing` 的另外半条**）。
 // 缺省档拿到的 `OFFICIAL_SLOT_POLICY` 是共享的冻结单例，每一个方法都逐字是引擎今天那条算术 ⇒ 下面三处的缺省路径逐字节不变。
-import { matchSlotPolicy } from '../../../shared/morph.js';
+// （0.3.1 合并后：上游另有一套 `shared/plugins/rules.js` 的 `morphSlotPolicy`；这里保留 fork 的 `shared/morph.js`，
+//  `_slotPolicy()` 已改读上游的 `ruleOption(this.m?.rules, 'morphPairing')` —— 两套判据在 `plus` 档语义一致。）
 
 /**
  * 工坊 mod 层 (behaviour `unequip`): whether a pack lets an equipped item be taken off. False for a pack that declares
@@ -55,18 +56,6 @@ export class PlayerItems {
     if (!tloc || tloc.piece.kind !== 'chess' || tloc.area === 'equipped') return fail(ERR.BAD_TARGET);
     const item = iloc.piece;
     const target = tloc.piece;
-    const policy = matchSlotPolicy(this.m);
-    if (policy.active) {
-      const row = target.items || [];
-      // `plus`：变形同构体每名干员最多一件（`OFFICIAL_SLOT_POLICY.active` 为假 ⇒ 这一条在缺省档一个字都不生效）
-      if (policy.isSlotless(rec) && row.some((x) => policy.isSlotless(this.gd.item(x.id)))) {
-        return fail(ERR.BAD_TARGET, 'one slotless item per carrier');
-      }
-      // `plus`：顶替只认**真正占格**的那一件（它不占位，所以既不是可顶替的对象，也不会被第三件顶掉）
-      if (replaceUid != null && !(Number.isInteger(replaceUid) && row.some((x) => x.uid === replaceUid && !policy.isSlotless(this.gd.item(x.id))))) {
-        return fail(ERR.BAD_TARGET, 'replace: not a slotted item of the target');
-      }
-    }
     if (replaceUid != null && !(Number.isInteger(replaceUid) && (target.items || []).some((x) => x.uid === replaceUid))) return fail(ERR.BAD_TARGET, 'replace: not equipped on the target');
     const policy = this._slotPolicy();
     // [ASSUMED] a second 变形同构体 is refused before anything moves. Official accepts() is always true.
