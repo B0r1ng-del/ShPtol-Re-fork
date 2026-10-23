@@ -58,11 +58,13 @@ function selectedDevices(ps) {
   return out;
 }
 
-/** Only layer-derived research and mainframe bonuses enter base ATK; no buffs or inherited ATK. */
+/** Pure layer-derived device ATK: never feed shared operator ATK back into this calculation. */
 export function deviceBaseAttack(battle, unit) {
   const ps = battle.getPlayer(unit.ownerId);
   const layers = layersOf(ps);
-  return rhineAttack(layers) + rhineEquipmentAttack(battle, unit.ownerId, layers);
+  const magallan = Math.max(0, ...(ps?.units ?? []).filter(u => u.kind === 'op' && alive(u))
+    .map(u => Number(researchTrait(u, 'RHINE_MAGALLAN_ATTACK')?.device_atk_per_layer) || 0));
+  return rhineAttack(layers) + rhineEquipmentAttack(battle, unit.ownerId, layers) + layers * magallan;
 }
 
 function setPassive(battle, unit, key, mods) {
@@ -128,6 +130,15 @@ export function install(battle) {
       const highest = Math.max(0, ...deviceAttacks);
       const sharing = ps.bonds?.[RHINE_BOND]?.active && ps.bonds[RHINE_BOND].count >= B.sharingCount;
       for (const u of ps.units) {
+        // Native Magallan drones have their own token stats, not inherited owner ATK. Give only
+        // their summoner's flat research bonus once; do not copy six-member sharing or device ATK.
+        const summoner = u.kind === 'token' && u.ownerUnit?.ownerId === u.ownerId
+          && ['token_10005_mgllan_drone1', 'token_10005_mgllan_drone2', 'token_10005_mgllan_drone3'].includes(u.defId)
+          ? u.ownerUnit : null;
+        const magallan = researchTrait(summoner ?? u, 'RHINE_MAGALLAN_ATTACK');
+        if ((u.kind === 'op' || summoner) && magallan) setPassive(battle, u, 'rhine:magallan', {
+          atkFlat: layers * (Number(magallan.atk_per_layer) || 0),
+        });
         if (u.kind !== 'op') continue;
         const dorothy = researchTrait(u, 'RHINE_DOROTHY_ATTACK');
         if (dorothy) setPassive(battle, u, 'rhine:dorothy', { atkFlat: layers * (Number(dorothy.atk_per_layer) || 0) });
@@ -294,7 +305,8 @@ export function install(battle) {
     }
     laserActive(s, true);
     s.laserTime += dt;
-    while (s.laserTime >= B.laserTick - 1e-9 && target.alive && !target.removed && laserSelectable(s, target) && !target.s.flags.invulnerable) { // loop-cap: one tick per laserTick (laserTime -= B.laserTick each pass)
+    // loop-cap: fixed-step finite accumulator; every pass consumes the frozen positive laserTick.
+    while (s.laserTime >= B.laserTick - 1e-9 && target.alive && !target.removed && laserSelectable(s, target) && !target.s.flags.invulnerable) {
       s.laserTime = Math.max(0, s.laserTime - B.laserTick);
       const beforeShield = target.s.shield, beforeProgress = s.laserProgress;
       const ramp = 1 + Math.floor(Math.min(B.laserRampSeconds, beforeProgress) + 1e-9) * B.laserRampPerSecond;
@@ -312,7 +324,8 @@ export function install(battle) {
         }
         if (beforeProgress >= B.laserRampSeconds - 1e-9) {
           s.laserTrue += B.laserTick;
-          while (s.laserTrue >= B.laserTrueInterval - 1e-9 && target.alive && !target.removed) { // loop-cap: one true-damage step per interval (laserTrue -= B.laserTrueInterval each pass)
+          // loop-cap: finite laser-tick accumulator; each pass subtracts the frozen positive true interval.
+          while (s.laserTrue >= B.laserTrueInterval - 1e-9 && target.alive && !target.removed) {
             s.laserTrue = Math.max(0, s.laserTrue - B.laserTrueInterval);
             const maxHp = target.bossPool?.maxHp ?? target.s.maxHp;
             battle.dealDamage(s.unit, target, { type: 'true', amount: maxHp * (B.laserTrueHpRatio + layersOf(s.ps) * B.laserTrueHpRatioPerLayer),
