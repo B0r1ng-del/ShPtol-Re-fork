@@ -416,6 +416,19 @@ export const FORK_KAZDEL_ITEM_ICONS = Object.freeze(Object.fromEntries(
   Object.keys(KAZDEL_EQUIPMENT).map((key) => [`trap_kazdel_${key}`, `/art/kazdel/${key}-v2.png`]),
 ));
 const FORK_RHINE_PACKS = Object.freeze(['packRhine']);
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 二.1 地灵 (需求方 2026-10-23)
+//
+// 参考 https://m.prts.wiki/w/地灵 与官方数据表：她的两条棋手记录 `chess_char_1_11_a/b`（tier 1，价 2，辅助）已经
+// 一字不差地存在于 `data/chess.json`——盟约 `miraShip`（奇迹）+ `visiShip`（远见），特质 `garrison_25_a/b`，其中
+// `garrison_25_b` 的原文就是「<获得时>自身所属盟约层数+4（无需激活盟约）」，正是需求描述的那一条。差的只有一件事：
+// `charShopChessDatas` 把她标成 `isHidden`，于是 `build-data` 写出 `visible: false`，卫戍协议里看不到也抽不到。
+//
+// 所以这个"mod"没有新数值、新特质、新盟约可写，它只是**把她放回池子**。`packRestore` 负责关包时放回 `visible: false`。
+export const FORK_BEANSTALK_PACK = 'packBeanstalk';
+/** 地灵的两条棋手记录（普通 + 精锐）。 */
+export const FORK_BEANSTALK_CHESS = Object.freeze(['chess_char_1_11_a', 'chess_char_1_11_b']);
 /** `rhineShip`'s blackboard and its 效果 text (the source expansion's own words). */
 const FORK_RHINE = Object.freeze({
   name: '莱茵生命',
@@ -553,6 +566,23 @@ export function applyForkPackMembers(chess) {
         patch.bonds = [...bonds, FORK_RHINE_BOND_ID];
         patch.packBonds = { ...(isPlainObject(rec.packBonds) ? rec.packBonds : {}), packRhine: [FORK_RHINE_BOND_ID] };
       }
+    }
+    // 二.1 地灵 (需求方 2026-10-23): 官方数据里她本来就在（`chess_char_1_11_a/b`，盟约 奇迹 + 远见，特质
+    // `garrison_25_b` = 「获得时自身所属盟约层数+4（无需激活盟约）」），只是 `charShopChessDatas` 标了 isHidden，
+    // 所以卫戍协议里不可见、不进池。这个包只做一件事：把她变成可见的。
+    //
+    // `packRestore` 记的是**关包时要还原的值**（`data/*.json` 是全开真相，开关负责 strip），所以这里写
+    // `{ visible: false }`；`shared/packData.js withPackRestore` 据此把 `visible` 放回去，其他字段一个字不动 ——
+    // 她的盟约 / 特质 / 价格全部沿用官方值，不复制、不覆盖。
+    if (FORK_BEANSTALK_CHESS.includes(id) && (rec.visible !== true || rec.isHidden === true)) {
+      patch.visible = true;
+      // ★ `isHidden` 也要一起改：`GameData.visibleChess`（server/match/gamedata.js）要求 `visible && !isHidden`，
+      // 只翻 visible 的话她仍然抽不到 —— 这是第一版漏掉的那一格。
+      patch.isHidden = false;
+      patch.packRestore = {
+        ...(isPlainObject(rec.packRestore) ? rec.packRestore : {}),
+        [FORK_BEANSTALK_PACK]: { visible: false, isHidden: true },
+      };
     }
     if (!Object.keys(patch).length) { out[id] = rec; continue; }
     changed = true;

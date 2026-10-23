@@ -2209,5 +2209,7 @@
   "输入激活码": "Enter the activation code",
   "激活码不正确。": "That activation code is not correct.",
   "开启后同一份策略可被多位博士各选一次；关闭时官方规则：每个策略只能由一位博士选择": "On: several doctors may each take the same strategy. Off: the official rule — one doctor per strategy.",
-  "Forge 工坊": "Forge workshop"
+  "Forge 工坊": "Forge workshop",
+  "地灵": "Beanstalk",
+  "开启后地灵进入卫戍协议卡池：盟约 奇迹 / 远见，特质为「获得时自身所属盟约层数+4（无需激活盟约）」。关闭（默认）时她仍是官方隐藏干员。": "On: Beanstalk joins the roster (bonds Miracle / Foresight; trait: on acquire, +4 layers to her own bonds, no activation needed). Off (default): she stays an official hidden operator."
 }

@@ -77,9 +77,9 @@ test('numbers: every stats/bb/enemyScale object holds only finite numbers (no nu
   assert.deepEqual(bad.slice(0, 10), [], `${bad.length} bad numeric fields`);
 });
 
-test('chess: 324 records, 136 visible non-DIY (20/22/23/25/24/22 per tier)', () => {
+test('chess: 324 records, 137 visible non-DIY (21/22/23/25/24/22 per tier)', () => {
   assert.equal(Object.keys(chess).length, 324);
-  assert.equal(visible.length, 136);
+  assert.equal(visible.length, 137);
   const perTier = {};
   for (const c of visible) perTier[c.tier] = (perTier[c.tier] || 0) + 1;
   // tier 5 / 6 gained one each: the ported packExtra6 operators (tools/fork-extra6.mjs, 六.C)
@@ -88,10 +88,12 @@ test('chess: 324 records, 136 visible non-DIY (20/22/23/25/24/22 per tier)', () 
   // 八: the ported 卡兹戴尔 operators (tools/kazdel.mjs) — 6 new at tiers II–VI, and 芬 (chess_char_1_05) became
   // VISIBLE: the overlay gives her a 卡兹戴尔 特质, which a hidden record cannot carry (it is re-tiered, not added).
   // 九: the ported 雷姆必拓 operators (tools/rem.mjs) — 9 new: 2 at tier I, 2 at II, 1 at III, 2 at IV, 2 at V.
-  assert.deepEqual(perTier, { 1: 20, 2: 22, 3: 23, 4: 25, 5: 24, 6: 22 });
+  // 二.1 地灵 (2026-10-23): tier 1 +1 —  lifts the official hidden 地灵 into the pool.
+  assert.deepEqual(perTier, { 1: 21, 2: 22, 3: 23, 4: 25, 5: 24, 6: 22 });
   // 4 official DIY slots + the fork's 6 extra ones (二.8, 5 per tier; tools/fork-overrides.mjs applyForkChess)
   assert.equal(normalChess.filter((c) => c.isDiy).length, 10);
-  assert.equal(normalChess.filter((c) => c.isHidden).length, 16);
+  // 二.1 地灵 (2026-10-23): 16 → 15 — the pack clears her  so  lets her in.
+  assert.equal(normalChess.filter((c) => c.isHidden).length, 15);
 });
 
 test('chess: ids, golden pairs and references resolve', () => {

@@ -23,7 +23,7 @@ const OFF = normalizeMods(undefined);
 
 describe('内容包开关: the switches themselves', () => {
   test('one switch per pack, all off by default, all in MOD_KEYS (so they travel with room.create.mods)', () => {
-    assert.deepEqual([...PACK_KEYS], ['packRhine', 'packRelic', 'packKazdel', 'packRem'], '谬因·并入莱茵 merged into 莱茵生命 (2026-10-23)');
+    assert.deepEqual([...PACK_KEYS], ['packRhine', 'packBeanstalk', 'packRelic', 'packKazdel', 'packRem'], '谬因·并入莱茵 merged into 莱茵生命 (2026-10-23); 地灵 added (二.1)');
     for (const k of PACK_KEYS) {
       assert.ok(MOD_KEYS.includes(k), `${k} is a Mod key`);
       assert.equal(MOD_DEFAULTS[k], false, `${k} defaults off`);

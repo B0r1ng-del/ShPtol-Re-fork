@@ -3864,11 +3864,13 @@ function validateAll(f) {
   // bonds plus the ported 莱茵生命 (`rhineShip`, fork-overrides.mjs applyForkBonds — 六.3).
   if (Object.keys(bonds).length !== 24) err(`expected 24 bonds (23 official + the ported 莱茵生命), got ${Object.keys(bonds).length}`);
   if (Object.keys(bands).length !== 40) err(`expected 40 bands, got ${Object.keys(bands).length}`);
-  // the fork's two ported 额外干员 operators ride on top of the official 112 (tools/fork-overrides.mjs packExtra6).
+  // the fork's two ported 额外干员 operators ride on top of the official 112 (tools/fork-overrides.mjs packExtra6), and
+  // 二.1 地灵 (2026-10-23) adds one more: the official hidden operator `chess_char_1_11_a`, made visible by the
+  // `packBeanstalk` applier (its `packRestore` puts `visible: false` back when the switch is off).
   // The per-record loop that used to follow (baseId / goldenId / bonds / garrisons / tokens / talents, the DESIGN §16
   // skill and module choices, `placement`) is now shared/plugins/validate.js `validateReferences` — upstream 0.3.0
   // extracted it, and `validateAll` already calls it above, so the fork's copy of the loop is gone.
-  if (visible.length !== 114) err(`expected 114 visible non-DIY chess (112 official + the two ported packExtra6 operators), got ${visible.length}`);
+  if (visible.length !== 115) err(`expected 115 visible non-DIY chess (112 official + 2 packExtra6 + 地灵), got ${visible.length}`);
   // the deliberate trigger deviations (DESIGN §21.29, §22.10) still override an official TAKE_DAMAGE row, on the normal
   // chess and its elite alike (a DEFAULT one may resolve to the owner's ACTIVE_RANGE on top: 深巡 S2)
   const deviationHolds = (rule, trig) => trig.rawRule === 'TAKE_DAMAGE' && (trig.rule === rule || (ACTIVE_RANGE_OVER.has(rule) && trig.rule === 'ACTIVE_RANGE'));
