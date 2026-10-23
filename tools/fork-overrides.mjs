@@ -295,9 +295,13 @@ export function applyForkChess(chess) {
  *
  * Pure and idempotent, and it owns its slots exactly like applyForkChess.
  * @param {Record<string, any>} backups data/backups.json
+ * @param {Record<string, any>} backups data/backups.json
+ * @param {Record<string, any>} [chess] data/chess.json of the same generation — needed to drop the operators that are
+ *   chess records already from `diy.ownedPool` (see the tail of this function). Optional so an older caller that only
+ *   has `backups` keeps working; the pool fix then simply does not run.
  * @returns {Record<string, any>} a new object (or the input when the data it needs is absent)
  */
-export function applyForkBackups(backups) {
+export function applyForkBackups(backups, chess = null) {
   if (!isPlainObject(backups)) return backups;
   const diy = isPlainObject(backups.diy) ? backups.diy : null;
   const slots = isPlainObject(diy?.slots) ? diy.slots : null;
@@ -315,7 +319,11 @@ export function applyForkBackups(backups) {
       tier, goldenId: forkDiyGoldenId(s), shopLevel: slots[anchor].shopLevel, requirement: slots[anchor].requirement,
     }]));
   }
-  if (!after.size) return backups;
+  // The 自选 slots and the owned-pool fix are INDEPENDENT: a file that already carries every fork slot (`after.size`
+  // 0 — the usual case on a second run) still needs the pool filtered, so neither branch may short-circuit the other.
+  const pool = ownedPoolOf(backups, chess);
+  const poolPatch = pool ? { ownedPool: pool } : null;
+  if (!after.size) return poolPatch ? { ...backups, diy: { ...diy, ...poolPatch } } : backups;
   const out = {};
   for (const [id, s] of Object.entries(slots)) {
     if (FORK_DIY_SLOT_ID_SET.has(id)) continue;
@@ -323,7 +331,61 @@ export function applyForkBackups(backups) {
     const add = after.get(id);
     if (add) for (const [nid, ns] of add) out[nid] = ns;
   }
-  return { ...backups, diy: { ...diy, slots: out } };
+  return { ...backups, diy: { ...diy, slots: out, ...poolPatch } };
+}
+
+/**
+ * `diy.ownedPool` 里剔掉「已经是棋手」的干员（需求方 2026-10-23 报的重复干员 bug）。
+ *
+ * 为什么会有这条：`diy.ownedPool` 是「玩家拥有的、**不在棋池里**的 6★」——`build-data.mjs` 用 `!roster.has(id)`
+ * 算它，而 `roster` 读的是 `act.charShopChessDatas`，也就是**官方**那一份。内容包（莱茵生命 / 卡兹戴尔 / 雷姆必拓）
+ * 的棋手记录是**之后**由本文件叠加进 `chess` 的，build 那一刻它们还不在 `roster` 里 —— 于是伊芙利特这类干员既
+ * 是一张棋手卡、又被列进自选编队的可选池，玩家能把她重复加进自选编队，局内卡池的刷新概率因此异常
+ * （同一个干员在两处各占一份拷贝）。
+ *
+ * 修在数据层而不是 UI：`shared/diy.js` 的 `diyPool` 把 `ownedPool` 原样交给每个阶的槽位，客户端只是照单显示；
+ * 池子里本来就不该有她。`chess` 缺席时**原样返回**（旧调用方不受影响），空池也不产出这个键（KEY DISCIPLINE）。
+ *
+ * @param {Record<string, any>} backups
+ * @param {Record<string, any>|null} chess
+ * @returns {string[]|null} the filtered pool, or null when nothing should change
+ */
+function ownedPoolOf(backups, chess) {
+  const pool = backups?.diy?.ownedPool;
+  if (!Array.isArray(pool) || !pool.length || !isPlainObject(chess)) return null;
+  const roster = new Set();
+  for (const rec of Object.values(chess)) if (isPlainObject(rec) && typeof rec.charId === 'string' && rec.charId) roster.add(rec.charId);
+  const kept = pool.filter((id) => !roster.has(id));
+  return kept.length === pool.length ? null : kept;
+}
+
+/**
+ * `backups.tokens` 里 owner 全都不在自选池里的记录（棋手那份在 `data/tokens.json`，是另一套，不动）。
+ * 自选池剔掉某人之后，只为她存在的那条召唤物记录永远不会被用到 —— 留着就是一条孤儿，
+ * `test/backups.test.js` 也会（正确地）判它错。部分 owner 仍在时保留那几条（owners / variants 一起收窄）。
+ *
+ * 与 `tools/build-data.mjs` 写盘前那一段是同一件事的两半（那条是重建、这条是增量 patch），所以判据写在这里
+ * 一份、由 `applyForkPackAphris` 调用。
+ * @param {Record<string, any>} backups
+ * @param {string[]} pool the filtered pool
+ * @returns {Record<string, any>|null} the new token map, or null when nothing changes
+ */
+function tokensOf(backups, pool) {
+  const tokens = backups?.tokens;
+  if (!isPlainObject(tokens) || !Array.isArray(pool)) return null;
+  const inPool = new Set(pool);
+  const out = {};
+  let changed = false;
+  for (const [tid, rec] of Object.entries(tokens)) {
+    const owners = (Array.isArray(rec?.owners) ? rec.owners : []).filter((o) => inPool.has(String(o).split('@')[0]));
+    if (owners.length === (rec?.owners || []).length) { out[tid] = rec; continue; }
+    changed = true;
+    if (!owners.length) continue;
+    const variants = {};
+    for (const o of owners) if (rec.variants && rec.variants[o]) variants[o] = rec.variants[o];
+    out[tid] = { ...rec, owners, variants };
+  }
+  return changed ? out : null;
 }
 
 // =====================================================================================================================
@@ -505,28 +567,37 @@ export function applyForkPackMembers(chess) {
  * chess record at all: she is fielded through a 自选 slot. Idempotent like the others.
  * @param {Record<string, any>} backups data/backups.json
  */
-export function applyForkPackAphris(backups) {
+export function applyForkPackAphris(backups, chess = null) {
   if (!isPlainObject(backups)) return backups;
   const diy = isPlainObject(backups.diy) ? backups.diy : null;
+  // 这段有两件事，彼此独立，谁都不许提前返回把另一件带掉：
+  //   1. 缪因·并入莱茵（packAphris）—— 给她的自选记录挂上 rhineShip；
+  //   2. `diy.ownedPool` 剔除「已经是棋手」的干员（需求方 2026-10-23 的重复干员 bug）。内容包的棋手记录由本文件
+  //      叠加进 chess，build 那一刻还不在官方 roster 里，于是伊芙利特这类干员既是一张棋手卡、又在自选可选池里。
+  const pool = ownedPoolOf(backups, chess);
+  // ★ 只剔池子，不动 `backups.tokens`：那些记录同时被棋手用（见 build-data 同处注释）。
+  const poolPatch = pool ? { ownedPool: pool } : null;
   const operators = isPlainObject(diy?.operators) ? diy.operators : null;
   const rec = operators && isPlainObject(operators[FORK_APHRIS_CHAR_ID]) ? operators[FORK_APHRIS_CHAR_ID] : null;
-  if (!rec) return backups;
-  const bonds = Array.isArray(rec.bonds) ? rec.bonds : [];
-  if (bonds.includes(FORK_RHINE_BOND_ID)) return backups;
-  return {
-    ...backups,
-    diy: {
-      ...diy,
-      operators: {
-        ...operators,
-        [FORK_APHRIS_CHAR_ID]: {
-          ...rec,
-          bonds: [...bonds, FORK_RHINE_BOND_ID],
-          packBonds: { ...(isPlainObject(rec.packBonds) ? rec.packBonds : {}), packAphris: [FORK_RHINE_BOND_ID] },
-        },
+  const bonds = rec && Array.isArray(rec.bonds) ? rec.bonds : [];
+  const needsAphris = !!rec && !bonds.includes(FORK_RHINE_BOND_ID);
+  if (!needsAphris && !poolPatch) return backups;
+  /** @type {Record<string, any>} */
+  const nextDiy = { ...diy };
+  if (pool) nextDiy.ownedPool = pool;
+  void tokensOf;
+  // `backups.tokens` 是**顶层**键（不在 diy 里）：孤儿召唤物的清理要写到 backups 上，不是 diy 上。
+  if (needsAphris) {
+    nextDiy.operators = {
+      ...operators,
+      [FORK_APHRIS_CHAR_ID]: {
+        ...rec,
+        bonds: [...bonds, FORK_RHINE_BOND_ID],
+        packBonds: { ...(isPlainObject(rec.packBonds) ? rec.packBonds : {}), packAphris: [FORK_RHINE_BOND_ID] },
       },
-    },
-  };
+    };
+  }
+  return { ...backups, diy: nextDiy };
 }
 
 /**

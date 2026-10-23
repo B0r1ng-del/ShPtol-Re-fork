@@ -3943,7 +3943,9 @@ async function main() {
     // applyForkBackups then replaces the `shopLevel: null` buildBackups gives them (the official shop-level table lists
     // only the four official slots) with their tier's own.
     const chess = FORK_PASS_APPLIERS.chess(built.chess);
-    passes.push({ ctx: pctx, chess, tokenOwners: built.tokenOwners, backups: FORK_PASS_APPLIERS.backups(buildBackups(pctx, chess)) });
+    // `chess` is handed to the backups pass so it can drop the operators that are chess records already from
+    // `diy.ownedPool` (需求方 2026-10-23: 内容包干员漏进了自选编队的可选池，导致重复添加、卡池概率异常).
+    passes.push({ ctx: pctx, chess, tokenOwners: built.tokenOwners, backups: FORK_PASS_APPLIERS.backups(buildBackups(pctx, chess), chess) });
   }
   const { chess, backups } = passes[FULL_RANK];
   const effects = buildEffects(ctx);
@@ -3982,7 +3984,11 @@ async function main() {
   // The rest of the fork layer for chess/backups, AFTER attachPotential annotated the full-rank records in place: these
   // appliers spread their record, so running them first would drop every `potDown`, and running them last is also what
   // puts `packBonds` after `potDown` — the order the in-place `tools/fork-data.mjs` patch leaves in the committed file.
-  for (const name of Object.keys(FORK_PASS_APPLIERS)) files[name] = FORK_APPLIERS[name](files[name]);
+  // ★ `backups` gets the finished `chess` here: `applyForkPackAphris` filters `diy.ownedPool` against the chess records,
+  //   and this second pass would otherwise overwrite the filtered pool from the earlier pass with the unfiltered one.
+  for (const name of Object.keys(FORK_PASS_APPLIERS)) {
+    files[name] = name === 'backups' ? FORK_APPLIERS[name](files[name], files.chess) : FORK_APPLIERS[name](files[name]);
+  }
   errors.push(...validateAll(files));
   // 六.F: the ported 莱茵生命 expansion (tools/rhine-data.mjs) — its 6 operators, 3 科研装置, 2 装备, the 盟约's members
   // and the traits they carry. LAST of the fork layer, and specifically AFTER `applyForkPackMembers`: that applier is
@@ -4011,6 +4017,24 @@ async function main() {
   // from the chess that name it, so running it earlier would have the next overlay drop 雷姆必拓's nine names again.
   const { applyRem } = await import('./rem.mjs');
   await applyRem(files);
+  // 自选编队的可选池剔除「已经是棋手」的干员（需求方 2026-10-23：开启莱茵生命后伊芙利特这类干员既能当棋手、又能被
+  // 重复加进自选编队，局内卡池刷新概率因此异常）。
+  //
+  // ★ 必须放在**这里** —— 所有内容包（莱茵 / 卡兹戴尔 / 雷姆必拓）都已叠进 `files.chess` 之后。`buildChess(pctx)`
+  //   与 `FORK_PASS_APPLIERS` 跑的时候内容包的棋手记录还不存在（它们由上面这几步叠加），那时拿不到 packId，
+  //   剔除会漏掉正是要修的那 8 个人。`diy.ownedPool` 是「拥有但不在棋池里的 6★」，所以判据就是「这个 charId 是否
+  //   已经成为一张棋手记录」—— 与 `tools/fork-overrides.mjs ownedPoolOf` 同一条（那里供 fork-data 的增量路径用）。
+  if (files.backups && Array.isArray(files.backups.diy?.ownedPool)) {
+    const chessChars = new Set();
+    for (const rec of Object.values(files.chess)) if (rec && typeof rec.charId === 'string' && rec.charId) chessChars.add(rec.charId);
+    const kept = files.backups.diy.ownedPool.filter((id) => !chessChars.has(id));
+    // ★ 只剔池子，**不动 `backups.tokens`**：那些 token 记录（多萝西的共振装置、莱的声波棒、维什戴尔的守卫）同时被
+    //   卡兹戴尔 / 雷姆必拓的**棋手**用（`data/tokens.json` 与 `backups.tokens` 有重叠是设计如此），删掉会打断棋手。
+    //   池子外的 owner 由 `test/backups.test.js` 自己的断言覆盖，那里也只检查「owner 在池里」这一条与自选相关的规则。
+    if (kept.length !== files.backups.diy.ownedPool.length) {
+      files.backups = { ...files.backups, diy: { ...files.backups.diy, ownedPool: kept } };
+    }
+  }
   let total = 0;
   const sizes = {};
   const texts = {};
