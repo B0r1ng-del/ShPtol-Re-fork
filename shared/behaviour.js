@@ -114,7 +114,9 @@ export const BEHAVIOUR_SWITCHES = Object.freeze({
   prepLoadout: {
     label: '休整期可更换技能与模组',
     options: Object.freeze(['locked', 'prep']),
-    default: 'locked',
+    // 默认 `prep`（需求方 2026-10-23「允许玩家在局内的整备阶段修改干员的技能」）：没声明的房间 / 干净安装都能在
+    // 休整期改技能，且只影响这一局（大厅的干员调配不受影响）。包仍可显式声明 `locked` 把它收回到官方档。
+    default: 'prep',
     optionLabels: Object.freeze({
       locked: '官方：干员调配锁定后不再可改',
       prep: '休整期也能改（本座位未准备时）',

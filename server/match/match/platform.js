@@ -10,8 +10,7 @@ import { PHASE, ERR } from '../../../shared/constants.js';
 import { syntheticResult } from '../fields.js';
 import { FLOW_TICKER_PRIORITY, OK, fail } from './common.js';
 import { msg } from '../../../shared/i18n.js';
-// 工坊 mod 层移植 (2026-10-16): the behaviour layer's `prepLoadout` switch decides which phases accept room.loadout.
-import { behaviourIsDefault } from '../../../shared/behaviour.js';
+import { behaviourValue, BEHAVIOUR_SWITCHES } from '../../../shared/behaviour.js';
 
 const GAME_TYPES = new Set(Object.keys(C2S).filter((t) => Object.hasOwn(C2S, t) && (t.startsWith('g.') || t.startsWith('b.'))));
 
@@ -22,13 +21,24 @@ const GAME_TYPES = new Set(Object.keys(C2S).filter((t) => Object.hasOwn(C2S, t) 
 export const LOADOUT_PHASES = Object.freeze({ locked: Object.freeze([PHASE.INFO_CHECK]), prep: Object.freeze([PHASE.INFO_CHECK, PHASE.PREP]) });
 
 /**
- * The phases THIS match accepts `room.loadout` in. No declaration (or `locked`) ⇒ the official gate; a pack declaring
- * `prepLoadout: "prep"` ⇒ PREP as well. Read-only: it only answers which set applies.
+ * The phases THIS match accepts `room.loadout` in.
+ *
+ * ★ 需求方 2026-10-23：「允许玩家在局内的整备阶段修改干员的技能」—— 于是 **PREP 成为默认可改的阶段**，不再需要包声明
+ * `prepLoadout: "prep"`。业主同时明确：**只影响这一局**（包含往后的全部回合），大厅的干员调配不受影响，下一局仍以
+ * 大厅那份为准 —— 这正是本文件既有行为的语义（`ps.setLoadout` 改的是**这一场**的 PlayerState；座位的 `seat.loadout`
+ * 只在大厅 / INFO_CHECK 由 `room.loadout` 写入），所以只需要把默认阶段集从 `locked` 换成 `prep`。
+ *
+ * 包仍然可以说 `locked` 把这一格收回去（那是「收紧」，on-by-default 之后仍然允许 —— 与 `behaviourIsDefault` 的
+ * 「没声明 = 官方」不同，这里没声明 = **新默认**）。为了不破坏既有包的语义，判据改成：**只有显式声明 `locked` 才收**，
+ * 其余（没声明 / 声明 prep）都给 PREP。
  * @param {Array<{ switch: string, option: string }>|null|undefined} decl the match's behaviour declaration
  * @returns {readonly string[]}
  */
 export function loadoutPhasesFor(decl) {
-  return behaviourIsDefault(decl, 'prepLoadout') ? LOADOUT_PHASES.locked : LOADOUT_PHASES.prep;
+  // 按**生效值**判断：`behaviourValue` 对「没声明」返回 null，所以这里显式回落到表里的 default（现在是 `prep`）。
+  // `locked` ⇒ 只有 INFO_CHECK（包显式收紧）；其余（没声明 / prep）⇒ INFO_CHECK + PREP。
+  const v = behaviourValue(decl, 'prepLoadout') ?? BEHAVIOUR_SWITCHES.prepLoadout.default;
+  return v === 'locked' ? LOADOUT_PHASES.locked : LOADOUT_PHASES.prep;
 }
 
 /**
