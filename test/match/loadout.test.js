@@ -36,7 +36,7 @@ test('data carries the §16 choices every visible chess needs (skills at both st
   // 112 official + the two ported packExtra6 operators (内容包 六.C, tools/fork-extra6.mjs) + the six
   // packRhine 莱茵生命 operators (内容包 六.F, tools/rhine-data.mjs) + the six packKazdel 卡兹戴尔 operators
   // (内容包 卡兹戴尔, tools/kazdel-data.mjs) + the nine packRem 雷姆必拓 operators (内容包 雷姆必拓, tools/rem-data.mjs)
-  // + 二.1 地灵 (packBeanstalk, 1) + 二.3 东国/乌萨斯 (packDongUrsus, 13) = 150
+  // + 二.1 地灵 (packBeanstalk, 1) + 二.3 东国 (packDong, 10) + 乌萨斯 (packUrsus, 16) = 153
   assert.equal(visible.length, 150);
   for (const c of visible) {
     const g = chess(c.goldenId);

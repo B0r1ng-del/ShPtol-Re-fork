@@ -865,6 +865,43 @@ export function injectCustomContent(ctx) {
 // **之后**做，与莱茵 / 卡兹戴尔 / 雷姆必拓的 overlay 同一条时序。
 export const DONG_URSUS_PACK = 'packDongUrsus';
 
+/**
+ * 二.3 修订（需求方 2026-10-24）：**拆成两个开关**「东国」`packDong` 与「乌萨斯」`packUrsus`，按**盟约**切分。
+ *
+ * 归属判据只有一条：一条记录属于哪个包，看它**引用哪条盟约**。
+ *   * `dongShip` → `packDong`；`ursusShip` → `packUrsus`；
+ *   * 两条都引用的（当前没有）⇒ 数组 `['packDong','packUrsus']`，任一开关打开即可用（`packEnabled` 的数组语义）；
+ *   * **一条都不引用的 ⇒ 不盖 `packId`**，即默认常驻。这正是需求方 2026-10-24 对 5 条策略的口径：
+ *     「策略默认直接出现，无需开关」—— 它们只是开局配置，不带任何移植数据。
+ *
+ * ★ 官方记录被改的那几处（折桠/古米 → 乌萨斯；宴/风丸/水月/星熊/铃兰 → 东国）落在**它自己那条盟约**的包里：
+ *   关掉那一个开关就逐字段还原，另一个开关的内容不受影响。
+ */
+export const DONG_PACK = 'packDong';
+export const URSUS_PACK = 'packUrsus';
+/** bond id → the pack switch that owns it. */
+export const BOND_PACK = Object.freeze({ dongShip: DONG_PACK, ursusShip: URSUS_PACK });
+
+/**
+ * The pack(s) a record belongs to, from the bonds it names. `null` = no pack (always available).
+ * @param {Iterable<string>} bondIds
+ * @returns {string|string[]|null}
+ */
+function packForBonds(bondIds) {
+  const packs = new Set();
+  for (const b of bondIds || []) { const p = BOND_PACK[b]; if (p) packs.add(p); }
+  if (!packs.size) return null;
+  if (packs.size === 1) return [...packs][0];
+  // 两个包都贡献了同一条记录 ⇒ 任一开关打开就该能用（packEnabled 的数组语义是「任一」）。
+  return [...packs].sort();
+}
+
+/** The pack a garrison belongs to, by the owner chess that references it (garrison → its operator's bonds). */
+function packForGarrison(garrisonId, chessByGarrison) {
+  const bonds = chessByGarrison.get(garrisonId);
+  return bonds ? packForBonds(bonds) : null;
+}
+
 const deepClone = (v) => (v && typeof v === 'object' ? JSON.parse(JSON.stringify(v)) : v);
 
 /**
@@ -917,29 +954,51 @@ export function injectDongUrsusPack(ctx) {
 }
 
 /**
- * build 之后：给东国 / 乌萨斯的记录盖 `packId`，给被改动的官方记录写 `packRestore.packDongUrsus`。
- * 关掉开关时 `shared/packData.js` 会把这些记录整个剥掉、把官方记录逐字段还原 —— 于是「关闭即不影响原版游戏」。
+ * build 之后：给东国 / 乌萨斯的记录按**盟约归属**盖 `packId`（`packDong` / `packUrsus`），给被改动的官方记录写
+ * `packRestore.<那个包>`。策略（bands）一条都不盖 —— 需求方 2026-10-24：**策略默认直接出现，无需开关**。
+ * 关掉一个开关时 `shared/packData.js` 会把那个包的记录整个剥掉、把它改过的官方记录逐字段还原，
+ * 另一个开关的内容不受影响 —— 于是「关闭即不影响原版游戏」。
  * @param {Record<string, any>} files 生成好的 data/*.json
  * @param {ReturnType<typeof injectDongUrsusPack>} injected
  */
 export function applyDongUrsusPack(files, injected) {
   if (!files || !injected) return;
-  const stamp = (table, ids) => {
-    for (const id of ids) {
-      const rec = table?.[id];
-      if (rec && typeof rec === 'object' && !Array.isArray(rec)) rec.packId = DONG_URSUS_PACK;
-    }
+  /** garrison id → the bonds of the operator that references it (a garrison has no bond field of its own). */
+  const chessByGarrison = new Map();
+  for (const rec of Object.values(files.chess || {})) {
+    if (!rec || typeof rec !== 'object') continue;
+    for (const g of Array.isArray(rec.garrisonIds) ? rec.garrisonIds : []) chessByGarrison.set(g, rec.bonds || []);
+  }
+  const stampOne = (rec, pack) => {
+    if (!rec || typeof rec !== 'object' || Array.isArray(rec) || !pack) return;
+    rec.packId = pack;
   };
-  stamp(files.chess, injected.chess);
-  stamp(files.bonds, injected.bonds);
-  stamp(files.bands, injected.bands);
-  stamp(files.items, injected.items);
-  stamp(files.garrisons, injected.garrisons);
+  const stampByBonds = (table, ids, bondsOf) => {
+    for (const id of ids) stampOne(table?.[id], packForBonds(bondsOf(table?.[id], id)));
+  };
+  // 棋子 / 盟约 / 装备：它们自己就写着盟约，直接按盟约判。
+  // ★ 装备里的**签名装备**（残心一闪 / 冰原咆哮）没有 `giveBondId`（不可被同构体映射），但它们 `bb.other_equip`
+  //   指向同一包里的那件副装备 —— 按那件判，否则它们会漏成「常驻」。
+  stampByBonds(files.chess, injected.chess, (rec) => (rec ? rec.bonds : []));
+  stampByBonds(files.bonds, injected.bonds, (rec, id) => (rec ? [id] : []));
+  // 装备：副装备自己写着 `giveBondId`，签名装备（`giveBondId: null`）没有 —— 但四件装备的归属是固定的
+  // （9_01 鬼面 / 9_02 残心一闪 → 东；9_03 军粮 / 9_04 冰原咆哮 → 乌萨斯），照 ID 映射判，别去猜 `bb`。
+  const ITEM_PACK = { chess_item_9_01_e: DONG_PACK, chess_item_9_02_e: DONG_PACK, chess_item_9_03_e: URSUS_PACK, chess_item_9_04_e: URSUS_PACK };
+  for (const id of injected.items) {
+    const rec = files.items?.[id];
+    if (!rec) continue;
+    const base = String(rec.baseId || id).replace(/_[ab]$/, '');
+    rec.packId = ITEM_PACK[base] || packForBonds(rec.giveBondId ? [rec.giveBondId] : []);
+    if (!rec.packId) delete rec.packId;
+  }
+  // 特质：自己没有盟约，看**引用它的那名干员**。
+  for (const id of injected.garrisons) stampOne(files.garrisons?.[id], packForGarrison(id, chessByGarrison));
+  // 策略：**不盖**（默认常驻）。`injected.bands` 只用于下面的计数一致性，不参与 packId。
 
-  // 被注入器改过的官方记录 → packRestore（关包还原）
-  const note = (rec, fields) => {
-    if (!rec || !Object.keys(fields).length) return;
-    rec.packRestore = { ...(rec.packRestore && typeof rec.packRestore === 'object' ? rec.packRestore : {}), [DONG_URSUS_PACK]: fields };
+  // 被注入器改过的官方记录 → packRestore（关那个包时还原）
+  const note = (rec, pack, fields) => {
+    if (!rec || !pack || !Object.keys(fields).length) return;
+    rec.packRestore = { ...(rec.packRestore && typeof rec.packRestore === 'object' ? rec.packRestore : {}), [pack]: fields };
   };
   for (const [baseId, orig] of injected.restore.chess) {
     // ★ 键是 **baseId**（`chess_char_2_17`），记录上的是 baseId 字段；charId 是另一回事（`char_4207_branch`）。
@@ -948,7 +1007,9 @@ export function applyDongUrsusPack(files, injected) {
       if (!rec || rec.baseId !== baseId) continue;
       const fields = {};
       if (JSON.stringify(rec.bonds) !== JSON.stringify(orig.bondIds)) fields.bonds = orig.bondIds;
-      note(rec, fields);
+      // 那条官方记录归哪个包：按**它被改成的那份盟约**（注入后的 `rec.bonds`）判 —— 原值里当然没有 dongShip /
+      // ursusShip，用原值判会得到 null，`packRestore` 就一条都写不出来。
+      note(rec, packForBonds(rec.bonds || []), fields);
     }
   }
   for (const [id, orig] of injected.restore.garrison) {
@@ -964,10 +1025,15 @@ export function applyDongUrsusPack(files, injected) {
     if (wantBond && now.bbStr && now.bbStr.bond_id !== wantBond.valueStr) {
       fields.bbStr = { ...now.bbStr, bond_id: wantBond.valueStr };
     }
-    note(now, fields);
+    const pack = packForGarrison(id, chessByGarrison) || packForBonds((orig.bonds || '').split(','));
+    note(now, pack, fields);
   }
   for (const [id, w] of injected.restore.weight) {
     const now = files.bonds?.[id];
-    if (now && now.weight !== w) note(now, { weight: w });
+    // 权重覆盖一次动了好几条官方盟约（远见/奇迹/迅捷/精准/灵巧/协防），它们**不属于**东国或乌萨斯任何一包 ——
+    // 把权重还原挂在任一开关上都不对（关「东」不该改远见的权重）。所以这里**不写 packRestore**：
+    // 权重是这张数据表在「装了移植内容」前提下的既有口径，两个开关全关时也一样（与包内容无关）。
+    if (!now || now.weight === w) continue;
+    void w;
   }
 }

@@ -53,7 +53,7 @@ export const KIT_FILES = Object.freeze([
     'chess_char_4_17-hsguma.js', 'chess_char_4_18-mudrok.js', 'chess_char_4_19-flamtl.js', 'chess_char_4_20-fartth.js',
     'chess_char_4_21-plosis.js', 'chess_char_4_22-svrash.js', 'chess_char_4_23-gvial2.js', 'chess_char_4_24-billro.js',
     'chess_char_4_25-cetsyr.js', 'chess_char_4_26-bldsk.js',
-    // 二.3 东国 / 乌萨斯（内容包 packDongUrsus）
+    // 二.3 东国 / 乌萨斯（内容包 packDong / packUrsus）
     'chess_char_4_98-helage.js', 'chess_char_4_99-bgsnow.js'],
   // tier 5
   ['chess_char_5_01-excu2.js', 'chess_char_5_02-titi.js', 'chess_char_5_03-blaze2.js', 'chess_char_5_04-bldsk.js',
@@ -64,7 +64,7 @@ export const KIT_FILES = Object.freeze([
     'chess_char_5_21-sntlla.js', 'chess_char_5_22-nymph.js', 'chess_char_5_23-reckpr.js',
     // 内容包 packExtra6 (六.C): the ported operators, invisible while their switch is off (they carry `packId`)
     'chess_char_5_makoto-makoto.js',
-    // 二.3 东国 / 乌萨斯（内容包 packDongUrsus）
+    // 二.3 东国 / 乌萨斯（内容包 packDong / packUrsus）
     'chess_char_5_97-saga.js', 'chess_char_5_98-turdus.js', 'chess_char_5_99-veen.js'],
   // tier 6 (and 盟约·辅助干员 chess_char_1_15, a hidden tier-1 chess always registered with the tier-6 kits)
   ['chess_char_1_15-pithst.js', 'chess_char_6_01-lemuen.js', 'chess_char_6_02-sbell2.js', 'chess_char_6_03-yu.js',
@@ -75,7 +75,7 @@ export const KIT_FILES = Object.freeze([
     'chess_char_6_20-agoat2.js',
     // 内容包 packExtra6 (六.C)
     'chess_char_6_oblvns-oblvns.js',
-    // 二.3 东国 / 乌萨斯（内容包 packDongUrsus）
+    // 二.3 东国 / 乌萨斯（内容包 packDong / packUrsus）
     'chess_char_6_97-yato2.js', 'chess_char_6_98-headb2.js', 'chess_char_6_99-poca.js'],
 ].map((group) => Object.freeze(group)));
 

@@ -78,7 +78,7 @@ test('every pairing (18 official bond items plus the Rhine terminal, normal / go
   // tools/rhine-data.mjs) and 舍身刻印 (内容包 卡兹戴尔, tools/kazdel-data.mjs) are the ported packs' own and grant
   // their bond the same way.
   // 二.3 东国/乌萨斯: 东国鬼面 grants 东, 乌萨斯军粮 grants 乌萨斯 — pack content like 莱茵's terminal and 卡兹戴尔's sigil.
-  const packBond = { rhineShip: 'packRhine', kazdelShip: 'packKazdel', dongShip: 'packDongUrsus', ursusShip: 'packDongUrsus' };
+  const packBond = { rhineShip: 'packRhine', kazdelShip: 'packKazdel', dongShip: 'packDong', ursusShip: 'packUrsus' };
   const official = grants.filter((r) => !packBond[r.giveBondId]);
   const rhine = grants.filter((r) => r.giveBondId === 'rhineShip');
   const kazdel = grants.filter((r) => r.giveBondId === 'kazdelShip');
