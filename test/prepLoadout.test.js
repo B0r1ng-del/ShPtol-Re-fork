@@ -54,9 +54,11 @@ test('真表里的那一格：形状、两档、缺省是**新的**行为（PREP
     // `behaviourIsDefault` 的定义是「值等于表里的 default」；default 现在是 `prep`，所以只有它算默认档。
     assert.equal(behaviourIsDefault(decl, SW), option === 'prep');
   }
+  // ★ 2026-10-24：`prep` 已经**变成这一格的默认档**（需求方 2026-10-23「整备阶段可改技能」），
+  // 而 behaviourActions 的通用约束是「默认档不发动作」（packBehaviour 那张表的每一格都一样）。
+  // 所以显式写 prep 与不声明等价 —— 两者都是 actions: []。
   assert.deepEqual(behaviourActions(parseBehaviourDecl([{ switch: SW, option: 'locked' }]).decl), { ok: true, actions: [] });
-  assert.deepEqual(behaviourActions(parseBehaviourDecl([{ switch: SW, option: 'prep' }]).decl),
-    { ok: true, actions: [{ kind: 'loadout.allowDuringPrep', value: true }] });
+  assert.deepEqual(behaviourActions(parseBehaviourDecl([{ switch: SW, option: 'prep' }]).decl), { ok: true, actions: [] });
 });
 
 test('`loadoutPhasesFor`：**PREP 现在是默认**（需求方 2026-10-23「允许玩家在整备阶段修改干员的技能」）', () => {

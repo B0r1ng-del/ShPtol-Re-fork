@@ -1870,7 +1870,9 @@ function MatchScreen() {
         bonds=${detailBonds} offBonds=${offBonds} loadout=${detailLoadout} ops=${priv?.ops ?? null} side=${dSide} shopOpen=${shopOpen} live=${liveStats} voice=${true}
         onSell=${sellPiece} onDestroy=${sellPiece} itemSell=${itemSell}
         morphMode=${morphMode} unequipAllowed=${unequipAllow}
-        onUnequip=${editable && unequipAllow ? (itemUid) => actions.unequip(itemUid) : null}
+        // 装备拆卸 (behaviour unequip / 插件规则 unequip=allow): 面板内部用 unequipAllowed() 判「画不画」按钮，
+        // 这里只管把动作接上；真正的准入在 server 的 unequip() 与 detailPanel 的 canDetach 两处。
+        onUnequip=${(itemUid) => actions.unequip(itemUid)}
         onBond=${(id) => openBond(id, detailOwner, 'detail')} />` : null}
 
       ${selEntry && editable && !facing && !drag && showPrep ? html`<${Underframe} key=${sel.uid} view=${view} uid=${sel.uid}

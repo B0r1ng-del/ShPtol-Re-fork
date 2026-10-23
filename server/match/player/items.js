@@ -205,7 +205,7 @@ export class PlayerItems {
     const g = this._gate(); if (g) return g;
     if (!unequipAllowed(this.m && this.m.behaviour, this.m && this.m.rules)) return fail(ERR.BAD_TARGET, 'equipped items are locked');
     const loc = this.find(itemUid);
-    if (!loc || loc.piece.kind !== 'item' || loc.area !== 'equipped') return fail(ERR.BAD_TARGET);
+    if (!loc || loc.piece.kind !== 'item' || loc.area !== 'equipped') return fail(ERR.BAD_TARGET, 'not equipped on an operator');
     const handAt = freeSlot(this.hand);
     const tempAt = freeSlot(this.temp.slice(0, GEO.TEMP_SIZE));
     if (handAt < 0 && tempAt < 0) return fail(ERR.HAND_FULL);

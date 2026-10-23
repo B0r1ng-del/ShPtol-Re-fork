@@ -580,9 +580,14 @@ export const C2S = {
   // 实测过）。所以新开一格，而不是改 `mods` 的语义 —— 后者会让每一个已经发 `mods` 的客户端静默改变含义。
   'room.create': {
     mode: (v) => ROOM_MODES.includes(v), difficulty: (v) => DIFFICULTIES.includes(v), mods: isMods,
-    modDigest: isModDigest, $optional: ['mods', 'modDigest'],
+    modDigest: isModDigest,
+    // 测试模式 (DESIGN §34.8): 只能显式写 ； 与缺省都表示「不是测试房」。
+    test: (v) => v === true,
+    $optional: ['mods', 'modDigest', 'test'],
   },
-  'room.join': { code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v), modDigest: isModDigest, $optional: ['modDigest'] },
+  'room.join': { code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v), modDigest: isModDigest,
+    // 入座确认 (DESIGN §34.8): 只能显式 ，与 room.spectate 同形。
+    testAck: (v) => v === true, $optional: ['modDigest', 'testAck'] },
   'room.leave': {},
   'room.ready': { ready: isBool },
   'room.setDifficulty': { difficulty: (v) => DIFFICULTIES.includes(v) },

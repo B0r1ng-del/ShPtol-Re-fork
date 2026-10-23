@@ -204,7 +204,11 @@ export class PlayerEconomy {
     // bondBias therefore calls computeBonds at the roll (no rng). The official rule passes null and
     // does not call it, so the shop's rng stays today's two draws.
     let bias = null;
-    if (ruleOption(this.m?.rules, 'shopBias') === 'bondBias') {
+    // 两条通道（与 matchSlotPolicy / loadoutPhasesFor 同形）：（插件规则开关）优先，缺省回落到
+    // behaviour 声明 —— 工坊包一直是用后者声明  的。
+    const wantBias = ruleOption(this.m?.rules, 'shopBias') === 'bondBias'
+      || (!behaviourIsDefault(this.m && this.m.behaviour, 'shopBias'));
+    if (wantBias) {
       const bonds = computeBonds(this.gd, this);
       bias = new Set();
       for (const [id, st] of Object.entries(bonds)) if (st && st.active) bias.add(id);

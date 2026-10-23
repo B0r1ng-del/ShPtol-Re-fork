@@ -241,7 +241,7 @@ describe('第五条 `combat` 硬闸门 + `EMPTY_PACK` 的次序', () => {
     const needs = mk({ behaviour: [{ switch: 'shopBias' }] }, { behaviourSwitches: SYNTH });
     assert.equal(needs.ok, false, JSON.stringify(needs));
     assert.equal(needs.error, 'BEHAVIOUR_NEEDS_COMBAT');
-    assert.match(needs.detail, /DESIGN §34\.43/);
+    assert.match(needs.detail, /DESIGN §35\.43/);   // 二.3: mod-layer 从 §34 迁到 §35
     // `combat` 的**类型**错误先报：作者该改的是类型，不是缺一个 true
     assert.equal(mk({ combat: 'yes', behaviour: [{ switch: 'shopBias' }] }, { behaviourSwitches: SYNTH }).error, 'BAD_COMBAT');
     // 标了就是合法包

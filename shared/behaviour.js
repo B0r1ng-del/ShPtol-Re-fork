@@ -125,7 +125,9 @@ export const BEHAVIOUR_SWITCHES = Object.freeze({
       locked: 'the official rule: room.loadout is accepted only during INFO_CHECK (the briefing\'s 干员调配) and the loadout is frozen afterwards',
       prep: 'room.loadout is accepted during PREP as well, while this seat has not readied up; the submission merges into the current loadout (operators it does not mention keep theirs), and nothing else about the loadout changes',
     }),
-    actions: (option) => (option === 'prep' ? [{ kind: 'loadout.allowDuringPrep', value: true }] : []),
+    //  是这一格现在的**默认档**，而「默认档不发动作」是 behaviourActions 的通用约束，
+    // 所以这里两个选项都是空 —— 没有任何「相对官方默认的增量」需要告知客户端。
+    actions: () => [],
   },
   /**
    * 变形同构体的配对规则（投稿 `19ea65909cf6`，其原件整份覆盖 `shared/morph.js` 与三处读取点）。**改结果**

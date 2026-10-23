@@ -143,8 +143,9 @@ describe('mod identity: entering a modded room needs the client to confirm the c
     //   * `room.join`  —— 只有 `modDigest`（加入者说出它以为在加入哪一份内容集）。本 fork 没有上游的
     //                    `modIds`（房间声明集合那一层）与 `consent`（W7 的同意表态），所以这里也不该出现它们。
     //   * `room.create` —— `mods`（Mod 开关对象，本 fork 原有）+ `modDigest`（新开的内容集摘要）。
-    assert.deepEqual(C2S['room.join'].$optional, ['modDigest']);
-    assert.deepEqual(C2S['room.create'].$optional, ['mods', 'modDigest']);
+    //   * `room.create` —— `mods`（Mod 开关对象）+ `modDigest`（内容集摘要）+ `test`（DESIGN §34.8 测试房，只许显式 true）。
+    assert.deepEqual(C2S['room.join'].$optional, ['modDigest', 'testAck']);
+    assert.deepEqual(C2S['room.create'].$optional, ['mods', 'modDigest', 'test']);
     // `mods` 与 `modDigest` 是**两格不同语义**的字段，同时出现也合法（开关 + 内容集）。
     assert.equal(validateC2S({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', mods: { noBondBan: true }, modDigest: digest }), null);
   });

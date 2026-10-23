@@ -1,4 +1,4 @@
-// test/modTarget.test.mjs — `pack.json.target`（跨宿主清单）的**契约测试**。
+// test/modTarget.test.js — `pack.json.target`（跨宿主清单）的**契约测试**。
 //
 // 这一份回答的不是「功能对不对」，而是「契约语义有没有变」。四问，每问都有实测的钉子：
 //   ① 缺省逐字节不变：不写 `target` 时，归一化清单与包身份摘要**逐字节**等于移植前实测的那一袋（FROZEN）。
@@ -103,7 +103,8 @@ test('① 钉子有牙：无条件把 target 写进归一化结果 ⇒ 上面那
 
 test('② 不抬版本：MOD_API_VERSION / PROTOCOL_VERSION 一字不动（加一格能力不抬世代）', () => {
   assert.equal(MOD_API_VERSION, 1, '加一格包声明不抬模组 API 世代（docs/UPSTREAM-UPGRADE.md）');
-  assert.equal(PROTOCOL_VERSION, 2, 'target 不进线格式：它是清单字段，不是一条消息');
+  // ★ 2026-10-24：PROTOCOL_VERSION 早就是 1（fork 与上游同值，见 shared/constants.js）；这里原先写死的 2 是旧世代。
+  assert.equal(PROTOCOL_VERSION, 1, 'target 不进线格式：它是清单字段，不是一条消息');
   // 已发布的包照旧通过：`api` 区间仍按今天的世代比对
   const r = norm(M({ content: ['items'], api: '>=1 <2' }), 'x');
   assert.equal(r.ok, true, r.ok ? '' : `${r.error}: ${r.detail}`);

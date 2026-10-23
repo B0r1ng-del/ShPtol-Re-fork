@@ -673,16 +673,15 @@ function buildBackups(ctx, chess) {
     const unit = buildUnitHead(ctx, rec.charId);
     unit.standsIn = [];
     unit.forms = {};
-    // 与官方 / 其它内容包的干员同形：普通形态 (2/1/4/0) + 精锐形态（tier 5 的 2/60/7/1、tier 6 的 2/60/7/3）。
-    // 自选编队与 kit 都要按 status 取 form，只建一个会让 diyRecord 返回 null。
-    const st = rec.status;
-    if (st) unit.forms[statusKey(st)] = buildUnitForm(ctx, rec.charId, st);
-    const normalKey = '2/1/4/0';
-    const eliteKey = rec.tier >= 6 ? '2/60/7/3' : '2/60/7/1';
-    for (const [key, sample] of [[normalKey, null], [eliteKey, null]]) {
-      if (unit.forms[key]) continue;
-      const st2 = { ...(st || {}), evolvePhase: key === normalKey ? 'PHASE_0' : 'PHASE_2', charLevel: key === normalKey ? 1 : 60, skillLevel: key === normalKey ? 4 : 7, equipLevel: key === normalKey ? 0 : (rec.tier >= 6 ? 3 : 1) };
-      unit.forms[key] = buildUnitForm(ctx, rec.charId, st2);
+    // ★ 形态从**这一名干员自己的棋手记录**里取 status（普通 _a 与精锐 _b 各带一个），不要手工拼 phase/level：
+    // buildUnitForm 里的 traitRecord 依赖完整的 status，拼出来的会让模块的 traitOverride 变成 null
+    // （data/i18n/en.json 的 overlay 于是对不上 data/backups.json，i18n-data 测试就会红）。
+    const ownRecords = Object.values(chess)
+      .filter((c) => c && c.charId === rec.charId && !c.isDiy && c.status)
+      .sort((a, b) => statusCmp(a.status, b.status));
+    for (const c of ownRecords) {
+      const k = statusKey(c.status);
+      if (!unit.forms[k]) unit.forms[k] = buildUnitForm(ctx, rec.charId, c.status);
     }
     units[rec.charId] = unit;
   }

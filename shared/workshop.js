@@ -442,7 +442,7 @@ export const CLIENT_SCREEN_FIELDS = Object.freeze(['id', 'route', 'module', 'ord
  * 为什么只有四条：`selectRoute`（`public/js/store.js`）与 `main.js` 的 `SCREENS` 都只到这四个值 ——
  * 结算与干员调配是路由**内部**的视图，不是路由。所以写成自由字符串没有意义：第五条不是「以后再支持」，
  * 是一条永远不会命中的死格子。客户端那份镜像（`public/js/ui/extensions.js` 的 `MOD_SCREEN_ROUTES`）由
- * `test/modClientScreens.test.mjs` 钉在一起，两处各说各话就是第二个会漂的真相。
+ * `test/modClientScreens.test.js` 钉在一起，两处各说各话就是第二个会漂的真相。
  */
 export const CLIENT_SCREEN_ROUTES = Object.freeze(['title', 'lobby', 'room', 'game']);
 /** 一份整屏最多带几份样式表 —— 与 `CLIENT_MAX_PANEL_STYLES` 同一个量级：注入这件事必须有界。 */
