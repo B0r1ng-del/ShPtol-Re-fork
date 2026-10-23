@@ -124,6 +124,9 @@ import {
   previewEnemyKey, prepCamera, prepCameraFor, deployFoldsShop, deployZoomStep, deployZoomRemember, prepDeployCamera, deployFieldOf, fieldTile, panelSide, panelSlots, bondPopupPlace, unitLoadout, deployedRecord,
   mergeTarget, modeOffBonds, readyFundsPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, roundStartReplay,
 } from '../ui/gameLogic.js';
+// 整备阶段改技能（三.2）：提交走既有的 room.loadout —— 只改技能，不动模组。
+import { loadoutStore, setEntries } from '../ui/loadoutSync.js';
+import { loadoutOptions } from '../../../shared/protocol.js';
 import { toast } from '../ui/toasts.js';
 import { researchRange } from '../../../shared/rhineRange.js';
 import { LoadoutButton } from './loadout.js';
@@ -1685,6 +1688,46 @@ function MatchScreen() {
     }
     return priv?.loadout ?? null; // own pieces, shop / reward / bond-member cards
   })();
+  /**
+   * 整备阶段改技能（三.2，需求方 2026-10-23）：详情卡的技能格改成**可点的多选一**，点一下就换这名干员下一场战斗用的
+   * 技能。四个条件同时成立才出现：
+   *   ① 这一局的 `prepLoadout` 档是 `prep`（服务端才收休整期的 `room.loadout`）；
+   *   ② 现在是休整期且这张卡是**我自己棋盘上**的干员（`resolved.piece`，不是商店 / 手牌 / 队友的）；
+   *   ③ 这个座位还没准备（准备了就锁死，与服务端「未准备才收」同一条判据）；
+   *   ④ 技能不止一个。
+   * 提交走既有的 `room.loadout`（`loadoutSync.setEntries`），**不新增协议消息**；模组不在这一格（需求方：只改技能）。
+   * 局内改的只影响这一局 —— 大厅的 `干员调配` 是同一份 pref，但下一局开局 `room.loadout` 会按它重发一次。
+   */
+  const skillPicker = (() => {
+    if (!prepLoadoutOpen || phase !== PHASE.PREP || !priv || priv.ready || !alive) return null;
+    if (!resolved || resolved.type !== 'chess' || !resolved.piece || detailTarget?.kind !== 'chess') return null;
+    const body = resolved.chess;
+    // 补位干员用替身的技能，不在这一格改
+    if (!body || (resolved.standIn && resolved.standIn.standInFor)) return null;
+    const base = body.isGolden ? (gd.chess(body.baseId) || body) : body;
+    const opt = loadoutOptions(base, body.isGolden ? body : null);
+    if (!opt || !Array.isArray(opt.skills) || opt.skills.length < 2) return null;
+    const records = {};
+    for (const s of Array.isArray(base.skills) ? base.skills : []) if (s && Number.isInteger(s.index)) records[s.index] = s;
+    if (body.isGolden && Array.isArray(body.skills)) for (const s of body.skills) if (s && Number.isInteger(s.index)) records[s.index] = s;
+    const id = body.baseId || body.chessId;
+    const stored = detailLoadout && detailLoadout[id];
+    const current = stored && Number.isInteger(stored.skill) ? stored.skill : opt.defaultSkill;
+    return {
+      options: opt.skills,
+      records,
+      current,
+      onPick: (index) => {
+        const cur = loadoutStore.get().entries || {};
+        const entry = { ...(cur[id] || {}) };
+        // 选回**默认技能**时把那一条清掉（`checkLoadout` 会把「等于缺省」的条丢掉，本地保持一致）
+        if (index === opt.defaultSkill) delete entry.skill; else entry.skill = index;
+        const next = { ...cur };
+        if (Object.keys(entry).length) next[id] = entry; else delete next[id];
+        setEntries(next);
+      },
+    };
+  })();
   // the open detail card's unit draws its attack range on the field (screens/game/range.js inspectRange, GitHub PR #281):
   // an own board piece or read-only prepared map character in prep; in battle or on a scouted board an ally
   // operator / summon on the field — the range it fights with now (the live stats' `range` and `dir`, the snapshot's
@@ -1873,6 +1916,7 @@ function MatchScreen() {
         // 装备拆卸 (behaviour unequip / 插件规则 unequip=allow): 面板内部用 unequipAllowed() 判「画不画」按钮，
         // 这里只管把动作接上；真正的准入在 server 的 unequip() 与 detailPanel 的 canDetach 两处。
         onUnequip=${(itemUid) => actions.unequip(itemUid)}
+        skillPicker=${skillPicker}
         onBond=${(id) => openBond(id, detailOwner, 'detail')} />` : null}
 
       ${selEntry && editable && !facing && !drag && showPrep ? html`<${Underframe} key=${sel.uid} view=${view} uid=${sel.uid}

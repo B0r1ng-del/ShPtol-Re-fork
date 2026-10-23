@@ -157,6 +157,18 @@
 .dsec__title { display: flex; align-items: baseline; gap: .1rem; font-size: calc(.17 * var(--t)); font-weight: 700; color: var(--mint-400); padding-bottom: .04rem; border-bottom: 1px solid var(--line); }
 .dtext { font-size: calc(.15 * var(--t)); line-height: 1.65; color: var(--text-md); }
 .dskill { display: flex; gap: .12rem; align-items: center; }
+/* 整备阶段改技能（三.2）：详情卡技能格上方的可点技能条。刻意做得像「一排槽位」而不是下拉框 ——
+   需求方的场景是「点开干员详细，看到他的三个技能，手动改选」，一排图标最接近官方那种技能栏。 */
+.dskill-pick { display: flex; gap: .1rem; margin-bottom: .04rem; }
+.dskill-pick__opt { position: relative; display: flex; flex-direction: column; align-items: center; gap: .02rem; padding: .05rem;
+  border: 1px solid var(--line-3); background: #0a0d0c; cursor: pointer; transition: border-color .12s, background .12s; }
+.dskill-pick__opt:hover { border-color: var(--mint-400); }
+.dskill-pick__opt.is-on { border-color: var(--mint-400); background: rgba(90, 220, 160, .12); }
+.dskill-pick__icon { width: .52rem; height: .52rem; object-fit: cover; }
+.dskill-pick__icon--empty { display: grid; place-items: center; background: #111614; }
+.dskill-pick__icon--empty b { font-family: var(--font-display); font-size: calc(.18 * var(--t)); color: var(--mint-400); }
+.dskill-pick__slot { font-family: var(--font-display); font-size: calc(.12 * var(--t)); color: var(--text-lo); letter-spacing: .02em; }
+.dskill-pick__opt.is-on .dskill-pick__slot { color: var(--mint-400); }
 .dskill__icon { width: .62rem; height: .62rem; flex: none; object-fit: cover; border: 1px solid var(--line-3); background: #0a0d0c; }
 .dskill__icon--empty { display: grid; place-items: center; }
 .dskill__icon--empty b { font-family: var(--font-display); font-size: calc(.2 * var(--t)); color: var(--mint-400); letter-spacing: .02em; }
