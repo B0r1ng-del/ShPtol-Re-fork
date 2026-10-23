@@ -184,10 +184,11 @@ test('garrisons: all referenced exist; 67 distinct effect keys', () => {
   }
 });
 
-test('items: 131 item chess with valid effects, bonds and golden links', () => {
-  assert.equal(Object.keys(items).length, 131);
+test('items: 135 item chess with valid effects, bonds and golden links', () => {
+  assert.equal(Object.keys(items).length, 135);
   // +4: the ported 卡兹戴尔 装备 pairs (众魂战刃 / 舍身刻印, tools/kazdel.mjs, 八)
-  assert.equal(Object.values(items).filter((i) => i.itemType === 'EQUIP' && !i.isGolden).length, 64);
+  // +4: 雷姆必拓 两件专属装备的各两形态 (矿业护具 / 工头的扩音器, tools/rem-data.mjs)
+  assert.equal(Object.values(items).filter((i) => i.itemType === 'EQUIP' && !i.isGolden).length, 66);
   assert.equal(Object.values(items).filter((i) => i.itemType === 'MAGIC').length, 3);
   for (const it of Object.values(items)) {
     assert.ok(effects[it.effectId], `${it.id}: effect ${it.effectId}`);
@@ -454,7 +455,9 @@ test('chess/tokens: talent tokens resolve and every token variant says where it 
   }
   assert.deepEqual(Object.values(tokens).filter((t) => t.placeable).map((t) => t.name).sort(),
     // 沙地兽 is 石棉's (雷姆必拓, tools/rem.mjs 九) — a placeable summon like the others, added with the pack.
-    ['医疗探机', '机械水獭', '诅咒娃娃', '斯卡蒂的海嗣', '流形', '狼群', '爬行号·防护单元', '共振装置', '沙地兽', '“打字机”'].sort());
+    // 共振装置（多萝西）已随 Rhine 2026-10-14 的换人下线，换成麦哲伦的三架原生无人机（龙腾.F 等，官方 token）。
+    ['医疗探机', '机械水獭', '诅咒娃娃', '斯卡蒂的海嗣', '流形', '狼群', '爬行号·防护单元', '沙地兽', '“打字机”',
+      '龙腾.F', '龙腾.L', '龙腾.A'].sort());
   assert.equal(tokens.enemy_9012_acloon.stats.deployLimit, tokens.enemy_9012_acloon.deployLimit);
 });
 

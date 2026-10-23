@@ -480,13 +480,18 @@ function buildChess(ctx) {
       if (!rec.talents.some((t) => t.containerTokenKey === id)) warn(`chess ${chessId}: token ${id} not in character_table (skipped)`);
       return false;
     }).sort(naturalCmp);
-    rec.tokens = resolvable;
     const altSkills = rec.skills.filter((s) => s.index !== sIdx);
     for (const s of altSkills) {
       for (const id of tokenUse(s).use.keys()) {
-        if (charTable[id] && !resolvable.includes(id)) warn(`chess ${chessId}: token ${id} of skill ${s.skillId} is not listed by the character (loadouts cannot summon it)`);
+        if (!charTable[id]) continue;
+        // A NON-DEFAULT skill's own summon is a real token of this record too (麦哲伦's three native drones come from
+        // her S1/S2, not from her S3). It joins `rec.tokens` so the client can list it, and the `tokenOwners` pass
+        // below then builds its record with the usual per-skill `sources` — exactly like a default-skill summon.
+        if (!resolvable.includes(id)) resolvable.push(id);
       }
     }
+    resolvable.sort(naturalCmp);
+    rec.tokens = resolvable;
     for (const tokenId of resolvable) {
       const src = sources.get(tokenId);
       // Per selectable non-default skill: the token skill slot, count and sources change with it.

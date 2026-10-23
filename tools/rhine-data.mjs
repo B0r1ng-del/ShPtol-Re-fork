@@ -66,7 +66,9 @@ export const RHINE_ADDITIONS = Object.freeze([
   { key: 'eunectes', charId: 'char_416_zumama', tier: 5, bonds: ['soloShip', 'sargonShip'], skillId: 'skchr_zumama_3', defaultModuleId: 'uniequip_002_zumama', excludedModuleIds: ['uniequip_004_zumama'], subName: '决战者', trait: 'copy_end' },
   { key: 'ifrit', charId: 'char_134_ifrit', tier: 5, bonds: ['arcaneShip', RHINE_BOND], skillId: 'skchr_ifrit_2', defaultModuleId: 'uniequip_002_ifrit', subName: '轰击术师', trait: 'ifrit' },
   { key: 'astgenne', charId: 'char_135_halo', tier: 2, bonds: [RHINE_BOND, 'preciShip'], skillId: 'skchr_halo_1', defaultModuleId: 'uniequip_002_halo', subName: '链术师', trait: 'astgenne' },
-  { key: 'dorothy', charId: 'char_4048_doroth', tier: 4, bonds: [RHINE_BOND], skillId: 'skchr_doroth_3', defaultModuleId: 'uniequip_002_doroth', excludedModuleIds: ['uniequip_003_doroth'], subName: '陷阱师', trait: 'dorothy' },
+  // 莱茵干员换人（Rhine 2026-10-14 起）：多萝西 → 麦哲伦。麦哲伦没有「另一支模块」要排除，
+  // 她的研究加成是 RHINE_MAGALLAN_ATTACK（本体 + 原生无人机 + 科研装置三份）。
+  { key: 'magallan', charId: 'char_248_mgllan', tier: 4, bonds: [RHINE_BOND], skillId: 'skchr_mgllan_3', defaultModuleId: 'uniequip_002_mgllan', subName: '召唤师', trait: 'magallan' },
 ]);
 const TOKEN = 'token_10004_otter_motter';
 export const DOROTHY_TOKEN = 'token_10025_doroth_recttp';
@@ -122,7 +124,9 @@ function makeGarrison(key, gold) {
   if (key === 'saria') return garrison(id, `战斗中，每${r.sariaLayerStep}层科研使自身治疗量提高${r.sariaHealBonus[grade] * 100}%`, 'IN_BATTLE', 'RHINE_SARIA_HEALING', { layer_step: r.sariaLayerStep, heal: r.sariaHealBonus[grade] });
   if (key === 'ifrit') return garrison(id, `战斗中，自身获得己方已部署且有效的单台科研装置中最高基础攻击力的${r.ifritInheritance[grade] * 100}%作为额外攻击力，多台不相加，无独立继承上限`, 'IN_BATTLE', 'RHINE_IFRIT_INHERITANCE', { atk_scale: r.ifritInheritance[grade] });
   if (key === 'astgenne') return garrison(id, `战斗中，首次开启技能时，使已激活的【莱茵生命】与【精准】各增加${r.astgenneFirstSkillLayers[grade]}层`, 'IN_BATTLE', 'RHINE_ASTGENNE_FIRST_SKILL', { layer: r.astgenneFirstSkillLayers[grade] }, { bond_ids: `${RHINE_BOND},preciShip` });
-  if (key === 'dorothy') return garrison(id, `已激活的【莱茵生命】每层科研为自身提供${r.dorothyAttackPerLayer[grade]}点固定攻击力，不消耗科研；与六人盟约共享攻击以固定值相加。陷阱不再提供科研，原生技能与梦想家保持不变`, 'IN_BATTLE', 'RHINE_DOROTHY_ATTACK', { atk_per_layer: r.dorothyAttackPerLayer[grade] });
+  // 麦哲伦：本体与原生无人机各拿一份 atk_per_layer，科研装置另拿一份 device_atk_per_layer。
+  // 同名取最高、各单位只加一次；六档共享不回流放大。
+  if (key === 'magallan') return garrison(id, `已激活的【莱茵生命】每层科研为本体与原生无人机各增加${r.magallanAttackPerLayer[grade]}点攻击力，并为本玩家科研装置额外增加${r.magallanDeviceAttackPerLayer[grade]}点攻击力。同名取最高，各单位只加一次；六档共享不回流放大，百分比真伤不受影响`, 'IN_BATTLE', 'RHINE_MAGALLAN_ATTACK', { atk_per_layer: r.magallanAttackPerLayer[grade], device_atk_per_layer: r.magallanDeviceAttackPerLayer[grade] });
   return garrison(id, `休整期结束时，每名实际在场的莱茵生命干员使莱茵生命增加${r.ptilopsisLayersPerMember[grade]}层科研；同名干员分别计数，调和的虚拟人数不计入`, 'SERVER_PREP_FIN', 'RHINE_RESEARCH_BY_MEMBER', { layer: r.ptilopsisLayersPerMember[grade] }, { conditionkey: 'character_target_inboard' });
 }
 
@@ -213,7 +217,15 @@ export function compileChess(ctx, config, spec, gold, index) {
     stats: mod ? composeStats(statsBase, mod.attr) : statsBase, immunities: immunitiesOf(attrs), rangeId: c.phases[status.phase].rangeId,
     rangeGrid: rangeGrid(ctx, c.phases[status.phase].rangeId), ...classify, trait: mod?.traitOverride || trait, skill,
     skills, talents: mod ? composeTalents(talentsBase, mod.talentChanges) : talentsBase,
-    tokens: spec.key === 'mayer' ? [TOKEN] : spec.key === 'dorothy' ? [DOROTHY_TOKEN] : [], module: mod ? { id: mod.uniEquipId, name: mod.name, type: mod.typeName, level: mod.level, active: true } : null,
+    // 麦哲伦（Rhine 2026-10-14 起替换多萝西）。她的三架原生无人机是**官方 token**：`build-data` 的 `buildTokens`
+    // 只为**默认技能**用到的 token 建记录，而无人机来自 S1/S2（非默认技能），所以这里把三个 id 显式列进 `c.tokens`，
+    // 让 `validateRhineData` 与「技能召唤物必须被列出」那条守卫都成立；`data/tokens.json` 由 `buildTokens` 在
+    // `tokenOwners` 里看到它们之后才建（`tokens: [...]` 这一格只是清单，不负责造记录）。
+    // 多萝西的共振装置已随换人下线。麦哲伦的三架原生无人机是**官方 token**（挂 S1/S2），由 `build-data` 末尾的
+    // 回填补建记录，这一格只是「这名干员能召唤哪些 token」的清单。
+    tokens: spec.key === 'mayer' ? [TOKEN]
+      : spec.key === 'magallan' ? ['token_10005_mgllan_drone1', 'token_10005_mgllan_drone2', 'token_10005_mgllan_drone3']
+      : [], module: mod ? { id: mod.uniEquipId, name: mod.name, type: mod.typeName, level: mod.level, active: true } : null,
     assets: { avatar: gold ? `${spec.charId}_2` : spec.charId, portrait: `${spec.charId}_${gold ? 2 : 1}`, spine: spec.charId, skillIcon: skill.iconId, subProfIcon: `sub_${c.subProfessionId}_icon` },
     ...(gold ? { statsBase, traitBase: clone(trait), talentsBase, modules } : {}),
     extension: { id: 'rhine-research', sourceRevision: ctx.source.revision, supportedSkills: skills.map(s => s.skillId) } };
@@ -457,13 +469,51 @@ export async function applyRhineData(files, source = null) {
       }
     }
   }
+
+  // 麦哲伦（Rhine 2026-10-14 起替换多萝西）：三架原生无人机是**官方 token**，但挂在 S1/S2（非默认技能）上，而
+  // `buildTokens` 只为默认技能收集 token（它跑在 `applyRhineData` 之前，那时麦哲伦还不在 chess 里）。所以这里
+  // 照梅尔那份的形状自己建：每个技能一档 `bySkill` 变体、`sources` 含 `skill`（有了它 `placeable` 才为真）。
+  for (const droneId of ['token_10005_mgllan_drone1', 'token_10005_mgllan_drone2', 'token_10005_mgllan_drone3']) {
+    const dt = ctx.charTable[droneId];
+    if (!dt) continue;
+    const downers = ['chess_rhine_magallan_a', 'chess_rhine_magallan_b'].filter((id) => chess[id]);
+    const dvariants = {};
+    for (const id of downers) {
+      const c = chess[id];
+      const opts = { ...c.status, potRank: (ctx.potRank ?? OPERATOR_POTENTIAL), label: id };
+      const mk = (extra = {}) => tokenVariant({ ...ctx, ac: {} }, droneId, dt, { ...opts, ...extra });
+      const base = mk({ skillIndex: c.skill.index });
+      const v = dvariants[id] = { ...base, count: null, sources: ['skill', 'display'], bySkill: {} };
+      for (const s of c.skills.filter((x) => !x.isDefault)) {
+        const alt = mk({ skillIndex: s.index });
+        v.bySkill[s.index] = { skill: alt.skill, count: null, sources: ['skill', 'display'] };
+      }
+      // 精锐形态还要给出「换模组 / 不装备模组」的档位（与梅尔那份同构）：每支模块一支，外加 none。
+      if (c.isGolden) {
+        v.byModule = {};
+        for (const m of [...c.modules.filter((x) => !x.isDefault), ...(c.module?.active ? [null] : [])]) {
+          const ph = m && ordinaryModulePhase(ctx, m.uniEquipId, m.level);
+          const mv = mk({ modulePhase: ph, moduleTokenParts: ph ? splitModuleParts(ph).token : [] });
+          v.byModule[m?.uniEquipId || 'none'] = { stats: mv.stats, immunities: mv.immunities, trait: mv.trait, talents: mv.talents };
+        }
+      }
+    }
+    const d0 = dvariants[downers[0]];
+    tokens[droneId] = { tokenId: droneId, kind: 'summon', name: dt.name, appellation: dt.appellation,
+      desc: dt.description, descRaw: dt.description, profession: 'TOKEN', subProfessionId: dt.subProfessionId,
+      position: 'ALL', displayType: 'DEFAULT', placeable: true, ownerRange: false,
+      owners: downers, stats: d0.stats, rangeGrid: d0.rangeGrid, dmgType: 'none', attackKind: 'melee',
+      projectile: 'none', canHitFly: false, skill: null, deployLimit: d0.stats.deployLimit,
+      count: d0.count, abnormal: [], variants: dvariants, assets: { avatar: droneId, spine: droneId } };
+  }
+
   const initial = variants[owners[0]];
   const otterDesc = `${t.description}；机械水獭不能接受干员治疗（包括塞雷娅及干员的治疗召唤物），可接受生命维持仪治疗`;
   tokens[TOKEN] = { tokenId: TOKEN, kind: 'summon', name: t.name, appellation: t.appellation, desc: otterDesc, descRaw: otterDesc,
     profession: 'TOKEN', subProfessionId: t.subProfessionId, position: 'MELEE', displayType: 'DEFAULT', placeable: true, ownerRange: false,
     owners, stats: initial.stats, rangeGrid: initial.rangeGrid, dmgType: 'phys', attackKind: 'melee', projectile: 'none', canHitFly: false,
     skill: null, deployLimit: initial.stats.deployLimit, count: initial.count, abnormal: [], variants, assets: { avatar: TOKEN, spine: TOKEN } };
-  tokens[DOROTHY_TOKEN] = compileDorothyToken(ctx, chess);
+  // 多萝西已被麦哲伦替换（Rhine 2026-10-14）：她的共振装置 token 不再构建。
   delete tokens.token_rhine_ecology;
   for (const d of RHINE_DEVICES) tokens[d.tokenId] = { tokenId: d.tokenId, kind: 'summon', name: d.name, appellation: d.name,
     desc: d.description, descRaw: d.description, profession: 'TOKEN', subProfessionId: 'notchar1', position: 'ALL', displayType: 'DEFAULT',
@@ -476,13 +526,21 @@ export async function applyRhineData(files, source = null) {
 
 export function validateRhineData({ chess, bonds, garrisons, tokens, config, items, effects }) {
   const errors = [], rhine = bonds[RHINE_BOND];
+  /**
+   * 麦哲伦（Rhine 2026-10-14 起替换多萝西）的三架原生无人机**来自官方表**：`build-data` 的 `buildTokens` 只为
+   * **默认技能**用到的 token 建记录，而无人机挂在 S1/S2 上 —— 它们不会进 `data/tokens.json`，但它们是合法的官方
+   * 召唤物，所以这一条校验要认得出它们，不当成「移植层漏建」。
+   */
+  const OFFICIAL_TOKENS = new Set(['token_10005_mgllan_drone1', 'token_10005_mgllan_drone2', 'token_10005_mgllan_drone3']);
   if (!rhine || rhine.visibleMembers.length !== 9) errors.push('Rhine must have exactly 9 visible normal members');
   for (const spec of RHINE_ADDITIONS) for (const suffix of ['a','b']) {
     const c = chess[`chess_rhine_${spec.key}_${suffix}`];
     if (!c || c.charId !== spec.charId || c.skills.length !== (['mayer','wuhoo','astgenne'].includes(spec.key) ? 2 : 3)
       || c.skill.skillId !== spec.skillId || c.skills.filter(s => s.isDefault).length !== 1) errors.push(`Rhine missing supported unit ${spec.key}_${suffix}`);
     if (c) for (const id of c.garrisonIds) if (!garrisons[id]) errors.push(`Rhine missing garrison ${id}`);
-    if (c) for (const id of c.tokens) if (!tokens[id]) errors.push(`Rhine missing token ${id}`);
+    // `c.tokens` 里除了移植层自己造的（机械水獭），还可能有**官方表里本来就有的** token（麦哲伦的三架无人机，
+    // 来自 S1/S2 这两个非默认技能）。后者不进 `rhineShip` 的移植记录，所以校验要认得出它们 —— 官方记录存在即可。
+    if (c) for (const id of c.tokens) if (!tokens[id] && !OFFICIAL_TOKENS.has(id)) errors.push(`Rhine missing token ${id}`);
   }
   for (const d of RHINE_DEVICES) if (tokens[d.tokenId]?.stats.atk !== RHINE_BALANCE.baseAttack) errors.push(`Rhine bad device attack ${d.tokenId}`);
   // The runtime-relevant half of the mode record: `inactiveBondIds` is the mode's ban list (`gamedata.js` reads it into
