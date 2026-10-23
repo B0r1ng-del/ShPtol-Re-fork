@@ -55,8 +55,10 @@ describe('三.2 整备阶段改技能', () => {
     const game = read('public/js/screens/game.js');
     const sync = read('public/js/ui/loadoutSync.js');
     // 客户端拿的就是 loadoutSync 的 setEntries，而不是自己发一条消息
-    assert.match(game, /import \{ loadoutStore, setEntries \} from '\.\.\/ui\/loadoutSync\.js'/, 'game.js 用 setEntries');
+    // （`prepLoadoutAllowed` 是同一模块导出的闸门判据，读服务端同一个落点；它不是第二条消息）
+    assert.match(game, /import \{[^}]*\bsetEntries\b[^}]*\} from '\.\.\/ui\/loadoutSync\.js'/, 'game.js 用 setEntries');
     assert.match(sync, /msgType: 'room\.loadout'/, 'loadoutSync 仍然只发 room.loadout');
+    assert.match(sync, /export function prepLoadoutAllowed\(\)/, '闸门判据也来自 loadoutSync');
     // 没有第二条「改技能」的消息类型
     for (const text of [game, sync]) assert.doesNotMatch(text, /'room\.setSkill'|'g\.setSkill'/);
   });
