@@ -1,4 +1,4 @@
-// server/http/wsLanes.js — the upgrade-path table a server answers with (DESIGN §34.44).
+// server/http/wsLanes.js — the upgrade-path table a server answers with (DESIGN §35.44).
 //
 // Why this exists: the server used to know exactly one WebSocket path. `/ws` and nothing else (server/http/
 // websocket.js refused every other upgrade with 404), because one game meant one protocol. A second, self-contained
@@ -14,7 +14,7 @@
 //
 // What this is NOT: it is not a way for a content pack to open a port or run its own server. Packs still get no
 // network, no timers and no child processes (shared/kitAuthoring.js). A lane is registered by the host process,
-// from code the operator installed — see DESIGN §34.44 for that boundary and §34.13.1 for why the dispatch hook
+// from code the operator installed — see DESIGN §35.44 for that boundary and §34.13.1 for why the dispatch hook
 // stays unable to change a battle.
 
 /** Longest lane path accepted (a path is a route, not a payload). */

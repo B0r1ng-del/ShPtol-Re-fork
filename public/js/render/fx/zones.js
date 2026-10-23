@@ -174,7 +174,6 @@ export class FxZones {
     else this.tileFlashes.push(record);
     // Ordinary hit flashes may churn rapidly; they must not evict a still-active research field.
     if (this.tileFlashes.filter(f => !f.steady).length > 12) this.tileFlashes.splice(this.tileFlashes.findIndex(f => !f.steady), 1);
-    return previous || record;
   }
 
   _updateTileFlashes(dt) {
@@ -193,10 +192,21 @@ export class FxZones {
       const k = f.t / f.dur;
       const a = f.steady ? .15 + .025 * Math.sin(f.t * 2)
         : (f.warn ? 0.35 + 0.35 * Math.abs(Math.sin(f.t * 7)) : 0.55 * (1 - k)) * (k > 0.85 ? (1 - k) / 0.15 : 1);
+      const wall = f.wall;
+      if (wall && (wall.owner.destroyed || wall.owner.alive === false || !wall.owner.statuses?.has('skill'))) continue;
+      if (!wall && f.t >= f.dur) continue;
+      const kw = wall ? 0 : f.t / f.dur;
+      const aw = (f.warn ? 0.35 + 0.35 * Math.abs(Math.sin(f.t * 7)) : 0.55 * (1 - kw)) * (kw > 0.85 ? (1 - kw) / 0.15 : 1);
       for (const [r, c] of f.tiles) {
         const z = (this.ctx.heightAt ? this.ctx.heightAt(r, c) : 0) + 0.015;
         const pts = [];
-        for (const [dx, dy] of [[-0.46, 0.46], [0.46, 0.46], [0.46, -0.46], [-0.46, -0.46]]) { cam.project(c + dx, r + dy, z, p); pts.push(p.x, p.y); }
+        // YuS3EffectWithEdgeBehaviour._offset = 0.4. [ASSUMED] In the 2D/off fallback a narrow
+        // ground strip represents the wall; width 0.16 keeps it inside the field's tile edges.
+        const horizontal = wall?.axis === 'row', off = wall ? (wall.dir === 'LEFT' || wall.dir === 'DOWN' ? -0.4 : 0.4) : 0;
+        const hx = wall ? (horizontal ? 0.5 : 0.08) : 0.46, hy = wall ? (horizontal ? 0.08 : 0.5) : 0.46;
+        for (const [dx, dy] of [[-hx, hy], [hx, hy], [hx, -hy], [-hx, -hy]]) {
+          cam.project(c + dx + (horizontal ? 0 : off), r + dy + (horizontal ? off : 0), z, p); pts.push(p.x, p.y);
+        }
         g.lineStyle(Math.max(1, p.s * 0.03), f.tint, Math.min(1, a * 1.6));
         g.beginFill(f.tint, a * 0.6);
         g.drawPolygon(pts);

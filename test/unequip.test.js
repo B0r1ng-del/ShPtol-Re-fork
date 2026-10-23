@@ -1,4 +1,4 @@
-// 行为开关 `unequip` + 意图 `g.unequip`（DESIGN §34.43.1，投稿 `79de9ff03518`「装备拆卸mod」）。
+// 行为开关 `unequip` + 意图 `g.unequip`（DESIGN §35.43.1，投稿 `79de9ff03518`「装备拆卸mod」）。
 //
 // 投稿把它做成了**安装器**（`files.json.copy` 整份覆盖 `shared/protocol.js`、`server/match/match/intents.js`、
 // `server/match/player/items.js` 与六个客户端文件，并自加 `g.unequip {itemUid}` 意图 + `PlayerState.unequip()`）。

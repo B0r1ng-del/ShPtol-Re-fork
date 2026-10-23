@@ -430,6 +430,86 @@ H.SERVER_FRONT_SAME_EFFECT_PREP_START = {
 };
 
 
+// ---------------------------------------------------------------------------------------------
+// 自定义特质（tools/custom-content.mjs 注入，2026-10-12 乌萨斯扩展第二批）。effectKey = 自定义段
+// act2autochess_gar_eff_986/987（blackboard valueStr）。与官方 SERVER_ADD_BOND_POSITION 的区别：文案无限定
+// 「已激活」（鸿雪 986「所属盟约层数」）→ requireActive:false；烈夏 987（2026-10-18 用户修订）：获得时固定给
+// count 个【乌萨斯军粮】，每名额小概率（bbStr.prob）改为【冰原咆哮】（gainLetoItems）。
+H['act2autochess_gar_eff_986_a'] = {
+  run(ctx) { positionLayers(ctx, num(ctx.source.bb.count, 4)); },
+};
+H['act2autochess_gar_eff_986_b'] = {
+  run(ctx) { positionLayers(ctx, num(ctx.source.bb.count, 8)); },
+};
+H['act2autochess_gar_eff_987_a'] = {
+  run(ctx) { gainLetoItems(ctx, num(ctx.source.bb.count, 1), ctx.source.bbStr ?? {}); },
+};
+H['act2autochess_gar_eff_987_b'] = {
+  run(ctx) { gainLetoItems(ctx, num(ctx.source.bb.count, 2), ctx.source.bbStr ?? {}); },
+};
+// 2026-10-13 【东】扩展批次（990/991）。990 白雪 2026-10-17 用户修订：
+// 「已激活的层数最高的盟约」→「自身所属盟约」（不挑层数最高、不要求已激活），+3/6→+4/8 → ownLayers。
+// 991 2026-10-17 用户修订：吉星下线、编号改绑松桐 —— 「<休整期结束时>使已激活的【东】【远见】层数+4/8」（2026-10-19 三修：原 +5/10）
+// （原「<获得干员时>自身所属盟约+6/12」）。与官方 garrison_69 同义，故按 bbStr.bond 列举 + requireActive。
+H['act2autochess_gar_eff_990_a'] = {
+  run(ctx) { ownLayers(ctx, num(ctx.source.bb.count, 4)); },
+};
+H['act2autochess_gar_eff_990_b'] = {
+  run(ctx) { ownLayers(ctx, num(ctx.source.bb.count, 8)); },
+};
+H['act2autochess_gar_eff_991_a'] = {
+  run(ctx) { bondListLayers(ctx, num(ctx.source.bb.count, 4)); },
+};
+H['act2autochess_gar_eff_991_b'] = {
+  run(ctx) { bondListLayers(ctx, num(ctx.source.bb.count, 8)); },
+};
+// 2026-10-18 用户修订：赫拉格 982「老将刀意」→ <休整期开始时>使已激活的【乌萨斯】【远见】盟约层数+8/16
+// （战斗侧击杀叠层下线，kit 里的 kill 监听已移除；无位置条件——文案未限定在场，整备区也触发）。
+H['act2autochess_gar_eff_982_a'] = {
+  run(ctx) { bondListLayers(ctx, num(ctx.source.bb.count, 6)); },  // 2026-10-19: fallback 对齐用户口径 6/12
+};
+H['act2autochess_gar_eff_982_b'] = {
+  run(ctx) { bondListLayers(ctx, num(ctx.source.bb.count, 12)); },
+};
+
+/** 自定义 991（松桐）：bbStr.bond 列出的盟约 +N，**只加已激活的**（2026-10-17 用户口径）。 */
+function bondListLayers(ctx, count) {
+  if (!(count > 0)) return;
+  for (const b of ids(ctx.source.bbStr.bond)) ctx.addLayers(b, count, { requireActive: true });
+}
+
+/** 自定义 990（白雪）：自身所属盟约全部 +N（未激活也加，鸿雪 986 同口径）。 */
+function ownLayers(ctx, count) {
+  if (!(count > 0)) return;
+  for (const b of metaBonds(ctx, ctx.source.piece)) ctx.addLayers(b, count, { requireActive: false });
+}
+
+
+
+/** 自定义 986（鸿雪）：自身和身前干员的所属盟约层数 +N（未激活也加；身前无干员则只有自身）。
+ *  2026-10-16 用户修订：付与对象由「身后一格」改为「身前一格」（behindPiece → frontPiece）。 */
+function positionLayers(ctx, count) {
+  const me = selfView(ctx);
+  if (!onBoard(me) || !(count > 0)) return;
+  const other = frontPiece(ctx, me);
+  const targets = [me];
+  if (other && other.kind === 'chess' && other.uid !== me.uid) targets.push(other);
+  for (const t of targets) for (const b of metaBonds(ctx, t)) ctx.addLayers(b, count, { requireActive: false });
+}
+
+/** 自定义 987（烈夏）：获得时给玩家 count 个【乌萨斯军粮】（chess_item_9_03_e_a），每个名额以 bbStr.prob
+ *  （15% [ASSUMED]）改为【冰原咆哮】（chess_item_9_04_e_a）。投资人按 dispatcher 既有规则重复。
+ *  直接 grantItem 固定 id（不再走 rollItem 随机池——2026-10-18 用户修订，随机池与排除名单随之退役）。 */
+function gainLetoItems(ctx, count, bbStr) {
+  const item = (bbStr && bbStr.item) || 'chess_item_9_03_e_a';
+  const rare = (bbStr && bbStr.rare) || 'chess_item_9_04_e_a';
+  const prob = Math.max(0, Math.min(1, parseFloat(bbStr && bbStr.prob) || 0));
+  for (let i = 0; i < Math.min(10, count); i++) {
+    const id = (prob > 0 && ctx.rng && ctx.rng() < prob) ? rare : item;
+    ctx.grantItem(id);
+  }
+}
+
 /** effectKey → handler (the registered objects). */
 export const HANDLERS = Object.freeze(H);
 

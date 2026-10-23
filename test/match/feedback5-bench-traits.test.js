@@ -82,7 +82,12 @@ test('official data: a 进入休整期时 / 休整期结束时 / 刷新时 特�
   for (const g of Object.values(DATA.garrisons)) {
     if (!PREP.has(g.eventType)) continue;
     const key = g.bbStr && g.bbStr.conditionkey;
-    if (/整备区时也有效|整备区也有效/.test(g.desc)) {
+    // 二.3: 赫拉格's 982 (老将刀意) fires at 休整期开始, names no board position and carries no condition key — it is
+    // a bench trait even though its text does not repeat 「整备区时也有效」. Listed by id (the archive of what the code does),
+    // not by a widened heuristic: 86 / rhine_copy_start also fire at prep start yet keep their own keys.
+    const isBench = /整备区时也有效|整备区也有效/.test(g.desc)
+      || g.garrisonId === 'garrison_982_a' || g.garrisonId === 'garrison_982_b';
+    if (isBench) {
       assert.equal(key, undefined, `${g.garrisonId}: a bench trait carries no condition key`);
       bench.push(g.garrisonId);
     } else if (!/^身前一格干员若为/.test(g.desc)) {
@@ -92,7 +97,9 @@ test('official data: a 进入休整期时 / 休整期结束时 / 刷新时 特�
     }
   }
   // 拉普兰德 123, 调香师 81, 波登可 102, 琳琅诗怀雅 98 (若已激活【炎】/【投资人】) — normal and elite records
-  assert.deepEqual(bench.sort(), ['garrison_102_a', 'garrison_102_b', 'garrison_123_a', 'garrison_123_b', 'garrison_81_a', 'garrison_81_b', 'garrison_98_a', 'garrison_98_b']);
+  assert.deepEqual(bench.sort(), ['garrison_102_a', 'garrison_102_b', 'garrison_123_a', 'garrison_123_b', 'garrison_81_a', 'garrison_81_b', 'garrison_98_a', 'garrison_98_b',
+    // 二.3 东国/乌萨斯: 赫拉格's 982 (休整期开始, no position)
+    'garrison_982_a', 'garrison_982_b'].sort());
   for (const id of ['garrison_80_a', 'garrison_80_b']) {
     const g = DATA.garrisons[id];
     assert.equal(g.bbStr.conditionkey, 'character_target_inboard', `${id} (赫默): deployed only`);

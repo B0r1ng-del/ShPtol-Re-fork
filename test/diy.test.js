@@ -41,19 +41,18 @@ test('slots: five per tier (5, 6), each with its elite twin', () => {
   assert.equal(diyTokenOwner(SIEGE, chess.chess_char_6_diy1_b.status), 'char_112_siege@2/60/7/3');
 });
 
-test('diyPool: tier 5 = 15 prototypes + 72 owned 6★, tier 6 = 9 + 72; no preset, no collab; with the kit registry only kitted operators', () => {
+test('diyPool: tier 5 = 73, tier 6 = 67 (prototypes + owned 6★); no preset, no collab; with the kit registry only kitted operators', () => {
   const p5 = diyPool(5, { data: DATA }), p6 = diyPool(6, { data: DATA });
   assert.deepEqual(p5, [...RESERVES5, ...ELITES, ...ownedPool]);
   assert.deepEqual(p6, [...ELITES, ...ownedPool]);
-  assert.deepEqual([p5.length, p6.length], [87, 81]);
-  // A pick is a 6★ outside the CHESS pool. A ported expansion may give a 6★ pick a chess record too (六.F's 伊芙利特 /
-  // 森蚺 / 多萝西, 八's 维什戴尔 / 赫德雷 / Logos) — the two are separate selectors (a pick fields the operator's own kit
-  // by charId, the chess is what the shop draws), so the overlap is LEGAL exactly when the chess record is ported
-  // content (it carries a `packId`). Derived, never a list of names.
+  assert.deepEqual([p5.length, p6.length], [73, 67]);
+  // ★ 需求方 2026-10-23：**已经是棋手**的干员不再进自选池。从前这里是「重叠合法，只要棋手记录有 packId」，
+  //   理由是「自选按 charId 用干员自己的 kit、棋手是商店抽的卡，两套选择器互不相干」。业主认为那会让同一个干员在
+  //   两处各占一份拷贝、局内卡池的刷新概率因此异常，于是改成：`diy.ownedPool` 由 `tools/fork-overrides.mjs` 的
+  //   `ownedPoolOf` 剔掉所有已是棋手的 charId。这条断言现在钉的是**不重叠**。
   const roster = new Map(Object.values(chess).filter((c) => c.charId).map((c) => [c.charId, c]));
   for (const id of p5) {
-    const rec = roster.get(id);
-    assert.ok(!rec || rec.packId, `${id}: only ported content may be both a pick and a chess`);
+    assert.ok(!roster.has(id), `${id}: an operator that is already a chess is never a 自选 pick`);
     assert.ok(!COLLAB.includes(id), id);
   }
   assert.deepEqual(diyPool(4, { data: DATA }), [], 'no 自选 slot at tier 4');
@@ -62,7 +61,10 @@ test('diyPool: tier 5 = 15 prototypes + 72 owned 6★, tier 6 = 9 + 72; no prese
   assert.deepEqual(GENERIC_KIT_CHARS.filter((id) => prototypes['5'].includes(id)), RESERVES5);
   for (const id of ELITES) assert.equal(typeof STANDIN_KITS[id], 'function', `${id}: stand-in kit`);
   const ops = ownedPool.filter((id) => typeof OPERATOR_KITS[id] === 'function');
-  assert.deepEqual([...ops].sort(), Object.keys(OPERATOR_KITS).sort(), 'every operator kit is an owned-6★ pick');
+  // 2026-10-23: the 8 ported operators that are chess records left the pick pool, so the kit registry is now a SUPERSET of
+  // the owned-6★ picks — their kit files stay (they are fielded as chess). Assert the containment that still holds.
+  assert.deepEqual([...ops].sort(), Object.keys(OPERATOR_KITS).filter((id) => ownedPool.includes(id)).sort(),
+    'every own-6★ pick with an operator kit is offered');
   assert.deepEqual(diyPool(5, { data: DATA, kitted: KITTED_CHARS }), [...RESERVES5, ...ELITES, ...ops]);
   assert.deepEqual(diyPool(6, { data: DATA, kitted: KITTED_CHARS }), [...ELITES, ...ops]);
   assert.deepEqual(diyPool(6, { data: DATA, kitted: (id) => id === SIEGE }), [SIEGE], 'a predicate works too');
@@ -120,7 +122,12 @@ test('checkDiyPick: an owned 6★ chooses any of its 3 skills and any module of 
 test('validateDiyPicks: a roster never carries a module of another game mode — 集成战略 ISW-A / SO-A / SO-B, 生息演算 RA-A [ASSUMED, the owner\'s decision of 2026-10-05 for ISW-A]; the record still composes it', () => {
   const backups = DATA.backups;
   const refused = new Set();
-  for (const charId of backups.diy.ownedPool) {
+  // 遍历自选池本身：内容包棋手从 2026-10-23 起不再进池（`checkDiyPick` 会按「不在池里」拒绝它们 —— 那是**另一条**
+  // 规则，不归本条管）。但森蚺（莱茵生命，RA-A 样本）也因此出池，所以她的那条在循环外单独验：本测要证明的是
+  // 「模式专属模组被拒」，与谁在池里无关。
+  const diyPoolIds = new Set(backups.diy.ownedPool);
+  for (const charId of diyPoolIds) {
+    if (!backups.units[charId]?.forms) continue;
     for (const [slot, key] of [[T5, '2/60/7/1'], [T6, '2/60/7/3']]) {
       for (const mod of backups.units[charId].forms[key]?.modules ?? []) {
         const pick = { charId, skillIndex: 0, uniEquipId: mod.uniEquipId };
@@ -133,6 +140,17 @@ test('validateDiyPicks: a roster never carries a module of another game mode —
         } else assert.ok(v.ok, `${charId} ${mod.uniEquipId}: ${v.detail}`);
       }
     }
+  }
+  // 森蚺的 RA-A（她 2026-10-23 起不在自选池里，但这条判据对她一字不改）：直接对**她的记录**跑同一条校验。
+  // 她是 tier 5 的干员，所以用 5 阶槽位；此时 `validateDiyPicks` 先按「不在池里」拒绝 —— 那个拒绝本身就说明她进不了
+  // 自选，模式专属模组那条判据不会因为换个入口就放行。
+  for (const mod of backups.units['char_416_zumama'].forms['2/60/7/3'].modules ?? []) {
+    if (!/^RA-/.test(mod.typeName)) continue;
+    const v = validateDiyPicks({ [T5]: { charId: 'char_416_zumama', skillIndex: 0, uniEquipId: mod.uniEquipId } }, { data: DATA });
+    // `validateDiyPicks` 返回 `{ok, picks, detail}` 或 `{error, detail}` —— 被拒时没有 `ok === true`。
+    assert.notEqual(v.ok, true, 'a pick outside the pool is refused');
+    assert.equal(isDiyModule(mod), false, 'RA-A is never a 自选 module');
+    refused.add(`${mod.typeName} ${mod.uniEquipId}`);
   }
   // 凯尔希, 傀影, 菲亚梅塔, 提丰, 艾丽妮, 霍尔海雅 (ISW-A); 电弧 SO-A / SO-B, 机械师 SO-A; 森蚺 RA-A
   assert.deepEqual([...refused].map((x) => x.split(' ')[0]).sort(), ['ISW-A', 'ISW-A', 'ISW-A', 'ISW-A', 'ISW-A', 'ISW-A', 'RA-A', 'SO-A', 'SO-A', 'SO-B']);

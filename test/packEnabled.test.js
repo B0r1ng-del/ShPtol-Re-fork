@@ -1,4 +1,4 @@
-// test/packEnabled.test.js — 包的启用声明（DESIGN §34.50）：`pack.json.enabled` + `shared/enabled.js`。
+// test/packEnabled.test.js — 包的启用声明（DESIGN §35.50）：`pack.json.enabled` + `shared/enabled.js`。
 //
 // 这一刀补的缺口：**装好 ≠ 生效**。`loadWorkshop` 今天读 `workshop/` 下每个目录，只要校验得过、有贡献项，
 // 这个包就参与装载。于是「先留着、但现在不要它生效」没有表达方式 —— 只能删目录，而删目录与停用是两件事
@@ -9,8 +9,8 @@
 // 两个布尔，失败分支在真表下全部可达，所以每一条都被真路径走一遍。
 //
 // 来源：上游 PR#8（作者 jingjiangze）的 `shared/enabled.js` + 本文件，按内容并进本仓库；上游把这一格编到
-// **§34.46**，而本仓库的 §34.46 已经是 `pack.json.target`（§34.46–§34.49 已占用），所以本节按**下一个空号**
-// 落成 **§34.50**，正文与断言逐条对齐后随本刀一起落。
+// **§35.46**，而本仓库的 §35.46 已经是 `pack.json.target`（§35.46–§35.49 已占用），所以本节按**下一个空号**
+// 落成 **§35.50**，正文与断言逐条对齐后随本刀一起落。
 //
 // Run: node --test test/packEnabled.test.js
 import { describe, test, before, after } from 'node:test';
@@ -156,7 +156,7 @@ describe('第四层：`enabled` 不是贡献项，也不是热更新', () => {
   });
 
   test('`true` 不进归一化清单，`false` 进（唯一真正改变行为的取值必须进身份）', () => {
-    // 这一条是 §34.50 判据 2 的落点，也是本刀与 `variants` 唯一的不同：`identifyPack` 哈希
+    // 这一条是 §35.50 判据 2 的落点，也是本刀与 `variants` 唯一的不同：`identifyPack` 哈希
     // `canonicalJson(pack)`，所以 `true` 若进清单就会换掉包身份，而它做的事与没写一字不差。
     const on = normalizePackManifest({ id: 'd', name: 'D', license: 'MIT', content: ['chess'], enabled: true }, 'd', {});
     const off = normalizePackManifest({ id: 'd', name: 'D', license: 'MIT', content: ['chess'], enabled: false }, 'd', {});

@@ -14,7 +14,7 @@ let schedSeq = 0;
 
 export class BattleHooks {
   // =============================================================================================================
-  // 调用预算（`pack.json.callBudget`, DESIGN §34.52）
+  // 调用预算（`pack.json.callBudget`, DESIGN §35.52）
 
   /**
    * 当前正在跑的是哪个包的 install(battle)（`installContent` 在调用它之前压、之后弹）。
@@ -53,7 +53,7 @@ export class BattleHooks {
   /**
    * 花掉一次预算。返回 false = **这次不许跑**（预算耗尽），调用方必须跳过这次回调。
    *
-   * 记账规则（DESIGN §34.52）：`max` 是可用次数 —— 第 `max` 次仍放行，第 `max + 1` 次不放行并触发回滚。
+   * 记账规则（DESIGN §35.52）：`max` 是可用次数 —— 第 `max` 次仍放行，第 `max + 1` 次不放行并触发回滚。
    * 计数按插件聚合：它的 hook、它排的计时器、它标的 buff 的 `onTick` / `onExpire` 记在同一本账上。
    * @param {{ max: number, owner: string, id: string }} scope
    * @returns {boolean}
@@ -175,7 +175,7 @@ export class BattleHooks {
     try {
       for (const h of arr) {
         if (h.removed) continue;
-        // 调用预算（`pack.json.callBudget`, DESIGN §34.52）：一个包的 hook 每被调一次就花掉一次预算。
+        // 调用预算（`pack.json.callBudget`, DESIGN §35.52）：一个包的 hook 每被调一次就花掉一次预算。
         // 没有 `pack` 章的就是第一方内容（它们不记账，行为与从前逐字节相同）。
         // ★ 回调本身也在**包的作用域**里跑：包在 install 里往往只注册回调，真正的 buff 是第一个 tick 才标的 ——
         //   不在作用域里跑，它标的 buff 就没有包章，回滚时撤不掉（撤了 hook 却留下 buff，等于只回滚了一半）。
@@ -247,7 +247,7 @@ export class BattleHooks {
     due.sort((a, b) => a.due - b.due || a.seq - b.seq);
     for (const s of due) {
       if (s.cancelled) continue;
-      // 调用预算：包排的计时器每响一次也花一次（与它的 hook 记在同一本账上，DESIGN §34.52）
+      // 调用预算：包排的计时器每响一次也花一次（与它的 hook 记在同一本账上，DESIGN §35.52）
       if (s.pack) {
         const p = this._packBudgetOf(s.pack);
         if (p && !this._spendCall(p)) { s.cancelled = true; continue; }

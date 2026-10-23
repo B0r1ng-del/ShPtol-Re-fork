@@ -1,5 +1,5 @@
 // shared/morph.js — 变形同构体（`data/items.json` 里 `canGiveBond: true` 的那件装备）的**配对规则**，一份判据三处用
-// （DESIGN §34.43.1 第三格，行为开关 `morphPairing`；投稿 `19ea65909cf6`）。
+// （DESIGN §35.43.1 第三格，行为开关 `morphPairing`；投稿 `19ea65909cf6`）。
 //
 // 官方规则（band 变形者集群「与特定装备一同装备时装备者将视为特定盟约成员」；装备天赋 character_table
 // trap_1073_acarm073 列出 14 条配对）在**本引擎今天**的实现里被读成两条：
@@ -24,6 +24,8 @@
 //   * `plus` ⇒ `PLUS_SLOT_POLICY`：变形同构体不占位、每名干员最多一件、顶替只挑真正占格的那一件。
 //
 // 这一份是**纯**的（`shared/` 的纪律）：没有 `process`、没有状态、没有文件系统，服务端与浏览器读到同一个判决。
+
+import { ruleOption } from './plugins/rules.js';
 
 /**
  * 行为开关 `morphPairing` 的档位名。
@@ -117,7 +119,7 @@ export function morphCarrierIndexes(recs) {
   return out;
 }
 
-// ---- 特质授予盟约（`trait.grantsBonds`，DESIGN §34.49）----------------------------------------------------------
+// ---- 特质授予盟约（`trait.grantsBonds`，DESIGN §35.49）----------------------------------------------------------
 //
 // 业主原话：「我们的 forge 能不能做出游戏内的『特质』效果，即一般是用来**叠加盟约层数**的固有天赋」。这一节就是
 // 那条路的**纯数据声明面**：一条 chess 记录写 `trait.grantsBonds: ["<bondId>", …]` ⇔「带这条特质的棋子视为那些
@@ -382,9 +384,16 @@ export function morphSlotPolicy(decl) {
  * 没有 `behaviour`（测试里手搓的 Match、旧调用方）⇒ 缺省档。它只读一个属性，不缓存：一次 `Array.find` 而已，
  * 而缓存在 `PlayerState.prototype` 那种混入结构上会变成两个模块争同一个 getter 的名字（`PlayerState.js` 对重复键
  * **直接抛**），不值得。
- * @param {{ behaviour?: Array<{ switch?: string, option?: string }>|null }|null|undefined} m
+ * @param {{ behaviour?: Array<{ switch?: string, option?: string }>|null, rules?: Record<string, string>|null }|null|undefined} m
  * @returns {Readonly<MorphSlotPolicy>}
  */
 export function matchSlotPolicy(m) {
+  // 两条通道：（upstream 插件规则开关）优先，缺省回退到 （工坊 behaviour 声明）。
+  // 判据本体仍只有  一份 —— 这里只决定「问哪一条通道」。
+  if (m && m.rules) {
+    const opt = ruleOption(m.rules, 'morphPairing');
+    if (opt === 'plus') return PLUS_SLOT_POLICY;
+    if (opt === 'official') return OFFICIAL_SLOT_POLICY;
+  }
   return morphSlotPolicy(m && m.behaviour);
 }

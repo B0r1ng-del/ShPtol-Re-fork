@@ -105,14 +105,18 @@ export class SharedPool {
    * Remaining copies of eligible chess (tier ≤ maxTier, or exactly `tier`): the pool's entries, then `extra` ([id, entry]
    * pairs of the same shape — a player's 自选 stock) under the same filters.
    */
-  _eligible({ maxTier = 6, tier = null, filter = null, extra = null, ignoreCounts = false } = {}) {
+  _eligible({ maxTier = 6, tier = null, filter = null, extra = null, ignoreCounts = false, weight = null } = {}) {
     const out = [];
     const scan = (list) => {
       for (const [id, e] of list) {
         if (!ignoreCounts && e.left <= 0) continue;
         if (tier != null ? e.tier !== tier : e.tier > maxTier) continue;
         if (filter && !filter(id, e)) continue;
-        out.push([id, ignoreCounts ? 1 : e.left]);
+        const base = ignoreCounts ? 1 : e.left;
+        // `weight` 放大/缩小个别候选的出现率（定向甄选：最高层盟约的干员各 ×1.2）。返回非法值 ⇒ 按 1 算，
+        // 于是没传 weight 的调用者（绝大多数）抽签序列与从前逐字节相同。
+        const w = weight ? Number(weight(id, e)) : 1;
+        out.push([id, base * (Number.isFinite(w) && w > 0 ? w : 1)]);
       }
     };
     scan(this.entries);
@@ -124,7 +128,7 @@ export class SharedPool {
    * Copy-weighted roll: one copy uniformly among remaining copies of eligible chess. Returns a base id or null.
    * @param {Function} rng
    * @param {{ maxTier?: number, tier?: number|null, filter?: (id: string, e: object) => boolean,
-   *   extra?: Iterable<[string, { left: number, tier: number }]>|null }} [opts]
+   *   extra?: Iterable<[string, { left: number, tier: number }]>|null, weight?: ((id: string, e: object) => number)|null }} [opts]
    */
   roll(rng, opts = {}) {
     const el = this._eligible(opts);
@@ -153,6 +157,9 @@ export class SharedPool {
   /**
    * Item roll for the shop's item slot: tier by the chess tier shares at this level, uniform item within the tier,
    * falling back to lower tiers when a tier has no item. Returns an item id or null.
+   * `bias` (shopBias bondBias): a Set of active bond ids. A tier is drawn from items whose giveBondId is in that set
+   * when any remain after the stock gate; an empty filtered tier falls back to the official list of that tier.
+   * null or an empty Set keeps today's rng (one draw for the tier, one for the pick). Bias never grants an item.
    */
   rollItem(rng, maxTier, stock = null, bias = null) {
     const shares = this.tierShares(maxTier);
@@ -165,18 +172,26 @@ export class SharedPool {
     } else {
       tier = 1 + Math.floor(rng() * Math.max(1, maxTier));
     }
-    // 工坊 mod 层移植 (behaviour `shopBias: bondBias`): the item slot PREFERS items whose `giveBondId` is one of the
-    // player's ACTIVE bonds. Bias only — the tier still comes from the same `tierShares` draw above, and a tier with
-    // no such item falls through to the official list below, so the slot is never left empty and nothing is ever
-    // granted (the bias never hands out a bond). `bias == null` ⇒ the official roll, byte for byte.
-    const prefer = (list) => (bias && list.some(bias) ? list.filter(bias) : list);
+    const useBias = bias instanceof Set && bias.size > 0;
+    const gated = (t) => (this.gd.shopItemsByTier[t] || []).filter((id) => !stock || stock.canGain(id));
+    const pick = (list) => (stock ? stock.pick(rng, list) : list[Math.floor(rng() * list.length)]);
+    const choose = (t) => {
+      const list = gated(t);
+      if (!list.length) return null;
+      if (!useBias) return pick(list);
+      const biased = list.filter((id) => {
+        const rec = this.gd.item(id);
+        return !!(rec && typeof rec.giveBondId === 'string' && bias.has(rec.giveBondId));
+      });
+      return pick(biased.length ? biased : list);
+    };
     for (let t = tier; t >= 1; t--) {
-      const list = prefer((this.gd.shopItemsByTier[t] || []).filter(id => !stock || stock.canGain(id)));
-      if (list.length) return stock ? stock.pick(rng, list) : list[Math.floor(rng() * list.length)];
+      const id = choose(t);
+      if (id) return id;
     }
     for (let t = tier + 1; t <= 6; t++) {
-      const list = prefer((this.gd.shopItemsByTier[t] || []).filter(id => !stock || stock.canGain(id)));
-      if (list.length) return stock ? stock.pick(rng, list) : list[Math.floor(rng() * list.length)];
+      const id = choose(t);
+      if (id) return id;
     }
     return null;
   }

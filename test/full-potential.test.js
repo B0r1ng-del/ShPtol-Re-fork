@@ -98,15 +98,16 @@ test('every chess, 自选 form and stand-in form: the raw keyframes plus every p
     n++;
     if (Object.keys(steps(c.charId)).length) withSteps++;
   }
-  // 258 official + the two ported packExtra6 operators (内容包 六.C), the six ported packRhine ones (六.F) and the
-  // eighteen 卡兹戴尔 / 雷姆必拓 records (八 / 九), each a base/elite pair
-  assert.equal(n, 304);
+  // 258 official + the two ported packExtra6 operators (内容包 六.C), the six ported packRhine ones (六.F), the
+  // eighteen 卡兹戴尔 / 雷姆必拓 records (八 / 九) and 二.3's 26 东国/乌萨斯 records, each a base/elite pair
+  assert.equal(n, 330);
   assert.ok(withSteps >= 220, `chess with potential steps: ${withSteps}`);
   let forms = 0;
   for (const [charId, u] of Object.entries(backups.units)) {
     for (const f of Object.values(u.forms)) { check(`${charId}@${f.status.phase}/${f.status.level}`, charId, f.status, f.stats); forms++; }
   }
-  assert.equal(forms, 259);
+  // 二.3 东国/乌萨斯: the 13 injected operators bring their own unit forms (+10 over the pre-merge 259).
+  assert.equal(forms, 267);
   // the 原型干员 stand-ins have no potential ranks: their numbers are the plain keyframes
   for (const id of ['char_600_cpione', 'char_602_cdfend', 'char_608_acpion', 'char_617_sharp2']) assert.equal((CT[id].potentialRanks || []).length, 0, id);
 });

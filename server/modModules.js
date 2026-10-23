@@ -19,7 +19,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-// 包声明的 WebSocket lane（DESIGN §34.56）：认领路径是**同步**的，挂处理器是 import 之后的事。
+// 包声明的 WebSocket lane（DESIGN §35.56）：认领路径是**同步**的，挂处理器是 import 之后的事。
 import { claimPackLane, attachPackLaneHandler } from './modLanes.js';
 
 import { SERVER_MODULE_USES } from '../shared/workshop.js';
@@ -135,7 +135,7 @@ function ioFacade(dir) {
  * 而作者看到的是「没生效」；带码的异常会直接说出「你没在 uses 里声明它」。
  */
 export function moduleHost({ packId, moduleId, hash, dir, uses, write, stateRoot, log = noopLog, registry = null, matchKinds = null }) {
-  // 种类声明交出去之前先冻成只读数据（DESIGN §34.54）：包拿到的是**值**，不是指向归一化清单的可变句柄 ——
+  // 种类声明交出去之前先冻成只读数据（DESIGN §35.54）：包拿到的是**值**，不是指向归一化清单的可变句柄 ——
   // 那份清单是 `identifyPack` 摘要的输入，能被就地改写就等于摘要能被改。
   const matchKindsValue = Object.freeze((Array.isArray(matchKinds) ? matchKinds : [])
     .map((kind) => Object.freeze({
@@ -203,7 +203,7 @@ export function moduleHost({ packId, moduleId, hash, dir, uses, write, stateRoot
     /** 用一层包装器包住 `MatchClass`（`fn(Base) => Subclass`）；只有这一项要求包声明 `combat: true`。 */
     matchClass: mount('matchClass'),
     /**
-     * 这个包声明的**对局种类**（DESIGN §34.54）：一份冻结的只读数据，不是分派器。管理器**不认玩法名** ——
+     * 这个包声明的**对局种类**（DESIGN §35.54）：一份冻结的只读数据，不是分派器。管理器**不认玩法名** ——
      * 判定住在包装器自己的构造里（能用的信号只有房间那侧的包集合与开局后的包通道），命中才换实现，
      * 否则**必须原样把 Base 交回**：`MatchClass` 是进程级一次性的包装（`server/index.js`），
      * 换错了类就是把**所有**房间一起换掉。没声明 `matchClass` 就抛 —— 与 `io` / `metrics` 同一条「没声明就没有能力」。
@@ -219,7 +219,7 @@ export function moduleHost({ packId, moduleId, hash, dir, uses, write, stateRoot
     /** 一条只读动态端点：`route(path, fn, { cache? }?)`，路径必须在 `/mod/<包id>/…` 里。 */
     route,
     /**
-     * 一条包自己的 WebSocket lane（DESIGN §34.56）：`host.lane(onUpgrade)`，签名与宿主的 lane 表逐字相同
+     * 一条包自己的 WebSocket lane（DESIGN §35.56）：`host.lane(onUpgrade)`，签名与宿主的 lane 表逐字相同
      * —— `onUpgrade(req, socket, head, ctx)`，`ctx` 里除了宿主的 `reject` / `log` 再多给一个 `lane`（这条行的
      * `{ id, path, summary }`，用于日志与自我标识）。**这条通道由宿主拥有并升级**：包拿不到监听套接字、拿不到
      * 新端口，也不因为挂了一条 lane 就获得定时器 —— 「包不能自己开口」这条结构性保证一个字没改，
@@ -371,9 +371,9 @@ export async function loadServerModules(loaded, { log = noopLog, stateRoot = nul
         log.warn?.(`[workshop] ${sourceIssues[0].code}: ${pack.id}/${mod.id}: ${sourceIssues[0].reason}`);
         continue;
       }
-      // lane 的**路径在这里认领**（DESIGN §34.56），不是等模块 import 完 —— 宿主在 `attachWebSocket` 那一刻
+      // lane 的**路径在这里认领**（DESIGN §35.56），不是等模块 import 完 —— 宿主在 `attachWebSocket` 那一刻
       // 快照那张表（我方 `server/index.js:432`），晚一步声明的路径就会变成「包合法、表里却没有这一行」的哑格子。
-      // 坏配置整包拒并点名，照 §34.44 那句「一条安静地从不应答的 lane 比没有 boot 更糟」。
+      // 坏配置整包拒并点名，照 §35.44 那句「一条安静地从不应答的 lane 比没有 boot 更糟」。
       if (mod.uses.includes('lane')) {
         const claimed = claimPackLane({
           packId: pack.id, moduleId: mod.id,
@@ -403,7 +403,7 @@ export async function loadServerModules(loaded, { log = noopLog, stateRoot = nul
       const host = moduleHost({
         packId: pack.id, moduleId: mod.id, hash: pack.hash, dir: pack.dir,
         uses: mod.uses, write: mod.write, stateRoot, log,
-        // 种类声明按包交给模块（DESIGN §34.54）：包装器用它判「这一局是不是我的」，管理器不猜。
+        // 种类声明按包交给模块（DESIGN §35.54）：包装器用它判「这一局是不是我的」，管理器不猜。
         // 包没声明时交 `null`，由 `moduleHost` 归一成空数组 —— 调用方不必再判一次。
         matchKinds: pack.matchKinds || null,
         registry: Object.assign(

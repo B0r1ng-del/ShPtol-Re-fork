@@ -1532,10 +1532,11 @@ describe('explicit local match recovery (#431)', () => {
     assert.match(teamSrc, /bubble \? html`<\$\{EmoteBubble\}/, 'the bubble renders whenever there is one');
     assert.equal(typeof emotes.PREF_TEN_PULL, 'string');
     assert.equal(typeof emotes.PREF_BARRAGE, 'string');
-    // both default off and follow the local pref (per device). The harness has no localStorage, so one is faked here:
-    // loadPref/savePref read globalThis.localStorage on every call, and it is removed again in the finally block.
+    // 一键十连 still defaults OFF; 弹幕 默认 ON since 需求方 2026-10-23 (「将弹幕功能设置为默认开启」).
+    // The harness has no localStorage, so one is faked here: loadPref/savePref read globalThis.localStorage on every
+    // call, and it is removed again in the finally block.
     assert.equal(emotes.tenPullOn(), false);
-    assert.equal(emotes.barrageOn(), false);
+    assert.equal(emotes.barrageOn(), true, '弹幕 defaults ON');
     const store = new Map();
     globalThis.localStorage = {
       getItem: (k) => (store.has(k) ? store.get(k) : null),
@@ -1551,7 +1552,12 @@ describe('explicit local match recovery (#431)', () => {
       savePref(emotes.PREF_TEN_PULL, false);
       savePref(emotes.PREF_BARRAGE, false);
       assert.equal(emotes.tenPullOn(), false);
-      assert.equal(emotes.barrageOn(), false);
+      // ★ 一次性迁移：一台**存过 false** 的老设备，在迁移标记还没写过时会被翻成 true（新默认），之后再关就保持关。
+      assert.equal(emotes.barrageOn(), true, 'the one-time migration turns a stored false into the new default once');
+      store.clear();
+      savePref(emotes.PREF_BARRAGE, false);
+      savePref(emotes.PREF_BARRAGE_MIGRATED, true);   // 已经迁移过 ⇒ 玩家自己的选择生效
+      assert.equal(emotes.barrageOn(), false, 'after the migration the player owns the switch');
     } finally {
       delete globalThis.localStorage;
     }
@@ -1592,4 +1598,28 @@ describe('explicit local match recovery (#431)', () => {
     // and an item is dropped once its flight has run out (`forwards` would otherwise park it at the end of its path)
     assert.match(src, /now - \(Number\.isFinite\(e\.at\) \? e\.at : now\) < EMOTE_BARRAGE_MS/, 'expired items are dropped');
   });
+});
+
+test('the hud slot stays above the hand, plugin frames declare a dark scheme, and the test-console command row wraps', () => {
+  const css = readFileSync(path.join(PUBLIC, 'css/components.css'), 'utf8');
+  assert.match(css, /\.ui-slot__frame \{[^}]*color-scheme: dark/);
+  assert.match(css, /\.gm__ui-slot \{[^}]*right: \.92rem; bottom: calc\(4\.76rem \+ \.12rem\)/);
+  assert.match(css, /\.gm__ui-slot \{[^}]*max-height: calc\(100% - 4\.88rem - 1\.7rem\)/);
+  assert.match(css, /\.ui-slot__tabs \{[^}]*flex-wrap: wrap/);
+  const game = readFileSync(path.join(PUBLIC, 'css/screens/game.css'), 'utf8');
+  assert.match(game, /\.testconsole__run \{ flex: 0 0 auto; \}/);
+  assert.match(game, /\.testconsole__row \.testconsole__field \{ flex: 1 1 8em; \}/);
+  const consoleSrc = readFileSync(path.join(PUBLIC, 'js/ui/testConsole.js'), 'utf8');
+  const at = consoleSrc.lastIndexOf("cmd === 'choice'");
+  const open = consoleSrc.lastIndexOf('class="testconsole__row"', at);
+  const run = consoleSrc.indexOf('testconsole__run', at);
+  const close = consoleSrc.indexOf('</div>', at);
+  assert.ok(open >= 0 && run > at && run < close, 'the 机变 fields and 执行 share one wrapping row');
+  const frame = readFileSync(path.join(PUBLIC, 'js/ui/pluginFrame.js'), 'utf8');
+  assert.match(frame, /ui-slot__tab/);
+  assert.match(frame, /chosenSlot/);
+  const skeleton = readFileSync(path.join(ROOT, 'server/plugins/forgeImport.js'), 'utf8');
+  assert.match(skeleton, /color-scheme:dark/);
+  const template = readFileSync(path.join(ROOT, 'plugins/_template/ui/ui/index.html'), 'utf8');
+  assert.match(template, /color-scheme: dark/);
 });

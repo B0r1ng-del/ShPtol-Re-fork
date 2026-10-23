@@ -1,4 +1,4 @@
-// 行为开关 `diyPoolOverlap`（DESIGN §34.43 第 5 格，投稿 `stripDiyOverlaps`）—— 「自选池重叠」。
+// 行为开关 `diyPoolOverlap`（DESIGN §35.43 第 5 格，投稿 `stripDiyOverlaps`）—— 「自选池重叠」。
 //
 // 这一格要解决的那件事：一个包把一名**官方干员**做成自己的棋子，而这位干员**本来就在自选池**
 // （`data/backups.json` 的 `diy.ownedPool`）里 ⇒ 他**能被上两次**，而且**自选槽绕过棋子自己的盟约**。
@@ -39,9 +39,10 @@ const DATA_DIR = join(ROOT, 'data');
 const SW = 'diyPoolOverlap';
 const quiet = { info() {}, warn() {}, error() {}, debug() {} };
 
-/** 今天那份官方自选池（生成器产物）。`72` 是它的规模 —— 下面每一条都拿它当基准。 */
+/** 今天那份官方自选池（生成器产物）。`58` 是它的规模 —— 下面每一条都拿它当基准。
+ *  ★ 2026-10-23: 72 → 58 —— 「已经是棋手」的干员不再进池（内容包那 8 人 + 二.3 后更多），见 tools/fork-overrides.mjs ownedPoolOf。 */
 const OFFICIAL_POOL = Object.freeze([...loadData(DATA_DIR, { log: quiet, workshopDir: null }).backups.diy.ownedPool]);
-const OFFICIAL_POOL_SIZE = 72;
+const OFFICIAL_POOL_SIZE = 58;
 /** 拿池里前 4 名当「被这个包做成棋子的官方干员」—— 不写死具体 id，所以数据换了这一条也不脆。 */
 const FOUR = Object.freeze(OFFICIAL_POOL.slice(0, 4));
 
@@ -106,9 +107,9 @@ for (const [label, behaviour] of [
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// ② 声明 strip ⇒ 那 4 名**被摘出**、点名到 char id、池 72→68、`operators` 记录保留
+// ② 声明 strip ⇒ 那 4 名**被摘出**、点名到 char id、池 58→54、`operators` 记录保留
 // ---------------------------------------------------------------------------------------------------------------
-test('② 声明 strip ⇒ 4 名被摘出池、点名到 char id、池 72→68，而 operators 记录留着', () => {
+test('② 声明 strip ⇒ 4 名被摘出池、点名到 char id、池 58→54，而 operators 记录留着', () => {
   const root = makeRoot([{ id: 'decl-pack', prefix: 'decl', charIds: FOUR, behaviour: [{ switch: SW, option: 'strip' }] }]);
   try {
     const { data, report } = loadAndApply(root);
@@ -116,7 +117,7 @@ test('② 声明 strip ⇒ 4 名被摘出池、点名到 char id、池 72→68�
     for (const o of report.overlaps) assert.equal(o.strip, true, '声明了 strip ⇒ 这一条真的摘了');
     assert.deepEqual(report.strippedByPack, [...FOUR], '`strippedByPack` 逐字等于那 4 个 charId');
     assert.equal(report.poolStripped, true, '这一次真的改了数据');
-    assert.equal(data.backups.diy.ownedPool.length, OFFICIAL_POOL_SIZE - FOUR.length, `池子 72 → ${OFFICIAL_POOL_SIZE - FOUR.length}`);
+    assert.equal(data.backups.diy.ownedPool.length, OFFICIAL_POOL_SIZE - FOUR.length, `池子 58 → ${OFFICIAL_POOL_SIZE - FOUR.length}`);
     for (const charId of FOUR) {
       assert.equal(data.backups.diy.ownedPool.includes(charId), false, `${charId} 不该还在池里`);
       // 摘的是**名单**（`diy.ownedPool`），不是 `diy.operators` 那条记录：界面在池外仍按 id 读它
@@ -182,7 +183,7 @@ function describe_real_submissions() {
     return dir;
   };
 
-  test('④ rimbilliton（真投稿）：声明后那 4 个 ops kit 对应的干员被摘，池 72→68', (t) => {
+  test('④ rimbilliton（真投稿）：声明后那 4 个 ops kit 对应的干员被摘，池 58→54', (t) => {
     if (!fs.existsSync(join(REAL_RW, 'rimbilliton', 'rimbilliton', 'pack.json'))) {
       t.diagnostic(`核不到：本机没有 ${join(REAL_RW, 'rimbilliton')} —— 跳过这一条`);
       return;
@@ -197,7 +198,7 @@ function describe_real_submissions() {
       assert.deepEqual(report.strippedByPack, EXPECTED, '声明 strip ⇒ 这 4 名被点名摘出');
       assert.equal(report.overlaps.length, 4, '它一共就这 4 条重叠');
       assert.equal(report.poolStripped, true);
-      assert.equal(data.backups.diy.ownedPool.length, OFFICIAL_POOL_SIZE - 4, '池 72 → 68');
+      assert.equal(data.backups.diy.ownedPool.length, OFFICIAL_POOL_SIZE - 4, '池 58 → 54');
       for (const charId of EXPECTED) {
         assert.equal(data.backups.diy.ownedPool.includes(charId), false, `${charId} 该被摘`);
         assert.ok(data.backups.diy.operators[charId], `${charId} 的 operators 记录留着`);

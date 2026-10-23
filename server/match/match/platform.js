@@ -1,6 +1,6 @@
 // server/match/match/platform.js — Match methods: the platform interface of the server/match/Match.js header
 // (server/lobby.js ⇄ Match) — start, handle (validation, error isolation, flush; the intents themselves: intents.js
-// _handle), setLoadout (INFO_CHECK only), onDisconnect / onReconnect and the full resync of one human, onLeave and 中途退出
+// _handle), setLoadout (INFO_CHECK; rule-enabled PREP), onDisconnect / onReconnect and the full resync of one human, onLeave and 中途退出
 // = elimination (_quit), dispose.
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
@@ -10,8 +10,8 @@ import { PHASE, ERR } from '../../../shared/constants.js';
 import { syntheticResult } from '../fields.js';
 import { FLOW_TICKER_PRIORITY, OK, fail } from './common.js';
 import { msg } from '../../../shared/i18n.js';
-// 工坊 mod 层移植 (2026-10-16): the behaviour layer's `prepLoadout` switch decides which phases accept room.loadout.
-import { behaviourIsDefault } from '../../../shared/behaviour.js';
+import { behaviourValue, BEHAVIOUR_SWITCHES } from '../../../shared/behaviour.js';
+import { ruleOption } from '../../../shared/plugins/rules.js';
 
 const GAME_TYPES = new Set(Object.keys(C2S).filter((t) => Object.hasOwn(C2S, t) && (t.startsWith('g.') || t.startsWith('b.'))));
 
@@ -22,13 +22,27 @@ const GAME_TYPES = new Set(Object.keys(C2S).filter((t) => Object.hasOwn(C2S, t) 
 export const LOADOUT_PHASES = Object.freeze({ locked: Object.freeze([PHASE.INFO_CHECK]), prep: Object.freeze([PHASE.INFO_CHECK, PHASE.PREP]) });
 
 /**
- * The phases THIS match accepts `room.loadout` in. No declaration (or `locked`) ⇒ the official gate; a pack declaring
- * `prepLoadout: "prep"` ⇒ PREP as well. Read-only: it only answers which set applies.
+ * The phases THIS match accepts `room.loadout` in.
+ *
+ * ★ 需求方 2026-10-23：「允许玩家在局内的整备阶段修改干员的技能」—— 于是 **PREP 成为默认可改的阶段**，不再需要包声明
+ * `prepLoadout: "prep"`。业主同时明确：**只影响这一局**（包含往后的全部回合），大厅的干员调配不受影响，下一局仍以
+ * 大厅那份为准 —— 这正是本文件既有行为的语义（`ps.setLoadout` 改的是**这一场**的 PlayerState；座位的 `seat.loadout`
+ * 只在大厅 / INFO_CHECK 由 `room.loadout` 写入），所以只需要把默认阶段集从 `locked` 换成 `prep`。
+ *
+ * 包仍然可以说 `locked` 把这一格收回去（那是「收紧」，on-by-default 之后仍然允许 —— 与 `behaviourIsDefault` 的
+ * 「没声明 = 官方」不同，这里没声明 = **新默认**）。为了不破坏既有包的语义，判据改成：**只有显式声明 `locked` 才收**，
+ * 其余（没声明 / 声明 prep）都给 PREP。
  * @param {Array<{ switch: string, option: string }>|null|undefined} decl the match's behaviour declaration
  * @returns {readonly string[]}
  */
-export function loadoutPhasesFor(decl) {
-  return behaviourIsDefault(decl, 'prepLoadout') ? LOADOUT_PHASES.locked : LOADOUT_PHASES.prep;
+export function loadoutPhasesFor(decl, rules = null) {
+  // ★ 两条通道（与 matchSlotPolicy 同形）：（upstream 插件规则开关）优先；它没声明这一格时回落到
+  // behaviour 声明，再回落到 （fork 的默认 = prep）。
+  const fromRules = rules ? ruleOption(rules, 'prepLoadout') : null;
+  // 按**生效值**判断：`behaviourValue` 对「没声明」返回 null，所以这里显式回落到表里的 default（现在是 `prep`）。
+  // `locked` ⇒ 只有 INFO_CHECK（包显式收紧）；其余（没声明 / prep）⇒ INFO_CHECK + PREP。
+  const v = fromRules || (behaviourValue(decl, 'prepLoadout') ?? BEHAVIOUR_SWITCHES.prepLoadout.default);
+  return v === 'locked' ? LOADOUT_PHASES.locked : LOADOUT_PHASES.prep;
 }
 
 /**
@@ -74,7 +88,17 @@ export class MatchPlatform {
     const ps = this.players.get(playerId) || this.spectators.get(playerId);
     if (!ps || ps.isBot || ps.left) return fail(ERR.NOT_IN_ROOM);
     // a spectator seat only watches (the platform routes nothing else of it)
-    if (ps.spectator && (!msg || msg.t !== 'g.watch')) return fail(ERR.SPECTATOR);
+    if (ps.spectator && (!msg || msg.t !== 'g.watch')) {
+      // g.test shares the host's rate bucket (applyTestCommand audits SPECTATOR after the stamp).
+      if (this.test && msg?.t === 'g.test') {
+        let res;
+        try { res = this.applyTestCommand(ps, msg); }
+        catch (e) { this.reportError('handle g.test', e); res = fail(ERR.INTERNAL); }
+        try { this.flush(); } catch (e) { this.reportError('flush', e); }
+        return res && res.error ? res : OK;
+      }
+      return fail(ERR.SPECTATOR);
+    }
     if (this.disposed || this.ended) {
       // A report that crossed the match end (the last b.progress of a field, a delegated rehearsal's answer) is stale:
       // ignored, never an error (DESIGN §14 — an error frame without a rid would surface as a toast in the browser).
@@ -97,7 +121,8 @@ export class MatchPlatform {
   /**
    * room.loadout during the match (DESIGN §16): only while INFO_CHECK runs (the briefing's 干员调配 entry); the lobby
    * already checked it against the data (PlayerState.setLoadout re-checks it). `ops` (0.2.2): the per-operator 潜能 /
-   * 练度 that come with it (undefined = unchanged).
+   * 练度 that come with it (undefined = unchanged). A room whose prepLoadout rule is prep also accepts one merge
+   * during PREP while that seat has not pressed 准备 (DESIGN §34.15). INFO_CHECK stays a full replace.
    * @param {string} playerId
    * @param {Record<string, { skill: number, module: string|null }> | null} loadout
    * @param {Record<string, { potential: number, cultivate: number }> | null} [ops]
@@ -106,21 +131,47 @@ export class MatchPlatform {
   setLoadout(playerId, loadout, ops = undefined) {
     const ps = this.players.get(playerId);
     if (!ps || ps.isBot || ps.left) return fail(ERR.NOT_IN_ROOM);
-    // 工坊 mod 层移植 (2026-10-16, behaviour `prepLoadout`): the phases this match accepts room.loadout in. With no
-    // such declaration `loadoutPhasesFor` returns LOADOUT_PHASES.locked = [INFO_CHECK], which is exactly the gate
-    // this line used to spell out — a vanilla match is byte-identical, and a pack may additionally open PREP.
-    const phases = loadoutPhasesFor(this.behaviour);
+    // 相位判据只有一处：（读这一局的 behaviour 声明 + 插件规则开关），不写死 INFO_CHECK。
+    const phases = loadoutPhasesFor(this.behaviour, this.rules);
+    const prep = this.phase === PHASE.PREP && phases.includes(PHASE.PREP);
     if (this.disposed || this.ended || !phases.includes(this.phase)) return fail(ERR.WRONG_PHASE, 'loadout locked for this match');
-    // 工坊 mod 层 (behaviour `prepLoadout: "prep"`): in 休整期 the submit OVERLAYS this round's issue, and a seat that
-    // has already readied up has locked its issue in. Neither branch is reachable on the default gate (which stops at
-    // INFO_CHECK), so the official flow takes the plain path below unchanged.
-    const inPrep = this.phase === PHASE.PREP && phases.includes(PHASE.PREP);
-    if (inPrep && ps.ready) return fail(ERR.WRONG_PHASE, 'loadout locked for this match (this seat has readied up)');
-    const entries = inPrep ? mergeLoadoutEntries(ps.loadout, loadout) : loadout;
+    if (prep && ps.ready) return fail(ERR.WRONG_PHASE, 'loadout locked for this match (this seat has readied up)');
     let res = OK;
     this.guard(() => {
-      if (!ps.setLoadout(entries, ops)) { res = fail(ERR.BAD_TARGET, 'loadout does not match the game data'); return; }
+      const before = prep ? ps.allChess().map((owner) => ({ owner, loadout: ps.loadoutFor(ps.gd.chess(owner.id)) })) : [];
+      if (!ps.setLoadout(loadout, ops, prep ? { merge: true } : undefined)) { res = fail(ERR.BAD_TARGET, 'loadout does not match the game data'); return; }
+      if (prep) {
+        for (const { owner, loadout: previous } of before) {
+          const next = ps.loadoutFor(ps.gd.chess(owner.id));
+          if (['skillIndex', 'moduleId', 'potential', 'cultivate'].some((key) => previous[key] !== next[key])) ps._reconcileTokensFor(owner);
+        }
+        ps.recompute();
+      } else this.markPrivate(ps);
+    });
+    return res;
+  }
+
+  /**
+   * room.skins during the match (docs/SKINS.md): accepted in ANY phase, unlike the loadout just above. The loadout is
+   * locked at INFO_CHECK because it changes what a unit does; a skin changes only what it looks like, and it is public —
+   * a teammate picking a different model mid-match is harmless, so `markPublic` carries it to everyone on the next
+   * broadcast. The lobby already filtered the shape (freezeSkins); PlayerState.setSkins re-checks it and refuses a
+   * bad map without clearing the choice already stored.
+   * @param {string} playerId
+   * @param {Record<string, string> | null} skins
+   * @returns {{ ok: true } | { error: string, detail?: string }}
+   */
+  setSkins(playerId, skins) {
+    const ps = this.players.get(playerId);
+    if (!ps || ps.isBot || ps.left) return fail(ERR.NOT_IN_ROOM);
+    let res = OK;
+    this.guard(() => {
+      // an empty selection is a valid one: it clears every skin. A bad map leaves the stored choice alone.
+      if (!ps.setSkins(skins)) { res = fail(ERR.BAD_MSG, 'bad skin selection'); return; }
+      // [ASSUMED] Live cosmetic changes refresh every existing prep view, using the same dirty path as a move.
+      // The public choice also reaches current battle renderers; no running sim or BattleSpec is changed.
       this.markPrivate(ps);
+      this.markPublic();
     });
     return res;
   }
@@ -234,6 +285,7 @@ export class MatchPlatform {
     }
     ps.lp = 0;
     ps.eliminate(passedRound);
+    this.offersChanged();
     this.tickerText(msg('{name}博士中途退出了模拟', { name: ps.name }), FLOW_TICKER_PRIORITY);
     if (this.bossWaves && (phase === PHASE.ROUND_START || phase === PHASE.SP_DRAFT || phase === PHASE.PREP)) {
       // before the boss fight: pair the players left again (the prep preview shows the new partner / template); a
@@ -262,6 +314,8 @@ export class MatchPlatform {
     if (this.runner) { try { this.runner.stop(); } catch { /* ignore */ } }
     this._stopClientCombat();
     this._cancelRehearsal();
+    // a plugin interaction window's own deadline timer (MatchOffers); the tracked timers below cover the rest
+    if (typeof this.offersDispose === 'function') { try { this.offersDispose(); } catch { /* ignore */ } }
     for (const h of this._timers) { try { this.sched.clearTimeout(h); } catch { /* ignore */ } }
     this._timers.clear();
     if (this._pubTimer) { try { this.sched.clearTimeout(this._pubTimer); } catch { /* ignore */ } this._pubTimer = null; }

@@ -63,7 +63,7 @@ export const ROOM_HOOK_EVENTS = Object.freeze([
 /** 事件名的集合形式（`on` 的判据）。 */
 const EVENT_SET = new Set(ROOM_HOOK_EVENTS);
 
-// ---- 空席回收裁决（DESIGN §34.57）--------------------------------------------------------------------------
+// ---- 空席回收裁决（DESIGN §35.57）--------------------------------------------------------------------------
 //
 // 与上面八个事件的区别只有一条：事件是**观察**（返回值一律丢弃），这一格是**裁决**（返回值被采纳）。
 // 采纳它就必须同时交代清楚它改的是什么：它不动对局内部，但它决定「最后一个真人走了，这一局还留不留」——
@@ -201,7 +201,7 @@ export async function loadRoomInstallers(loaded, { log = null, importModule = (u
       continue;
     }
     installers.push({ id: pack.id, hash: pack.hash || '', pack: pack.id, install,
-      // §34.57：这个包有没有**申请**「空席房间先别销毁」的资格（形状层已要求它同时声明 `combat: true`）。
+      // §35.57：这个包有没有**申请**「空席房间先别销毁」的资格（形状层已要求它同时声明 `combat: true`）。
       // `canHold` 只认这一格 —— 没声明的包调它就是点名拒（`ROOM_HOLD_UNDECLARED`），不是静默收下。
       hold: !!(pack.server && pack.server.room && pack.server.room.hold === true) });
   }
@@ -304,7 +304,7 @@ export function createRoomHooks({ installers = [], log = null, now = Date.now } 
       phase: () => (room.match ? 'match' : 'lobby'),
       now: () => now(),
       /**
-       * 申请「这个房间空了以后先别回收」（§34.57）。**只有**在 `pack.json.server.room.hold` 里声明过的包能调；
+       * 申请「这个房间空了以后先别回收」（§35.57）。**只有**在 `pack.json.server.room.hold` 里声明过的包能调；
        * 没声明就点名 `ROOM_HOLD_UNDECLARED` 并返回 false（不是静默收下）。谓词每次回收判定时被叫一次，
        * 拿到的是只读快照；返回 `{ hold: true, until: <epoch ms> }` 才算一票，时限被宿主夹到
        * `ROOM_HOLD_MAX_MS` 之内 —— **包决定留不留，宿主决定留多久**。

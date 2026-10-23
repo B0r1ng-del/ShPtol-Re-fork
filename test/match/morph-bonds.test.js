@@ -77,7 +77,8 @@ test('every pairing (18 official bond items plus the Rhine terminal, normal / go
   // The 14 official bond items (× normal / golden) are the upstream talent's list; 莱茵实验终端 (六.F,
   // tools/rhine-data.mjs) and 舍身刻印 (内容包 卡兹戴尔, tools/kazdel-data.mjs) are the ported packs' own and grant
   // their bond the same way.
-  const packBond = { rhineShip: 'packRhine', kazdelShip: 'packKazdel' };
+  // 二.3 东国/乌萨斯: 东国鬼面 grants 东, 乌萨斯军粮 grants 乌萨斯 — pack content like 莱茵's terminal and 卡兹戴尔's sigil.
+  const packBond = { rhineShip: 'packRhine', kazdelShip: 'packKazdel', dongShip: 'packDongUrsus', ursusShip: 'packDongUrsus' };
   const official = grants.filter((r) => !packBond[r.giveBondId]);
   const rhine = grants.filter((r) => r.giveBondId === 'rhineShip');
   const kazdel = grants.filter((r) => r.giveBondId === 'kazdelShip');
@@ -85,8 +86,8 @@ test('every pairing (18 official bond items plus the Rhine terminal, normal / go
   assert.equal(new Set(official.map((r) => r.giveBondId)).size, 14, '14 bonds have a bond item (the official talent list)');
   assert.deepEqual(rhine.map((r) => r.id).sort(), ['chess_item_rhine_terminal_a', 'chess_item_rhine_terminal_b']);
   assert.deepEqual(kazdel.map((r) => r.id).sort(), ['chess_item_kazdel_sigil_a', 'chess_item_kazdel_sigil_b']);
-  assert.equal(grants.length, 40);
-  assert.equal(new Set(grants.map((r) => r.giveBondId)).size, 16, 'the official 14 plus 莱茵生命 and 卡兹戴尔');
+  assert.equal(grants.length, 44);
+  assert.equal(new Set(grants.map((r) => r.giveBondId)).size, 18, 'the official 14 plus 莱茵生命 / 卡兹戴尔 / 东 / 乌萨斯');
   for (const r of grants) {
     const bond = r.giveBondId;
     const iso = r.isGolden ? ISO_B : ISO; // golden bond items with the golden 变形同构体, normal with normal

@@ -19,6 +19,7 @@
 
 import { getData } from '../../../data.js';
 import { memberBonds } from '../../../../shared/morph.js';
+import { grantedBondsByMorph } from '../../../../shared/plugins/rules.js';
 import { COLS, DIRECT_BONUS_STACKING } from '../../constants.js';
 import { frontOf, offsetTile } from '../../dir.js';
 import { bodyInKeys, bodyDist, bodyInRadius, bodyOnTile, bodyTileReach, bodyInRange } from '../../body.js';
@@ -238,7 +239,7 @@ export function tierOf(u) {
  */
 export const isGroundOp = (u) => isOp(u) && u.def?.position === 'MELEE';
 /** Base (normal) chess id of an operator (normal and elite share it). */
-export const baseChessId = (u) => String(u?.def?.baseId ?? u?.defId ?? '').replace(/_b$/, '_a');
+export const baseChessId = (u) => u?.def?.baseId ?? String(u?.defId ?? '').replace(/_b$/, '_a');
 
 /** Equipment ids carried by a unit (golden ids when merged). */
 export const itemsOf = (u) => (u && Array.isArray(u.items) ? u.items : EMPTY);
@@ -257,21 +258,21 @@ export function unitBonds(u) {
   if (!isOp(u)) return EMPTY;
   const cached = BONDS.get(u);
   const items = itemsOf(u);
-  const morphed = currentMorphPairing();
-  // the cache key carries the 档位: the same unit reads differently in two scopes, so one cache entry cannot serve both
-  const key = `${items.join('|')}#${morphed}`;
+  // 档位来源： 的作用域优先（一场战斗的构造与 step 是同步区），缺省回落到 unit 上的那一格。
+  // 测试正是用作用域来表达「同一名干员在 plus 档下只取最左边」，所以这里必须读作用域，否则缓存键永远不变。
+  const scoped = currentMorphPairing();
+  const plus = (scoped ?? u.player?.morphPairing) === 'plus';
+  // The official key stays items.join('|'), so a cached official result is unchanged.
+  const key = (plus ? 'plus|' : '') + items.join('|');
   if (cached && cached.key === key) return cached.bonds;
-  // 特质读的是**记录**那一份 —— `u.def.raw.trait`：`u.def.trait` 是 `simdata.js` 投影出来的 trait **文本字符串**，
-  // 它没有子键，读错了会静默地什么都不授予。
   const own = Array.isArray(u.def?.bonds) ? u.def.bonds : Array.isArray(u.def?.raw?.bonds) ? u.def.raw.bonds : [];
   const recs = items.map((id) => itemRecord(id)).filter(Boolean);
-  const out = memberBonds(own, {
-    trait: u.def?.raw?.trait,
+  const bonds = Object.freeze(memberBonds(own, {
+    trait: u.def?.raw?.trait ?? u.def?.trait ?? null,
     recs,
-    morphed,
+    morphed: plus ? 'plus' : 'official',
     hasBond: (id) => !!bondRecord(id),
-  });
-  const bonds = Object.freeze(out);
+  }));
   BONDS.set(u, { key, bonds });
   return bonds;
 }

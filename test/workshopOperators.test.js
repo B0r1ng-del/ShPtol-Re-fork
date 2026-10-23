@@ -9,7 +9,7 @@
 //
 // 三条载重承诺，全部在这里钉住：
 //   * `data/*.json` 一个字节都不改（叠加发生在 `deepFreeze` 之前，`docs/WORKSHOP.md` §1.3）—— 所以生成器契约
-//     （`test/backups.test.js` 对**文件**的断言，`ownedPool.length === 72`）完全不受影响；
+//     （`test/backups.test.js` 对**文件**的断言，`ownedPool.length === 58`）完全不受影响；
 //   * 每一条拒绝都**点名**并**失败关闭**（没有干员记录 / 不是 6★ / 盟约 id 不存在 / 形态不齐 / 两个包抢同一个 id）；
 //   * 落盘位置是**真实数据布局**：`data/` 里没有顶层 `units.json`，记录住在 `data.backups.units[charId]`。
 //
@@ -517,7 +517,7 @@ describe('干员包: 磁盘未被改写（生成器仍是唯一来源）', () =>
       assert.equal(after[i], before[i], `data/${f}.json 被改写了 —— 生成物不该被动`);
     }
     // 生成器契约（对**文件**的断言）因此完全不受影响
-    assert.equal(load('backups').diy.ownedPool.length, 72, '磁盘上的 ownedPool 仍是 72（test/backups.test.js 钉着它）');
+    assert.equal(load('backups').diy.ownedPool.length, 58, '磁盘上的 ownedPool 仍是 72（test/backups.test.js 钉着它）');
     assert.equal(load('backups').units[HER], undefined, '磁盘上没有她');
   });
 
@@ -528,7 +528,7 @@ describe('干员包: 磁盘未被改写（生成器仍是唯一来源）', () =>
     assert.deepEqual([...files.keys()].sort(), ['assets', 'backups'], '夹具触及 backups（干员记录 + 自选池）与 assets（图标 + 语音 + 外观）');
     const served = JSON.parse(files.get('backups').toString('utf8'));
     assert.ok(served.units[HER], '发出去的那份里有她');
-    assert.equal(served.diy.ownedPool.length, 73);
+    assert.equal(served.diy.ownedPool.length, 59);
   });
 });
 
@@ -564,7 +564,7 @@ describe('干员包: 端到端（社区 mod「克莱门莎」当夹具）', () =
     assert.deepEqual(Object.keys(rec.forms), requiredUnitForms({ chess: load('chess'), backups: load('backups') }), '夹具的形态集合与自选槽要求的一致');
   });
 
-  test('applyWorkshop 之后：干员记录 / 自选池 72→73 / 图标 / 双语语音全部就位', () => {
+  test('applyWorkshop 之后：干员记录 / 自选池 58→59 / 图标 / 双语语音全部就位', () => {
     const loaded = loadWorkshop(ws, { log: quiet });
     const base = loadData(DATA_DIR, { log: quiet, workshopDir: null });
     const { data, report } = applyWorkshop(base, loaded.packs);
@@ -574,10 +574,10 @@ describe('干员包: 端到端（社区 mod「克莱门莎」当夹具）', () =
     assert.ok(data.backups.units[HER], 'data.backups.units[char_ws_clemnt] 在');
     assert.equal(data.backups.units[HER].name, '克莱门莎');
     assert.equal(data.backups.units[HER].rarity, 6);
-    // ② 自选池 72 → 73
-    assert.equal(base.backups.diy.ownedPool.length, 72);
-    assert.equal(data.backups.diy.ownedPool.length, 73, 'ownedPool 72 → 73');
-    assert.equal(data.backups.diy.ownedPool[72], HER, '追加在末尾（入池顺序只由包 id 排序决定）');
+    // ② 自选池 58 → 59
+    assert.equal(base.backups.diy.ownedPool.length, 58);
+    assert.equal(data.backups.diy.ownedPool.length, 59, 'ownedPool 58 → 59');
+    assert.equal(data.backups.diy.ownedPool[58], HER, '追加在末尾（入池顺序只由包 id 排序决定）');
     // ③ diy.operators
     assert.deepEqual(data.backups.diy.operators[HER], {
       name: '克莱门莎', rarity: 6, profession: 'WARRIOR', subProfessionId: 'primguard',
@@ -631,11 +631,11 @@ describe('干员包: 端到端（社区 mod「克莱门莎」当夹具）', () =
   test('浏览器拿到的那份 /data/backups.json 是合并后的（磁盘上那份没变）', async () => {
     const remote = await fetch(`${srv.url}/data/backups.json`).then((r) => r.json());
     assert.ok(remote.units[HER], '合并后的 backups.json 里有她');
-    assert.equal(remote.diy.ownedPool.length, 73);
+    assert.equal(remote.diy.ownedPool.length, 59);
     assert.equal(remote.diy.operators[HER].bonds[0], 'egirShip');
     const onDisk = JSON.parse(fs.readFileSync(join(DATA_DIR, 'backups.json'), 'utf8'));
     assert.equal(onDisk.units[HER], undefined, 'data/backups.json 本身永不被改写');
-    assert.equal(onDisk.diy.ownedPool.length, 72);
+    assert.equal(onDisk.diy.ownedPool.length, 58);
     // 图标与语音走的是同一份合并后的 assets.json
     const assets = await fetch(`${srv.url}/data/assets.json`).then((r) => r.json());
     assert.equal(assets.prof.sub.primguard, '/workshop-assets/clementia/prof/sub/primguard.png');
@@ -674,7 +674,7 @@ describe('干员包: 临时工坊根的端到端（自造包，不依赖例子�
     assert.deepEqual(report.errors, []);
     assert.equal(data.backups.units.char_ws_tmp.name, '临时干员');
     assert.equal(data.backups.diy.operators.char_ws_tmp.name, '临时干员');
-    assert.equal(data.backups.diy.ownedPool.length, 73);
+    assert.equal(data.backups.diy.ownedPool.length, 59);
   });
 });
 
@@ -721,7 +721,7 @@ describe('干员包: stripPackOperators（G-16，记录 + 拒绝重复）', () =
     assert.equal(report.overlaps[0].poolEntry, true, '他是这个包声明进池的 —— 报告要说清这一点');
   });
 
-  test('真实的 fanpack（本机有那份数据时）：13 名干员里 8 名在池里，池子仍是 72', () => {
+  test('真实的 fanpack（本机有那份数据时）：13 名干员里 8 名在池里，池子仍是 58', () => {
     const fan = 'E:\\destop\\harness_1\\_up\\fanpack-pack\\pack\\fanpack-kazdel-rhodes\\chess.json';
     if (!fs.existsSync(fan)) {
       assert.ok(true, '本机没有那份 fanpack 数据，跳过这一条（它不在仓库里）');
@@ -735,7 +735,7 @@ describe('干员包: stripPackOperators（G-16，记录 + 拒绝重复）', () =
       assert.equal(o.inPoolBefore, true);
       assert.ok(pool.includes(o.charId));
     }
-    assert.equal(data.backups.diy.ownedPool.length, OFFICIAL_POOL, '记录不等于摘除：池子仍是 72');
+    assert.equal(data.backups.diy.ownedPool.length, OFFICIAL_POOL, '记录不等于摘除：池子仍是 58');
   });
 
   // ── 摘除那一半：**可开关**，默认不做（上面三条钉的就是默认） ─────────────────────────────────────────

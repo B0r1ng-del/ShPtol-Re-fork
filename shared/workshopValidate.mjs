@@ -75,7 +75,7 @@ export function kindOfCode(code, issue) {
   if (c.startsWith('ROUTE_')) return 'route';
   if (c.startsWith('VOICE_')) return 'voice';
   if (c.startsWith('ITEM_ICON')) return 'itemIcon';
-  // 口径数据通道（DESIGN §34.51）自己的一层：`variants.json` 的补丁问题归到这里，而不是兜底的 `'operator'`
+  // 口径数据通道（DESIGN §35.51）自己的一层：`variants.json` 的补丁问题归到这里，而不是兜底的 `'operator'`
   // ——「包的口径表坏了」与「干员记录坏了」是两件事，混在一格里作者会去改错文件。
   if (c.startsWith('VARIANTS_')) return 'variants';
   if (c.startsWith('PACK_') || c.startsWith('ASSETS_') || c === 'EMPTY_PACK' || c === 'BAD_API_TYPE'

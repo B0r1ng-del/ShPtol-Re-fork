@@ -1,4 +1,4 @@
-// public/js/resources/sources.js — 素材加载源：**镜像的排序面**（DESIGN §34.40，docs/WORKSHOP.md §1.21）。
+// public/js/resources/sources.js — 素材加载源：**镜像的排序面**（DESIGN §35.40，docs/WORKSHOP.md §1.21）。
 //
 // 这个模块回答的问题只有一个：「作者声明的那几条镜像，先试哪一条」。它**不回答**「有哪些镜像」——那是
 // `pack.json.assets.mirrors[]`（形状与装载期比对在 `shared/workshop.js` 与 `server/workshop.js`），而地址从来不在
@@ -77,7 +77,7 @@ const frozenMirror = (m) => Object.freeze({ id: m.id, base: m.base, sha256: m.sh
  *   * 数组里有一条不是字符串、或不是**已声明**的 id ⇒ `CLIENT_SOURCES_BAD_ORDER`（**喂主机名 / URL 会落在这里**）；
  *   * 提供者抛异常 ⇒ `CLIENT_SOURCES_THREW`；
  *   * 提供者是 `async`（返回 thenable）⇒ `CLIENT_SOURCES_ASYNC`：这是一条**同步**读物，等一个 promise 会让「先试
- *     哪一条」变成一件有时序的事，而它必须能在一帧里回答完（与 §34.35 拒绝 `Promise` 同一条理由）。
+ *     哪一条」变成一件有时序的事，而它必须能在一帧里回答完（与 §35.35 拒绝 `Promise` 同一条理由）。
  * @param {ReadonlyArray<{ id: string, base: string, sha256: string }>|null|undefined} mirrors
  * @returns {{ ids: string[], refusals: Array<{ code: string, detail: string }> }}
  */

@@ -1,4 +1,4 @@
-// 行为开关 `morphPairing`（DESIGN §34.43.1，投稿 `19ea65909cf6`「变形同构体加强」）。
+// 行为开关 `morphPairing`（DESIGN §35.43.1，投稿 `19ea65909cf6`「变形同构体加强」）。
 //
 // 投稿把它做成了**安装器**：它的 `files.json.copy` 整份覆盖 `shared/morph.js` 与**三处读取点**
 // （`server/match/bondsMeta.js` · `server/sim/content/support/index.js` · `public/js/ui/gameLogic/bonds.js`）。
@@ -168,7 +168,7 @@ test('三个读取点**同判**：同一份装备行、同一个档位，三处�
 test('三个读取点**共用同一个判据**：源码级断言（三处都不许再各写一份循环）', () => {
   // 这一条钉的是本刀真正的价值：规则只有一份。三处若是各写一份 `for … canGiveBond … giveBondId`，
   // 下一次改档位时漏掉一处就是「卡片与服务端计数打架」。
-  // §34.49（`trait.grantsBonds`）之后这条判据**收紧了一格**：成员资格的**合并**也收进了同一个文件
+  // §35.49（`trait.grantsBonds`）之后这条判据**收紧了一格**：成员资格的**合并**也收进了同一个文件
   // （`shared/morph.js` 的 `memberBonds`，它内部调 `grantedBondsByMorph`），所以三处读取点现在锚的是
   // `memberBonds`。断言换了个名字，钉的是同一件事，而且比从前更严：三处连「合并」都不许自己写。
   const files = ['server/match/bondsMeta.js', 'server/sim/content/support/index.js', 'public/js/ui/gameLogic/bonds.js'];

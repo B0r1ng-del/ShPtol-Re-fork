@@ -29,17 +29,17 @@ import * as packForms from '../shared/packForms.js';
 import * as hostMetrics from '../server/hostMetrics.js';
 import * as routeMount from '../server/http/routeMount.js';
 import * as modModules from '../server/modModules.js';
-// 第 5 刀（§34.40）：素材加载源的**排序面**。它不是 `pack.json` 里的一格，而是面板模块的一个导出，所以锚点只能
+// 第 5 刀（§35.40）：素材加载源的**排序面**。它不是 `pack.json` 里的一格，而是面板模块的一个导出，所以锚点只能
 // 落在引擎自己那一端的模块上 —— 与 `extensions`（`client.panels.me` 用）同一条做法。
 import * as sources from '../public/js/resources/sources.js';
-// 第 4 刀（§34.43）：行为开关的**闭枚举表**。它与口径表（`shared/variants.js`）同一个形状，但它是「一个包可以
+// 第 4 刀（§35.43）：行为开关的**闭枚举表**。它与口径表（`shared/variants.js`）同一个形状，但它是「一个包可以
 // 写哪几个开关 / 哪几个选项」的那张表 —— 写错的名字被 `BEHAVIOUR_UNKNOWN_SWITCH` 点名整包拒，所以它必须被锚住，
 // 与 `FORM_TABLES` / `ASSETS_MIRROR_FIELDS` 同一条纪律。
 import * as behaviour from '../shared/behaviour.js';
 // `enabled` 一格住在自己的模块里（与 `behaviour` / `packForms` 同一条做法：判据与它自己的解析器在一起），
 // 所以锚点写清 `module: 'enabled'`，这里把它登记进 `ANCHOR_MODULES` 让守卫认识它。
 import * as enabledModule from '../shared/enabled.js';
-// 调用预算（§34.52）：常量、闭集与那个「两端同规则」的记账规则只有一份，住在 `shared/callBudget.js`。
+// 调用预算（§35.52）：常量、闭集与那个「两端同规则」的记账规则只有一份，住在 `shared/callBudget.js`。
 import * as callBudgetModule from '../shared/callBudget.js';
 import * as pool from '../server/match/pool.js';
 import * as economy from '../server/match/player/economy.js';
@@ -337,14 +337,14 @@ test('表面清单：引擎里每一个「包可声明的名单」都被某条�
     // `RESERVED_ROUTE_PREFIXES` / `DYNAMIC_ROUTE_CACHE_POLICIES` 是动态端点那两条判据，
     // `HOST_METRICS_FIELDS` / `BOOT_CONFIG_ENV_KEYS` 是包能读到的东西的两个闭集。
     ['TRANSPORT_FIELDS', 'schema'], ['VOICE_CDN_FIELDS', 'schema'], ['VOICE_CDN_AUDIO_EXTS', 'schema'],
-    // 第 5 刀（§34.40）：镜像条目的字段闭集 —— 与 `VOICE_CDN_FIELDS` 同一类（写错的名字被
+    // 第 5 刀（§35.40）：镜像条目的字段闭集 —— 与 `VOICE_CDN_FIELDS` 同一类（写错的名字被
     // `ASSETS_MIRROR_UNKNOWN_FIELD` 点名拒绝），所以它必须被某一格表面锚住。
     ['ASSETS_MIRROR_FIELDS', 'schema'],
-    // 第 4 刀（§34.43）：行为开关的闭枚举表 —— 与 `FORM_TABLES` / `ASSETS_MIRROR_FIELDS` 同一类（写错的开关名被
+    // 第 4 刀（§35.43）：行为开关的闭枚举表 —— 与 `FORM_TABLES` / `ASSETS_MIRROR_FIELDS` 同一类（写错的开关名被
     // `BEHAVIOUR_UNKNOWN_SWITCH` 点名拒绝），所以它必须被某一格表面锚住。它住在自己的模块里（不是 schema），
     // 与 `packForms` 同一条做法：表与它自己的解析器在一起，锚点写清 `module`。
     ['BEHAVIOUR_SWITCHES', 'behaviour'],
-    // §34.46：目标引擎的两条名单 —— 与 `PACK_FIELDS` / `CLIENT_PANEL_SLOTS` 同一类（写错的值被
+    // §35.46：目标引擎的两条名单 —— 与 `PACK_FIELDS` / `CLIENT_PANEL_SLOTS` 同一类（写错的值被
     // `PACK_TARGET_UNKNOWN` 点名拒绝），所以两条都必须被 `target` 那一格锚住。
     ['PACK_TARGETS', 'schema'], ['STARDUST_TARGET_FIELDS', 'schema'],
     ['HOST_METRICS_FIELDS', 'hostMetrics'], ['BOOT_CONFIG_ENV_KEYS', 'modModules'],
@@ -389,6 +389,7 @@ test('表面清单：一行的字段齐、id 不重复、层次合法', () => {
       `表面 "${s.id}" 没写 requires —— 「这一格不是白给的」必须落在纸上`);
     assert.ok(Array.isArray(s.files) && s.files.length > 0, `表面 "${s.id}" 没有实现文件`);
     assert.ok(Array.isArray(s.tests) && s.tests.length > 0, `表面 "${s.id}" 没有钉它的测试`);
-    assert.match(s.spec, /^§34\.\d+$/, `表面 "${s.id}" 的 spec 要写成 §28.NN`);
+    // 二.3: mod-layer 从 §34 迁到 §35（上游 0.3.1 占用了 §34）。
+    assert.match(s.spec, /^§35\.\d+$/, `表面 "${s.id}" 的 spec 要写成 §35.NN`);
   }
 });

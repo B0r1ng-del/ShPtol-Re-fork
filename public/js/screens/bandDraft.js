@@ -28,6 +28,9 @@ import { normalizeDraft, sortedPlayers } from '../ui/gameLogic.js';
 import { useStore } from '../store.js';
 import { data } from '../data.js';
 import { audio } from '../audio.js';
+import { TurnBanner } from '../ui/turnBanner.js';
+import { bootArtReady } from '../ui/protocolBoot.js';
+import { reducedMotion } from '../ui/device.js';
 import { modeOffBonds, bandOffBonds, bandOffLine } from '../ui/gameLogic.js';
 import { t, tParts, tName } from '../../../shared/i18n.js';
 
@@ -77,11 +80,17 @@ export function timeoutBand(bands, taken, defaultId = DEFAULT_TIMEOUT_BAND) {
 
 /**
  * Bands taken by teammates (队友已选): bandId → the picking players (never the viewer).
+ *
+ * 多策略模式（房主配置 `multiAlliance`）：这一格开了 ⇒ 同一份策略允许多位博士各选一次，于是**没有**任何策略算
+ * 「已被队友选走」。服务端是唯一判据（`server/match/match/phases.js bandTaken` 在同一个开关下直接返回 false）；
+ * 这里必须跟着它走，否则会出现「服务端接受、客户端的确认按钮却灰着」—— 那正是这个功能从前打不开的样子。
  * @param {Map<string, string>} picks normalizeDraft(...).picks (playerId → bandId)
  * @param {string} myId
+ * @param {boolean} [multiPicks] 多策略模式：同一份策略可以被多人各选一次
  */
-export function teammateBands(picks, myId) {
+export function teammateBands(picks, myId, multiPicks = false) {
   const out = new Map();
+  if (multiPicks) return out;
   for (const [pid, bid] of picks instanceof Map ? picks : []) {
     if (pid === myId || typeof bid !== 'string') continue;
     if (!out.has(bid)) out.set(bid, []);
@@ -179,6 +188,9 @@ export function BandDraftScreen() {
   const mode = gd.config?.modes?.[pub?.modeId];
   const offBonds = modeOffBonds(mode); // the bonds this mode never activates (标准: 10 of 23)
   const solo = roomSolo || mode?.type === 'SINGLE' || String(pub?.modeId || '').includes('single');
+  // 多策略模式（房主配置 `multiAlliance`）：同一份策略允许多位博士各选一次。服务端在 `bandTaken` 里读同一个开关，
+  // 这里跟着它走 —— 否则会出现「服务端放行、客户端把确认按钮灰掉」的错位（这个功能从前打不开就是这条）。
+  const multiPicks = pub?.hostConfig?.multiAlliance === true;
   const bands = useMemo(() => allowedBands(gd.list('bands'), mode?.type || (solo ? 'SINGLE' : 'MULTI')), [gd.ready, mode?.type, solo, data.locale()]);
   const players = sortedPlayers(pub);
   const draft = normalizeDraft(pub?.draft, players);
@@ -186,7 +198,7 @@ export function BandDraftScreen() {
   const myTurn = !myPick && (solo || draft.turnPid === myId);
   const skipsLeft = draft.skipsLeft.has(myId) ? draft.skipsLeft.get(myId) : (skipped ? 0 : 1);
   const canSkip = !solo && myTurn && skipsLeft > 0 && draft.order.filter((pid) => !draft.picks.has(pid)).length > 1;
-  const taken = solo ? new Map() : teammateBands(draft.picks, myId);
+  const taken = solo ? new Map() : teammateBands(draft.picks, myId, multiPicks);
   const pickers = new Map(); // bandId → players
   for (const [pid, bid] of draft.picks) {
     const p = players.find((x) => x.playerId === pid);
@@ -202,8 +214,13 @@ export function BandDraftScreen() {
     const next = draftSelection(sel, { bands, taken, myPick, myTurn, defaultId });
     if (next !== sel) setSel(next);
   }, [bands.length, myPick, myTurn, takenKey]);
-  // "your turn" cue
-  useEffect(() => { if (myTurn && !solo) audio.sfx('yourTurn'); }, [myTurn]);
+  // "your turn" cue: the sound, and the event's 请选择策略 band (ui/turnBanner.js) once its art is in
+  const [turnBanner, setTurnBanner] = useState(0);
+  useEffect(() => {
+    if (!myTurn || solo) return;
+    audio.sfx('yourTurn');
+    if (bootArtReady() && !reducedMotion()) setTurnBanner((n) => n + 1);
+  }, [myTurn]);
   // the 本局信息 dialog never outlives the turn it was opened in: a turn change (a pick, a skip, a turn that ran out, an
   // AI pick) or my pick closes it, so whoever's turn begins sees the draft
   const turnKey = `${draft.turnPid || ''}|${myPick || ''}`;
@@ -329,5 +346,6 @@ export function BandDraftScreen() {
       status=${infoStatus ? html`<span class=${cx('minfo-dlg__turn', `is-${infoStatus.tone}`)}>
         <${Icon} name=${infoStatus.tone === 'mint' ? 'check' : 'hourglass'} />${infoStatus.text}${infoStatus.secs != null ? html`<b class="num">${infoStatus.secs}s</b>` : null}
       </span>` : null} />
+    ${turnBanner ? html`<${TurnBanner} key=${turnBanner} onDone=${() => setTurnBanner(0)} />` : null}
   </div>`;
 }

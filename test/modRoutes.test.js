@@ -21,7 +21,7 @@ import { tmpdir } from 'node:os';
 import { ROUTE_CACHE_POLICIES } from '../shared/workshop.js';
 import { loadWorkshop } from '../server/workshop.js';
 import { workshopRoutesFor, ROUTE_CACHE_HEADERS } from '../server/http/workshop.js';
-// 保留表只此一处真相（DESIGN §34.35）：静态 `pack.json.routes` 与动态 `host.route` 判的是同一份。
+// 保留表只此一处真相（DESIGN §35.35）：静态 `pack.json.routes` 与动态 `host.route` 判的是同一份。
 import {
   coreRouteShadow, isReservedRoutePath, coreMounts, CORE_ROUTE_EXACT, CORE_ROUTE_PREFIXES, RESERVED_ROUTE_PREFIXES,
 } from '../server/http/routeMount.js';
@@ -194,7 +194,7 @@ describe('routes: 真 HTTP 服务面', () => {
       assert.equal((await get('/sp-not-declared.js')).status, 404);
       assert.equal((await get('/data/nope.json')).status, 404);
 
-      // 核心先吃（DESIGN §34.35）：这条路径**核心自己**有文件 ⇒ 包的那条同名声明不生效，服务的是引擎的 data/bonds.json。
+      // 核心先吃（DESIGN §35.35）：这条路径**核心自己**有文件 ⇒ 包的那条同名声明不生效，服务的是引擎的 data/bonds.json。
       // （上面那条单独的用例把这条语义连同「包不被拒」一起钉住，这里只钉「HTTP 面上确实是核心那份」。）
       const claimed = await get('/data/bonds.json');
       assert.equal(claimed.status, 200, '核心那份还在');

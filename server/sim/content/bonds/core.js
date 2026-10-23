@@ -61,6 +61,8 @@ const BUFF_KEYS = Object.freeze({
   egirShip: 'act1autochess_bond_eff_egir',
   siracusaShip: 'act2autochess_bond_eff_siracusa',
   kazimierzShip: 'act2autochess_bond_eff_kazimierz',
+  ursusShip: 'act2autochess_bond_eff_ursus',
+  dongShip: 'act2autochess_bond_eff_dong',
 });
 const SARGON_SHARE_KEY = 'act2autochess_bond_eff_sargon[share]';
 const VICTORIA_REWARD_KEY = 'bond_layer_added_reward_equip';
@@ -658,6 +660,168 @@ function installKazimierz(battle, pid, bb, members) {
 // =====================================================================================================================
 // entry points
 
+// =====================================================================================================================
+// 乌萨斯 (ursusShip — 自定义核心盟约; 2026-10-12 效果正式化, 2026-10-13 用户修订, 2026-10-14 数值修订, 2026-10-15 系数修订)
+//   3: member skill start → every OTHER member on the field gains an additive ATK stack of
+//      atk_per_start + 0.12%·L, the accumulated total capped at atk_cap_base + 1.2%·L (L = the bond's layers,
+//      (2026-10-16 用户修订：3.6%+0.06%·L → 5.4%+0.12%·L，上限 0.9%→1.2%·L；上限基础 54% 不变)
+//      re-read at each start); the caster also raises the natural SP recovery of every operator on her surrounding
+//      8 tiles by sp_regen = +40% (不叠加 — the highest holds, the shared aura semantics), lasting to the battle end.
+//   6: the SP aura **覆盖**为 sp_regen_6 = +100%（不是叠加；2026-10-17 用户修订：80%→100%）; a member carrying items deals
+//      ×damage_scale_1 (1 item) / ×damage_scale_2 (≥2 items) = 175% / 250%（两档覆盖，非连乘）— the 维多利亚 shape
+//      (S.passiveBuff dmgDealtMul, re-applied on layer gains and deployments; mid-battle item gains re-read at the
+//      next such event, same limitation as 维多利亚).
+// 入口: installUrsus(battle, pid, bb, members); bb 由 data/bonds.json bondeffect_ursus 带来（tools/custom-content.mjs）。
+function installUrsus(battle, pid, bb, members) {
+  const memberSet = new Set(members);
+  const perBase = num(bb.atk_per_start, 0.054);
+  const perLayer = num(bb.atk_per_start_per_layer, 0.0012);
+  const capBase = num(bb.atk_cap_base, 0.54);
+  const capPerLayer = num(bb.atk_cap_per_layer, 0.012);
+  // 自然技力回复光环（不叠加 — 取最高的共享语义）：3 人档 +sp_regen，6 人档**覆盖**为 +sp_regen_6
+  // （2026-10-17 用户修订：80%→100%，仍是覆盖不是叠加；6 人判定与道具分支同款，开战时定型）
+  const six = reached(battle, pid, 'ursusShip', num(bb.ex_bond_char_cnt, 6));
+  const spRegen = six ? num(bb.sp_regen_6, 1.0) : num(bb.sp_regen, 0.4);
+  const syncAtk = (u) => {
+    const v = (u.mem && u.mem.ursusAtk) || 0;
+    if (v > 0 && u.alive) S.passiveBuff(battle, u, 'bond:ursus:atk', S.directMods({ atk: v }));
+    else battle.removeBuff(u, 'bond:ursus:atk');
+  };
+  // 3: member skill start → the OTHER members' stacks + the caster's 自然技力回复 ring
+  battle.on('skillStart', ({ unit }) => {
+    if (!memberSet.has(unit)) return;
+    const L = S.bondLayers(battle, pid, 'ursusShip');
+    const gain = perBase + perLayer * L;
+    const cap = capBase + capPerLayer * L;
+    for (const m of members) {
+      if (m === unit || !S.onField(m)) continue;   // 「其他」【乌萨斯】干员 — 施放者自己不吃层
+      m.mem = m.mem || {};
+      const cur = m.mem.ursusAtk || 0;
+      const v = Math.min(cap, cur + gain);
+      if (v > cur) { m.mem.ursusAtk = v; syncAtk(m); }
+    }
+    // 自然技力回复速度: 施放者周围八格的干员 +sp_regen（不叠加 — 与技力光环同口径取最高），持续到战斗结束
+    if (!(spRegen > 0)) return;
+    for (const a of S.alliesAround(battle, unit, S.N8)) {
+      if (!S.isOp(a)) continue;
+      const cur = a.findBuff('bond:ursus:sp');
+      if (cur && num(cur.mods?.spRecoveryFlat, 0) >= spRegen - 1e-9) continue;
+      battle.addBuff(a, { key: 'bond:ursus:sp', mods: { spRecoveryFlat: spRegen }, source: unit });
+    }
+  });
+  // 6: items → attack multiplier（1 个 / ≥2 个道具两档**覆盖**，非连乘）
+  if (!six) return;
+  const apply = () => {
+    const one = num(bb.damage_scale_1, 1.5), two = num(bb.damage_scale_2, 2.25);
+    for (const u of members) {
+      const items = S.itemsOf(u).length;
+      const mul = items >= 2 ? two : items >= 1 ? one : 1;
+      if (mul > 1 && u.alive) S.passiveBuff(battle, u, 'bond:ursus:dmg', { dmgDealtMul: mul });
+      else battle.removeBuff(u, 'bond:ursus:dmg');
+    }
+  };
+  apply();
+  onLayers(battle, pid, 'ursusShip', apply);
+  battle.on('deploy', ({ unit }) => { if (memberSet.has(unit)) apply(); });
+}
+
+// =====================================================================================================================
+// 东 (dongShip — 自定义核心盟约, 2026-10-13 效果正式化; 用户口径; 2026-10-17 数值修订 45% / 0.6%·L / 0.3%·lostPct)
+//   3: every damage a member deals ×(1 + dmg_base + dmg_per_layer·L) ×(1 + dmg_per_lost_hp·lostPct) — L = the bond's
+//      layers and lostPct = the attacker's lost-HP percent, both re-read at each hit (谢拉格's hit-hook shape); every
+//      member holds 【死战】: the first fatal damage of the battle is prevented at 1 HP for deathless_time s (further
+//      fatal damage during it stays prevented at 1 HP), then the member leaves the field AS KNOCKED OUT (retreat with
+//      reason 'killed', 2026-10-14 用户口径 — 不屈等「被击倒时」效果照常触发; redeploy timer runs);
+//      a dollkeeper member (风丸) switches to its <替身> instead (dollSwitch hook, professions.js) — already in doll
+//      form it retreats as usual;
+//      a member's skill start → EVERY on-field member loses hp_loss_ratio of its CURRENT HP (流失 — battle.loseHp, the
+//      loss cannot kill: skipped when it would) and gains an equal 屏障 shield (one shared buff per member, merged).
+//   6: members ATK +atk_6 (直接乘算); skill starts cost the extra hp_loss_ratio_6 (10% + 15% = 25%); while a member is
+//      below atk_low_hp_ratio of its max HP, ATK +atk_low_hp (直接乘算, tick-refreshed like 月盈星亏).
+// 入口: installDong(battle, pid, bb, members); bb 由 data/bonds.json bondeffect_dong 带来（tools/custom-content.mjs）。
+function installDong(battle, pid, bb, members) {
+  const memberSet = new Set(members);
+  const dmgBase = num(bb.dmg_base, 0.45);   // 2026-10-17 用户修订：25%→45%
+  const dmgPerLayer = num(bb.dmg_per_layer, 0.006);   // 2026-10-17 用户修订：每层 0.7%→0.6%
+  const dmgPerLost = num(bb.dmg_per_lost_hp, 0.003);  // 2026-10-17 用户修订：每 1% 已损失生命 0.4%→0.3%
+  const deathless = num(bb.deathless_time, 4);
+  const loss3 = num(bb.hp_loss_ratio, 0.1);
+  const loss6 = num(bb.hp_loss_ratio_6, 0.15);
+  const atk6 = num(bb.atk_6, 0.6);
+  const atkLow = num(bb.atk_low_hp, 1.2);
+  const lowRatio = num(bb.atk_low_hp_ratio, 0.5);
+  const six = reached(battle, pid, 'dongShip', num(bb.ex_bond_char_cnt, 6));
+  const L = () => S.bondLayers(battle, pid, 'dongShip');
+
+  // 3: damage multiplier — a 'hit' hook per member
+  const onHit = (c) => {
+    const u = c.source, dmg = c.dmg, t = c.target;
+    if (!dmg || !isEnemyTarget(t) || !memberSet.has(u)) return;
+    const lostPct = Math.max(0, 1 - u.hp / Math.max(1, u.s.maxHp)) * 100;
+    dmg.mul *= (1 + dmgBase + dmgPerLayer * L()) * (1 + dmgPerLost * lostPct);
+  };
+  for (const u of members) onUnitHit(battle, u, onHit);
+
+  // 死战 (death priority 10, 与不屈同级): the first fatal damage of the battle → prevented at 1 HP for `deathless` s;
+  // during the buff every further fatal is prevented too, at its end the member leaves as knocked out (reason 'killed').
+  const sworn = new Set();
+  battle.on('fatal', (ctx) => {
+    const u = ctx.unit;
+    if (!memberSet.has(u) || !u.alive) return;
+    if (u.findBuff('bond:dong:deathless')) { ctx.prevented = true; return; }
+    if (ctx.prevented || sworn.has(u)) return;
+    sworn.add(u);
+    ctx.prevented = true;
+    battle.addBuff(u, { key: 'bond:dong:deathless', duration: deathless, visible: true, source: u, tags: ['bond:dong'] });
+    battle.fx('undying', { x: u.x, y: u.y, id: u.id });
+    battle.after(deathless, () => {
+      if (!u.alive || !u.deployed) return;
+      // 傀儡师（风丸）：死战结束 → 切换<替身>作战而不是撤退（2026-10-13 用户口径）。已在替身形态时保持原
+      // 撤退（<替身>被击倒是击倒，但死战窗内全部致命已阻止——走到这里说明是替身形态的正常到期）。
+      if (u.profile?.dollDuration != null && !u.trait?.doll) {
+        battle.emit('dollSwitch', { unit: u, reason: 'bond:dong:deathless' });
+        return;
+      }
+      battle.retreat(u, { reason: 'killed' }); // 死战结束视为被击倒（2026-10-14 用户口径）：death{reason:'killed'} 让
+      // 不屈（含 2 层技力）、克莱门莎等「被击倒时」效果照常触发，deaths 计数与倒地音效也按击倒走
+    }, { owner: u });
+  }, { priority: 10 });
+
+  // skill start → every on-field member's HP-to-shield conversion (流失; the loss never kills)
+  battle.on('skillStart', ({ unit }) => {
+    if (!memberSet.has(unit)) return;
+    const ratio = loss3 + (six ? loss6 : 0);
+    if (!(ratio > 0)) return;
+    for (const m of members) {
+      if (!S.onField(m) || !m.alive) continue;
+      const loss = m.hp * ratio;
+      if (!(loss > 0) || m.hp - loss < 1) continue;
+      battle.loseHp(m, loss, { source: m, tags: ['bond:dong:hpLoss'] });
+      if (!m.alive) continue;
+      const cur = m.findBuff('bond:dong:shield');
+      if (cur) { cur.shield = (cur.shield || 0) + loss; m.markDirty?.(); }
+      else battle.addBuff(m, { key: 'bond:dong:shield', shield: loss, visible: true, source: unit, tags: ['bond:dong'] });
+      S.fxOn(battle, 'buff', m, 'bond:dongShip', 'shield', { amount: loss });
+    }
+  });
+
+  // 6: ATK +60% and the low-HP +120% (below 50% max HP; 2026-10-14 用户修订)
+  if (!six) return;
+  for (const u of members) {
+    if (atk6 > 0) S.passiveBuff(battle, u, 'bond:dong:atk6', S.directMods({ atk: atk6 }));
+    if (atkLow > 0 && lowRatio > 0) {
+      const applyLow = () => {
+        const cur = u.findBuff('bond:dong:lowhp');
+        const on = u.alive && u.hpRatio < lowRatio;
+        if (on && !cur) battle.addBuff(u, { key: 'bond:dong:lowhp', persist: true, allowDead: true, visible: true, mods: S.directMods({ atk: atkLow }), source: u });
+        else if (!on && cur) battle.removeBuff(u, cur);
+      };
+      applyLow();
+      battle.on('tick', applyLow, { owner: u });
+    }
+  }
+}
+
 const INSTALLERS = Object.freeze({
   yanShip: installYan,
   sargonShip: installSargon,
@@ -667,6 +831,8 @@ const INSTALLERS = Object.freeze({
   egirShip: installEgir,
   siracusaShip: installSiracusa,
   kazimierzShip: installKazimierz,
+  ursusShip: installUrsus,
+  dongShip: installDong,
 });
 
 export function install(battle) {

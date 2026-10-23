@@ -156,7 +156,7 @@ export async function startServer(opts = {}) {
   // the content hashes of the art (built in the background once listening) and the manifests served with them
   const indexOptions = assetIndexOptionsFrom(opts, publicDir);
   const assetIndex = indexOptions ? createAssetIndex({ publicDir, log, ...indexOptions }) : null;
-  const views = assetIndex ? createManifestViews({ dataDir, index: assetIndex, log }) : null;
+  const views = createManifestViews({ dataDir, index: assetIndex, log });
   // the visual sets of the cosmetic plugins (DESIGN §32 P1a): what a room's host switches on, served at /vs/ and /p/
   const visual = createVisualSets({ registry: packs, log });
   // the server owner's policy (plugins/config.json), the content sets of the gameplay plugins (served at /cs/<cs16>/…),
@@ -174,13 +174,13 @@ export async function startServer(opts = {}) {
   // 只是钩子没装上」—— 那种结局让运维以为自己有一道不存在的闸门，而它的内容却已经并进了游戏数据。
   const stateRoot = stateRootFor(ROOT);
   const loadedOnce = workshopDir ? loadWorkshop(workshopDir, { log }) : { packs: [], errors: [] };
-  // 启用 / 禁用（DESIGN §34.47，`server/modRegistry.js`）：操作者的开关在这条装配流水线的**最上游**生效 ——
+  // 启用 / 禁用（DESIGN §35.47，`server/modRegistry.js`）：操作者的开关在这条装配流水线的**最上游**生效 ——
   // 被禁用的包连它的服务端载荷都不会被装载（没有 hook、没有订阅、没有字节），文件留在磁盘上，一条 `enable`
   // 命令就回来。被禁用的 id 同时进 `excludePacks`，数据叠加层与这里是同一次裁剪。
   const modRegistry = readModRegistry(stateRoot, { log });
   const registryApplied = applyModRegistry(loadedOnce.packs, modRegistry);
   for (const d of registryApplied.disabled) log.warn(`[mod-registry] "${d.id}" disabled (${d.where}) — not loaded`);
-  // 依赖 / 冲突的装载期裁决（DESIGN §34.48）：缺失依赖、版本不合、互斥、级联与循环，全部在这一步**具名拒绝**
+  // 依赖 / 冲突的装载期裁决（DESIGN §35.48）：缺失依赖、版本不合、互斥、级联与循环，全部在这一步**具名拒绝**
   // —— 一个依赖链断裂的包，和它依赖的那个一样「不在」。
   const adjudicated = adjudicatePackGraph(registryApplied.packs);
   for (const r of adjudicated.refused) log.warn(`[mod-registry] "${r.id}" refused: ${r.reason}`);
@@ -443,6 +443,9 @@ export async function startServer(opts = {}) {
     const actual = server.address();
     const scriptHost = actual && typeof actual === 'object' ? actual.address : '';
     packs.setScriptHost(scriptHost);
+    const testGate = lobby.setTestHost(scriptHost);
+    if (testGate.warn) log.warn(`[test-mode] ${testGate.warn}`);
+    else if (testGate.enabled) log.info('[test-mode] test rooms enabled');
     if (!trustedHostAllowed(scriptHost, scriptMode)) {
       lobby.trustedRuntime = null;
       await trustedRuntime?.close();

@@ -354,6 +354,9 @@ test('覆盖锁定: 全数据 266 个棋子 × 全部模组选择里，被引擎
   }
   assert.ok(scanned > 500, `the whole data set was scanned (${scanned} defs)`);
   assert.deepEqual(installed.sort(), [
+    // 二.3 东国/乌萨斯: 烈夏 LET-X「精英化2后…攻击速度+12」— the same 攻速+12 shape (a module talent).
+    'chess_char_3_98_b|default|12|ok',
+    'chess_char_3_98_b|uniequip_002_leto|12|ok',
     'chess_char_5_01_b|uniequip_003_excu2|12|ok',   // 圣约送葬人 REA-Y（数值在隐藏天赋上）
     'chess_char_5_06_b|uniequip_003_etlchi|12|ok',  // 隐德来希 REA-Y（数值在 trait.bb 上）
     // 丰川祥子 LOR-Y 无言的约定「攻击范围内存在2名及以上敌人时攻击速度+12」— 内容包 packExtra6 (六.C). The clause is the

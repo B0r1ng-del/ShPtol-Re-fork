@@ -1,7 +1,7 @@
 // test/pack-rhine.test.js — 六.3 莱茵生命盟约 + 谬因·并入莱茵 (the first ported content pack), and the 六.F 科研装置
 // that carry its headline effect.
 //
-// The 盟约 comes and goes with the two 内容包开关 `packRhine` / `packAphris` (shared/packData.js): with both off the bond
+// The 盟约 comes and goes with the 内容包开关 `packRhine` (shared/packData.js; 谬因·并入莱茵 merged into it 2026-10-23): off, the bond
 // is not in the match's data at all, and with either one on it is a normal 盟约 — it activates at 3 / 6 / 9 distinct
 // members and, at 6, every DEPLOYED 莱茵 输出干员 gains `sharing_atk` (elite `sharing_golden_atk`) of the highest
 // DEPLOYED 科研装置's base attack as flat ATK (`atkFlat`, 最终加算).
@@ -14,7 +14,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { GameData } from '../server/match/gamedata.js';
-import { normalizeMods } from '../shared/constants.js';
+import { normalizeMods, MOD_KEYS } from '../shared/constants.js';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from './helpers/battleHarness.js';
 import { DATA } from './match/harness.js';
 import { gainLayers } from '../server/sim/content/support/index.js';
@@ -44,24 +44,22 @@ describe('六.3 莱茵生命: the switch gates the whole 盟约', () => {
     assert.deepEqual(aphrisBonds(g), ['emptyShip']);
   });
 
-  test('either switch alone brings the 盟约 (its packId is an ARRAY — a bond with no members is meaningless)', () => {
-    for (const key of ['packRhine', 'packAphris']) {
-      const g = gd({ [key]: true });
-      assert.ok(g.bondIds.includes(RHINE_BOND), `${key} alone must carry ${RHINE_BOND}`);
-      assert.ok(g.bond(RHINE_BOND), `${key}: the record resolves`);
-    }
-    // each switch carries its OWN members: packRhine the six official 莱茵 operators plus the four ported ones,
-    // packAphris only 谬因 (a 自选 operator, so she is in no shop pool — the next test reads her record)
-    assert.ok(gd({ packRhine: true }).chessBondIds(MUL).includes(RHINE_BOND));
-    assert.ok(gd({ packRhine: true }).chessOfBond(RHINE_BOND).length > 0, 'packRhine: the pool knows members');
-    assert.ok(!gd({ packAphris: true }).chessBondIds(MUL).includes(RHINE_BOND), 'the six are not carried by the other switch');
-    // an unrelated pack opens neither
-    assert.ok(!gd({ packRelic: true }).bondIds.includes(RHINE_BOND));
+  test('the ONE Rhine switch carries the whole 盟约 (谬因·并入莱茵 merged into it, 2026-10-23)', () => {
+    // 需求方 2026-10-23：谬因·并入莱茵不再是独立开关，随 莱茵生命 一起进 —— 盟约的 packId 因此是一个字符串，
+    // 不再是 ['packRhine','packAphris'] 那个数组。
+    const g = gd({ packRhine: true });
+    assert.ok(g.bondIds.includes(RHINE_BOND), `packRhine must carry ${RHINE_BOND}`);
+    assert.ok(g.bond(RHINE_BOND), 'the record resolves');
+    assert.ok(g.chessBondIds(MUL).includes(RHINE_BOND), 'packRhine: the pool knows members');
+    assert.ok(g.chessOfBond(RHINE_BOND).length > 0, 'packRhine: members exist');
+    assert.ok(!gd({ packRelic: true }).bondIds.includes(RHINE_BOND), 'an unrelated pack opens nothing');
+    assert.ok(!MOD_KEYS.includes('packAphris'), 'packAphris is no longer a switch at all');
   });
 
-  test('谬因 joins 莱茵 only through her own switch, and she is a member like any other', () => {
-    assert.deepEqual(aphrisBonds(gd({ packRhine: true })), ['emptyShip'], 'the 莱茵 switch does not carry her');
-    assert.deepEqual(aphrisBonds(gd({ packAphris: true })), ['emptyShip', RHINE_BOND]);
+  test('谬因 is a 莱茵 member through the SAME switch, and she is a member like any other', () => {
+    // 从前她是「自己那个开关」带进来的（packAphris）；现在她跟着 莱茵生命 一起进。
+    assert.deepEqual(aphrisBonds(gd({ packRhine: true })), ['emptyShip', RHINE_BOND], 'packRhine carries her now');
+    assert.deepEqual(aphrisBonds(gd({})), ['emptyShip'], 'with the pack off she keeps her official 盟约');
     // The members are the six official 莱茵 operators plus the four ported ones (梅尔 / 伊芙利特 / 溯光星源 / 多萝西),
     // base ids only (data.test.js's convention). 白面鸮's II-cost form is HIDDEN, so `visibleMembers` is one shorter —
     // the 9 the 盟约's own thresholds need (`tools/rhine-data.mjs` recomputes both lists from the chess that name it).

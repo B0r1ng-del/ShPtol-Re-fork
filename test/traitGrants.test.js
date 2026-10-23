@@ -1,4 +1,4 @@
-// test/traitGrants.test.js — 特质授予盟约（`trait.grantsBonds`，DESIGN §34.49）。
+// test/traitGrants.test.js — 特质授予盟约（`trait.grantsBonds`，DESIGN §35.49）。
 //
 // 业主原话：「我们的 forge 能不能做出游戏内的『特质』效果，即一般是用来**叠加盟约层数**的固有天赋」。
 // 这一刀给它补上**纯数据声明面**：一条 chess 记录写 `trait.grantsBonds: ["<bondId>", …]` ⇔「带这条特质的棋子
@@ -105,7 +105,7 @@ test('缺省逐字节不变：官方 266 条棋子的 `trait` 一条都没有这
   // 同一条记录带上装备行也一样（装备那条腿今天已经存在，本刀不能碰它）
   const wearer = ids.find((id) => CHESS[id].visible && !CHESS[id].isGolden);
   assert.deepEqual(pieceBonds(gd, { id: wearer, items: [{ id: 'chess_item_6_09_e_a' }] }), CHESS[wearer].bonds.slice(),
-    '只有一件装备 ⇒ 变形同构体那条腿不授予（与 §34.43.1 的缺省档一致）');
+    '只有一件装备 ⇒ 变形同构体那条腿不授予（与 §35.43.1 的缺省档一致）');
 });
 
 test('真生效：走上这一格 ⇒ count +1、tier 真升（loadWorkshop → applyWorkshop → GameData → computeBonds）', async () => {

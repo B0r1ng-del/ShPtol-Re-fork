@@ -116,8 +116,8 @@ test('every chess and 自选 form at every potential: the raw keyframes plus the
     for (let rank = 0; rank <= FULL_RANK; rank++) { const r = atRank(c, rank); check(c.chessId, c.charId, c.status, r.statsBase ?? r.stats, rank); n++; }
   }
   // 258 official records + the two ported packExtra6 operators' base/elite pairs (内容包 六.C) + the six ported
-  // packRhine ones' (六.F) + the eighteen 卡兹戴尔 / 雷姆必拓 records (八 / 九), × six potential ranks
-  assert.equal(n, 304 * 6);
+  // packRhine ones' (六.F) + the eighteen 卡兹戴尔 / 雷姆必拓 records (八 / 九) + 二.3's 26 东国/乌萨斯 records, × six ranks
+  assert.equal(n, 330 * 6);
   let forms = 0;
   for (const [charId, u] of Object.entries(backups.units)) {
     for (const f of Object.values(u.forms)) {
@@ -125,7 +125,8 @@ test('every chess and 自选 form at every potential: the raw keyframes plus the
       forms++;
     }
   }
-  assert.equal(forms, 259);
+  // 二.3 东国/乌萨斯: the 13 injected operators bring their own unit forms (+10 over the pre-merge 259).
+  assert.equal(forms, 267);
 });
 
 test('talent candidates at every potential: each talent is the last one unlocked with requiredPotentialRank ≤ the rank', { skip: !HAS_CACHE && 'no .cache/gamedata' }, () => {

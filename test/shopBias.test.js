@@ -1,4 +1,4 @@
-// 行为开关 `shopBias`（DESIGN §34.43 第二格，投稿 `b293e061b38f`）—— 「商店刷新盟约装备几率提升」。
+// 行为开关 `shopBias`（DESIGN §35.43 第二格，投稿 `b293e061b38f`）—— 「商店刷新盟约装备几率提升」。
 //
 // 这一格要的是**商店装备槽的出货偏向**，而投稿把它做成了**安装器**（`files.json.copy` 整份覆盖
 // `data/items.json` + `server/match/{bondsMeta,pool}.js` + `server/match/player/economy.js`）。本刀把它收成引擎里

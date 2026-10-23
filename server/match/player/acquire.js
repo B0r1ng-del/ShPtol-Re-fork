@@ -5,10 +5,18 @@
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
 // the player state).
 
+import { hasTraitFor } from '../operatorTraits.js';
 import { pieceDir, parseDir, mergeTile } from '../board.js';
 import { computeBonds } from '../bondsMeta.js';
 import { MAX_OFFER_SLOTS } from './common.js';
 import { onMerge } from '../botEmotes.js';
+
+/**
+ * 「定向甄选」的加权倍数（需求方 2026-10-23）：最高层已激活盟约旗下的干员在奖励三选一的候选里各**多占 20%**
+ * 的出现率。1.2 是「默认概率 + 20%」的直接读法 —— 其余候选的权重不变，所以这是「偏向」而不是「只抽他们」。
+ * 与 `targetedPick` 一起只作用于进阶奖励（source 'merge'）。
+ */
+export const TARGETED_PICK_WEIGHT = 1.2;
 
 export class PlayerAcquire {
   /** Normal copies of a base chess currently owned (board/hand/temp). */
@@ -55,6 +63,9 @@ export class PlayerAcquire {
       this.stow(piece, { allowTemp: true, toTemp });
     }
     this.recompute();
+    // [ASSUMED] Custom gain fires for the acquired copy, not the elite produced by a merge.
+    // Silent setup acquisitions are still acquisitions; official gain behavior stays unchanged.
+    if (hasTraitFor(this.gd, rec.charId)) this.m.dispatch(this, 'onTraitGain', { piece, kind: 'chess', source });
     if (!silent) this.m.dispatch(this, 'onGain', { piece: owned, kind: 'chess', source });
     this.recompute();
     return owned;
@@ -168,7 +179,8 @@ export class PlayerAcquire {
     const items = piece.items || [];
     piece.items = [];
     this.returnCopies(piece);
-    // its equipment comes off first (the returned pair auto-merges, which may free a slot for the gain)
+    // Returned equipment is stowed. morphSlotPolicy is not applied: this path does not check equip slots
+    // (the workshop names a recycle read point this codebase does not have).
     for (const it of items) this.stow(it, { allowTemp: true });
     this.checkItemMerges();
     // The replacement follows the ordinary acquisition path.
@@ -209,14 +221,17 @@ export class PlayerAcquire {
     if (!list) {
       list = [];
       const fresh = (id) => !list.includes(id);
-      // 「定向甄选」 (the `targetedPick` Mod 开关, source 'merge' only): the 三选一 draws from the operators of the player's
-      // HIGHEST-LAYER ACTIVE bond instead of the whole pool. The owner's wording (2026-10-13): 「三个相同干员合为进阶干员时，
-      // 奖励的高阶干员三选一阶段，三个干员的刷新机制改为：从当前已激活最高层数的盟约旗下的干员中随机」. Only the promotion
-      // reward ('merge') is affected: a strategy's / an item's explicit `ids` offer is built from its own list and never rolls.
+      // 「定向甄选」 (the `targetedPick` Mod 开关, source 'merge' only): 最高层**已激活**盟约旗下的干员，在奖励三选一的
+      // 候选里各**多占 20% 的出现率**（权重 ×1.2），其余候选不变 —— 需求方 2026-10-23 改口径：
+      // 「将原本的『100% 出现盟约层数最高的干员』改为『以默认概率提高 20% 的概率』」。
+      // 从前这里是「只从 focus 里抽」，等于把别的候选整批排除；现在只加权，focus 里一个可抽的都没有时也不会空槽。
+      // 只影响进阶奖励（'merge'）：策略/道具给的显式 `ids` 从不 roll。
       const focus = source === 'merge' && this.gd.mods.targetedPick === true
         ? this.gd.highestLayerActiveBond(computeBonds(this.gd, this))
         : null;
       const focusIds = focus ? this.gd.chessOfBond(focus) : null;
+      const focusSet = focusIds && focusIds.length ? new Set(focusIds) : null;
+      const weight = focusSet ? ((id) => (focusSet.has(id) ? TARGETED_PICK_WEIGHT : 1)) : null;
       for (let i = 0; i < ro.count; i++) { // loop-cap: rewardOffer().count ≤ MAX_OFFER_SLOTS
         let id = null;
         // Two changes meet on this line and BOTH are kept (upstream v0.2.6 × fork 共享卡池):
@@ -226,14 +241,8 @@ export class PlayerAcquire {
         //     自选 pieces of that tier (copies left, the roll's own tier — not the shop's shopLevel gate).
         // The old fork line passed `diyRollEntries()` here, which is the SHOP's set (gated on shop.level); the reward
         // offer is exactly the case upstream §30.23 changed, so upstream's accessor wins.
-        // With 定向甄选 on, the SAME cascade runs but may only draw from the focus bond's operators; an empty focus set
-        // (every member sold out / banned) falls through to the ordinary roll rather than handing back an empty slot.
         for (let tt = t; tt >= 1 && !id; tt--) {
-          if (focusIds) {
-            const only = (x) => focusIds.includes(x) && fresh(x);
-            id = this.stock().roll(this.m.rngShop, { tier: tt, filter: only, extra: this.diyStockEntries() });
-          }
-          if (!id) id = this.stock().roll(this.m.rngShop, { tier: tt, filter: fresh, extra: this.diyStockEntries() });
+          id = this.stock().roll(this.m.rngShop, { tier: tt, filter: fresh, extra: this.diyStockEntries(), ...(weight ? { weight } : null) });
         }
         if (id) list.push(id);
       }

@@ -25,6 +25,7 @@
 
 import { layerGainRoom } from '../../shared/constants.js';
 import { memberBonds } from '../../shared/morph.js';
+import { grantedBondsByMorph, ruleOption } from '../../shared/plugins/rules.js';
 
 export const HARMONY_BOND = 'maniShip';
 export const DEPUTY_BOND = 'deputShip';
@@ -33,19 +34,23 @@ export const DEPUTY_BOND = 'deputShip';
  * Bonds of a chess piece: own bonds ∪ bonds granted by 变形同构体 pairings.
  * @param {import('./gamedata.js').GameData} gd
  * @param {{ id: string, items?: Array<{ id: string }> }} piece
+ * @param {Record<string, string>|null} [rules] the room's rule switches; omitted keeps the official pairing
  * @returns {string[]}
  */
-export function pieceBonds(gd, piece) {
+export function pieceBonds(gd, piece, rules = null) {
   const c = gd.chess(piece.id);
   const items = Array.isArray(piece.items) ? piece.items : [];
   const recs = items.map((it) => gd.item(it.id)).filter(Boolean);
   // 成员资格的**合并**在 `shared/morph.js` 的 `memberBonds`（一处判据、三处同源，工坊 mod 层移植 2026-10-16）：自己的
   // `bonds` ∪ 装备授予 ∪ **特质授予**（`c.trait.grantsBonds`）。这一处、战斗里的 `unitBonds` 与客户端的
   // `pieceBondIds` 调的是同一个函数 —— 三处各写一份 push 循环正是这条规则历史上最容易分叉的地方。
+  // 档位来源： (upstream 插件规则开关) 优先，缺省回退到  (工坊 behaviour 声明 —— fork 的
+  // 通道； 在构造时已经把它归一化好了）。两条通道问的是同一个问题，所以这里只读一次、读同一个值。
+  const morphed = rules ? ruleOption(rules, 'morphPairing') : gd.morphPairing;
   return memberBonds(c && Array.isArray(c.bonds) ? c.bonds : [], {
     trait: c && c.trait,
     recs,
-    morphed: gd.morphPairing,
+    morphed,
     hasBond: (id) => !!gd.bond(id),
   });
 }
@@ -65,11 +70,11 @@ function membership(gd, ps) {
   for (const p of boardChess) {
     const base = gd.baseIdOf(p.id);
     const golden = gd.isGolden(p.id);
-    for (const b of pieceBonds(gd, p)) { add(onBoard, b, base); add(onBoardVariant, b, `${base}|${golden ? 1 : 0}`); }
+    for (const b of pieceBonds(gd, p, ps.m?.rules)) { add(onBoard, b, base); add(onBoardVariant, b, `${base}|${golden ? 1 : 0}`); }
   }
   for (const p of handChess) {
     const base = gd.baseIdOf(p.id);
-    for (const b of pieceBonds(gd, p)) add(inHand, b, base);
+    for (const b of pieceBonds(gd, p, ps.m?.rules)) add(inHand, b, base);
   }
   return { onBoard, onBoardVariant, inHand, goldenOnBoard: boardChess.filter((p) => gd.isGolden(p.id)).length };
 }

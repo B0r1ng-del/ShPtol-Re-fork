@@ -296,9 +296,10 @@ test('harness battle with injected kits: non-default skill via the view uses the
 test('tools/kit-coverage: every visible chess and each selectable skill, defaults hand-authored', { skip }, () => {
   const rep = kitCoverage();
   // 114 before the packRhine port; the six 莱茵生命 operators (六.F) are visible chess too; 八 adds the six 卡兹戴尔
-  // operators and unhides 芬, so 120 → 127; 九 adds the nine 雷姆必拓 operators → 136
-  assert.equal(rep.summary.chess, 136);
-  assert.equal(rep.chess.length, 136);
+  // operators and unhides 芬, so 120 → 127; 九 adds the nine 雷姆必拓 operators → 136; 二.1 地灵 (=137) and 二.3's
+  // thirteen 东国/乌萨斯 operators → 150
+  assert.equal(rep.summary.chess, 150);
+  assert.equal(rep.chess.length, 150);
   for (const r of rep.chess) {
     const ch = loadoutOptions(C[r.chessId], C[C[r.chessId].goldenId]);
     assert.deepEqual(r.skills.map((s) => s.index), ch.skills, `${r.chessId}: selectable skills listed`);

@@ -29,10 +29,10 @@ test('the panel lists exactly the four HOST_CONFIG_KEYS, in order, with their de
   const rows = hostConfigPanel(room(), 'h');
   assert.deepEqual(rows.map((r) => r.key), [...HOST_CONFIG_KEYS]);
   for (const r of rows) assert.equal(r.on, HOST_CONFIG_DEFAULTS[r.key], `${r.key} default`);
-  // the mock of the request: 共享卡池 / 共享悬赏 on, then AI 队友最后选择 / 多同盟模式 / 装备可售卖 off and 在线聊天 ON
+  // the mock of the request: 共享卡池 / 共享悬赏 on, then AI 队友最后选择 / 多策略模式 / 装备可售卖 off and 在线聊天 ON
   // (需求方 2026-10-17: onlineChat became the one non-official default)
   assert.deepEqual(rows.map((r) => r.on), [true, true, false, false, false, true]);
-  assert.deepEqual(rows.map((r) => r.label), ['共享卡池', '共享悬赏', 'AI 队友最后选择', '多同盟模式', '装备可售卖', '在线聊天']);
+  assert.deepEqual(rows.map((r) => r.label), ['共享卡池', '共享悬赏', 'AI 队友最后选择', '多策略模式', '装备可售卖', '在线聊天']);
   for (const r of rows) assert.ok(r.tip && r.tip.length > 0, `${r.key} has an explanation`);
 });
 
@@ -161,7 +161,7 @@ test('the 对局选项 markup: one slider per row, wired to room.setEnemyBuff, w
 /** Every label the 房间配置 dialog can show, as the msgid its length is measured on. */
 const MOD_ROW_LABELS = [
   '关闭盟约禁用', '机变不限时间', '机变随机分配', '额外 4 回合', '定向甄选', '解除叠层上限',
-  '共享卡池', '共享悬赏', 'AI 队友最后选择', '多同盟模式', '装备可售卖', '在线聊天',
+  '共享卡池', '共享悬赏', 'AI 队友最后选择', '多策略模式', '装备可售卖', '在线聊天',
 ];
 
 test('「AI 队友最后选择」 reads its own pre-existing room.state field, every other row reads hostConfig', async () => {
@@ -205,7 +205,7 @@ test('room.js sends room.setHostConfig { key, on } and opens the dialog from the
   assert.ok(!/\.hostcfg__head/.test(CSS), 'no stale inline-band rules');
   assert.ok(!/\.hostcfg__title/.test(CSS), 'no stale inline-band rules');
   // the labels and explanations are msgids with a real English translation
-  for (const zh of ['房间配置', '共享卡池', '全同盟共用一个干员池', '共享悬赏', '全队共用一套悬赏决策牌，先选先得', '多同盟模式', '官方规则：每个策略只能由一位博士选择', '装备可售卖', '开启后装备可以出售，售价 1 块钱；关闭时装备只能销毁']) {
+  for (const zh of ['房间配置', '共享卡池', '全同盟共用一个干员池', '共享悬赏', '全队共用一套悬赏决策牌，先选先得', '多策略模式', '开启后同一份策略可被多位博士各选一次；关闭时官方规则：每个策略只能由一位博士选择', '装备可售卖', '开启后装备可以出售，售价 1 块钱；关闭时装备只能销毁']) {
     assert.ok(SRC.includes(`N_('${zh}')`) || SRC.includes(`t('${zh}')`), zh);
     assert.equal(typeof EN[zh], 'string', `en.json: ${zh}`);
     assert.ok(EN[zh].length > 0 && !/[一-鿿]/.test(EN[zh]), `English for ${zh}`);

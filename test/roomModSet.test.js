@@ -11,7 +11,7 @@
 //     today's behaviour so the change cannot happen accidentally: when W-B lands, those assertions MUST be rewritten on
 //     purpose.
 //
-// ▸ W7（DESIGN §34.53）**故意改写了本文件里的 join**：进一个**声明了集合**的房间要**每名真人明确同意**，所以这些
+// ▸ W7（DESIGN §35.53）**故意改写了本文件里的 join**：进一个**声明了集合**的房间要**每名真人明确同意**，所以这些
 //   夹具里「客人进房」的那几处都显式带上 `consent: true`。这不是把判据放松 —— 新的一格由 `test/roomConsent.test.js`
 //   正面钉住（未同意 ⇒ `MOD_CONSENT_REQUIRED`，未必同意先占座位），这里只是让既有夹具表达「这个人同意了」。
 //   `room.create` 那几处一个字没动：房主 `modIds` 就是他钉下的这一份字节，他的座位在 create 那一刻就已经表态。
@@ -400,7 +400,7 @@ describe('room.create { modIds } declares the room set (W-A, DESIGN §34.9)', ()
     assert.equal(validateC2S({ ...base, modIds: Array.from({ length: MAX_ROOM_MODS + 1 }, (_, i) => `p${i}`) }), 'bad field modIds');
     // 本房座位上限 (业主裁决 B5, docs/META.md §1.9) 再加 `seatCap`: 房主建的这个房间开几张座位卡。
     assert.deepEqual(C2S['room.create'].$optional, ['mods', 'modIds', 'chatMode', 'seatCap']);
-    // W7（§34.53）多了一格**可选**的 `consent`：进一个声明了集合的房间要每名真人明确同意。它与 `mods` 是**两种
+    // W7（§35.53）多了一格**可选**的 `consent`：进一个声明了集合的房间要每名真人明确同意。它与 `mods` 是**两种
     // 表态**（`mods` = 「我读到了服务器装着哪些包」的握手回执，`consent` = 「我同意跑这一房声明的那一份字节」），
     // 所以两格并列而不是合成一格；形状见 shared/protocol.js 那一处。
     assert.deepEqual(C2S['room.join'].$optional, ['mods', 'consent'], 'room.join takes no modIds: the set is the host\'s to declare');

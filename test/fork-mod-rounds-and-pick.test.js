@@ -18,6 +18,7 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { GameData } from '../server/match/gamedata.js';
+import { TARGETED_PICK_WEIGHT } from '../server/match/player/acquire.js';
 import { computeBonds } from '../server/match/bondsMeta.js';
 import { MOD_KEYS, MOD_DEFAULTS, MOD_EXTRA_ROUNDS } from '../shared/constants.js';
 import { DATA, makeMatch } from './match/harness.js';
@@ -167,26 +168,39 @@ describe('定向甄选 — the 三选一 comes from the highest-layer active bon
     assert.ok(ops.every((id) => g.visibleChess.includes(id)));
   });
 
-  test('ON: a promotion reward draws from the bond; at a tier the bond can fill, ALL slots do', () => {
+  test('ON: 最高层盟约的干员在候选里权重 ×1.2（默认概率 +20%，需求方 2026-10-23）', () => {
     const a = activeYan({ targetedPick: true });
     try {
       assert.equal(a.yan.active, true, `炎 is active (count ${a.yan.count})`);
       assert.equal(a.m.gd.highestLayerActiveBond(a.bonds), 'yanShip', 'the focus band is 炎');
+      assert.equal(TARGETED_PICK_WEIGHT, 1.2, 'the weight is literally +20 %');
+      // 权重判据：池子自己算得出来，不必跑一整局。focus 内的候选权重是普通那份的 1.2 倍，其余不变。
+      const pool = a.ps.stock();
+      const focusSet = new Set(a.m.gd.chessOfBond('yanShip'));
+      const weighted = pool._eligible({ tier: 5, weight: (id) => (focusSet.has(id) ? TARGETED_PICK_WEIGHT : 1) });
+      const plain = pool._eligible({ tier: 5 });
+      assert.ok(weighted.length > 0, 'the tier has candidates');
+      for (const [id, n] of weighted) {
+        const base = plain.find(([x]) => x === id)?.[1];
+        assert.ok(base > 0, `${id} is in the plain list`);
+        assert.ok(Math.abs(n - base * (focusSet.has(id) ? 1.2 : 1)) < 1e-9, `${id}: weight ${n} vs base ${base}`);
+      }
+      // 行为面：不再「只出盟约干员」—— 三选一里允许出现非 focus 的干员（这正是这一刀改掉的旧口径）。
       const focusOps = new Set(a.m.gd.chessOfBond('yanShip'));
-      // tier 5 has 3 炎 operators, so a 3-slot offer is filled entirely from the bond
-      const yan5 = a.m.gd.chessOfBond('yanShip').filter((id) => a.m.gd.chess(id).tier === 5);
-      assert.equal(yan5.length, 3, 'the data really has three tier-5 炎 operators');
-      const ids = (a.ps.pushRewardOffer('merge', { tier: 5 })?.slots || []).map((s) => s.id);
-      assert.equal(ids.length, 3, 'three slots');
-      assert.ok(ids.every((id) => focusOps.has(id)), `all three come from 炎 (got ${JSON.stringify(ids)})`);
+      let sawOutside = false;
+      for (let i = 0; i < 40 && !sawOutside; i++) {
+        a.ps.offers.length = 0;
+        const ids = (a.ps.pushRewardOffer('merge', { tier: 5 })?.slots || []).map((s) => s.id);
+        if (ids.some((id) => !focusOps.has(id))) sawOutside = true;
+      }
+      assert.ok(sawOutside, 'a 20 % bias still lets the rest of the pool appear (no longer 100 % bond-only)');
     } finally {
       a.h.m.dispose();
     }
   });
 
-  test('ON at a tier the bond cannot fill: bond-first, and no slot comes back empty', () => {
-    // 炎 has exactly ONE tier-2 operator, but a reward offer wants three DIFFERENT ones — so the offer must top up from
-    // the ordinary roll rather than leaving a slot empty (a guarantee must never hand back an empty slot).
+  test('ON at a tier the bond is thin in: 偏向不制造空格，也不重复出现同一个人', () => {
+    // 炎 在 tier 2 只有一名干员，而三选一要素三个**不同**的 —— 加权只让那一个更常见，其余由普通抽签补上。
     const a = activeYan({ targetedPick: true });
     try {
       const yan2 = a.m.gd.chessOfBond('yanShip').filter((id) => a.m.gd.chess(id).tier === 2);
@@ -194,7 +208,6 @@ describe('定向甄选 — the 三选一 comes from the highest-layer active bon
       const ids = (a.ps.pushRewardOffer('merge', { tier: 2 })?.slots || []).map((s) => s.id);
       assert.equal(ids.length, 3, 'all three slots are filled anyway');
       assert.equal(new Set(ids).size, ids.length, 'and never the same operator twice');
-      assert.ok(ids.includes(yan2[0]), 'the bond\'s own operator of that tier is offered first');
     } finally {
       a.h.m.dispose();
     }

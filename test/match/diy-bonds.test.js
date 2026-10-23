@@ -56,10 +56,14 @@ test('the derived bonds of the data: each owned pick its core bonds or 协防, �
     assert.ok((b.length === 1 && b[0] === 'emptyShip') || b.every((x) => core.has(x)), `${id}: ${b.join(', ')}`);
   }
   assert.deepEqual(OPS[HUANG].bonds, ['yanShip', 'victoriaShip']);
-  assert.deepEqual(owned.filter((id) => OPS[id].bonds.length > 1), [HUANG], '煌 alone has several');
+  // 二.3 东国/乌萨斯 + 六.3 谬因: several picks now carry more than one bond (upstream added 东 / 乌萨斯 to 星熊 and
+  // 十字路口; 谬因 joined 莱茵). 煌 was the only one before.
+  assert.deepEqual(owned.filter((id) => OPS[id].bonds.length > 1).sort(),
+    ['char_017_huang', 'char_1044_hsgma2', 'char_1502_crosly'].filter((id) => owned.includes(id)).sort(),
+    'the multi-bond picks');
   assert.deepEqual(OPS.char_300_phenxi.bonds, ['lateranoShip']);
   assert.deepEqual(OPS.char_4098_vvana.bonds, ['kazimierzShip']);
-  assert.deepEqual(OPS[CROSLY].bonds, ['siracusaShip']);
+  assert.deepEqual(OPS[CROSLY].bonds, ['siracusaShip', 'ursusShip'], '二.3: 乌萨斯 joined her');
   for (const id of [...DATA.backups.diy.prototypes[5], ...DATA.backups.diy.prototypes[6]]) assert.deepEqual(OPS[id].bonds, ['emptyShip'], id);
 });
 
@@ -117,7 +121,7 @@ test('sim: a 叙拉古 自选 piece gets 叙拉古\'s deployment buff; a 协防 
   const crosly = h.allies().find((u) => u.def?.charId === CROSLY);
   const [normal, elite] = [h.allies().find((u) => u.def?.charId === SHARP && !u.def.golden), h.allies().find((u) => u.def?.charId === SHARP && u.def.golden)];
   assert.ok(crosly && normal && elite, 'the three 自选 pieces are fielded');
-  assert.deepEqual(crosly.def.bonds, ['siracusaShip']);
+  assert.deepEqual(crosly.def.bonds, ['siracusaShip', 'ursusShip'], '二.3: also a 乌萨斯 member');
   assert.ok(crosly.hasBuff('bond:siracusa'), '叙拉古: ASPD on deployment');
   assert.ok(!normal.hasBuff('bond:siracusa'), 'not for a non-member');
   const scale = (u) => u.buffs.filter((b) => /empty/i.test(b.key)).map((b) => b.mods?.dmgDealtMul).find((x) => x != null);

@@ -104,7 +104,7 @@ function dataBaseForBattle(mods) {
 export { loadBrowserSim, SIM_DATA_FILES } from './simLoader.js';
 
 /**
- * 包声明的**战斗逻辑**，浏览器那一半（`spec.workshopBattle`，DESIGN §34.17 / §34.52）。
+ * 包声明的**战斗逻辑**，浏览器那一半（`spec.workshopBattle`，DESIGN §34.17 / §35.52）。
  *
  * 服务端在装载期就把这些模块 import 过了（`server/battlePack.js loadBattleInstallers`），浏览器这里做的是**同一件事
  * 的另一半**：按 spec 送来的 URL 动态 import，取出它的 `install(battle)`，并把装载期定下来的**调用预算**一起挂上
@@ -1123,7 +1123,7 @@ export function createBattleRunner(deps) {
       try { return e.host.unitStats(unitId); } catch { return null; }
     },
     /**
-     * The damage books of the battle on screen, as `ctx.battle.damage()` hands them to a panel (DESIGN §34.38). Reads
+     * The damage books of the battle on screen, as `ctx.battle.damage()` hands them to a panel (DESIGN §35.38). Reads
      * what the sim already computed (`unit.stats.dmg` and the `_perPlayer` ledger `_buildResult()` uses), never computes
      * anything: a fresh deep copy every call, so a caller can neither mutate the battle nor see later damage appear in a
      * snapshot it already holds. null without a battle on screen (`e.battle` is null while loading).

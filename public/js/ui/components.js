@@ -72,6 +72,8 @@ export const ICONS = {
   play: { d: 'M7 4v16l13-8z' },
   mic: { d: 'M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21H8v2h8v-2h-3v-3.1A7 7 0 0 0 19 11z' },
   edit: { d: 'M3 17.2V21h3.8l11-11-3.8-3.8zM20.7 7.1a1 1 0 0 0 0-1.4l-2.4-2.4a1 1 0 0 0-1.4 0l-1.8 1.8 3.8 3.8z' },
+  // Forge 工坊 (the local editor's jump button, 需求方 2026-10-23): a wrench — the authoring tool, not the game
+  hammer: { d: 'M14.7 2.3a5 5 0 0 0-6.6 6.6L2 15l2.9 2.9 6.1-6.1a5 5 0 0 0 6.6-6.6L14 8.7 11.3 6zM15.9 13.7l4.4 4.4-2.2 2.2-4.4-4.4z', eo: true },
   sword: { d: 'M20 3h1v4L10.4 17.6l1.4 1.4-1.4 1.4-2.1-2.1-3.5 3.5-1.4-1.4 3.5-3.5L4.8 14.8l1.4-1.4 1.4 1.4L18 4z' },
   shield: { d: 'M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5z' },
   wifiOff: { d: 'M2 17h3v4H2zm6-4h3v8H8zm6-4h3v12h-3zm6-4h3v16h-3zM2.4 1 23 21.6 21.6 23 1 2.4z' },
@@ -406,9 +408,10 @@ const modalStack = []; // open modals, topmost last: only the topmost handles ke
 /**
  * Modal dialog (declarative). Esc / backdrop click call onClose.
  * @param {{ open: boolean, title?: any, micro?: string, tone?: string, onClose?: Function, actions?: any,
- *   width?: string, closeOnBackdrop?: boolean, class?: string, children?: any }} props
+ *   width?: string, closeOnBackdrop?: boolean, class?: string, veilClass?: string, children?: any }} props
+ * `veilClass` styles the backdrop itself (e.g. a dialog that dims the field without blurring it).
  */
-export function Modal({ open, title, micro, tone = 'mint', onClose, actions, width, closeOnBackdrop = true, class: cls, children }) {
+export function Modal({ open, title, micro, tone = 'mint', onClose, actions, width, closeOnBackdrop = true, class: cls, veilClass, children }) {
   const boxRef = useRef(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -468,7 +471,7 @@ export function Modal({ open, title, micro, tone = 'mint', onClose, actions, wid
     };
   }, [open]);
   if (!open) return null;
-  return html`<div class="modal" role="presentation"
+  return html`<div class=${cx('modal', veilClass)} role="presentation"
       onMouseDown=${(e) => { if (closeOnBackdrop && e.target === e.currentTarget && onClose) onClose(); }}>
     <div ref=${boxRef} class=${cx('modal__box', 'brackets', `modal__box--${tone}`, cls)} role="dialog" aria-modal="true" tabindex="-1"
          style=${width ? `width:${width}` : undefined}>

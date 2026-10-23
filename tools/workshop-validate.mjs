@@ -136,7 +136,7 @@ async function main() {
   }
   console.log(`\n${report.errors} error(s), ${report.warnings} warning(s)`);
   if (report.errors === 0) console.log('VALID: the engine accepts this content.');
-  // 「接受」与「装载」是两件事（DESIGN §34.50）：收尾那一句不能让人以为报告里的每一个包都进游戏。
+  // 「接受」与「装载」是两件事（DESIGN §35.50）：收尾那一句不能让人以为报告里的每一个包都进游戏。
   if (report.foreign.length) {
     console.log(`NOTE: ${report.foreign.length} pack(s) target another host ("stardust") — this engine recognises them but does not load them (see the WARN lines above).`);
   }

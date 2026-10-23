@@ -105,7 +105,7 @@ export function filterRecords(mods, map) {
 
 /**
  * The bonds of a record under these switches: its own `bonds` minus what every DISABLED pack contributed through
- * `packBonds` (`{ packAphris: ['rhineShip'] }` = 谬因 is a 莱茵生命 member only while that pack is on). Never mutates
+ * `packBonds` (`{ packRhine: ['rhineShip'] }` = 谬因 is a 莱茵生命 member only while that pack is on). Never mutates
  * its input and returns the original array when there is nothing to take out, so an unmodded match is byte-identical.
  * @param {Record<string, boolean>|null|undefined} mods
  * @param {any} rec
