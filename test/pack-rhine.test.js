@@ -63,10 +63,11 @@ describe('六.3 莱茵生命: the switch gates the whole 盟约', () => {
     // The members are the six official 莱茵 operators plus the four ported ones (梅尔 / 伊芙利特 / 溯光星源 / 多萝西),
     // base ids only (data.test.js's convention). 白面鸮's II-cost form is HIDDEN, so `visibleMembers` is one shorter —
     // the 9 the 盟约's own thresholds need (`tools/rhine-data.mjs` recomputes both lists from the chess that name it).
+    // 多萝西 → 麦哲伦：Rhine 2026-10-14 起莱茵生命把多萝西换成了麦哲伦。
     const g = gd({ packRhine: true });
     assert.deepEqual(g.bond(RHINE_BOND).members, [
       'chess_char_2_02_a', 'chess_char_4_21_a', 'chess_char_5_11_a', 'chess_char_5_16_a', 'chess_char_6_11_a', 'chess_char_6_16_a',
-      'chess_rhine_astgenne_a', 'chess_rhine_dorothy_a', 'chess_rhine_ifrit_a', 'chess_rhine_mayer_a',
+      'chess_rhine_astgenne_a', 'chess_rhine_ifrit_a', 'chess_rhine_magallan_a', 'chess_rhine_mayer_a',
     ]);
     assert.equal(g.bond(RHINE_BOND).visibleMembers.length, 9, 'the 盟约 starts at 3 and caps at 9');
     assert.equal(OFF.packRhine, false, 'and the default is off');

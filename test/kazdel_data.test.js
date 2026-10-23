@@ -64,8 +64,9 @@ test('Kazdel data: ten ordinary/elite trait blackboards match the approved effec
     paprika: [{ heal_bonus: .25 }, { heal_bonus: .5 }], hoederer: [{ layer: 6 }, { layer: 10 }],
     mudrock: [{ block_cnt: 3, hp_per_layer: 5 }, { block_cnt: 3, hp_per_layer: 10 }],
     logos: [{ atk_per_layer: 1, target_count: 2 }, { atk_per_layer: 2, target_count: 3 }],
+    // 维什戴尔（Rhine 2026-10-22 同步）：精锐（grade 1）的「本体获得当前众魂炮击伤害的比例」由 0.5 提到 0.8。
     wisdel: [{ damage_bonus: .2, next_attack_bonus: .5, cannon_attack_ratio: .5 },
-      { damage_bonus: .4, next_attack_bonus: 1, cannon_attack_ratio: .5 }],
+      { damage_bonus: .4, next_attack_bonus: 1, cannon_attack_ratio: .8 }],
   };
   for (const [key, pair] of Object.entries(expect)) for (const grade of [0, 1]) {
     const g = files.garrisons[kazdelGarrison(key, Boolean(grade)).garrisonId];

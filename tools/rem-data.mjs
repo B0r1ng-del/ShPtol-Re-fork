@@ -4,6 +4,7 @@ import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { compileChess } from './rhine-data.mjs';
 import { compileBackupPreset } from './preset-data.mjs';
+import { REM_EQUIPMENT } from '../shared/rem.js';
 export const REM_BOND = 'remShip';
 /**
  * `chess.identifier` of the first ported operator (normal form; the elite takes the next one). An identifier is a
@@ -44,6 +45,33 @@ function trait(spec,gold) {
   const bb={ jcinta:{count:[1,2][n]},glider:{interval:5,heal_ratio:[.05,.1][n]},warmy:{layer:[1,2][n],max_layer:[16,32][n]},tmslot:{attack_speed:[10,20][n]},savage:{layer:[2,4][n],max_layer:[24,48][n]},asbest:{def:[20,40][n],res:[3,6][n]},thumpy:{interval:[12,6][n],count:2},ray:{atk_scale:[.5,.7][n]} }[spec.key]||{};
   return {garrisonId:`garrison_rem_${spec.key}_${gold?'b':'a'}`,desc:text,descRaw:text,eventType:'IN_BATTLE',eventTypeDesc:'特异化',eventTypeIcon:'icon_support',effectType:spec.effectKey||'REM_APRIL_PRICE',effectKey:spec.effectKey||'REM_APRIL_PRICE',battleRuneKey:null,charLevel:0,bb,bbStr:{},owners:[]};
 }
+function applyRemEquipment({ items, effects }) {
+  for (const [index, [key, spec]] of Object.entries(REM_EQUIPMENT).entries()) for (const gold of [false, true]) {
+    const grade = gold ? 1 : 0, armor = key === 'armor', name = armor ? '矿业护具' : '工头的扩音器';
+    const baseId = `${spec.key}_a`, goldenId = `${spec.key}_b`, id = gold ? goldenId : baseId;
+    const params = armor ? { max_hp: spec.hp[grade], damage_reduction: spec.damageReduction[grade] }
+      : { atk: spec.attack[grade], def_ignore: spec.defIgnore[grade], combo_def_ignore: spec.comboDefIgnore[grade] };
+    const strings = { key: `rem_${key}`, ...(!armor ? { equip_chess_id: REM_EQUIPMENT.armor.key } : {}) };
+    const buffs = [{ key: 'env_gbuff_new_with_verify', countType: 'NONE', bb: params, bbStr: strings }];
+    const common = '仅【雷姆必拓】干员可装备；携带者存活在场时，自身格及周围八格内同玩家援军（含车辆与老板）受益，按双方实际位置判定；同类装备的基础属性与专属效果均只取最高。';
+    const desc = armor ? `最大生命值+${Math.round(spec.hp[grade] * 100)}%；范围内己方援军受到的伤害降低${Math.round(spec.damageReduction[grade] * 100)}%。${common}`
+      : `攻击力+${Math.round(spec.attack[grade] * 100)}%；范围内己方援军攻击忽略目标${Math.round(spec.defIgnore[grade] * 100)}%防御；携带者同时装备“矿业护具”时改为忽略${Math.round(spec.comboDefIgnore[grade] * 100)}%防御。${common}`;
+    const effectId = `eff_rem_${key}_${gold ? 'b' : 'a'}`;
+    effects[effectId] = { effectId, effectType: 'EQUIP', name, desc, descRaw: desc,
+      counterType: 'NONE', continuedRound: -1, decoIconId: null, enemyPrice: 0,
+      buffs: structuredClone(buffs), params: { ...params, ...strings } };
+    items[id] = { id, baseId, goldenId, isGolden: gold, trapId: `trap_rem_${key}`, iconId: `trap_rem_${key}`,
+      identifier: 540 + index * 2 + grade, name, itemType: 'EQUIP', tier: spec.tier, shopSortId: 30 + index,
+      price: gold ? 5 : spec.price, hideInShop: false, shopExcluded: false, shopExcludedBy: null,
+      mergeable: !gold, upgradeNum: gold ? 0 : 2, upgradeChessId: gold ? null : goldenId, duration: gold ? 0 : -1,
+      giveBondId: null, givePowerId: null, canGiveBond: false, requiresBondId: REM_BOND,
+      effectId, effectName: name, desc, descRaw: desc, buffs, params: structuredClone(effects[effectId].params),
+      category: 'BOND_SIGNATURE', kind: 'passive', family: 'rem',
+      implFormula: armor ? 'Rem carrier only: HP% += max_hp. Nearby same-owner actual Rem reinforcements take damage * (1 - strongest damage_reduction).'
+        : 'Rem carrier only: ATK% += atk. Nearby same-owner actual Rem reinforcement physical hits ignore strongest def_ignore, replaced by combo_def_ignore only when that same live carrier also carries armor.',
+      rangeGrid: [[0, 0], [-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]], flavor: null };
+  }
+}
 export async function applyRemData(files,source=null) {
   // The OUTER call may inject the six-rank driver: this fork keeps its own copy of it (`tools/rem.mjs`) instead of
   // importing the source repo's `tools/extension-potential.mjs` (which does not exist here). The INNER calls (one per
@@ -55,6 +83,7 @@ export async function applyRemData(files,source=null) {
     const { applyPotentialOverlay } = ctx;
     return applyPotentialOverlay(files,applyRemData,ctx);
   }
+  applyRemEquipment(files);
   for(const [index,spec] of REM_ADDITIONS.entries()) for(const gold of [false,true]) {
     const g=trait(spec,gold); files.garrisons[g.garrisonId]=g;
     const c=['thumpy','ray'].includes(spec.key)?compileBackupPreset(files,spec,gold,index,g,ctx.potRank):compileChess(ctx,files.config,{...spec,garrison:g},gold,index+20);

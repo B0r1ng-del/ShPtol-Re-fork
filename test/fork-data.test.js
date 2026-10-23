@@ -364,9 +364,10 @@ describe('fork 莱茵生命 盟约 (六.3: rhineShip + 谬因·并入莱茵)', (
     // Members list the BASE (`_a`) ids only: data.test.js asserts a member is a non-golden chess. The six official
     // 莱茵 operators plus the four ported ones that name the 盟约 (tools/rhine-data.mjs recomputes the list from the
     // chess that carry it), in the natural key order `data/chess.json` is written in.
+    // 多萝西 → 麦哲伦：Rhine 2026-10-14 起莱茵生命把多萝西换成了麦哲伦（带「装置攻击研究」新机制）。
     assert.deepEqual(b.members, [
       'chess_char_2_02_a', 'chess_char_4_21_a', 'chess_char_5_11_a', 'chess_char_5_16_a', 'chess_char_6_11_a', 'chess_char_6_16_a',
-      'chess_rhine_astgenne_a', 'chess_rhine_dorothy_a', 'chess_rhine_ifrit_a', 'chess_rhine_mayer_a',
+      'chess_rhine_astgenne_a', 'chess_rhine_ifrit_a', 'chess_rhine_magallan_a', 'chess_rhine_mayer_a',
     ]);
     // 白面鸮's II-cost form is HIDDEN, so the visible list is one shorter — the 9 the 盟约's own thresholds need
     assert.deepEqual(b.visibleMembers, b.members.filter((id) => id !== 'chess_char_5_16_a'));
