@@ -393,7 +393,7 @@ function tokensOf(backups, pool) {
 
 /**
  * The ported 莱茵生命 盟约 (`rhineShip`), one of the 内容包 switches (六.2). It is CARRIED BY TWO switches: 莱茵生命
- * (`packRhine`, the whole Rhine expansion) and 谬因·并入莱茵 (`packAphris`, the one-operator change) — either of them
+ * (`packRhine`, the whole Rhine expansion — 谬因·并入莱茵 was merged into it on 2026-10-23, so it is ONE switch now)
  * has to bring the 盟约 with it, since a member with no 盟约 to join is meaningless. `packId` is an ARRAY for exactly
  * that reason (`shared/constants.js packEnabled`).
  *
@@ -415,7 +415,7 @@ export const FORK_KAZDEL_ICON = '/art/kazdel/bond.png';
 export const FORK_KAZDEL_ITEM_ICONS = Object.freeze(Object.fromEntries(
   Object.keys(KAZDEL_EQUIPMENT).map((key) => [`trap_kazdel_${key}`, `/art/kazdel/${key}-v2.png`]),
 ));
-const FORK_RHINE_PACKS = Object.freeze(['packRhine', 'packAphris']);
+const FORK_RHINE_PACKS = Object.freeze(['packRhine']);
 /** `rhineShip`'s blackboard and its 效果 text (the source expansion's own words). */
 const FORK_RHINE = Object.freeze({
   name: '莱茵生命',
@@ -485,7 +485,7 @@ export function applyForkBonds(bonds) {
       baseParams: [], perStackParams: [],
       members: seeded('members'), visibleMembers: seeded('visibleMembers'), packId: [...FORK_RHINE_PACKS],
       // `packRestore` (shared/packData.js) is the overlay's, not this applier's: the record outlives a single switch
-      // (its `packId` is an array), so while `packRhine` is off but `packAphris` on it has to fall back to the six
+      // (its `packId` carries `packRhine`), so while `packRhine` is off it has to fall back to the six
       // official members. Carrying it through keeps the in-place `tools/fork-data.mjs` patch from erasing it.
       ...(prev && isPlainObject(prev.packRestore) ? { packRestore: prev.packRestore } : {}),
     },
@@ -571,7 +571,7 @@ export function applyForkPackAphris(backups, chess = null) {
   if (!isPlainObject(backups)) return backups;
   const diy = isPlainObject(backups.diy) ? backups.diy : null;
   // 这段有两件事，彼此独立，谁都不许提前返回把另一件带掉：
-  //   1. 缪因·并入莱茵（packAphris）—— 给她的自选记录挂上 rhineShip；
+  //   1. 缪因·并入莱茵（2026-10-23 起并入 packRhine）—— 给她的自选记录挂上 rhineShip；
   //   2. `diy.ownedPool` 剔除「已经是棋手」的干员（需求方 2026-10-23 的重复干员 bug）。内容包的棋手记录由本文件
   //      叠加进 chess，build 那一刻还不在官方 roster 里，于是伊芙利特这类干员既是一张棋手卡、又在自选可选池里。
   const pool = ownedPoolOf(backups, chess);
@@ -593,7 +593,7 @@ export function applyForkPackAphris(backups, chess = null) {
       [FORK_APHRIS_CHAR_ID]: {
         ...rec,
         bonds: [...bonds, FORK_RHINE_BOND_ID],
-        packBonds: { ...(isPlainObject(rec.packBonds) ? rec.packBonds : {}), packAphris: [FORK_RHINE_BOND_ID] },
+        packBonds: { ...(isPlainObject(rec.packBonds) ? rec.packBonds : {}), packRhine: [FORK_RHINE_BOND_ID] },
       },
     };
   }

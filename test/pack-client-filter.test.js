@@ -38,7 +38,7 @@ async function store() {
 describe('内容包开关: the CLIENT strips a switched-off pack', () => {
   test('the committed data really does contain the pack (or this suite proves nothing)', async () => {
     const s = await store();
-    s.setPacks({ packRhine: true, packAphris: true, packRelic: true });
+    s.setPacks({ packRhine: true, packRelic: true });
     assert.ok(s.list('bonds').some((b) => b.bondId === 'rhineShip'), 'rhineShip is in data/bonds.json');
     assert.ok(s.list('chess').some((c) => c.chessId.startsWith('chess_rhine_')), 'and its cards in data/chess.json');
   });
@@ -46,7 +46,7 @@ describe('内容包开关: the CLIENT strips a switched-off pack', () => {
   test('莱茵生命 off: no 盟约 and no cards — even though the file on disk has both', async () => {
     const s = await store();
     // exactly what main.js hands over for a room whose host left every pack off
-    s.setPacks({ noBondBan: false, packRhine: false, packAphris: false, packRelic: false });
+    s.setPacks({ noBondBan: false, packRhine: false, packRelic: false });
     assert.ok(!s.list('bonds').some((b) => b.bondId === 'rhineShip'), 'the 盟约 is gone');
     assert.ok(!s.list('chess').some((c) => c.chessId.startsWith('chess_rhine_')), 'and so are its 12 cards');
     // the official content is untouched: 23 bonds, and the official cards are all still listed
@@ -63,20 +63,20 @@ describe('内容包开关: the CLIENT strips a switched-off pack', () => {
 
   test('turning 莱茵生命 back on brings its content back (the filter is not one-way)', async () => {
     const s = await store();
-    s.setPacks({ packRhine: false, packAphris: false, packRelic: false });
+    s.setPacks({ packRhine: false, packRelic: false });
     assert.ok(!s.list('bonds').some((b) => b.bondId === 'rhineShip'));
-    s.setPacks({ packRhine: true, packAphris: false, packRelic: false });
+    s.setPacks({ packRhine: true, packRelic: false });
     assert.ok(s.list('bonds').some((b) => b.bondId === 'rhineShip'), 'the 盟约 is listed again');
     assert.ok(s.list('chess').some((c) => c.chessId.startsWith('chess_rhine_')));
   });
 
   test('`get` (a WHOLE file: the roster, diyData, the detail cards) is filtered too', async () => {
     const s = await store();
-    s.setPacks({ packRhine: false, packAphris: false, packRelic: false });
+    s.setPacks({ packRhine: false, packRelic: false });
     const chess = s.get('chess');
     const keys = Array.isArray(chess) ? chess.map((c) => c.chessId) : Object.keys(chess || {});
     assert.ok(!keys.some((k) => k.startsWith('chess_rhine_')), 'the 干员调配 roster cannot list a switched-off pack');
-    s.setPacks({ packRhine: true, packAphris: false, packRelic: false });
+    s.setPacks({ packRhine: true, packRelic: false });
     const on = s.get('chess');
     const onKeys = Array.isArray(on) ? on.map((c) => c.chessId) : Object.keys(on || {});
     assert.ok(onKeys.some((k) => k.startsWith('chess_rhine_')), 'and lists it again when the switch is on');
@@ -84,7 +84,7 @@ describe('内容包开关: the CLIENT strips a switched-off pack', () => {
 
   test('the client and the server agree on the same room (one shared rule)', async () => {
     const s = await store();
-    const mods = { packRhine: false, packAphris: false, packRelic: false };
+    const mods = { packRhine: false, packRelic: false };
     s.setPacks(mods);
     const { GameData } = await import('../server/match/gamedata.js');
     const data = {};

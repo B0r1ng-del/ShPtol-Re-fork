@@ -23,7 +23,7 @@ const OFF = normalizeMods(undefined);
 
 describe('内容包开关: the switches themselves', () => {
   test('one switch per pack, all off by default, all in MOD_KEYS (so they travel with room.create.mods)', () => {
-    assert.deepEqual([...PACK_KEYS], ['packRhine', 'packAphris', 'packRelic', 'packKazdel', 'packRem']);
+    assert.deepEqual([...PACK_KEYS], ['packRhine', 'packRelic', 'packKazdel', 'packRem'], '谬因·并入莱茵 merged into 莱茵生命 (2026-10-23)');
     for (const k of PACK_KEYS) {
       assert.ok(MOD_KEYS.includes(k), `${k} is a Mod key`);
       assert.equal(MOD_DEFAULTS[k], false, `${k} defaults off`);
@@ -32,7 +32,6 @@ describe('内容包开关: the switches themselves', () => {
     // every pack has the author its ⓘ credits
     for (const k of PACK_KEYS) assert.ok(PACK_AUTHORS[k] && typeof PACK_AUTHORS[k] === 'string', `${k} has an author`);
     assert.equal(PACK_AUTHORS.packRhine, 'YUYUYUYUYUYUYUTOUA');
-    assert.equal(PACK_AUTHORS.packAphris, 'SrC204');
     assert.equal(PACK_AUTHORS.packRelic, 'UNDFFIO');
     // 八: 卡兹戴尔 comes from the same author as 莱茵生命 (the source expansion ships both); 九: so does 雷姆必拓
     assert.equal(PACK_AUTHORS.packKazdel, 'YUYUYUYUYUYUYUTOUA');
@@ -61,10 +60,11 @@ describe('内容包开关: the switches themselves', () => {
     assert.equal(packEnabled(undefined, 'packRhine'), false, 'no mods at all = all off');
     // an ARRAY of ids: a record two packs both contribute (rhineShip) is available while EITHER switch is on, so each
     // switch alone can bring its own bond with it
-    assert.equal(packEnabled({ packAphris: true }, ['packRhine', 'packAphris']), true);
-    assert.equal(packEnabled({ packRhine: true }, ['packRhine', 'packAphris']), true);
-    assert.equal(packEnabled(OFF, ['packRhine', 'packAphris']), false);
-    assert.equal(packEnabled({ packRelic: true }, ['packRhine', 'packAphris']), false, 'an unrelated switch does not open it');
+    assert.equal(packEnabled({ packRhine: true }, 'packRhine'), true);
+    assert.equal(packEnabled(OFF, 'packRhine'), false);
+    assert.equal(packEnabled({ packRelic: true }, 'packRhine'), false, 'an unrelated switch does not open it');
+    // 数组形态仍然支持（数据里还有别的记录用它），只是 rhineShip 不再需要
+    assert.equal(packEnabled({ packRhine: true }, 'packRhine'), true);
     assert.equal(packEnabled(OFF, []), true, 'an empty list carries no pack = always available');
   });
 
@@ -145,24 +145,24 @@ describe('内容包开关: the filter (shared/packData.js)', () => {
 
   test('packBonds: a pack may make an EXISTING operator join a 盟约, and only while it is on', () => {
     // The committed record carries the contribution; a DISABLED pack takes it back out (see the file header).
-    const aphris = { name: '谬因', bonds: ['emptyShip', 'rhineShip'], packBonds: { packAphris: ['rhineShip'] } };
+    const aphris = { name: '谬因', bonds: ['emptyShip', 'rhineShip'], packBonds: { packRhine: ['rhineShip'] } };
     assert.deepEqual(effectiveBonds(OFF, aphris), ['emptyShip'], 'off = the original bonds');
-    assert.deepEqual(effectiveBonds({ packAphris: true }, aphris), ['emptyShip', 'rhineShip']);
-    assert.deepEqual(effectiveBonds({ packRhine: true }, aphris), ['emptyShip'], 'another switch does not carry it');
+    assert.deepEqual(effectiveBonds({ packRhine: true }, aphris), ['emptyShip', 'rhineShip']);
+    assert.deepEqual(effectiveBonds(OFF, aphris), ['emptyShip'], 'with the single switch off she keeps only her own');
     assert.deepEqual(aphris.bonds, ['emptyShip', 'rhineShip'], 'the input array is never mutated');
     // a contribution the record does not even list is a no-op, and a record with nothing to drop keeps its own array
-    assert.deepEqual(effectiveBonds(OFF, { bonds: ['x'], packBonds: { packAphris: ['nope'] } }), ['x']);
+    assert.deepEqual(effectiveBonds(OFF, { bonds: ['x'], packBonds: { packRhine: ['nope'] } }), ['x']);
     const own = ['x'];
     assert.equal(effectiveBonds(OFF, { bonds: own }), own, 'the original array is returned as it is');
-    assert.equal(effectiveBonds({ packAphris: true }, { bonds: own, packBonds: { packAphris: ['x'] } }), own);
+    assert.equal(effectiveBonds({ packRhine: true }, { bonds: own, packBonds: { packRhine: ['x'] } }), own);
   });
 
   test('packBonds on a chess: an existing operator joins a new 盟约 too, not just a 自选 pick', () => {
     const cards = {
-      c1: { chessId: 'c1', bonds: ['emptyShip', 'rhineShip'], packBonds: { packAphris: ['rhineShip'] } },
+      c1: { chessId: 'c1', bonds: ['emptyShip', 'rhineShip'], packBonds: { packRhine: ['rhineShip'] } },
       c2: { chessId: 'c2' },
     };
-    assert.equal(filterFile({ packAphris: true }, 'chess', cards), cards, 'on = the same object, nothing to strip');
+    assert.equal(filterFile({ packRhine: true }, 'chess', cards), cards, 'on = the same object, nothing to strip');
     const off = filterFile(OFF, 'chess', cards);
     assert.deepEqual(off.c1.bonds, ['emptyShip'], 'the contribution is taken back out');
     assert.equal(off.c2, cards.c2, 'a card that loses nothing is shared, not copied');
@@ -173,7 +173,7 @@ describe('内容包开关: the filter (shared/packData.js)', () => {
     const data = {
       backups: {
         units: { u1: { charId: 'u1' }, u2: { charId: 'u2', packId: 'packRelic' } },
-        diy: { operators: { char_4229_aphris: { bonds: ['emptyShip', 'rhineShip'], packBonds: { packAphris: ['rhineShip'] } } }, slots: {} },
+        diy: { operators: { char_4229_aphris: { bonds: ['emptyShip', 'rhineShip'], packBonds: { packRhine: ['rhineShip'] } } }, slots: {} },
       },
     };
     const off = filterRawData(OFF, data);
@@ -181,13 +181,13 @@ describe('内容包开关: the filter (shared/packData.js)', () => {
     assert.deepEqual(off.backups.diy.operators.char_4229_aphris.bonds, ['emptyShip'], 'and its bond contribution taken back');
     assert.equal(off.backups.diy.slots, data.backups.diy.slots, 'untouched keys are shared, not copied');
     assert.ok('u2' in data.backups.units, 'the input is untouched');
-    const on = filterRawData({ packRelic: true, packAphris: true }, data);
+    const on = filterRawData({ packRelic: true, packRhine: true }, data);
     assert.ok('u2' in on.backups.units, 'the enabled pack stays');
     assert.deepEqual(on.backups.diy.operators.char_4229_aphris.bonds, ['emptyShip', 'rhineShip'], 'and the membership holds');
     assert.deepEqual(data.backups.diy.operators.char_4229_aphris.bonds, ['emptyShip', 'rhineShip'], 'the input is untouched');
     // with only one of the two on, the other's contribution is still taken back out
     const onlyExtra = filterRawData({ packRelic: true }, data);
-    assert.deepEqual(onlyExtra.backups.diy.operators.char_4229_aphris.bonds, ['emptyShip'], 'packAphris is off');
+    assert.deepEqual(onlyExtra.backups.diy.operators.char_4229_aphris.bonds, ['emptyShip'], 'packRhine is off');
   });
 });
 
@@ -201,10 +201,10 @@ describe('内容包开关: the server sees only what the room contains', () => {
     },
     bonds: {
       yanShip: { bondId: 'yanShip', name: '炎', activeCount: 2, thresholds: [2, 3] },
-      rhineShip: { bondId: 'rhineShip', name: '莱茵生命', activeCount: 3, thresholds: [3, 6, 9], packId: ['packRhine', 'packAphris'] },
+      rhineShip: { bondId: 'rhineShip', name: '莱茵生命', activeCount: 3, thresholds: [3, 6, 9], packId: ['packRhine'] },
     },
     items: { item_pack: { itemId: 'item_pack', packId: 'packRelic', tier: 1 } },
-    backups: { diy: { operators: { char_4229_aphris: { name: '谬因', bonds: ['emptyShip', 'rhineShip'], packBonds: { packAphris: ['rhineShip'] } } } } },
+    backups: { diy: { operators: { char_4229_aphris: { name: '谬因', bonds: ['emptyShip', 'rhineShip'], packBonds: { packRhine: ['rhineShip'] } } } } },
   };
 
   test('all off: the original chess and bond, none of the packs', () => {
@@ -215,7 +215,7 @@ describe('内容包开关: the server sees only what the room contains', () => {
     assert.ok(!gd.bond('rhineShip'));
     assert.deepEqual(gd.chessBondIds('chess_orig'), ['yanShip']);
     // the 自选 operator keeps its original bonds
-    assert.equal(gd.mods.packAphris, false);
+    assert.equal(gd.mods.packRhine, false);
   });
 
   test('a pack on: its chess enters the pool and its 盟约 exists', () => {
@@ -229,7 +229,7 @@ describe('内容包开关: the server sees only what the room contains', () => {
 
   test('谬因 joins 莱茵 only with that pack on, and she is a normal member of it', () => {
     const off = new GameData(raw, 'mode_standard', undefined);
-    const on = new GameData(raw, 'mode_standard', { packAphris: true, packRhine: true });
+    const on = new GameData(raw, 'mode_standard', { packRhine: true });
     // the server resolves the 自选 operator's bonds through the filter (shared/packData.js)
     const bondsOf = (gd) => gd.raw.backups.diy.operators.char_4229_aphris.bonds;
     assert.deepEqual(bondsOf(off), ['emptyShip'], 'off: the contribution is taken back out');
@@ -246,7 +246,7 @@ describe('内容包开关: the server sees only what the room contains', () => {
     assert.ok(gd2.item('item_pack'), 'and then it is there');
     // the bond two packs both carry appears while EITHER is on
     assert.ok(new GameData(raw, 'mode_standard', { packRhine: true }).bond('rhineShip'));
-    assert.ok(new GameData(raw, 'mode_standard', { packAphris: true }).bond('rhineShip'));
+    assert.ok(new GameData(raw, 'mode_standard', { packRhine: true }).bond('rhineShip'));
     assert.ok(!new GameData(raw, 'mode_standard', { packRelic: true }).bond('rhineShip'));
   });
 

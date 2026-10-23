@@ -304,7 +304,7 @@ function recordRestore(before, files) {
  * re-stamp it (the 12 `chess_rhine_*` lost their `packId` on every second pass).
  *
  * The 六.3 bond and its effect are NOT re-stamped: `tools/fork-overrides.mjs applyForkBonds` / `applyForkEffects` own
- * those two records and give them the two-switch array `['packRhine','packAphris']` (either switch has to carry the
+ * those two records and give them `packId: 'packRhine'` (谬因·并入莱茵 merged into 莱茵生命 on 2026-10-23, so the
  * 盟约). They already carry a `packId` by the time this runs, so the "already stamped" guard leaves them alone — which
  * is why the walk is over EVERY table and not a skip list: the 六.F 装备 effects are the overlay's own and do need it.
  */
@@ -401,7 +401,7 @@ export async function applyRhineData(files, source = null) {
   }
   for (const g of Object.values(garrisons)) g.owners = Object.values(chess).filter(c => c.garrisonIds.includes(g.garrisonId)).map(c => c.chessId);
   // 六.F: the 盟约 record itself and its effect are OWNED by the fork layer (tools/fork-overrides.mjs applyForkBonds /
-  // applyForkEffects, 六.3) — they carry the two-switch `packId: ['packRhine','packAphris']` and the `env_gbuff_new`
+  // applyForkEffects, 六.3) — they carry `packId: 'packRhine'` and the `env_gbuff_new`
   // blackboard every other 盟约 is read through. Rebuilding them here would drop the `packId` (the bond would survive a
   // room with every switch off) and blank `buffs` (`rhineBb()` reads back `{}` and the 盟约's whole effect goes to
   // zero). So the two records are only CREATED here when nothing has made them yet (`node tools/rhine-data.mjs`, the

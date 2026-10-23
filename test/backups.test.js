@@ -375,7 +375,7 @@ test('DIY: the owned-6★ pool and the faction → bond rule (mainPower + every 
   assert.equal(core.length, 8);
   // The faction → bond rule, plus what the FORK LAYER contributes on top. `data/backups.json` is a build product that
   // holds the ALL-PACKS-ON content (shared/packData.js strips a pack in a room without its switch), so a pick may carry
-  // extra bonds declared as a `packBonds` contribution (`{ packAphris: ['rhineShip'] }` = 谬因 joins 莱茵生命 while that
+  // extra bonds declared as a `packBonds` contribution (`{ packRhine: ['rhineShip'] }` = 谬因 joins 莱茵生命 while that
   // switch is on). Those are exactly the extras; anything else still has to come from the operator's own powers.
   const packExtra = (o) => Object.values(o.packBonds && typeof o.packBonds === 'object' ? o.packBonds : {}).flat();
   const fromPowers = (o) => {

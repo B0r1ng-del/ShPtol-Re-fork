@@ -351,7 +351,7 @@ describe('fork 莱茵生命 盟约 (六.3: rhineShip + 谬因·并入莱茵)', (
     );
     assert.deepEqual(b.thresholds, [3, 6, 9], '3 / 6 / 9 distinct members');
     // an ARRAY packId: only ONE of the two switches has to be on for the 盟约 to exist (shared/constants.js packEnabled)
-    assert.deepEqual(b.packId, ['packRhine', 'packAphris']);
+    assert.deepEqual(b.packId, ['packRhine']);
     assert.deepEqual(b.bb, { base_atk: 300, atk_per_stack: 4, sharing_count: 6, sharing_atk: 0.15, sharing_golden_atk: 0.25 });
     assert.equal(b.bbStr.key, 'rhine_research', 'the device table key the 六.4 port will read');
     // The numbers are read through the SAME `env_gbuff_new` blackboard every other 盟约 uses (`addon/battle.js bondBb`,
@@ -406,7 +406,7 @@ describe('fork 莱茵生命 盟约 (六.3: rhineShip + 谬因·并入莱茵)', (
     const rec = backups.diy.operators[FORK_APHRIS_CHAR_ID];
     assert.ok(rec, `${FORK_APHRIS_CHAR_ID} missing from backups.diy.operators`);
     assert.ok(rec.bonds.includes(FORK_RHINE_BOND_ID), 'she is a 莱茵生命 member in the committed (all-packs-on) data');
-    assert.deepEqual(rec.packBonds, { packAphris: [FORK_RHINE_BOND_ID] }, 'and only the 谬因 switch carries it');
+    assert.deepEqual(rec.packBonds, { packRhine: [FORK_RHINE_BOND_ID] }, '谬因·并入莱茵 merged into 莱茵生命 (2026-10-23)');
     // the roster of 自选 operators is unchanged: the port adds a membership, not an operator
     assert.ok(Object.values(backups.diy.operators).every((o) => !o.packId));
   });
