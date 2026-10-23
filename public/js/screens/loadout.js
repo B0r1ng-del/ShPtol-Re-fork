@@ -521,9 +521,10 @@ function LoadoutScreen({ st }) {
   // a 自选 pick's 潜能 / 练度 is set on its own slot card on the 自选编队 tab). Deduplicated by charId: the normal, elite
   // and 自选 forms of an operator share one setting.
   const nChanged = changedCount(st.entries, getChess, st.ops, roster, potentialEditable);
+  const maxableIds = useMemo(() => new Set(roster.map((c) => c.charId).filter(Boolean)), [ready, roster]);
+  const nMaxable = ready ? maxAllOpsCount(st.ops, maxableIds) : 0;
   const rules = useStore((s) => s.room?.content?.rules ?? null);
   const seatReady = useStore((s) => !!s.match?.private?.ready);
-  // prepLoadout 'prep': the panel stays editable in 休整期 until this seat presses 准备
   const prepOpen = phase === PHASE.PREP && ruleOption(rules, 'prepLoadout') === 'prep' && !seatReady;
   const locked = ((inMatch && phase && phase !== PHASE.INFO_CHECK && phase !== PHASE.LOBBY) && !prepOpen) || st.sync === 'locked';
   const gridRef = useRef(null);

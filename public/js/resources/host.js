@@ -20,7 +20,7 @@ import { MEDIA_PREFIX, absoluteUrl as absoluteUrlFor } from './common.js';
 import { fetchManifest, fetchContainer, importResourcePack, importedReceipt, revokeImport } from './bundle.js';
 import { verifyImportedResources, verifyContainerBytes } from './verify.js';
 import { activateResourceWorker } from './worker.js';
-// 镜像的**排序面**（DESIGN §34.40）：主机名从 `pack.json` 来，这里只回答「先试哪一条」。见 sources.js 文件头。
+// 镜像的**排序面**（DESIGN §35.40）：主机名从 `pack.json` 来，这里只回答「先试哪一条」。见 sources.js 文件头。
 import { orderDeclared, sourcesEnabled } from './sources.js';
 
 /** `/workshop-resources/<pack>/<声明路径>` —— 服务端注册容器与清单的那条路由（`shared/workshop.js`）。 */
@@ -29,7 +29,7 @@ export const WORKSHOP_RESOURCE_PREFIX = '/workshop-resources/';
 export const ASSETS_SERVER_POLICIES = Object.freeze(['serve', 'cache-only']);
 /** `assets.verify` 的算法（`shared/workshop.js ASSETS_VERIFY_ALGORITHMS`）。 */
 export const ASSETS_VERIFY_ALGORITHMS = Object.freeze(['sha256']);
-/** `assets.mirrors[]` 的字段闭集（`shared/workshop.js ASSETS_MIRROR_FIELDS`，DESIGN §34.40）。 */
+/** `assets.mirrors[]` 的字段闭集（`shared/workshop.js ASSETS_MIRROR_FIELDS`，DESIGN §35.40）。 */
 export const ASSETS_MIRROR_FIELDS = Object.freeze(['id', 'base', 'sha256']);
 /** 一个包最多几条镜像（`shared/workshop.js ASSETS_MIRROR_MAX`）。 */
 export const ASSETS_MIRROR_MAX = 4;
@@ -84,7 +84,7 @@ export function normalizeModAsset(raw) {
       digest: raw.digest.toLowerCase(),
       serverPolicy,
       verify,
-      // 作者自备 CDN 的镜像（DESIGN §34.40）：**只在声明过时才存在** —— 没声明 `mirrors` 的包，这一份声明对象与
+      // 作者自备 CDN 的镜像（DESIGN §35.40）：**只在声明过时才存在** —— 没声明 `mirrors` 的包，这一份声明对象与
       // 从前逐字段相同（`welcome` 帧也因此逐字节相同）。
       ...(mirrorsParsed ? { mirrors: Object.freeze(mirrorsParsed.mirrors.map((m) => Object.freeze({ ...m }))) } : {}),
       /** 无扩展名音频路由的前缀：面板要判断「这个包管不管音频」时不用自己再拼一遍。 */
@@ -94,7 +94,7 @@ export function normalizeModAsset(raw) {
 }
 
 /**
- * `assets.mirrors[]` 的**客户端重判**（DESIGN §34.40）。服务端已经判过一遍，这里是**第二个读者** —— 同一个理由，
+ * `assets.mirrors[]` 的**客户端重判**（DESIGN §35.40）。服务端已经判过一遍，这里是**第二个读者** —— 同一个理由，
  * 与 `normalizeModAsset` 对其余字段的姿态逐字相同：读到的可能是手搓对象，或者一帧被改过的 `welcome`。
  *
  * 判据与形状层**逐条一致**（少判一条的方向就是「形状层放行、客户端拒收」，那是作者最难看懂的一种失败），码名按
@@ -232,7 +232,7 @@ function mirrorUrls(decl, mirror) {
 /**
  * **从服务端导入**：取容器（`decl.container`）→ 走与本地文件导入**同一条**流程。
  *
- * 声明了 `assets.mirrors` 的包（DESIGN §34.40）在这里多一步**选源**，次序是硬性的一条线：
+ * 声明了 `assets.mirrors` 的包（DESIGN §35.40）在这里多一步**选源**，次序是硬性的一条线：
  *
  *   1. `sources.orderDeclared()` 给出「先试哪一条」（没有提供者 / 关掉门控 ⇒ 作者声明的顺序）；
  *   2. 逐条镜像：取清单 → 取容器 → **先核整包 sha256**（必须 `checked && ok`）→ 过了才走既有的逐文件
@@ -283,7 +283,7 @@ export async function importFromServer(packId, {
       const blob = await fetchContainer({ container: from.container }, { fetchImpl });
       // **次序不许改**：先整包 sha256，再逐文件。`verifyContainerBytes` 只用一整块内存做摘要（`crypto.subtle`
       // 没有流式接口），所以超过它上限的容器会**如实报告没查**（`checked: false`）—— 而**没查过就等于不能用**：
-      // 镜像是不受信的一方，包内那份才是。这与该函数自己的「可选」默认值相反，是刻意的（§34.40 第 3 条）。
+      // 镜像是不受信的一方，包内那份才是。这与该函数自己的「可选」默认值相反，是刻意的（§35.40 第 3 条）。
       const verdict = await verifyBytes(blob, decl.digest);
       if (!verdict.checked) {
         throw Object.assign(new Error(`the container's sha256 was not checked (${verdict.reason || 'reason unknown'}) — an unverified mirror is never used`), { code: 'CLIENT_SOURCES_NOT_VERIFIED' });

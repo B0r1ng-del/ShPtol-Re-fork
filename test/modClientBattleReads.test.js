@@ -1,4 +1,4 @@
-// test/modClientBattleReads.test.js — C 层注入面的**战斗伤害读数**：`ctx.battle.damage()`（DESIGN §34.38）。
+// test/modClientBattleReads.test.js — C 层注入面的**战斗伤害读数**：`ctx.battle.damage()`（DESIGN §35.38）。
 //
 // 为什么单开一个文件：这一格不是「又一个面板字段」，它的全部价值是四条性质，而四条都要能被证伪：
 //
@@ -127,7 +127,7 @@ async function ctxOf(deps = {}) {
 const battleLines = (notes) => notes.lines.filter((l) => l.includes('CLIENT_BATTLE_UNAVAILABLE'));
 
 // ---------------------------------------------------------------------------------------------------------------
-describe('§34.38 面板注入面：ctx.battle.damage()', () => {
+describe('§35.38 面板注入面：ctx.battle.damage()', () => {
   test('门面是冻结的、只有 damage 一个成员；net 门面的键集一个都没多', async () => {
     const { ctx } = await ctxOf({ battle: { damage: () => null } });
     assert.ok(Object.isFrozen(ctx.battle), 'ctx.battle 本身冻结');

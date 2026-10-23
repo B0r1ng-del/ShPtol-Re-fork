@@ -77,9 +77,9 @@ test('numbers: every stats/bb/enemyScale object holds only finite numbers (no nu
   assert.deepEqual(bad.slice(0, 10), [], `${bad.length} bad numeric fields`);
 });
 
-test('chess: 324 records, 136 visible non-DIY (20/22/23/25/24/22 per tier)', () => {
-  assert.equal(Object.keys(chess).length, 324);
-  assert.equal(visible.length, 136);
+test('chess: 350 records, 150 visible non-DIY (21/24/26/27/27/25 per tier)', () => {
+  assert.equal(Object.keys(chess).length, 350);
+  assert.equal(visible.length, 150);
   const perTier = {};
   for (const c of visible) perTier[c.tier] = (perTier[c.tier] || 0) + 1;
   // tier 5 / 6 gained one each: the ported packExtra6 operators (tools/fork-extra6.mjs, 六.C)
@@ -88,10 +88,13 @@ test('chess: 324 records, 136 visible non-DIY (20/22/23/25/24/22 per tier)', () 
   // 八: the ported 卡兹戴尔 operators (tools/kazdel.mjs) — 6 new at tiers II–VI, and 芬 (chess_char_1_05) became
   // VISIBLE: the overlay gives her a 卡兹戴尔 特质, which a hidden record cannot carry (it is re-tiered, not added).
   // 九: the ported 雷姆必拓 operators (tools/rem.mjs) — 9 new: 2 at tier I, 2 at II, 1 at III, 2 at IV, 2 at V.
-  assert.deepEqual(perTier, { 1: 20, 2: 22, 3: 23, 4: 25, 5: 24, 6: 22 });
+  // 二.1 地灵 (2026-10-23): tier 1 +1 —  lifts the official hidden 地灵 into the pool.
+  // 二.3 东国 / 乌萨斯 (2026-10-23): +13 (tier 2 +2, 3 +3, 4 +2, 5 +3, 6 +3).
+  assert.deepEqual(perTier, { 1: 21, 2: 24, 3: 26, 4: 27, 5: 27, 6: 25 });
   // 4 official DIY slots + the fork's 6 extra ones (二.8, 5 per tier; tools/fork-overrides.mjs applyForkChess)
   assert.equal(normalChess.filter((c) => c.isDiy).length, 10);
-  assert.equal(normalChess.filter((c) => c.isHidden).length, 16);
+  // 二.1 地灵 (2026-10-23): 16 → 15 — the pack clears her  so  lets her in.
+  assert.equal(normalChess.filter((c) => c.isHidden).length, 15);
 });
 
 test('chess: ids, golden pairs and references resolve', () => {
@@ -142,11 +145,12 @@ test('bonds: 26 bonds with valid members, thresholds and effects', () => {
   // 23 official + the ported 莱茵生命 (`rhineShip`, fork-overrides.mjs applyForkBonds, 六.3) + the ported 卡兹戴尔
   // (`kazdelShip`, tools/kazdel.mjs, 八) + the ported 雷姆必拓 (`remShip`, tools/rem.mjs, 九). The committed data holds
   // the ALL-PACKS-ON content; a room's 内容包开关 decides what its match actually contains (shared/packData.js).
-  assert.equal(Object.keys(bonds).length, 26);
+  assert.equal(Object.keys(bonds).length, 28);
   // 11 core: the official 8 阵营 盟约 (炎 萨尔贡 维多利亚 谢拉格 拉特兰 阿戈尔 叙拉古 卡西米尔) plus the ported 莱茵生命,
   // 卡兹戴尔 and 雷姆必拓, all 阵营 of the same kind (`bondType` SEASON, `identifier` 24 / 25 / 26 continuing their
   // sequence) — the briefing's 核心盟约 list, not 附加盟约 (owner report 2026-10-15)
-  assert.equal(Object.values(bonds).filter((b) => b.isCore).length, 11);
+  // 二.3: +2 — 【东】【乌萨斯】也是核心盟约：13 core.
+  assert.equal(Object.values(bonds).filter((b) => b.isCore).length, 13);
   const modes = new Set(['BOARD', 'BOARD_AND_DECK', 'BOARD_ALL_CHESS']);
   for (const b of Object.values(bonds)) {
     assert.ok(modes.has(b.countMode), `${b.bondId}: countMode ${b.countMode}`);
@@ -173,17 +177,17 @@ test('garrisons: all referenced exist; 67 distinct effect keys', () => {
   const keys = new Set(Object.values(garrisons).map((g) => g.effectKey));
   // +9: the ported 卡兹戴尔 traits' own keys (tools/kazdel.mjs, 八)
   // +9: the ported 雷姆必拓 traits' own keys (tools/rem.mjs, 九) — nine operators, one `REM_*` key each
-  assert.equal(keys.size, 67);
+  assert.equal(keys.size, 93);
   for (const g of Object.values(garrisons)) {
     assert.ok(typeof g.eventType === 'string' && typeof g.desc === 'string', g.garrisonId);
     for (const o of g.owners) assert.ok(chess[o], `${g.garrisonId}: owner ${o}`);
   }
 });
 
-test('items: 123 item chess with valid effects, bonds and golden links', () => {
-  assert.equal(Object.keys(items).length, 123);
+test('items: 131 item chess with valid effects, bonds and golden links', () => {
+  assert.equal(Object.keys(items).length, 131);
   // +4: the ported 卡兹戴尔 装备 pairs (众魂战刃 / 舍身刻印, tools/kazdel.mjs, 八)
-  assert.equal(Object.values(items).filter((i) => i.itemType === 'EQUIP' && !i.isGolden).length, 60);
+  assert.equal(Object.values(items).filter((i) => i.itemType === 'EQUIP' && !i.isGolden).length, 64);
   assert.equal(Object.values(items).filter((i) => i.itemType === 'MAGIC').length, 3);
   for (const it of Object.values(items)) {
     assert.ok(effects[it.effectId], `${it.id}: effect ${it.effectId}`);
@@ -196,8 +200,8 @@ test('items: 123 item chess with valid effects, bonds and golden links', () => {
   }
 });
 
-test('bands: 40 strategies with effects and starting LP', () => {
-  assert.equal(Object.keys(bands).length, 40);
+test('bands: 45 strategies with effects and starting LP', () => {
+  assert.equal(Object.keys(bands).length, 45);
   for (const b of Object.values(bands)) {
     assert.ok(effects[b.effectId], `${b.bandId}: effect`);
     assert.ok(isInt(b.totalHp) && b.totalHp >= 20 && b.totalHp <= 45, `${b.bandId}: totalHp`);
@@ -450,7 +454,7 @@ test('chess/tokens: talent tokens resolve and every token variant says where it 
   }
   assert.deepEqual(Object.values(tokens).filter((t) => t.placeable).map((t) => t.name).sort(),
     // 沙地兽 is 石棉's (雷姆必拓, tools/rem.mjs 九) — a placeable summon like the others, added with the pack.
-    ['医疗探机', '机械水獭', '诅咒娃娃', '斯卡蒂的海嗣', '流形', '狼群', '爬行号·防护单元', '共振装置', '沙地兽'].sort());
+    ['医疗探机', '机械水獭', '诅咒娃娃', '斯卡蒂的海嗣', '流形', '狼群', '爬行号·防护单元', '共振装置', '沙地兽', '“打字机”'].sort());
   assert.equal(tokens.enemy_9012_acloon.stats.deployLimit, tokens.enemy_9012_acloon.deployLimit);
 });
 
@@ -536,8 +540,8 @@ test('chess: skills[] = every skill unlocked at the status, at the chess skill l
   // + the ported packExtra6 丰川祥子 S3 (六.C, tools/fork-extra6.mjs): one more skill, normal + elite
   // + the ported 卡兹戴尔 operators (八, tools/kazdel.mjs): two more, normal + elite
   // + the ported 雷姆必拓 operators (九, tools/rem.mjs): two more, normal + elite
-  assert.equal(active.length, 86, '43 skills, normal + elite');
-  assert.equal(new Set(active.map(([c, s]) => `${c.baseId} ${s.skillId}`)).size, 43);
+  assert.equal(active.length, 96, '48 skills, normal + elite');
+  assert.equal(new Set(active.map(([c, s]) => `${c.baseId} ${s.skillId}`)).size, 48);
   // from the SEARCH row (解放者 / 阵法术师 / 安洁莉娜) and 深巡 S2's deviation: the owner's decisions of 2026-10-05
   const fromSearch = active.filter(([, s]) => s.trigger.rawRule === 'SEARCH').map(([c, s]) => `${c.baseId} ${s.skillId}`);
   assert.deepEqual([...new Set(fromSearch)].sort(), ['chess_char_3_08_a skchr_mint_1', 'chess_char_4_05_a skchr_beewax_1', 'chess_char_4_24_a skchr_billro_3', 'chess_char_5_19_a skchr_mlynar_2', 'chess_char_5_20_a skchr_aglina_3']);

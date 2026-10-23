@@ -46,6 +46,7 @@ export const FIRST_PARTY_FORM_NAMES = Object.freeze({
   enemy_9008_acbunn:   Object.freeze(['revealed']),
   enemy_9010_acpupp:   Object.freeze(['husk', 'revived']),
   enemy_9011_acrefr:   Object.freeze(['stopped']),
+  token_10030_mlyss_wtrman:Object.freeze(['Default', 'Melee', 'Range']),
 });
 
 /**

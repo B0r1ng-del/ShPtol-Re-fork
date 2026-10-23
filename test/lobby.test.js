@@ -660,6 +660,10 @@ describe('websocket lobby', () => {
     assert.ok(c.isOpen);
   });
 
+  // 30 s, not 10: the body is ~440 SEQUENTIAL round trips by design (awaiting each reply is what keeps the send queue
+  // from running ahead of the close frame), and node --test runs up to one file per CPU — 401 trips measured 58 ms
+  // alone but 7.3 s under full-suite load and 10.0 s once, so a 10 s budget failed the file on a busy machine. The
+  // budget is the old test's own (a 20 s flood loop + a 10 s close race); the assertions are unchanged.
   test('flooding far beyond the limit closes the socket (1008)', { timeout: 60000 }, async (t) => {
     const now = Date.now();
     t.mock.method(srv.network, 'now', () => now);

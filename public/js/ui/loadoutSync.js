@@ -37,10 +37,9 @@ import { DIY_PREF, parseStoredDiy, toStoredDiy, cleanPicks, sanitizeDiyPicks } f
 import { skinsStore, SKINS_KEY, SKINS_SYNC_KEY, parseStoredSkins } from './skins.js';
 import { toast } from './toasts.js';
 import { t, N_ } from '../../../shared/i18n.js';
-import { PHASE } from '../../../shared/constants.js';
 
 /**
- * 行为开关 `prepLoadout` 的**客户端半**（DESIGN §34.43.3）：`room.loadout` 收哪些相位。
+ * 行为开关 `prepLoadout` 的**客户端半**（DESIGN §35.43.3）：`room.loadout` 收哪些相位。
  *
  * 服务端那一半是 `server/match/match/platform.js` 的 `loadoutPhasesFor`（读包的行为声明）；这一半只是**这一页**
  * 记住合成后的档位，因为「干员调配」屏要在本地就决定「改不了」时给不给入口 —— 等到服务器回 `WRONG_PHASE` 再
@@ -55,11 +54,12 @@ export const LOADOUT_CLIENT_PHASES = Object.freeze({
   prep: Object.freeze([PHASE.INFO_CHECK, PHASE.PREP]),
 });
 
-/** 这一页拿到的档位（由 `roomMods.js` 从 `welcome.mods` 合成后写入；缺省 `'locked'` = 引擎今天的行为）。 */
-let prepLoadoutOption = 'locked';
+/** 这一页拿到的档位（由 `roomMods.js` 从 `welcome.mods` 合成后写入）。
+ *  缺省 `'prep'`（需求方 2026-10-23：整备阶段默认可改技能）—— 与服务端 `shared/behaviour.js` 的 default 同一个词。 */
+let prepLoadoutOption = 'prep';
 
-/** 记下这一页的有效档位（`roomMods.js` 调；非 `'prep'` 一律当作缺省）。 */
-export function setPrepLoadout(option) { prepLoadoutOption = option === 'prep' ? 'prep' : 'locked'; }
+/** 记下这一页的有效档位（`roomMods.js` 调；非 `'prep'` 一律当作官方档 `locked`）。 */
+export function setPrepLoadout(option) { prepLoadoutOption = option === 'locked' ? 'locked' : 'prep'; }
 
 /** 这一页允不允许在 `PREP` 里改调配（诊断 / 测试面）。 */
 export function prepLoadoutAllowed() { return prepLoadoutOption === 'prep'; }

@@ -17,12 +17,12 @@
 // ▸ Absent means absent. On a plain install `welcome` has NO `mods` key, `welcomeModSet` stays null, and every payload
 // builder here returns the fields it was given, byte-identical: no `mods`, no `modIds`, no empty object.
 
-// 行为开关的有效档位（DESIGN §34.43）：客户端不自己实现合并规则，直接调 `shared/behaviour.js` 那**一份**纯函数
+// 行为开关的有效档位（DESIGN §35.43）：客户端不自己实现合并规则，直接调 `shared/behaviour.js` 那**一份**纯函数
 // （与 `shared/variants.js` 的 `mergeVariantDecls` 逐字同一条「包 id 字典序小的赢」）。
 import { mergeBehaviourDecls, behaviourValue } from '../../shared/behaviour.js';
 import { setMorphPairing, setMorphSlotPolicy } from './ui/gameLogic/bonds.js';
 import { setUnequipAllowed } from './ui/gameActions.js';
-// 第二格 `prepLoadout` 的客户端半（DESIGN §34.43.3）：干员调配屏"是否锁定"的那份相位判据住在 loadoutSync。
+// 第二格 `prepLoadout` 的客户端半（DESIGN §35.43.3）：干员调配屏"是否锁定"的那份相位判据住在 loadoutSync。
 import { setPrepLoadout } from './ui/loadoutSync.js';
 
 /** @typedef {{ id: string, hash: string, layer: string, combat: boolean, api?: string }} ModEntry */
@@ -57,7 +57,7 @@ export function setWelcomeMods(msg) {
   const same = sameSet(welcomeModSet, next);
   welcomeModSet = next;
   if (!same) selectedModIds = [];
-  // 行为开关的有效档位（DESIGN §34.43）：客户端不自己实现合并规则，直接调 `shared/behaviour.js` 那**一份**纯函数
+  // 行为开关的有效档位（DESIGN §35.43）：客户端不自己实现合并规则，直接调 `shared/behaviour.js` 那**一份**纯函数
   // （与 `shared/variants.js` 的 `mergeVariantDecls` 逐字同一条「包 id 字典序小的赢」）。四处读数都走它：
   // `morphPairing`（详情卡 / 列表的 变形同构体 读数）、`unequip`（画不画「卸下」按钮）、
   // `prepLoadout`（干员调配屏画不画「本局已锁定」那句 —— 服务端早已按它收 `PREP`，客户端原来在撒谎）。
@@ -142,7 +142,7 @@ export function buildCreatePayload(mode, difficulty) {
  * The `room.join` fields: the same digest, and nothing else — a room's declared set is the room's business, not
  * something a joiner may propose. On a plain install this is exactly `{ code }`.
  *
- * `consent`（W7, DESIGN §34.53）是**另一个**表态，与 `mods` 不是同一件事：`mods` 是**握手**（「我读到了服务器装着
+ * `consent`（W7, DESIGN §35.53）是**另一个**表态，与 `mods` 不是同一件事：`mods` 是**握手**（「我读到了服务器装着
  * 哪些包」，由 `welcome` 自动填，人不必知情），`consent` 是**表态**（「我同意跑这个房间声明的那一份字节」，只有玩家
  * 点过同意才发）。服务端只对**声明了集合的房间**要它，缺了就是 `MOD_CONSENT_REQUIRED`（一句能照着改的错）。
  *
@@ -162,7 +162,7 @@ export function buildJoinPayload(code, { consent = false } = {}) {
 }
 
 /**
- * 服务端拒了一条 `room.join`：这是不是「还没同意」那一条？（W7, DESIGN §34.53）
+ * 服务端拒了一条 `room.join`：这是不是「还没同意」那一条？（W7, DESIGN §35.53）
  * @param {any} err
  */
 export function isConsentRefusal(err) {

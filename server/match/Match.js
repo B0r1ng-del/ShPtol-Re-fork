@@ -237,6 +237,7 @@ import { MatchReports } from './match/reports.js';
 import { MatchUnite } from './match/unitePhase.js';
 import { MatchBoss } from './match/bossRounds.js';
 import { MatchSettle } from './match/settle.js';
+import { MatchRelics } from './match/relics.js';
 import { installTestTrace } from './testTrace.js';
 import { MatchTestCommands } from './match/testCommands.js';
 import { MatchOffers } from './match/offers.js';
@@ -300,28 +301,13 @@ export class Match {
     this.vs = isContentHash(opts.vs) ? opts.vs : null;
     /** a room with gameplay plugins (opts.requireCs): a client result must name this match's cs (reports.js) */
     this.requireCs = opts.requireCs === true && !!this.cs;
-    // [ASSUMED] Only an array is a content list. Omitting the key (every vanilla match) leaves setDiy on KITTED_CHARS.
-    // A copy so a caller's freeze or later mutation cannot change the check, and so the key stays off public views.
-    if (Array.isArray(opts.kitted)) this.diyKitted = Object.freeze(opts.kitted.filter((id) => typeof id === 'string'));
-    // The room's rule switches (DESIGN §34.15). Omitted on a vanilla match, so its own keys stay the same.
-    if (opts.rules && typeof opts.rules === 'object' && !Array.isArray(opts.rules)) this.rules = Object.freeze({ ...opts.rules });
-    /**
-     * The interaction windows this match's content set declares (PLUGIN API v2, docs/PLUGINS.md §10b): the normalized
-     * `offers` of the plugins the host installed, handed in as `opts.offers` before construction so test journals
-     * and both host transports capture the same declaration snapshot. `[]` for every match whose set declares none, and then
-     * no window code ever runs (MatchOffers.openOfferWindow returns before it touches the phase).
-     * @type {object[]}
-     */
-    this.offers = Array.isArray(opts.offers) ? opts.offers : [];
-    /** @type {any[]} the windows open right now (MatchOffers) */
-    this.offerWin = [];
-    /** @type {Map<object, any>} window → its deadline timer (tracked so dispose cancels it) */
-    this._offerTimers = new Map();
-    /** what runs once the last open window closes (a held-back round start / prep) */
-    this._offerResume = null;
-    /** window sequence (diagnostics and messages) */
-    this.offerSeq = 0;
-    this.gd = new GameData(this.data, this.modeId);
+    // 行为声明先算，`GameData` 与 `this.behaviour` **读同一份结果**（工坊 mod 层移植 2026-10-17）：`morphPairing`
+    // 的两半由 `GameData` 归一化，而 `bondsMeta` 读的是 `gd.morphPairing` —— 两份都来自这里，不可能不一致。
+    // 详见下面 `this.behaviour` 那一段的注释（两个来源与优先级）。
+    const behaviourDecl = Array.isArray(opts.behaviour)
+      ? opts.behaviour
+      : mergeBehaviourDecls(opts.mods && Array.isArray(opts.mods.packs) ? opts.mods.packs : []).decl;
+    this.gd = new GameData(this.data, this.modeId, opts.mods, opts.enemyBuff, behaviourDecl);
     if (!this.difficulty) this.difficulty = this.gd.difficulty;
     this.isSolo = this.mode === 'solo' || this.gd.isSolo;
     /** 「AI 队友最后选择」 (opts.aiPicksLast, GitHub #338): humans draft before AI seats (MatchPhases.humansFirst) */
@@ -400,6 +386,18 @@ export class Match {
      * @type {Array<{ switch: string, option: string, by: string }>}
      */
     this.behaviour = behaviourDecl;
+    // 插件规则开关 (upstream PLUGIN API, shared/plugins/rules.js): a plain `{ [switch]: option }` map read through
+    // `ruleOption(rules, sw)`. Upstream builds it from the room's gameplay plugins; this fork ALSO reads it from the
+    // 工坊 behaviour declaration (`opts.behaviour` / `opts.mods.packs`), so both channels answer the same question.
+    // `opts.rules` wins when present (an already-normalised map), else the behaviour declaration is folded in.
+    const rulesFromBehaviour = {};
+    for (const d of Array.isArray(behaviourDecl) ? behaviourDecl : []) {
+      if (d && typeof d.switch === 'string' && typeof d.option === 'string') rulesFromBehaviour[d.switch] = d.option;
+    }
+    const mergedRules = { ...rulesFromBehaviour, ...(opts.rules && typeof opts.rules === 'object' && !Array.isArray(opts.rules) ? opts.rules : {}) };
+    // ★  与  不同：上游的测试与  都把「没有规则」读作 undefined（一切走官方默认），
+    // 所以一个既没有插件规则、也没有 behaviour 声明的房间必须保持 undefined —— 那也是 golden 与干净安装的路径。
+    if (Object.keys(mergedRules).length) this.rules = Object.freeze(mergedRules);
     /**
      * 本局收藏品 (六.E, `packRelic`): the match-scoped collectibles of the ported DLC. The switch is read once here, like
      * the mods it comes from, and every collectible code path sits behind it — with it off the match never fills a relic
@@ -412,6 +410,16 @@ export class Match {
     this.sched = opts.scheduler || new RealScheduler({ now: opts.now || Date.now, onError: (e) => this.reportError('timer', e) });
     this.registry = opts.registry || getDefaultRegistry();
     this.dispatcher = new EffectDispatcher(this, this.registry);
+    // 插件互动窗口 (upstream PLUGIN API v2, docs/PLUGINS.md §10b): the host hands its installed plugins' windows in
+    // as , so an offer journal can be replayed verbatim. Every field MatchOffers touches must exist.
+    this.offers = Array.isArray(opts.offers) ? opts.offers : [];
+    // 内容插件的自选干员清单 (upstream §32: a content plugin may declare its own 自选 operators; PlayerState.setDiy
+    // reads this.m.diyKitted as the kitted set). Absent ⇒ the vanilla list, byte for byte.
+    if (Array.isArray(opts.kitted)) this.diyKitted = Object.freeze(opts.kitted.filter((id) => typeof id === 'string'));
+    this.offerWin = [];              // the windows open right now
+    this._offerTimers = new Map();   // window → its deadline timer (dispose cancels them)
+    this._offerResume = null;        // what runs once the last open window closes
+    this.offerSeq = 0;               // window sequence (diagnostics / messages)
     this.BattleClass = typeof opts.BattleClass === 'function' ? opts.BattleClass : Battle;
     this.battleContent = opts.battleContent || 'full';
     this.timerScale = Number.isFinite(opts.timerScale) && opts.timerScale >= 0 ? opts.timerScale : 1;
@@ -614,7 +622,7 @@ export class Match {
 }
 
 // the method modules, in this order (a name defined twice is an error, never a silent override)
-for (const part of [MatchPlatform, MatchInfra, MatchMessaging, MatchViews, MatchWatch, MatchIntents, MatchPause, MatchPhases, MatchSetupVote, MatchSpDraft, MatchPrep, MatchCombat, MatchClientCombat, MatchRehearsal, MatchReports, MatchUnite, MatchBoss, MatchSettle, MatchTestCommands, MatchOffers]) {
+for (const part of [MatchPlatform, MatchInfra, MatchMessaging, MatchViews, MatchWatch, MatchIntents, MatchPause, MatchPhases, MatchSetupVote, MatchSpDraft, MatchPrep, MatchCombat, MatchClientCombat, MatchRehearsal, MatchReports, MatchUnite, MatchBoss, MatchSettle, MatchRelics, MatchTestCommands, MatchOffers]) {
   for (const key of Reflect.ownKeys(part.prototype)) {
     if (key === 'constructor') continue;
     if (Object.prototype.hasOwnProperty.call(Match.prototype, key)) throw new Error(`Match.${String(key)} is defined twice`);

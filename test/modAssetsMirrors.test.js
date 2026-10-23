@@ -1,4 +1,4 @@
-// test/modAssetsMirrors.test.js — 第 5 刀：**素材加载源**（DESIGN §34.40，docs/WORKSHOP.md §1.21）。
+// test/modAssetsMirrors.test.js — 第 5 刀：**素材加载源**（DESIGN §35.40，docs/WORKSHOP.md §1.21）。
 //
 // 这一格由两半组成，缺一半都不成立：
 //   * **`pack.json.assets.mirrors[]`** —— 作者自备 CDN 承载**本包自己的容器**。形状层判形态（绝对 `https://`、
@@ -52,7 +52,7 @@ const norm = (assets) => normalizePackManifest({ id: 'mirror-pack', version: '0.
 // ---------------------------------------------------------------------------------------------------
 // 1. 形状层（`shared/workshop.js parseAssetsMirrors`）
 // ---------------------------------------------------------------------------------------------------
-describe('§34.40 形状：assets.mirrors[] 的判据（每一条都点名）', () => {
+describe('§35.40 形状：assets.mirrors[] 的判据（每一条都点名）', () => {
   test('不声明 mirrors ⇒ 归一化结果里**没有**这个键（默认逐字不变）', () => {
     const r = norm({ ...DECL });
     assert.equal(r.ok, true, JSON.stringify(r));
@@ -112,7 +112,7 @@ describe('§34.40 形状：assets.mirrors[] 的判据（每一条都点名）', 
 // ---------------------------------------------------------------------------------------------------
 // 2. 装载期：摘要比对（服务端**不发网络请求**）
 // ---------------------------------------------------------------------------------------------------
-describe('§34.40 装载期：镜像的 sha256 必须等于包内容器的摘要', () => {
+describe('§35.40 装载期：镜像的 sha256 必须等于包内容器的摘要', () => {
   test('assetsMirrorIssues：相等即放行、不等即停用、没有摘要可比的如实报出来', () => {
     const pack = {
       assets: {
@@ -158,7 +158,7 @@ describe('§34.40 装载期：镜像的 sha256 必须等于包内容器的摘要
       },
     }));
     const loaded = loadWorkshop(root, { log: quiet });
-    assert.deepEqual(loaded.packs.map((p) => p.id), ['ok-mirror'], '镜像不符**不拒包**（§34.35 的「宁少不拒」）');
+    assert.deepEqual(loaded.packs.map((p) => p.id), ['ok-mirror'], '镜像不符**不拒包**（§35.35 的「宁少不拒」）');
     assert.equal(loaded.errors.length, 1);
     assert.match(loaded.errors[0].reason, /^ASSETS_MIRROR_DIGEST_MISMATCH: /);
     assert.match(loaded.errors[0].reason, /\["bad"\]/);
@@ -231,7 +231,7 @@ describe('§34.40 装载期：镜像的 sha256 必须等于包内容器的摘要
 // ---------------------------------------------------------------------------------------------------
 // 3. 排序面（`public/js/resources/sources.js`）—— 与 appearance 同构，且**不可能**引入主机名
 // ---------------------------------------------------------------------------------------------------
-describe('§34.40 sources(ctx)：只排序，不点名主机', () => {
+describe('§35.40 sources(ctx)：只排序，不点名主机', () => {
   afterEach(() => resetSourcesState());
 
   const MIRRORS = Object.freeze([
@@ -322,7 +322,7 @@ const serverDecl = (mirrors, digest) => ({
   ...(mirrors ? { mirrors } : {}),
 });
 
-describe('§34.40 客户端第二读者：normalizeModAsset 复判 mirrors', () => {
+describe('§35.40 客户端第二读者：normalizeModAsset 复判 mirrors', () => {
   test('合法 / 缺省 / 八种坏写法', () => {
     const good = normalizeModAsset(serverDecl([{ id: 'fast', base: 'https://fast.example/ak/', sha256: SHA_A }], SHA_A));
     assert.equal(good.ok, true, JSON.stringify(good));
@@ -370,7 +370,7 @@ function fakeCaches() {
   };
 }
 
-describe('§34.40 端到端：镜像取字节、先核整包再逐文件、失败换下条、全败落包内', () => {
+describe('§35.40 端到端：镜像取字节、先核整包再逐文件、失败换下条、全败落包内', () => {
   /** @type {string} */
   let tmp;
   /** @type {{ containerBytes: Buffer, manifestBytes: Buffer, manifest: any }} */

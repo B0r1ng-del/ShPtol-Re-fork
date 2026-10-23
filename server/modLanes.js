@@ -1,13 +1,13 @@
-// server/modLanes.js — 包声明的 WebSocket lane：一张「装载期按声明填好、升级时才找处理器」的活表（DESIGN §34.56）。
+// server/modLanes.js — 包声明的 WebSocket lane：一张「装载期按声明填好、升级时才找处理器」的活表（DESIGN §35.56）。
 //
-// 为什么要有这一格：§34.44 把升级路径做成了一张表，但那张表今天只有**宿主进程自己**能登记 —— 一个自带玩法的
+// 为什么要有这一格：§35.44 把升级路径做成了一张表，但那张表今天只有**宿主进程自己**能登记 —— 一个自带玩法的
 // 包（3v3 足球、任何不用 `/ws` 协议的进程）没有地方说「我要一条自己的路径」。这一格把它变成声明。
 //
 // 为什么这张表必须是**活的**、处理器必须**惰性查**：`server/index.js` 在 `:188` 装载服务端模块，在 `:432` 才把
 // `opts.wsLanes` 交给 `attachWebSocket`。启动器（`server/modServer.js`）在 `startServer` 之前就要交出那份表，
 // 而那时处理器还没 import 完。所以拆成两步：**路径按声明同步认领**（保证 attach 之前就在表里，不会出现
 // 「声明了却永远不路由」的哑格子），**处理器 import 完成后挂上**（升级发生时才查）。没挂上就升级 ⇒ 明确 503
-// 点名这条 lane —— §34.44 的原话是「一条安静地从不应答的 lane 比没有 boot 更糟」，所以这里的失败方向必须是响的。
+// 点名这条 lane —— §35.44 的原话是「一条安静地从不应答的 lane 比没有 boot 更糟」，所以这里的失败方向必须是响的。
 //
 // 这一格**不碰 `server/index.js`**（那是游戏本体 `sganggs` 拥有的路径）：`startServer(opts)` 的签名今天已经有
 // `opts.wsLanes`（`server/index.js:92`），启动器只是把它填满。
@@ -34,7 +34,7 @@ export function packLaneTable() { return table; }
 
 /**
  * 按声明认领一条路径。**同步**调用，坏配置当场点名（返回 `{ ok:false, code, reason }`，装载器把它变成整包拒）。
- * 判据只复用 §34.44 那一份，不在这里抄第二份语法。
+ * 判据只复用 §35.44 那一份，不在这里抄第二份语法。
  */
 export function claimPackLane({ packId = '', moduleId = '', path, summary = null } = {}) {
   const key = keyOf(packId, moduleId);
@@ -71,7 +71,7 @@ export function claimPackLane({ packId = '', moduleId = '', path, summary = null
         return;
       }
       try { fn(req, socket, head, { ...ctx, lane: row }); } catch (e) {
-        // §34.44 的口径：抛错就关掉这条连接，并按名字记账 —— 绝不回落到 `/ws`，否则客户端能把自己塞进游戏。
+        // §35.44 的口径：抛错就关掉这条连接，并按名字记账 —— 绝不回落到 `/ws`，否则客户端能把自己塞进游戏。
         ctx.log?.error?.(`[mod-lane] ${key} onUpgrade threw`, e);
         try { socket.destroy(); } catch { /* already gone */ }
       }

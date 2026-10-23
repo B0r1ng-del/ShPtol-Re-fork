@@ -18,6 +18,7 @@
 //     `PlayerBattleInput.contentInfo`, written by the `global:contentb_info` meta handler (support/meta.js).
 
 import { getData } from '../../../data.js';
+import { memberBonds } from '../../../../shared/morph.js';
 import { grantedBondsByMorph } from '../../../../shared/plugins/rules.js';
 import { COLS, DIRECT_BONUS_STACKING } from '../../constants.js';
 import { frontOf, offsetTile } from '../../dir.js';
@@ -257,15 +258,21 @@ export function unitBonds(u) {
   if (!isOp(u)) return EMPTY;
   const cached = BONDS.get(u);
   const items = itemsOf(u);
-  const plus = u.player?.morphPairing === 'plus';
+  // 档位来源： 的作用域优先（一场战斗的构造与 step 是同步区），缺省回落到 unit 上的那一格。
+  // 测试正是用作用域来表达「同一名干员在 plus 档下只取最左边」，所以这里必须读作用域，否则缓存键永远不变。
+  const scoped = currentMorphPairing();
+  const plus = (scoped ?? u.player?.morphPairing) === 'plus';
   // The official key stays items.join('|'), so a cached official result is unchanged.
   const key = (plus ? 'plus|' : '') + items.join('|');
   if (cached && cached.key === key) return cached.bonds;
-  const out = [...(Array.isArray(u.def?.bonds) ? u.def.bonds : Array.isArray(u.def?.raw?.bonds) ? u.def.raw.bonds : [])];
-  for (const b of grantedBondsByMorph(items, (id) => itemRecord(id), { mode: plus ? 'plus' : 'official', bondOk: (id) => !!bondRecord(id) })) {
-    if (!out.includes(b)) out.push(b);
-  }
-  const bonds = Object.freeze(out);
+  const own = Array.isArray(u.def?.bonds) ? u.def.bonds : Array.isArray(u.def?.raw?.bonds) ? u.def.raw.bonds : [];
+  const recs = items.map((id) => itemRecord(id)).filter(Boolean);
+  const bonds = Object.freeze(memberBonds(own, {
+    trait: u.def?.raw?.trait ?? u.def?.trait ?? null,
+    recs,
+    morphed: plus ? 'plus' : 'official',
+    hasBond: (id) => !!bondRecord(id),
+  }));
   BONDS.set(u, { key, bonds });
   return bonds;
 }

@@ -84,9 +84,10 @@
 import { UF, ANIM } from '../../../shared/constants.js';
 import { rhineDevice } from '../../../shared/rhineResearch.js';
 import { SpineActor } from './spine.js';
+import { ResearchDeviceActor } from './rhineDevices.js';
+import { diamondTexture, unitSpriteTexture, shadowTexture, fxAtlas, tierChip, statusTexture, itemTexture, hudRings, ringArc, downLabel, HUD_DISC, ELEMENT_RING } from './textures.js';
 import { skillAttackMode } from './skillAttack.js';
 import { MANIFOLD, isManifold, manifoldCopyForm, manifoldAttackForm } from './manifold.js';
-import { diamondTexture, shadowTexture, fxAtlas, tierChip, statusTexture, itemTexture, hudRings, ringArc, downLabel, HUD_DISC, ELEMENT_RING } from './textures.js';
 import { COLORS, TIER_COLORS, ENEMY_FRAME, UNIT, PROJ, statusIconKey, statusIconSuppressed } from './style.js';
 import { drawCrate, rowDepthKey, ROW_KEY, deviceBoxOf, DEVICE_BOX } from './tiles.js';
 import { formsFor } from '../../../shared/packForms.js';
@@ -810,8 +811,16 @@ export class UnitView {
    *  only while its info does not change — render/app.js applyInfo). */
   _pictureUrl() {
     const a = this.ctx.assets;
+    // An ice marker has no portrait; a research device (六.F) instead prefers its uncropped full sprite — a portrait's
+    // diamond mask would crop its chassis / leaves away — and only falls back to the portrait and then its icon.
+    const portrait = !ICE_TOKENS.has(this.info.defId) && a && a.picture ? a.picture(this.info.avatar) || a.picture(this.info.defId) || a.picture(this.info.spine) : null;
     const o = this.info.skin ? { skin: this.info.skin } : undefined;
-    return ICE_TOKENS.has(this.info.defId) ? null : a && (a.picture ? a.picture(this.info.avatar, o) || a.picture(this.info.defId, o) || a.picture(this.info.spine, o) : null) || null;
+    const skinPortrait = a && a.picture
+      ? a.picture(this.info.avatar, o) || a.picture(this.info.defId, o) || a.picture(this.info.spine, o)
+      : null;
+    const base = ICE_TOKENS.has(this.info.defId) ? null : skinPortrait || portrait || null;
+    if (this.researchDevice) return this.researchDevice.sprite || base || this.researchDevice.icon || null;
+    return base;
   }
   /** @param {boolean} [replace] another picture replaces a shown one: the old one stays on the diamond until it is there */
   _loadPicture(replace = false) {
@@ -1033,6 +1042,7 @@ export class UnitView {
   onResearchFx(kind, extra) { this.researchActor?.trigger(kind, extra); }
 
   _formSpec() {
+    if (this.info.kazdelSoul === true && this.form === 'kazdelSoul') return KAZDEL_SOUL_LOOK;
     const form = this.form || (isManifold(this.info) ? 'Default' : null);
     const f = form ? FORMS[this.info.spine || this.info.defId]?.[form] || null : null;
     if (f?.combat && this._manifoldCombat) return { ...f, roles: { ...f.roles, attack: loop(f.combat), skill: { ...f.roles.skill, loop: f.combat } } };

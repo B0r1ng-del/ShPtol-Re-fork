@@ -8,6 +8,10 @@
 // fake (true → test/match/fakeBattle.js as BattleClass), script (FakeBattle.script), registry, instant (virtual
 // scheduler runs battles synchronously; default true), timerScale, battleContent, botRehearsal (default 0),
 // botSliceMs (bot rehearsal slice budget; default: unbounded in virtual time), aiPicksLast (the room option
+// AI 队友最后选择: the drafts order every human seat before every AI seat), sharedPool / sharedBounty / multiAlliance
+// (房主配置: the 共享卡池 / 共享悬赏 / 多同盟模式 / 装备可售卖 room options; undefined = the official behaviour),
+// hostId / botRehearsalDelegate / botRehearsalDelegateMs (the delegated bot rehearsal, DESIGN §14:
+// test/match/rehearsal-delegate.test.js), cs / vs / requireCs (a gameplay-plugin room: host rehearsal stays off).
 // AI 队友最后选择: the drafts order every human seat before every AI seat), test (DESIGN §34.8; hostId then
 // defaults to the first human), hostId / botRehearsalDelegate /
 // botRehearsalDelegateMs (the delegated bot rehearsal, DESIGN §14: test/match/rehearsal-delegate.test.js),

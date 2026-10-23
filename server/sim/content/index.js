@@ -74,7 +74,7 @@ export function isStandInDef(def) {
 }
 
 /**
- * 给一个装好的 kit 盖上**归属包**与**预算**（`pack.json.callBudget`, DESIGN §34.52）。
+ * 给一个装好的 kit 盖上**归属包**与**预算**（`pack.json.callBudget`, DESIGN §35.52）。
  *
  * 为什么要在这一步：kit 是**逐单位**装的（`battle/players.js` 的 `kit.install(this, u)`），而预算要按插件记账。
  * 归属表由装载器给出（`Battle opts.kitOwners`：chess id / kit 键 → 包 id；`Battle opts.kitBudgets`：包 id → 生效
@@ -377,7 +377,7 @@ export function installContent(battle, { mode = 'full', extra = null } = {}) {
     }
   }
   for (const m of extra || []) {
-    // 调用预算（`pack.json.callBudget`, DESIGN §34.52）：包的 install 跑在它自己的作用域里 —— 这期间它注册的
+    // 调用预算（`pack.json.callBudget`, DESIGN §35.52）：包的 install 跑在它自己的作用域里 —— 这期间它注册的
     // 每个 hook / 计时器 / buff 都烙上包身份，运行时按那句 `callBudget` 记账。没声明预算的包只烙身份、不记账，
     // 行为与从前逐字节相同（`_withPackScope` 对 `callBudget == null` 就是那个意思）。
     const installer = typeof m === 'function' ? { id: null, install: m } : m;

@@ -5,6 +5,7 @@
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 import { PHASE, GEO } from '../../../shared/constants.js';
+import { activeRelicShield, activeReverseLp, previewRelicLpLoss, relicsView } from '../relics.js';
 import { TEST_PUBLIC_LOG } from '../../../shared/testMode.js';
 import { boardOrder, pieceDir } from '../board.js';
 import { bondList, offBondCounts } from '../bondsMeta.js';
@@ -196,6 +197,10 @@ export class MatchViews {
     if (this.phase === PHASE.SETTLE && this.uniteResultView) {
       const ur = this.uniteResultView;
       v.uniteResult = { through: ur.through, helpers: ur.helpers.slice(), leakers: ur.leakers.slice(), losses: { ...ur.losses } };
+    }
+    // 六.E: a collectible shield / 时间机器 changes the charge even without a 联防, so SETTLE publishes it directly
+    if (this.phase === PHASE.SETTLE && this.roundLossesView?.round === this.round) {
+      v.roundLosses = { ...this.roundLossesView.losses };
     }
     // Test match (DESIGN §34.8). Omitted entirely when the flag is off, so a normal m.public stays identical.
     if (this.test === true) {

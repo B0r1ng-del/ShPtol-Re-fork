@@ -1547,6 +1547,7 @@ export async function createFieldView(host, options = {}) {
     tiles.setBattleRect(rect);
     board3d?.setBattleRect(rect);
     for (const u of Array.isArray(meta.units) ? meta.units : []) applyInfo(u);
+    fx.syncKazdel(meta.kazdel, Number(meta.gt ?? meta.t) || 0);
     // the official effects of this battle's units load now (the prep → battle switch), the board's heights for their
     // depth-tested materials
     if (ofx.active && !battleMeta.prep) {

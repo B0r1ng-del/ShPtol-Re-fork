@@ -263,6 +263,9 @@ export class MatchSpDraft {
     if (this.phase !== PHASE.SP_DRAFT) return;
     this.cancel(this._turnTimer);
     this._turnTimer = null;
+    this._settleEmptySeats();
+    // 上游的插件互动窗口 (docs/PLUGINS.md §10b): beforePrepOffers 才是进 prep 的唯一入口 —— 它会先开窗口、
+    // 窗口没关就把 enterPrep 挂到 _offerResume 上。这里直接调 enterPrep 会绕过窗口（R3 的 prep 抢跑）。
     this.beforePrepOffers();
   }
 
@@ -402,7 +405,7 @@ export class MatchSpDraft {
    * bonds (the player's data view: a slotted slot's operator) — 0.2.0 WE2.
    * @returns {{ kind: 'item'|'chess', id: string, golden?: boolean } | null}
    */
-  rollPool(poolId, { shopLevel = 6, extra = null, chessOf = null, exclude = [] } = {}) {
+  rollPool(poolId, { shopLevel = 6, extra = null, chessOf = null, pool = null, exclude = [] } = {}) {
     const pools = this.gd.choices.pools && typeof this.gd.choices.pools === 'object' ? this.gd.choices.pools : {};
     const p = typeof poolId === 'string' && Object.hasOwn(pools, poolId) ? pools[poolId] : null;
     if (!p || typeof p !== 'object') return null;

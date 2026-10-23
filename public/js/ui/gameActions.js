@@ -10,11 +10,14 @@ import { audio } from '../audio.js';
 const SUCCESS_SFX = {
   'g.buy': 'buy', 'g.sell': 'sell', 'g.refresh': 'refresh', 'g.freeze': 'freeze', 'g.levelUp': 'levelup',
   'g.move': 'drop', 'g.equip': 'equip', 'g.art': 'artPlace', 'g.reward': 'pick', 'g.choice': 'pick',
-  'g.band': 'confirm', 'g.bandSkip': 'back', 'g.infoReady': 'ready', 'g.emote': 'emote', 'g.destroy': 'back', 'g.unequip': 'back',
+  'g.relic': 'pick',
+  'g.choiceRandom': 'confirm',
+  'g.band': 'confirm', 'g.bandSkip': 'back', 'g.infoReady': 'ready', 'g.emote': 'emote', 'g.emoteBurst': 'emote', 'g.destroy': 'back',
+  'g.unequip': 'back',
 };
 
 /**
- * 装备拆卸 (behaviour `unequip`, DESIGN §34.43.2): whether this page draws the 「卸下」 button at all. Written by
+ * 装备拆卸 (behaviour `unequip`, DESIGN §35.43.2): whether this page draws the 「卸下」 button at all. Written by
  * `public/js/roomMods.js` from `welcome.mods` (`behaviourValue(decl, 'unequip') === 'allow'`); FALSE by default, so a
  * plain install — and every room whose packs declare nothing — renders exactly the official UI, with no button.
  */
@@ -105,6 +108,7 @@ export const actions = {
   equip: (itemUid, targetUid, replaceUid) => act('g.equip', Number.isInteger(replaceUid) ? { itemUid, targetUid, replaceUid } : { itemUid, targetUid }),
   art: (itemUid, row, col, dir) => act('g.art', dir ? { itemUid, row, col, dir } : { itemUid, row, col }),
   destroy: (uid) => act('g.destroy', { uid }),
+  // 装备拆卸 (behaviour `unequip`): take one equipped item off its operator. Reuses `act` like every other intent.
   unequip: (itemUid) => act('g.unequip', { itemUid }),
   reward: (idx) => act('g.reward', { idx }),
   offer: (offer, idx, refresh = false, cardId) => act(refresh ? 'g.offerRefresh' : 'g.offer', { offerId: offer.id, pluginId: offer.pluginId, seq: offer.seq, idx, cardId }),

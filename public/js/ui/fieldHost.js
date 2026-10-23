@@ -119,7 +119,10 @@ export function hudBands(kind, size, opts) {
  * @param {number} [oy] the board host's top in client px (异形屏适配 moves it down)
  */
 function cornerBand(h, oy = 0) {
-  const btns = document.querySelectorAll('.gm__corner .gm__gear, .gm__corner .ewheel__btn');
+  // 在线聊天 (fork): with the option on the 交流 button lives in the chat window (css/chat.css .chat__body .ewheel), not
+  // in the corner — the ⚙ / 📖 / ⛶ buttons sit in the top bar since user report 图 2. Both homes are queried; only
+  // whichever one is on screen matches. 异形屏适配 moves the board host down, so the band is measured against it (oy).
+  const btns = document.querySelectorAll('.gm__corner .gm__gear, .gm__corner .ewheel__btn, .chat__body .ewheel__btn');
   if (!btns || !btns.length) return 0;
   const root = document.documentElement;
   const tap = root?.classList?.contains('sp-coarse') ? parseFloat(getComputedStyle(root).getPropertyValue('--tap-min')) || 0 : 0;
@@ -128,7 +131,13 @@ function cornerBand(h, oy = 0) {
     const r = b.getBoundingClientRect();
     if (r && r.height > 0) top = Math.min(top, r.top + r.height / 2 - Math.max(r.height, tap) / 2);
   }
-  return top < Infinity ? Math.max(0, h - (top - oy)) : 0;
+  if (top < Infinity) return Math.max(0, h - (top - oy));
+  // the chat window's own body (the log + the input) sits above the wheel's corner even when the button itself is
+  // scrolled out of view: reserve that surface too, so the collapsed camera never puts the bench under it
+  const win = document.querySelector('.chat');
+  if (!win) return 0;
+  const wr = win.getBoundingClientRect();
+  return wr && wr.height > 0 ? Math.max(0, h - (wr.top - oy)) : 0;
 }
 
 function renderPref() {

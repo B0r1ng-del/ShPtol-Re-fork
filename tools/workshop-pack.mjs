@@ -24,7 +24,7 @@ import { createHash } from 'node:crypto';
 
 import { normalizePackManifest, normalizeContentFile, workshopSupportEntries, WORKSHOP_CONTENT_FILES, isOverridableContentFile, OVERRIDE_ENTRY_RE, playtestUnknownIds } from '../shared/workshop.js';
 import { loadWorkshop, WORKSHOP_DIR } from '../server/workshop.js';
-// 管理器登记册（DESIGN §34.47）：装过什么、操作者启停过什么 —— CLI、编辑器、服务器读的是**同一份**状态文件。
+// 管理器登记册（DESIGN §35.47）：装过什么、操作者启停过什么 —— CLI、编辑器、服务器读的是**同一份**状态文件。
 import { stateRootFor } from '../server/modModules.js';
 import { readModRegistry, writeModRegistry, enablePack, disablePack, forgetPack, recordInstall, recordBackup } from '../server/modRegistry.js';
 import { normalizeSupportConfig } from '../shared/support.js';
@@ -213,7 +213,7 @@ function manifestPrefix(names) {
  * 所以一个坏归档、一个恶意归档、一个校验不过的包，**永远不会在 workshop/ 里留下半个包**。
  *
  * @param {{ root: string, buffer: Buffer, force?: boolean, backup?: boolean }} opts `backup`：force 覆盖时把被替换的
- *   旧版留底到 `<root>/.mod-backups/<id>/…`（回滚的一半，DESIGN §34.47），而不是直接删掉
+ *   旧版留底到 `<root>/.mod-backups/<id>/…`（回滚的一半，DESIGN §35.47），而不是直接删掉
  * @returns {{ id: string, dir: string, files: number, bytes: number, content: string[], voiceLines: number,
  *   support: string[], skippedDirs: string[], manifest: object, digest: string,
  *   displaced: { backup: string, digest: string } | null }}
@@ -262,7 +262,7 @@ export function installZip({ root, buffer, force = false, backup = false }) {
     if (fs.existsSync(target) && !force) {
       throw refuse(`工坊包 "${packId}" 已经存在：要覆盖请加 --force（编辑器里是 ?force=1）`);
     }
-    // 升级留底（管理器的回滚一半，DESIGN §34.47）：force 覆盖时把被替换的旧版挪进 `.mod-backups/`（点开头，
+    // 升级留底（管理器的回滚一半，DESIGN §35.47）：force 覆盖时把被替换的旧版挪进 `.mod-backups/`（点开头，
     // loadWorkshop 不扫描），旧 pack.json 的摘要随登记进 mod-registry，`rollback` 靠它回去。
     const backupDir = backup ? path.join(root, '.mod-backups', packId) : null;
     const newDigest = createHash('sha256').update(fs.readFileSync(manifestPath)).digest('hex');
@@ -289,7 +289,7 @@ export function installZip({ root, buffer, force = false, backup = false }) {
 
 /**
  * 把一个已经校验过的目录搬到最终位置。force 时先把旧的挪开：给了 `backupDir` 就在装好**之后**留底（回滚那一半，
- * DESIGN §34.47），留底失败只损失回滚能力、**不回滚安装**（与旧行为「直接删」相比只会更好）；没给 `backupDir`
+ * DESIGN §35.47），留底失败只损失回滚能力、**不回滚安装**（与旧行为「直接删」相比只会更好）；没给 `backupDir`
  * 时保持旧行为（装好之后清掉旧目录）。
  *
  * 为什么留底要在「新包已经在位」之后做：留底是一次 rename，它自己会失败（权限、别的进程占着）。如果先留底再装，
@@ -817,7 +817,7 @@ export async function writePackOverrides(root, packId, list, { isOfficial = null
     // 是一条永远不会生效的声明。理由与 `variants.json` 自己的第二层同一份（`VARIANTS_UNKNOWN_FILE` 的文案：
     // 一个加载器不认识的名字什么都改不到）。写入端宁可拒绝写进去，也不留下一行没作用又删不掉的声明。
     if (m[1] === 'variants') {
-      throw refuse('OVERRIDE_BAD_FILE："variants" 是口径数据文件，内容是补丁不是记录，没有 "<文件>:<id>" 可以覆盖（要给已有记录写另一套数值请用 variants.json，见 DESIGN §34.51）');
+      throw refuse('OVERRIDE_BAD_FILE："variants" 是口径数据文件，内容是补丁不是记录，没有 "<文件>:<id>" 可以覆盖（要给已有记录写另一套数值请用 variants.json，见 DESIGN §35.51）');
     }
     if (!isOverridableContentFile(m[1])) {
       throw refuse(`OVERRIDE_BAD_FILE："${m[1]}" 不是包能声明的数据文件（可用的是 ${WORKSHOP_CONTENT_FILES.filter(isOverridableContentFile).join('、')}）`);
@@ -886,7 +886,7 @@ export function packSummary(root, packId, loaded = null, { supportFile = null } 
   const manifest = pack.manifest ?? {};
   const entry = loaded ? loaded.packs.find((p) => p.id === packId) ?? null : null;
   const err = loaded ? loaded.errors.find((e) => e.pack === packId) ?? null : null;
-  // `target: "stardust"`（DESIGN §34.46）：加载器**认识但不装载**的包。它不是「被拒」（清单合法、`errors` 里没有它），
+  // `target: "stardust"`（DESIGN §35.46）：加载器**认识但不装载**的包。它不是「被拒」（清单合法、`errors` 里没有它），
   // 但必须在列表里**看得见、且说得出为什么**。从前这一支落进 `refused` 而 `reason` 取自 `errors`（那里没有它）
   // ⇒ 列表打出 `REFUSED（null）`：读者既不知道它是什么状态，也不知道为什么 —— 一个包「在磁盘上、在列表里、
   // 却永远进不了游戏、没有任何说明」，正是 docs/WORKSHOP.md §1.1 那条教训的形状。
@@ -961,7 +961,7 @@ const line = (...parts) => console.log(parts.filter((p) => p !== null && p !== u
 
 function cliList(root, { json }) {
   const loaded = loadWorkshop(root, { log: { info() {}, warn() {}, error() {}, debug() {} } });
-  // 登记册的状态随列表一起出来（DESIGN §34.47）：一个被操作者禁用的包在列表里**必须看得见** —— 它文件在盘上、
+  // 登记册的状态随列表一起出来（DESIGN §35.47）：一个被操作者禁用的包在列表里**必须看得见** —— 它文件在盘上、
   // 清单一字不错，却什么都没装载，不说出来就是又一次「在编辑器里在、在磁盘上在、却永远进不了游戏、没有报错」。
   const registry = readModRegistry(stateRootFor(ROOT));
   const packs = listPackIds(root).map((id) => ({ ...packSummary(root, id, loaded, { supportFile: SUPPORT_FILE }), state: registry.packs[id]?.state || 'enabled' }));
@@ -979,7 +979,7 @@ function cliList(root, { json }) {
     const verdict = p.status === 'loaded'
       ? 'VALID'
       : p.status === 'foreign'
-        // 不是「被拒」：清单合法，只是这一格是给**另一个宿主**的。所以用词分开，且**必须带出原因**（DESIGN §34.46）。
+        // 不是「被拒」：清单合法，只是这一格是给**另一个宿主**的。所以用词分开，且**必须带出原因**（DESIGN §35.46）。
         ? `FOREIGN（本引擎不装载：${p.reason}）`
         : `REFUSED（${p.reason}）`;
     // 与上面那一格正交：禁用的包**可以**同时是 VALID（清单没问题，是操作者把它关掉了），所以两个后缀分开说。
@@ -1011,7 +1011,7 @@ function cliImport(root, file, { force, json }) {
   }
   const r = installZip({ root, buffer, force, backup: true });
   // 管理器登记（`server/modRegistry.js`）：装了什么、从哪来、pack.json 摘要 —— uninstall 的 ownership 判据
-  // 与 rollback 的凭据都在这一个文件里（DESIGN §34.47：登记册是唯一事实，不留第二份副本）。
+  // 与 rollback 的凭据都在这一个文件里（DESIGN §35.47：登记册是唯一事实，不留第二份副本）。
   recordInstall(stateRootFor(ROOT), r.id, { source: path.basename(target), digest: r.digest });
   if (r.displaced) recordBackup(stateRootFor(ROOT), r.id, r.displaced);
   if (json) { console.log(JSON.stringify({ ...r, state: 'enabled' }, null, 2)); return; }
@@ -1035,7 +1035,7 @@ function cliEnable(root, id, disabled) {
 }
 
 /**
- * 卸载：**两道闸**，都不可绕过（DESIGN §34.47）。
+ * 卸载：**两道闸**，都不可绕过（DESIGN §35.47）。
  *
  * 闸一 —— **ownership**（只卸载本管理器登记过的包）：一个登记册里没有记录的包可能是仓库自带、手工放置或者旧版
  * 装的。删它不是这条命令的事 —— 这个管理器**不认识**它，就没有资格处置它。要删请手动。

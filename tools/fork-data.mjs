@@ -65,7 +65,14 @@ for (const { name, what, needs } of LAYER) {
     failed = true;
     continue;
   }
-  const out = FORK_APPLIERS[name](json);
+  // `backups` 需要同一次生成的 `chess`：`applyForkPackAphris` 用它把「已经是棋手」的干员从 `diy.ownedPool` 里剔掉
+  // （需求方 2026-10-23 的重复干员 bug —— 内容包的棋手在 build 那一刻还不在官方 roster 里，于是漏进了可选池）。
+  // 读不到 chess 就退回单参数调用（不传 chess 时那段剔除不跑，缪因那半照旧）。
+  const applyArgs = [json];
+  if (name === 'backups') {
+    try { applyArgs.push(JSON.parse(readFileSync(join(ROOT, 'data', 'chess.json'), 'utf8'))); } catch { /* optional */ }
+  }
+  const out = FORK_APPLIERS[name](...applyArgs);
   if (!out) {
     console.error(`fork-data: data/${name}.json has no ${what} — refusing to patch`);
     failed = true;

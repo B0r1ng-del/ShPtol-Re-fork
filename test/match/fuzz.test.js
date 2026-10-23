@@ -38,9 +38,11 @@ function randomIntent(rng, m, ps) {
     // 六.E (packRelic): a forged / stale offer id and every bad-target combination must be refused by the handler, not
     // by the validator — the two intents travel whatever the switches are
     case 'g.relic': return { t, offerId: ps?.relicOffer && rng() < 0.8 ? ps.relicOffer.id : 'missing_offer', idx: rng.int(3) };
-    case 'g.relicRevive': return { t, relicId: rng() < 0.8 ? 'relic_233' : 'missing_relic', playerId: rng() < 0.8 ? rng.pick([...m.players.keys()]) : 'missing_player' };
+    case 'g.relicRevive': return { t, relicId: rng() < 0.8 ? 'relic_233' : 'missing_relic', playerId: m.players && rng() < 0.8 ? rng.pick([...m.players.keys()]) : 'missing_player' };
     case 'g.ready': return { t, ready: rng() < 0.4 };
     case 'g.emote': return { t, id: rng.pick(EMOTES) };
+    // 在线聊天 (fork 2026-10-16): one non-blank line, capped by CHAT_MAX_LEN in the C2S table
+    case 'g.chat': return { t, text: 'fuzz' };
     // 一键十连 (fork): the same shape as g.emote — one id, the server broadcasts it EMOTE_BURST_COUNT times
     case 'g.emoteBurst': return { t, id: rng.pick(EMOTES) };
     case 'g.watch': return { t, fieldId: rng.pick(['n:p_0', 'n:p_1', 'n:ai_0', 'u', 'b1', 'b2', 'zz', '']) };

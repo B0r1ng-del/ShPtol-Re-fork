@@ -1,4 +1,4 @@
-// server/modServer.js — 认「包声明 lane」与「工坊目录热装载」的启动入口（DESIGN §34.56 + docs/DEPLOY-SERVER.md）。
+// server/modServer.js — 认「包声明 lane」与「工坊目录热装载」的启动入口（DESIGN §35.56 + docs/DEPLOY-SERVER.md）。
 //
 // 它存在的一条理由就是**不必改 `server/index.js`**：那是游戏本体 `sganggs/Stronghold-Protocol` 拥有的路径
 // （`.github/game-overlap-check.mjs` 从 2026-10-15 起判「每处与本体的交集都必须是 `overlay.json` 的 `bodyPaths`

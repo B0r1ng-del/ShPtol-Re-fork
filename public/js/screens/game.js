@@ -77,7 +77,7 @@
 // phase). Its pill reads 观战中, never "你已被淘汰"; its exit only leaves the seat (ui/matchChrome.js ExitModal).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
-import { PHASE, GEO } from '../../../shared/constants.js';
+import { PHASE, GEO, ITEM_SELL_PRICE } from '../../../shared/constants.js';
 import { ruleOption } from '../../../shared/plugins/rules.js';
 import { html, Spinner, PhaseBanner, ResultDialog, Icon, Button, confirmDialog, closeAllDialogs, useTicker } from '../ui/components.js';
 import { useGameData, GIcon } from '../ui/gameComponents.js';
@@ -125,6 +125,7 @@ import {
   mergeTarget, modeOffBonds, readyFundsPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, roundStartReplay,
 } from '../ui/gameLogic.js';
 import { toast } from '../ui/toasts.js';
+import { researchRange } from '../../../shared/rhineRange.js';
 import { LoadoutButton } from './loadout.js';
 import { BriefingScreen } from './briefing.js';
 import { BandDraftScreen } from './bandDraft.js';
@@ -205,6 +206,10 @@ function MatchScreen() {
   const spectator = useStore((s) => isSpectating(s.room, s.me.playerId));
   const playerSettings = useSettings();
   const metricsSetting = playerSettings.combatMetrics === true;
+  // 聊天弹幕 (fork, 需求方 2026-10-17): there is NO switch of its own — it follows the emote panel's 「弹幕」 switch
+  // (`emotePrefsStore`, the same store the falling emote layer reads), so one control turns on both layers. `barrage`
+  // above is already that store's value.
+  const chatBarrage = barrage;
   // gameplay plugins (DESIGN §32.6): the HUD corner's MOD mark — re-rendered only when the room's content changes
   const modRoom = useStore((s) => (s.room?.content?.vanilla === false ? s.room : null), (a, b) => (a?.content ?? null) === (b?.content ?? null));
   // the room's spectator seats for the top bar's 观战席 capsule (ui/hud.js SpectatorPill; GitHub #120): room.state keeps coming
@@ -370,12 +375,15 @@ function MatchScreen() {
   // player does not own is its stand-in (0.2.0 补位 — the owner's recall of the official mode, 2026-10-06); rules keep
   // ownChess (the composed record carries the chess's identity anyway)
   const ownShown = (id) => { const c = ownChess(id); return ownStandIn(c, live.current.priv, data.get('backups')) || c; };
+  // 房主配置 装备可售卖 (m.public.hostConfig.itemSell): the underframe offers 出售 +1 for a loose item instead of 销毁
+  const itemSell = pub?.hostConfig?.itemSell === true;
   // `data.locale()`: getChess reads the localized record. Without it a language switch mid-match keeps this context,
   // and anything that memoizes on it keeps the previous language's placement (GitHub #676).
   const placeCtx = useMemo(() => placementContext({
     priv, stage: gd.stage(pub?.stageId), editable, field: deployField, itemSell,
     getChess: (id) => { const c = gd.chess(id); return ownDiyRecord(c, priv, { chess: data.get('chess'), backups: data.get('backups') }) || c; },
     getToken: gd.token, getItem: gd.item, getEffect: gd.effect, backups: gd.backups, morphMode,
+  // itemSell is the fork's 房主配置 装备可售卖 (placeCtx) and stays in the dep list beside upstream's own.
   }), [priv, pub?.stageId, editable, gd.ready, deployField, data.locale(), morphMode]);
   live.current = { pub, priv, field, view, editable, hasPersonalChoice, placeCtx, watching, watchWho, watchingOther, home, myId, alive, spectator, detail, drawer, bondOpen, emoteOpen, settingsOpen, exitOpen, drag, facing, sel, selBusy, pen, collapsedNow: collapsed, localDone: false, canPause: false, paused };
 
@@ -932,8 +940,10 @@ function MatchScreen() {
     if ((busyPrep || myPick) && cd.remain > 0) audio.sfx('timer', { volume: 0.6 });
   });
 
-  // your turn cue in the 机变 draft, and the official 轮到你选 disc over the cards (ui/turnPopup.js) once its art is in
-  const spMine = !!sp && !solo && sp.turnPid === myId && !sp.pickOf.has(myId);
+  // your turn cue in the 机变 draft, and the official 轮到你选 disc over the cards (ui/turnPopup.js) once its art is in.
+  // fork 二.4: a PARALLEL draft (everyone may act at once) and the 随机分配 vote both change who is still to act.
+  const spMine = !!sp && !solo && (sp.parallel || sp.turnPid === myId) && !sp.pickOf.has(myId)
+    && !(sp.randomVotes || []).includes(myId);
   const [turnPop, setTurnPop] = useState(0);
   useEffect(() => { preloadTurnPopupArt(); }, []);
   useEffect(() => {
@@ -1819,7 +1829,10 @@ function MatchScreen() {
 
       <div class="gm__corner">
         ${showMetrics && metricsOpen ? html`<${CombatMetricsPanel} myId=${myId} onClose=${() => setMetricsOpen(false)} />` : null}
-        ${spectator ? null : html`<${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen} onSend=${(id) => actions.emote(id)} disabled=${conn.status !== 'online'} />`}
+        ${/* 交流键 (fork 2026-10-17): with 在线聊天 off there is no chat window, so this corner copy is the wheel's ONLY home
+             — it must render unconditionally then; with the window on it moves into the window (see the ChatWindow below). */
+          spectator ? null : (!chatOn || !chatOpen) ? html`<${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen}
+            onSend=${(id, o) => (o && o.burst ? actions.emoteBurst(id) : actions.emote(id))} disabled=${conn.status !== 'online'} />` : null}
         ${showMetrics ? html`<button type="button" class="gm__gear gm__metrics" aria-label=${t('作战统计')} title=${t('作战统计')} aria-expanded=${metricsOpen}
           aria-controls="combat-metrics-panel" onKeyDown=${(e) => { if (e.key === ' ') e.stopPropagation(); }} onClick=${() => {
             setMetricsOpen(!metricsOpen);
@@ -1855,8 +1868,11 @@ function MatchScreen() {
 
       ${resolved ? html`<${DetailPanel} detail=${resolved} snapHp=${snapHp} onClose=${() => { setDetail(null); setSel(null); }}
         bonds=${detailBonds} offBonds=${offBonds} loadout=${detailLoadout} ops=${priv?.ops ?? null} side=${dSide} shopOpen=${shopOpen} live=${liveStats} voice=${true}
+        onSell=${sellPiece} onDestroy=${sellPiece} itemSell=${itemSell}
         morphMode=${morphMode} unequipAllowed=${unequipAllow}
-        onUnequip=${editable && unequipAllow ? (itemUid) => actions.unequip(itemUid) : null}
+        // 装备拆卸 (behaviour unequip / 插件规则 unequip=allow): 面板内部用 unequipAllowed() 判「画不画」按钮，
+        // 这里只管把动作接上；真正的准入在 server 的 unequip() 与 detailPanel 的 canDetach 两处。
+        onUnequip=${(itemUid) => actions.unequip(itemUid)}
         onBond=${(id) => openBond(id, detailOwner, 'detail')} />` : null}
 
       ${selEntry && editable && !facing && !drag && showPrep ? html`<${Underframe} key=${sel.uid} view=${view} uid=${sel.uid}
@@ -1878,6 +1894,11 @@ function MatchScreen() {
         setPersonalBusy((b) => b?.choiceId === choiceId ? null : b);
       }} />` : null}
     ${!hasOffers && turnPop ? html`<${TurnPopup} key=${turnPop} onDone=${() => setTurnPop(0)} />` : null}
+
+    ${barrage ? html`<${EmoteBarrage} emotes=${emotes} myId=${myId} />` : null}
+    ${/* 聊天弹幕 (fork, 设置「聊天弹幕」): the room's lines cross the screen. Gated on the ROOM option too — with 在线聊天
+         off there are no `m.chat` lines to show anyway, and the settings row is not offered either. */
+      chatOn ? html`<${ChatBarrage} lines=${chatLines} room=${chatRoom} myId=${myId} on=${chatBarrage} />` : null}
 
     ${boot && !hasOffers ? html`<${ProtocolBoot} key=${boot.key} players=${players} myId=${myId} leaving=${phase !== PHASE.BATTLE_CHECK} />` : null}
     ${roundPop && !hasOffers ? html`<${RoundPopup} key=${roundPop.key} round=${roundPop.round} gain=${roundGain} left=${roundPop.left} sub=${roundPop.sub}

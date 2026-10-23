@@ -32,7 +32,7 @@ import {
   MOD_PANEL_SLOTS, MOD_PANEL_PREFIX, MOD_PANEL_REQUIRES, PANEL_SEND_TYPES,
 } from '../public/js/ui/extensions.js';
 import { portraitEntry, clearAppearanceLookup, currentAppearanceLookup } from '../public/js/ui/portraitChain.js';
-// 素材加载源的排序面（第 5 刀，DESIGN §34.40）：与外观提供者同族的另一块注册面，见下面 4c 那一组。
+// 素材加载源的排序面（第 5 刀，DESIGN §35.40）：与外观提供者同族的另一块注册面，见下面 4c 那一组。
 import { orderDeclared, currentSourceOrderer, resetSourcesState, setSourcesEnabled } from '../public/js/resources/sources.js';
 import { TestClient } from './helpers/wsClient.js';
 
@@ -480,7 +480,7 @@ describe('C 层客户端：注册点', () => {
     // `hostKey` 是业主 2026-10-10 裁决里「可重复宿主」那一半（每张商店卡一个容器）：不可重复的宿主它是 `null`。
     // `data` 是同一条裁决里的**数据口**（`ctx.data.get('<表>')` 返回冻结快照）。
     // `me` 是「一格只读会话态」：`{ playerId, name, room }` 一份**冻结快照** —— 面板答不出来的那几件事实。
-    // `battle` 是 §34.38 那一格（`ctx.battle.damage()`：逐单位伤害 + 时间基准，供包自己算 DPS）。
+    // `battle` 是 §35.38 那一格（`ctx.battle.damage()`：逐单位伤害 + 时间基准，供包自己算 DPS）。
     // 这一条**故意逐键列全**：`ctx` 上多一个键就必须在这里显式加一个（不是「随便加」）。
     assert.deepEqual(Object.keys(ctx).sort(),
       ['battle', 'data', 'gate', 'host', 'hostKey', 'id', 'log', 'me', 'net', 'order', 'pack', 'session', 'slot']);
@@ -769,7 +769,7 @@ describe('外观提供者：一个进程最多一个，接进解析链', () => {
 });
 
 // ---------------------------------------------------------------------------------------------------
-// 4c. 素材加载源的提供者（第 5 刀，DESIGN §34.40）：与 4b 那一条**逐条同构**，但这一格只排**已声明的**镜像
+// 4c. 素材加载源的提供者（第 5 刀，DESIGN §35.40）：与 4b 那一条**逐条同构**，但这一格只排**已声明的**镜像
 //     ——「包能改加载源」与「包不能指名任意主机」两句话同时成立，而后者是结构性的：注册面没有位置写下地址。
 //     地址在 `pack.json.assets.mirrors[]`（装载期已与包内容器摘要比对过，见 test/modAssetsMirrors.test.js）。
 // ---------------------------------------------------------------------------------------------------

@@ -52,8 +52,10 @@ test('every generated attack/hit reference resolves to a valid pool and its sele
       }
     }
   }
-  assert.equal(refs, 952); // 0.3.1 release fetch-assets: + 琳琅诗怀雅 S3, 刻俄柏, 风丸 attacks and 松果's hit (their official pools)
-  assert.equal(Object.keys(pools).length, 941); // + the four pools above
+  // 二.3 东国/乌萨斯: the 13 injected operators add 20 attack / hit references (no new pool). 952 + 20 = 972.
+  assert.equal(refs, 972); // 0.3.1 release fetch-assets: + 琳琅诗怀雅 S3, 刻俄柏, 风丸 attacks and 松果's hit
+  // 二.3: the injected operators bring 62 pool entries of their own (941 → 1003).
+  assert.equal(Object.keys(pools).length, 1003);
   const p = pools[units.char_4064_mlynar.attackPools[2]];
   assert.equal(p.sounds['player/p_imp/p_imp_loyalsword_h.mp3'].delay, 0.1);
 });

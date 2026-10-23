@@ -120,8 +120,18 @@ export function collectViolations(m, { limit = 25 } = {}) {
         const rec = pgd.chess(p.id);
         if (!rec) { fail(`${id}: unknown chess ${p.id}`); continue; }
         if (rec.isDiy && !rec.diyFor) fail(`${id}: owns ${p.id}, a 自选 slot it has not filled`);
-        const slots = morphSlotPolicy(ruleOption(m.rules, 'morphPairing'), (it) => !!pgd.item(it?.id)?.canGiveBond);
-        if (!Array.isArray(p.items) || slots.slotsUsed(p.items) > slots.slotCap(gd.equipPerChess)) fail(`${id}: ${p.id} carries ${p.items && p.items.length} items`);
+        if (!Array.isArray(p.items)) fail(`${id}: ${p.id} carries no item array`);
+        else {
+          // 装备位不变量（第 7 段 · 工坊 mod 层移植 2026-10-17）：**占几格**与**最多几件**都由这一局的装备位策略回答
+          // （`shared/morph.js`）。缺省档 ⇒ `OFFICIAL_SLOT_POLICY`：`slotsUsed` 就是 `items.length`、`maxItems` 就是
+          // `equipPerChess` ⇒ 逐字就是从前那条 `p.items.length > gd.equipPerChess`。`plus` 档下变形同构体不占位
+          //（一行最多 `equipPerChess + 1` 件），而它自己**每名干员最多一件**。
+          const policy = matchSlotPolicy(m);
+          const slots = policy.slotsUsed(p.items, (id) => gd.item(id));
+          if (slots > gd.equipPerChess) fail(`${id}: ${p.id} uses ${slots} equipment slots`);
+          if (p.items.length > policy.maxItems(gd.equipPerChess)) fail(`${id}: ${p.id} carries ${p.items.length} items`);
+          if (p.items.filter((x) => policy.isSlotless(gd.item(x && x.id))).length > 1) fail(`${id}: ${p.id} carries more than one slotless item`);
+        }
         if (ruleOption(m.rules, 'morphPairing') === 'plus' && (p.items || []).filter((it) => pgd.item(it?.id)?.canGiveBond).length > 1) fail(`${id}: ${p.id} carries multiple morphs`);
         for (const it of p.items || []) {
           note(ps, it);

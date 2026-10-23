@@ -40,6 +40,7 @@ import { overtimeState, overtimeDrainPerSec, remainAt } from './matchStatus.js';
 import { hotkeyLabelOf } from './settings.js';
 import { t, tParts, N_ } from '../../../shared/i18n.js';
 import { UnofficialMark, ruleLine } from './pluginTag.js';
+import { modComponent } from './modComponents.js';
 import { TestMark } from './testConsole.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');

@@ -239,7 +239,7 @@ export class BattlePlayers {
       if (t && typeof t.install === 'function') this._safe(() => t.install(this, u), 'talent.install', u);
     }
     if (typeof u.kit.install === 'function') {
-      // 调用预算（`pack.json.callBudget`, DESIGN §34.52）：一个包提供的 kit 是**逐单位**装的，所以它的
+      // 调用预算（`pack.json.callBudget`, DESIGN §35.52）：一个包提供的 kit 是**逐单位**装的，所以它的
       // install(battle, unit) 也要跑在这个包的作用域里 —— 否则 kit 注册的 hook / 计时器拿不到包身份，
       // 预算就对它失效（而 kit 恰好是最容易每 tick 跑一次的那类回调）。包身份由 kit 函数自己的 `pack` 章给出
       // （content/index.js 在装配 kit 时盖的），第一方的 kit 没有这一格 ⇒ 行为不变。

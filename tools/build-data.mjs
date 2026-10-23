@@ -41,6 +41,14 @@ import { computeGroundPaths } from '../server/sim/groundPaths.js';
 import { bandBondIds } from '../shared/bandBonds.js';
 import { statusKey, composeUnitRecord } from '../shared/standIn.js';
 import { FULL_RANK, atRank, stripPotential } from '../shared/potential.js';
+/** 六.F: `tools/rhine-data.mjs` builds its records at the same potential rank the official passes use. */
+const OPERATOR_POTENTIAL = FULL_RANK;
+// The fork's own mode/field layer over the built config and choices (终极模拟 …), and its extra 自选编队 slots over the
+// built chess/backups (二.8): kept out of the official-data derivation so a regeneration from the game's tables cannot
+// drop it, and so every fork-only value sits in one file.
+import { FORK_APPLIERS, FORK_PASS_APPLIERS } from './fork-overrides.mjs';
+import { applyForkExtra6Act } from './fork-extra6.mjs';
+import { injectDongUrsusPack, applyDongUrsusPack, CUSTOM_VISIBLE_CHESS as DU_VISIBLE_CHESS, CUSTOM_BOND_COUNT as DU_BOND_COUNT, CUSTOM_BAND_COUNT as DU_BAND_COUNT } from './dong-ursus-content.mjs';
 import { createOfficialUnitBuilders } from '../server/plugins/officialUnitBuilder.js';
 
 // ===== CLI & IO ==================================================================================
@@ -201,6 +209,11 @@ async function loadContext() {
   const act = applyForkExtra6Act(activity?.activity?.AUTOCHESS_SEASON?.[SEASON], { charTable, uniequip });
   const ac = activity?.autoChessData;
   if (!act || !ac) throw new Error('activity_table has no act2autochess / autoChessData section');
+  // 二.3 东国 / 乌萨斯（需求方 2026-10-23）：port of Weedy-wendi/Dong-Ursus-Mod. The upstream injector writes straight
+  // into the official season tables, so it must run BEFORE every builder below. `injectDongUrsusPack` wraps it and
+  // stamps every record it adds with `packId: 'packDongUrsus'` (plus `packRestore` on the official records it edits),
+  // so `shared/packData.js` can strip the whole pack again when the room's switch is off.
+  const injectedDongUrsus = injectDongUrsusPack({ act, ac });
 
   // Note: summons/traps live in character_table (token_table.json only lists 4 unrelated traps).
 
@@ -237,6 +250,7 @@ async function loadContext() {
   return {
     act, ac, charTable, skillTable, rangeTable, uniequip, battleEquip, handbook, enemyDb,
     levels, templateIds: [...templateIds].sort(naturalCmp), stageIds, enemyDataLevelId, research,
+    dongUrsus: injectedDongUrsus,
     manifest: await loadManifest(),
   };
 }
@@ -646,6 +660,31 @@ function buildBackups(ctx, chess) {
     units[id] = unit;
   }
   for (const id of need.keys()) if (!units[id]) warn(`unit ${id}: needed but neither a stand-in nor an owned pick`);
+  // 二.3 东国 / 乌萨斯: the pack's 13 operators are injected into `act` (injectDongUrsusPack), so buildChess writes their
+  // records and `roster` counts them — which means they are NOT in ownedPool and NOT stand-ins, and the loop above never
+  // builds their unit. A kit / the detail card / the 自选 picker all read `backups.units[charId].forms`, so give every
+  // pack chess its own unit, using the status its chess record carries.
+  for (const rec of Object.values(chess)) {
+    if (!rec || rec.isGolden || !rec.charId || units[rec.charId]) continue;
+    // ★ 不能按 rec.packId 判：packId 是 build 之后由 applyDongUrsusPack 盖的，此刻 chess 记录上还没有。
+    // 用注入器返回的 chessId 集合（ctx.dongUrsus.chess）—— 那正是「哪些记录是注入进来的」。
+    if (!(ctx.dongUrsus && ctx.dongUrsus.chess && ctx.dongUrsus.chess.has(rec.chessId))) continue;
+    if (!charTable[rec.charId]) continue;
+    const unit = buildUnitHead(ctx, rec.charId);
+    unit.standsIn = [];
+    unit.forms = {};
+    // ★ 形态从**这一名干员自己的棋手记录**里取 status（普通 _a 与精锐 _b 各带一个），不要手工拼 phase/level：
+    // buildUnitForm 里的 traitRecord 依赖完整的 status，拼出来的会让模块的 traitOverride 变成 null
+    // （data/i18n/en.json 的 overlay 于是对不上 data/backups.json，i18n-data 测试就会红）。
+    const ownRecords = Object.values(chess)
+      .filter((c) => c && c.charId === rec.charId && !c.isDiy && c.status)
+      .sort((a, b) => statusCmp(a.status, b.status));
+    for (const c of ownRecords) {
+      const k = statusKey(c.status);
+      if (!unit.forms[k]) unit.forms[k] = buildUnitForm(ctx, rec.charId, c.status);
+    }
+    units[rec.charId] = unit;
+  }
   const tokens = buildDiyTokens(ctx, units, ownedPool);
 
   const coreBonds = Object.values(ac.bondInfoDict || {}).filter((b) => b.isPower && (b.powerIdList || []).length);
@@ -3156,13 +3195,15 @@ function validateAll(f) {
   const visible = Object.values(chess).filter((c) => !c.isGolden && c.visible);
   // validateAll runs on the files AFTER the fork layer above, so the counts are the committed ones: the official 23
   // bonds plus the ported 莱茵生命 (`rhineShip`, fork-overrides.mjs applyForkBonds — 六.3).
-  if (Object.keys(bonds).length !== 24) err(`expected 24 bonds (23 official + the ported 莱茵生命), got ${Object.keys(bonds).length}`);
-  if (Object.keys(bands).length !== 40) err(`expected 40 bands, got ${Object.keys(bands).length}`);
-  // the fork's two ported 额外干员 operators ride on top of the official 112 (tools/fork-overrides.mjs packExtra6).
+  if (Object.keys(bonds).length !== 24 + DU_BOND_COUNT) err(`expected ${24 + DU_BOND_COUNT} bonds (23 official + 莱茵生命 + 东/乌萨斯), got ${Object.keys(bonds).length}`);
+  if (Object.keys(bands).length !== 40 + DU_BAND_COUNT) err(`expected ${40 + DU_BAND_COUNT} bands (40 official + 5 自制策略), got ${Object.keys(bands).length}`);
+  // the fork's two ported 额外干员 operators ride on top of the official 112 (tools/fork-overrides.mjs packExtra6), and
+  // 二.1 地灵 (2026-10-23) adds one more: the official hidden operator `chess_char_1_11_a`, made visible by the
+  // `packBeanstalk` applier (its `packRestore` puts `visible: false` back when the switch is off).
   // The per-record loop that used to follow (baseId / goldenId / bonds / garrisons / tokens / talents, the DESIGN §16
   // skill and module choices, `placement`) is now shared/plugins/validate.js `validateReferences` — upstream 0.3.0
   // extracted it, and `validateAll` already calls it above, so the fork's copy of the loop is gone.
-  if (visible.length !== 114) err(`expected 114 visible non-DIY chess (112 official + the two ported packExtra6 operators), got ${visible.length}`);
+  if (visible.length !== 115 + DU_VISIBLE_CHESS) err(`expected 115 visible non-DIY chess (112 official + 2 packExtra6 + 地灵), got ${visible.length}`);
   // the deliberate trigger deviations (DESIGN §21.29, §22.10) still override an official TAKE_DAMAGE row, on the normal
   // chess and its elite alike (a DEFAULT one may resolve to the owner's ACTIVE_RANGE on top: 深巡 S2)
   const deviationHolds = (rule, trig) => trig.rawRule === 'TAKE_DAMAGE' && (trig.rule === rule || (ACTIVE_RANGE_OVER.has(rule) && trig.rule === 'ACTIVE_RANGE'));
@@ -3237,7 +3278,9 @@ async function main() {
     // applyForkBackups then replaces the `shopLevel: null` buildBackups gives them (the official shop-level table lists
     // only the four official slots) with their tier's own.
     const chess = FORK_PASS_APPLIERS.chess(built.chess);
-    passes.push({ ctx: pctx, chess, tokenOwners: built.tokenOwners, backups: FORK_PASS_APPLIERS.backups(buildBackups(pctx, chess)) });
+    // `chess` is handed to the backups pass so it can drop the operators that are chess records already from
+    // `diy.ownedPool` (需求方 2026-10-23: 内容包干员漏进了自选编队的可选池，导致重复添加、卡池概率异常).
+    passes.push({ ctx: pctx, chess, tokenOwners: built.tokenOwners, backups: FORK_PASS_APPLIERS.backups(buildBackups(pctx, chess), chess) });
   }
   const { chess, backups } = passes[FULL_RANK];
   const effects = buildEffects(ctx);
@@ -3276,7 +3319,11 @@ async function main() {
   // The rest of the fork layer for chess/backups, AFTER attachPotential annotated the full-rank records in place: these
   // appliers spread their record, so running them first would drop every `potDown`, and running them last is also what
   // puts `packBonds` after `potDown` — the order the in-place `tools/fork-data.mjs` patch leaves in the committed file.
-  for (const name of Object.keys(FORK_PASS_APPLIERS)) files[name] = FORK_APPLIERS[name](files[name]);
+  // ★ `backups` gets the finished `chess` here: `applyForkPackAphris` filters `diy.ownedPool` against the chess records,
+  //   and this second pass would otherwise overwrite the filtered pool from the earlier pass with the unfiltered one.
+  for (const name of Object.keys(FORK_PASS_APPLIERS)) {
+    files[name] = name === 'backups' ? FORK_APPLIERS[name](files[name], files.chess) : FORK_APPLIERS[name](files[name]);
+  }
   errors.push(...validateAll(files));
   // 六.F: the ported 莱茵生命 expansion (tools/rhine-data.mjs) — its 6 operators, 3 科研装置, 2 装备, the 盟约's members
   // and the traits they carry. LAST of the fork layer, and specifically AFTER `applyForkPackMembers`: that applier is
@@ -3305,6 +3352,33 @@ async function main() {
   // from the chess that name it, so running it earlier would have the next overlay drop 雷姆必拓's nine names again.
   const { applyRem } = await import('./rem.mjs');
   await applyRem(files);
+  // 二.3 东国 / 乌萨斯：把注入进来的记录**在写出前**盖上 `packId`。
+  //
+  // ★ 为什么不在 `injectDongUrsusPack` 里盖：那个函数跑在任何 builder 之前，而 builder（buildChess / buildBonds /
+  //   buildGarrisons / buildBands / buildItems）会**重新构造**每一条记录，只挑它认识的字段 —— 盖在 `act` 上的
+  //   `packId` 到不了 `data/*.json`。其它内容包（莱茵 / 卡兹戴尔 / 雷姆必拓）也都是**在 build 之后**由 overlay 盖章，
+  //   这里沿用同一条时序。
+  //
+  // `packRestore` 同理：它要落在最终的记录上，才能被 `shared/packData.js withPackRestore` 读到。
+  applyDongUrsusPack(files, ctx.dongUrsus);
+  // 自选编队的可选池剔除「已经是棋手」的干员（需求方 2026-10-23：开启莱茵生命后伊芙利特这类干员既能当棋手、又能被
+  // 重复加进自选编队，局内卡池刷新概率因此异常）。
+  //
+  // ★ 必须放在**这里** —— 所有内容包（莱茵 / 卡兹戴尔 / 雷姆必拓）都已叠进 `files.chess` 之后。`buildChess(pctx)`
+  //   与 `FORK_PASS_APPLIERS` 跑的时候内容包的棋手记录还不存在（它们由上面这几步叠加），那时拿不到 packId，
+  //   剔除会漏掉正是要修的那 8 个人。`diy.ownedPool` 是「拥有但不在棋池里的 6★」，所以判据就是「这个 charId 是否
+  //   已经成为一张棋手记录」—— 与 `tools/fork-overrides.mjs ownedPoolOf` 同一条（那里供 fork-data 的增量路径用）。
+  if (files.backups && Array.isArray(files.backups.diy?.ownedPool)) {
+    const chessChars = new Set();
+    for (const rec of Object.values(files.chess)) if (rec && typeof rec.charId === 'string' && rec.charId) chessChars.add(rec.charId);
+    const kept = files.backups.diy.ownedPool.filter((id) => !chessChars.has(id));
+    // ★ 只剔池子，**不动 `backups.tokens`**：那些 token 记录（多萝西的共振装置、莱的声波棒、维什戴尔的守卫）同时被
+    //   卡兹戴尔 / 雷姆必拓的**棋手**用（`data/tokens.json` 与 `backups.tokens` 有重叠是设计如此），删掉会打断棋手。
+    //   池子外的 owner 由 `test/backups.test.js` 自己的断言覆盖，那里也只检查「owner 在池里」这一条与自选相关的规则。
+    if (kept.length !== files.backups.diy.ownedPool.length) {
+      files.backups = { ...files.backups, diy: { ...files.backups.diy, ownedPool: kept } };
+    }
+  }
   let total = 0;
   const sizes = {};
   const texts = {};

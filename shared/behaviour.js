@@ -1,4 +1,4 @@
-// shared/behaviour.js — 行为开关层 (the 行为 a pack may declare, DESIGN §34.43).
+// shared/behaviour.js — 行为开关层 (the 行为 a pack may declare, DESIGN §35.43).
 // (i18n-ignore-file: 工坊作者层的校验与推导文本 —— 给作者、编辑器与 AI 读的规则说明（编辑器有自己的中英词典，见 docs/EDITOR.md），不是客户端界面文案)
 //
 // 这一层要解决的那面墙，逐字记在 `docs/WORKSHOP.md` §1.1 与 `shared/workshop.js` 的 `PACK_FIELDS` 注释里：
@@ -6,7 +6,7 @@
 // `server/sim/**` 与整屏 UI（它的 `files.json` 自述：「Nothing is trimmed: a target that gets the whole file gets
 // the whole feature」）。`docs/WORKSHOP.md` §1.1 对 `official` / `config` / `meta` / `shared` / `theme` /
 // `serverModules` 那六格「刻意没有通道」的判断逐字成立，**本文件不推翻它**：一个能指定任意文件覆盖、或让包
-// 直接写数值的包格式**就是安装器**（`docs/design/mod-layer.md` §34.39）。
+// 直接写数值的包格式**就是安装器**（`docs/design/mod-layer.md` §35.39）。
 //
 // 所以这一层与 `shared/variants.js` 是**同一个形状、不同的一张表**：
 //   1. **闭枚举**。一个包只能声明**这张表里有的开关**，每个开关只能取**这个开关列出的选项名**。开关名不认识 ⇒
@@ -114,7 +114,9 @@ export const BEHAVIOUR_SWITCHES = Object.freeze({
   prepLoadout: {
     label: '休整期可更换技能与模组',
     options: Object.freeze(['locked', 'prep']),
-    default: 'locked',
+    // 默认 `prep`（需求方 2026-10-23「允许玩家在局内的整备阶段修改干员的技能」）：没声明的房间 / 干净安装都能在
+    // 休整期改技能，且只影响这一局（大厅的干员调配不受影响）。包仍可显式声明 `locked` 把它收回到官方档。
+    default: 'prep',
     optionLabels: Object.freeze({
       locked: '官方：干员调配锁定后不再可改',
       prep: '休整期也能改（本座位未准备时）',
@@ -123,7 +125,9 @@ export const BEHAVIOUR_SWITCHES = Object.freeze({
       locked: 'the official rule: room.loadout is accepted only during INFO_CHECK (the briefing\'s 干员调配) and the loadout is frozen afterwards',
       prep: 'room.loadout is accepted during PREP as well, while this seat has not readied up; the submission merges into the current loadout (operators it does not mention keep theirs), and nothing else about the loadout changes',
     }),
-    actions: (option) => (option === 'prep' ? [{ kind: 'loadout.allowDuringPrep', value: true }] : []),
+    //  是这一格现在的**默认档**，而「默认档不发动作」是 behaviourActions 的通用约束，
+    // 所以这里两个选项都是空 —— 没有任何「相对官方默认的增量」需要告知客户端。
+    actions: () => [],
   },
   /**
    * 变形同构体的配对规则（投稿 `19ea65909cf6`，其原件整份覆盖 `shared/morph.js` 与三处读取点）。**改结果**
@@ -283,7 +287,7 @@ export function parseBehaviourDecl(raw, table = BEHAVIOUR_SWITCHES) {
       // 而 `module` / `entry` / `file` / `path` / `value` 这几个具体的名字更要在**这里**就死掉 —— 它们是
       // 「安装器」那半张脸的形状（本文件头那条红线），不是这一层将来可能加的东西。
       if (key !== 'switch' && key !== 'option' && key !== 'name' && key !== 'desc') {
-        return fail('BEHAVIOUR_BAD_SHAPE', `${where}: "${clip(key)}" is not a declared field (switch, option, name, desc). A behaviour declaration names a switch and one of its options — it never carries a module, a file, a path or a number (DESIGN §34.43)`);
+        return fail('BEHAVIOUR_BAD_SHAPE', `${where}: "${clip(key)}" is not a declared field (switch, option, name, desc). A behaviour declaration names a switch and one of its options — it never carries a module, a file, a path or a number (DESIGN §35.43)`);
       }
     }
     if (typeof entry.switch !== 'string' || !entry.switch) {

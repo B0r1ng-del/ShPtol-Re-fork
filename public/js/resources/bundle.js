@@ -126,7 +126,7 @@ export async function revokeImport(packId, { caches = globalThis.caches, origin 
  * `sha256(压紧 files)[0:12]`）。第二步是白拿的：一份版本号与文件表对不上的清单，说明作者手工改过它 —— 那正是
  * 「包内清单」与「容器头里的清单」会开始不一致的地方，而后者才是字节的真正描述。
  * @param {{ pack: string, manifest: string }} decl
- * @param {{ fetchImpl?: Function, url?: string|null }} [opts] `url` 只在**镜像**那条路上被传进来（DESIGN §34.40）：
+ * @param {{ fetchImpl?: Function, url?: string|null }} [opts] `url` 只在**镜像**那条路上被传进来（DESIGN §35.40）：
  *   那个包的清单不在服务端，而在作者声明的那台主机上（`<base><包内文件名>`）。省略时逐字取 `decl.manifest`。
  */
 export async function fetchManifest(decl, { fetchImpl = globalThis.fetch, url = null } = {}) {

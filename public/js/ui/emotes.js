@@ -40,8 +40,27 @@ export const PREF_TEN_PULL = 'emoteTenPull';
 export const PREF_BARRAGE = 'emoteBarrage';
 /** 一键十连 on? (per device; the server's `g.emoteBurst` is what actually sends the ten) */
 export const tenPullOn = () => loadPref(PREF_TEN_PULL, false) === true;
-/** 弹幕 on? (per device, display only) */
-export const barrageOn = () => loadPref(PREF_BARRAGE, false) === true;
+/**
+ * 弹幕 on? (per device, display only).
+ *
+ * 默认**开**（需求方 2026-10-23：「将弹幕功能设置为默认开启」）。老设备上存着的那一份如果是 `false`，一次性迁移把它
+ * 翻成 `true` 再落盘 —— 说「默认」就不能只改 fallback：那样已经点过关的人永远看不到新默认。迁移只跑一次
+ * （迁移标记也是 per-device），之后玩家自己关掉就保持关着，不会再被改写。
+ */
+export const PREF_BARRAGE_MIGRATED = 'emoteBarrageDefaultOn';
+const BARRAGE_DEFAULT = true;
+export function barrageOn() {
+  const raw = loadPref(PREF_BARRAGE, null);
+  if (raw === null) { savePref(PREF_BARRAGE, BARRAGE_DEFAULT); return BARRAGE_DEFAULT; }   // 从没设置过 ⇒ 新默认，落盘
+  if (raw === true) return true;
+  // 存着 false：只在迁移标记还没写过时翻一次（这就是「一次性迁移」—— 之后是玩家自己的选择）。
+  if (loadPref(PREF_BARRAGE_MIGRATED, false) !== true) {
+    savePref(PREF_BARRAGE, BARRAGE_DEFAULT);
+    savePref(PREF_BARRAGE_MIGRATED, true);
+    return BARRAGE_DEFAULT;
+  }
+  return false;
+}
 
 /**
  * The two switches as a tiny store, so flipping one re-renders the screen that mounts the 弹幕 layer. The preference

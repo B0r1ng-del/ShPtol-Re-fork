@@ -24,6 +24,7 @@
 // Layers (`ps.layers[bondId]`) persist the whole match; they are reported for every bond but only matter while active.
 
 import { layerGainRoom } from '../../shared/constants.js';
+import { memberBonds } from '../../shared/morph.js';
 import { grantedBondsByMorph, ruleOption } from '../../shared/plugins/rules.js';
 
 export const HARMONY_BOND = 'maniShip';
@@ -39,11 +40,19 @@ export const DEPUTY_BOND = 'deputShip';
 export function pieceBonds(gd, piece, rules = null) {
   const c = gd.chess(piece.id);
   const items = Array.isArray(piece.items) ? piece.items : [];
-  const mode = ruleOption(rules, 'morphPairing');
-  for (const b of grantedBondsByMorph(items, (id) => gd.item(id), { mode, bondOk: (id) => !!gd.bond(id) })) {
-    if (!out.includes(b)) out.push(b);
-  }
-  return out;
+  const recs = items.map((it) => gd.item(it.id)).filter(Boolean);
+  // 成员资格的**合并**在 `shared/morph.js` 的 `memberBonds`（一处判据、三处同源，工坊 mod 层移植 2026-10-16）：自己的
+  // `bonds` ∪ 装备授予 ∪ **特质授予**（`c.trait.grantsBonds`）。这一处、战斗里的 `unitBonds` 与客户端的
+  // `pieceBondIds` 调的是同一个函数 —— 三处各写一份 push 循环正是这条规则历史上最容易分叉的地方。
+  // 档位来源： (upstream 插件规则开关) 优先，缺省回退到  (工坊 behaviour 声明 —— fork 的
+  // 通道； 在构造时已经把它归一化好了）。两条通道问的是同一个问题，所以这里只读一次、读同一个值。
+  const morphed = rules ? ruleOption(rules, 'morphPairing') : gd.morphPairing;
+  return memberBonds(c && Array.isArray(c.bonds) ? c.bonds : [], {
+    trait: c && c.trait,
+    recs,
+    morphed,
+    hasBond: (id) => !!gd.bond(id),
+  });
 }
 
 /**

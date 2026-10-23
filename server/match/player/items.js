@@ -9,21 +9,18 @@ import { morphSlotPolicy, ruleOption } from '../../../shared/plugins/rules.js';
 import { tileKey, inField, parseDir, freeSlot } from '../board.js';
 import { offsetTile } from '../../sim/dir.js';
 import { itemKey } from '../gamedata.js';
-import { OK, fail, TEMP_SIZE } from './common.js';
-// 工坊 mod 层移植 (2026-10-16): the behaviour layer's `unequip` switch (a pack may allow taking an equipped item off).
+import { OK, fail } from './common.js';
 import { behaviourIsDefault } from '../../../shared/behaviour.js';
-// 装备位语义（第 7 段 · 工坊 mod 层移植 2026-10-17）：策略对象来自 `shared/morph.js`（**同一格开关 `morphPairing` 的另外半条**）。
-// 缺省档拿到的 `OFFICIAL_SLOT_POLICY` 是共享的冻结单例，每一个方法都逐字是引擎今天那条算术 ⇒ 下面三处的缺省路径逐字节不变。
-// （0.3.1 合并后：上游另有一套 `shared/plugins/rules.js` 的 `morphSlotPolicy`；这里保留 fork 的 `shared/morph.js`，
-//  `_slotPolicy()` 已改读上游的 `ruleOption(this.m?.rules, 'morphPairing')` —— 两套判据在 `plus` 档语义一致。）
 
 /**
- * 工坊 mod 层 (behaviour `unequip`): whether a pack lets an equipped item be taken off. False for a pack that declares
- * nothing — the official rule — so a vanilla match behaves exactly as before.
- * @param {any} decl the match's behaviour declaration
+ * 装备拆卸 (behaviour , DESIGN §35.43.2):  档才允许把已装备的道具收回手牌。
+ * 两条通道：（upstream 插件规则开关）优先，缺省回落到 behaviour 声明 —— 与 matchSlotPolicy 同形。
+ * @param {Array<{ switch: string, option: string }>|null} decl behaviour 声明
+ * @param {Record<string,string>|null} [rules] 插件规则开关
  * @returns {boolean}
  */
-export function unequipAllowed(decl) {
+export function unequipAllowed(decl, rules = null) {
+  if (rules && ruleOption(rules, 'unequip') === 'allow') return true;
   return !behaviourIsDefault(decl, 'unequip');
 }
 
@@ -110,8 +107,7 @@ export class PlayerItems {
 
   /**
    * Attach an item. With both slots used the item `replaceUid` names (the player's pick) is replaced, else the oldest;
-   * the replaced item is destroyed. 「满没满」与「顶掉哪一件」都走这一局的装备位策略
-   * （`plus`：变形同构体不占位、也不会被顶掉）；缺省档下策略就是官方那一条，循环体与从前同一批算术。
+   * the replaced item is destroyed.
    */
   /** The room's equip-slot policy. Official returns the shared frozen singleton, so the numbers stay today's. */
   _slotPolicy() {
@@ -137,8 +133,7 @@ export class PlayerItems {
 
   /**
    * A consume-on-equip item on a full carrier: take the item `replaceUid` names (else the oldest) off `target` — not yet
-   * destroyed — and return { piece, idx } (null while a slot is free). 「满」与「挑哪一件」都走这一局的装备位策略
-   * （`plus`：变形同构体既不占位、也不会被挑走）；缺省档逐字是 `items.length < equipPerChess` 与「找不到 ⇒ 0」。
+   * destroyed — and return { piece, idx } (null while a slot is free).
    */
   _takeReplaced(target, replaceUid = null, incoming = null) {
     target.items = target.items || [];
@@ -208,9 +203,9 @@ export class PlayerItems {
    */
   unequip(itemUid) {
     const g = this._gate(); if (g) return g;
-    if (ruleOption(this.m?.rules, 'unequip') !== 'allow') return fail(ERR.BAD_TARGET, 'equipped items are locked');
+    if (!unequipAllowed(this.m && this.m.behaviour, this.m && this.m.rules)) return fail(ERR.BAD_TARGET, 'equipped items are locked');
     const loc = this.find(itemUid);
-    if (!loc || loc.piece.kind !== 'item' || loc.area !== 'equipped') return fail(ERR.BAD_TARGET);
+    if (!loc || loc.piece.kind !== 'item' || loc.area !== 'equipped') return fail(ERR.BAD_TARGET, 'not equipped on an operator');
     const handAt = freeSlot(this.hand);
     const tempAt = freeSlot(this.temp.slice(0, GEO.TEMP_SIZE));
     if (handAt < 0 && tempAt < 0) return fail(ERR.HAND_FULL);

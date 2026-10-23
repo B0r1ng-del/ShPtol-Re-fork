@@ -786,8 +786,7 @@ export function specBounds(spec, gd = null) {
       const v = Number(b && b.layers);
       if (Number.isFinite(v) && v > 0) startLayers.set(id, v);
     }
-    const bonds = gd ? layerBondsOf(p, gd) : null, layerAllow = gd ? layerAllowanceOf(p, gd) : new Map();
-    players.set(p.playerId, { chess, all, names, defIds, bonds, startLayers, layerAllow });
+    players.set(p.playerId, { chess, all, names, defIds, bonds: gd ? layerBondsOf(p, gd) : null, startBonds: p.bonds && typeof p.bonds === 'object' ? p.bonds : null, startLayers, layerAllow: gd ? layerAllowanceOf(p, gd, spec) : new Map() });
   }
   const round = Number(spec && spec.round) || 0;
   return {

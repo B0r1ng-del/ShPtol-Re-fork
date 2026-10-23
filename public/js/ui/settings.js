@@ -540,6 +540,19 @@ export function SettingsModal({ open, onClose }) {
       <${Toggle} label=${t('显示弹药与能量数量')} micro="AMMO & ENERGY" value=${s.ammoEnergyCount} onChange=${(v) => updateSettings({ ammoEnergyCount: v })} />
       <p class="set-hint">${t('弹药类技能开启时，在弹药条下方显示剩余弹药 / 总弹药数（如 13/14）；秘术师的血条下方显示储存的攻击能量 / 上限（如 2/3）。官方界面没有这些数字。')}</p>
       <${Toggle} label=${t('作战统计')} micro="COMBAT STATS" value=${s.combatMetrics} onChange=${(v) => updateSettings({ combatMetrics: v })} />
+      <p class="set-hint">${t('打开后，对局顶栏可以查看自己干员的伤害、治疗和 DPS / HPS。官方界面没有这个窗口。改变玩法的插件对局在 Worker 里演算，统计不到，按钮不显示。')}</p>
+      <${Toggle} label=${t('显示作弊菜单')} micro="CHEAT MENU" value=${cheatBall}
+                 onChange=${(v) => (v ? setCodeOpen(true) : setCheatBall(false))} />
+      <p class="set-hint">${t('在备战阶段显示一个可拖动的悬浮球，用来开启仅对自己生效的作弊开关。默认关闭，开启需要激活码。')}</p>
+      ${codeOpen ? html`<div class="set-row" data-testid="cheat-code-row">
+        <span class="set-row__label">${t('激活码')}<${MicroLabel}>CODE<//></span>
+        <input class="set-input" type="password" inputmode="numeric" autocomplete="off" maxlength="24"
+          value=${code} placeholder=${t('输入激活码')} aria-label=${t('激活码')} data-testid="cheat-code"
+          onInput=${(e) => setCode(e.currentTarget.value)}
+          onKeyDown=${(e) => { if (e.key === 'Enter') submitCode(); }} />
+        <${Button} variant="primary" onClick=${submitCode}>${t('确认')}<//>
+      </div>` : null}
+      ${codeWrong ? html`<p class="set-hint set-hint--warn" data-testid="cheat-code-wrong">${t('激活码不正确。')}</p>` : null}
       <p class="set-hint">${t('打开后，对局左下角可以查看自己干员的伤害、治疗和 DPS / HPS。官方界面没有这个窗口。改变玩法的插件对局在 Worker 里演算，统计不到，按钮不显示。')}</p>
       <${Toggle} label=${t('部署时收起商店')} micro="DEPLOY FOLD" value=${s.prepDeployFold} onChange=${(v) => updateSettings({ prepDeployFold: v })} />
       <p class="set-hint">${t('拖起干员、装备或召唤物，以及放下后选择朝向时，临时收起商店并放大棋盘。关闭后，拿起时既不改变商店的收起状态，也不缩放镜头。')}</p>

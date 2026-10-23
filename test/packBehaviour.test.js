@@ -1,4 +1,4 @@
-// test/packBehaviour.test.js — 行为开关层（DESIGN §34.43）：`pack.json.behaviour` + 表 `shared/behaviour.js`。
+// test/packBehaviour.test.js — 行为开关层（DESIGN §35.43）：`pack.json.behaviour` + 表 `shared/behaviour.js`。
 //
 // 这一刀要消掉的那面墙：一份真实投稿（`ac8c9821f5ba`）把「改一条规则」做成了**安装器** —— `install.mjs` 整份
 // 覆盖 `data/*.json`、`server/sim/**` 与整屏 UI（它的 `files.json` 自述「a target that gets the whole file gets
@@ -128,17 +128,17 @@ describe('表：闭枚举，一格开关只有一个值', () => {
     assert.ok(PACK_FIELDS.includes('behaviour'));
     assert.equal(PACK_FIELDS[PACK_FIELDS.indexOf('variants') + 1], 'behaviour',
       '新格紧挨着口径那一格：两张表逐字同形，读起来是同一套东西');
-    // 38 = 36 + `callBudget`（§34.52，沙箱档的每局每插件调用预算：`{ max? }`，只许收紧不许放宽）+ `matchKinds`
-    // （§34.54，第二种对局的声明面）。`callBudget` 不是行为开关那一族（那一族改的是引擎里已有的某条规则），
+    // 38 = 36 + `callBudget`（§35.52，沙箱档的每局每插件调用预算：`{ max? }`，只许收紧不许放宽）+ `matchKinds`
+    // （§35.54，第二种对局的声明面）。`callBudget` 不是行为开关那一族（那一族改的是引擎里已有的某条规则），
     // 而是一条**上限**声明，所以它不挨着 `behaviour`。
     assert.equal(PACK_FIELDS.length, 38, '顶层键是闭集：加一格必须就地延长这个计数，不许放松它');
     // ⚠️ 只钉总数是不够的：两条独立的线各自加过一格，数字**碰巧都是 37**、加的却**不是同一格**
     // （我们加 `callBudget`，吸收进来的下游加 `matchKinds`）。这种「数字相同但不是同一格」一旦按数字
     // 取一边，就会**静默丢格**、而总数断言照样是绿的。所以这里逐格点名：并线之后两格都必须还在。
     assert.ok(PACK_FIELDS.includes('callBudget'),
-      '调用预算那格（§34.52）不能被并线时的「数字一样取一边」丢掉');
+      '调用预算那格（§35.52）不能被并线时的「数字一样取一边」丢掉');
     assert.ok(PACK_FIELDS.includes('matchKinds'),
-      '对局种类声明那格（§34.54）同样不能被丢掉 —— 它与 callBudget 是两条线各自加的，不是同一格');
+      '对局种类声明那格（§35.54）同样不能被丢掉 —— 它与 callBudget 是两条线各自加的，不是同一格');
     assert.equal(WORKSHOP_CONTENT_FILES.includes('behaviour'), false,
       '行为开关走 pack.json.behaviour；把它当数据文件就是开一条「包可以覆盖任意数值 / 任意文件」的通道');
     // 第 1 刀的口径表**一字不动**（它已随 v0.15.3 发布）
@@ -241,7 +241,7 @@ describe('第五条 `combat` 硬闸门 + `EMPTY_PACK` 的次序', () => {
     const needs = mk({ behaviour: [{ switch: 'shopBias' }] }, { behaviourSwitches: SYNTH });
     assert.equal(needs.ok, false, JSON.stringify(needs));
     assert.equal(needs.error, 'BEHAVIOUR_NEEDS_COMBAT');
-    assert.match(needs.detail, /DESIGN §34\.43/);
+    assert.match(needs.detail, /DESIGN §35\.43/);   // 二.3: mod-layer 从 §34 迁到 §35
     // `combat` 的**类型**错误先报：作者该改的是类型，不是缺一个 true
     assert.equal(mk({ combat: 'yes', behaviour: [{ switch: 'shopBias' }] }, { behaviourSwitches: SYNTH }).error, 'BAD_COMBAT');
     // 标了就是合法包
@@ -341,7 +341,7 @@ describe('缺省逐字节不变', () => {
     // 真表里的每一格都过一遍：不声明这一格 ⇒ 读点是今天的值；显式选 `default` 那一档 ⇒ **同一个值**。
     // 两条路在**规则读取**这一层必须等价（`behaviourIsDefault`）—— 这就是「声明了但选了缺省 = 没声明」这条承诺的
     // 落点。**它不承诺归一化清单逐字节相同**：清单进的是包身份哈希，两份不同的字节必须有两个不同的摘要
-    // （§34.43 判据 4），所以这里钉的是读取点，不是清单。
+    // （§35.43 判据 4），所以这里钉的是读取点，不是清单。
     for (const name of Object.keys(BEHAVIOUR_SWITCHES)) {
       const spec = BEHAVIOUR_SWITCHES[name];
       assert.equal(behaviourValue(null, name), null, `${name}：没声明 ⇒ 读点没有值`);
@@ -389,7 +389,7 @@ describe('写了才进清单 + 进身份哈希 + 一路走到房间（合成表�
   test('装载结果 → 房间 mod 集合 → 那一份投影真的带着开关（`modDigest` 只哈希 `[id, hash]`）', () => {
     // 这一条钉的是 `server/index.js` 构建 `workshopMods` 时的**投影**：开关必须跟着 mod 条目走，否则 `Match` 从
     // `mods.packs[].behaviour` 读到的是 `undefined`，开关**静默不生效** —— 那正是这一层要消灭的失败方向
-    // （§34.39 把这一处记成「这一层最容易做坏的地方」）。`modSetOf` 只按 `isModEntry`（id/hash/layer/combat/api）
+    // （§35.39 把这一处记成「这一层最容易做坏的地方」）。`modSetOf` 只按 `isModEntry`（id/hash/layer/combat/api）
     // **过滤**、不剥掉别的键，所以投影是唯一的一环。
     const pack = normalizePackManifest({ id: 'chain', name: 'Chain', layer: 'B', combat: true, ...CONTRIB, behaviour: [{ switch: 'shopBias', option: 'highestBond' }] }, 'chain', SYNTH_OPTS).pack;
     const hash = identifyPack(join(tmp, 'hash'), pack, {}).hash;

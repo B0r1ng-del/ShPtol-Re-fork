@@ -7,13 +7,13 @@ import { diySlotIds, validateDiyPicks } from './diy.js';
 import { cultivatedStats, isPotential, isCultivate, POTENTIAL_DEFAULT, CULTIVATE_DEFAULT, hasPotentialData } from './potential.js';
 import { isContentHash } from './plugins/identity.js';
 import { isPluginId } from './plugins/manifest.js';
+import { isModDigest, isModId, MOD_LIMITS } from './modIdentity.js';
 import { isTestCommand } from './testMode.js';
 import { PLUGIN_OFFER_SLOTS } from './plugins/limits.js';
-import { isModDigest, isModId, MOD_LIMITS } from './modIdentity.js';
 
-// The mod-identity shapes are declared in `shared/modIdentity.js` and re-exported here, because THIS file is the
-// normative protocol contract — one implementation, two doors. `pack.msg` / the room digest gate read them from this
-// module, never from a second copy. (fork 工坊 mod 层, kept across the 0.3.1 merge.)
+// The mod-identity shapes are declared in `shared/modIdentity.js` (inside the typecheck slice; this file is excluded
+// by jsconfig.json) and re-exported here, because THIS file is the normative protocol contract — one implementation,
+// two doors. `pack.msg` / the room digest gate read them from this module, never from a second copy.
 export { MOD_LIMITS, isModId, isModEntry, isModList, isModDigest, modDigest, modSetOf } from './modIdentity.js';
 
 // ---- tiny validators -------------------------------------------------------
@@ -568,10 +568,26 @@ export const C2S = {
   hello: { name: (v) => isStr(v, NAME_MAX_LEN) && v.trim().length > 0, token: (v) => v == null || isStr(v, 64), version: (v) => v == null || isInt(v, 0, 1e6),
     noReplace: isBool, claimAt: (v) => isNum(v, 0, Number.MAX_SAFE_INTEGER), $optional: ['token', 'version', 'noReplace', 'claimAt'] },
   ping: { c: (v) => typeof v === 'number' && Number.isFinite(v) },
-  // test: only the literal true (DESIGN §34.8). Omit it for a normal room — `false` is a bad field, so a
-  // string cannot sneak in as "not a test". The server still refuses it unless SP_TEST_MODE is on.
-  'room.create': { mode: (v) => v === 'solo' || v === 'coop', difficulty: (v) => DIFFICULTIES.includes(v), test: (v) => v === true, $optional: ['test'] },
-  'room.join': { $optional: ['testAck'], testAck: (v) => v === true, code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v) },
+  // Mod 开关 (模式界面, beside 干员调配): the per-device gameplay switches the creator carries into the room it makes.
+  // Optional — a client that sends none creates the room with every switch off (the official mode). The room keeps
+  // them across its matches like the mode and the difficulty, and the match reads them when it starts (Match.mods).
+  //
+  // ★ `modDigest` 与 `mods` 是**两个不同的东西**，刻意不同名（业主裁决 2026-10-17）：
+  //   * `mods`       —— 本 fork 的 **Mod 开关对象**（`MOD_KEYS` → boolean），描述「这一局开哪几格玩法」；
+  //   * `modDigest`  —— 工坊 **内容集摘要**（`shared/modIdentity.js modDigest`，16–64 位十六进制），描述「这一局跑
+  //                     的是哪一份包集合」。客户端拿到 `welcome.mods.packs` 之后自己重算一次，再把这个值回话。
+  // 上游把摘要叫 `mods`，那在本 fork 里**已经被占用**（同一个字段名两种语义 ⇒ `validateC2S` 回 `bad field mods`，
+  // 实测过）。所以新开一格，而不是改 `mods` 的语义 —— 后者会让每一个已经发 `mods` 的客户端静默改变含义。
+  'room.create': {
+    mode: (v) => ROOM_MODES.includes(v), difficulty: (v) => DIFFICULTIES.includes(v), mods: isMods,
+    modDigest: isModDigest,
+    // 测试模式 (DESIGN §34.8): 只能显式写 ； 与缺省都表示「不是测试房」。
+    test: (v) => v === true,
+    $optional: ['mods', 'modDigest', 'test'],
+  },
+  'room.join': { code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v), modDigest: isModDigest,
+    // 入座确认 (DESIGN §34.8): 只能显式 ，与 room.spectate 同形。
+    testAck: (v) => v === true, $optional: ['modDigest', 'testAck'] },
   'room.leave': {},
   'room.ready': { ready: isBool },
   'room.setDifficulty': { difficulty: (v) => DIFFICULTIES.includes(v) },
@@ -676,7 +692,9 @@ export const C2S = {
   'g.equip': { itemUid: isUid, targetUid: isUid, replaceUid: nullable(isUid), $optional: ['replaceUid'] },
   'g.art': { itemUid: isUid, row: (v) => isInt(v, 0, GEO.ROWS - 1), col: (v) => isInt(v, 0, GEO.COLS - 1), dir: isDir, $optional: ['dir'] },
   'g.destroy': { uid: isUid },
-  // unequip (DESIGN §34.15): one equipped item back to the hand, else the visible temp window. Official rooms refuse it.
+  // 装备拆卸 (behaviour `unequip`, DESIGN §35.43.2 / 投稿 79de9ff03518): take one EQUIPPED item off its operator during
+  // prep. Same `isUid` child as g.destroy / g.equip.itemUid. No new S2C message (the result rides the existing
+  // `dirty()` / private-view push) and PROTOCOL_VERSION does not move: a new type is not a changed shape.
   'g.unequip': { itemUid: isUid },
   'g.reward': { idx: (v) => isInt(v, 0, 5) },
   'g.choice': { idx: (v) => isInt(v, 0, 5), choiceId: isId, $optional: ['choiceId'] },

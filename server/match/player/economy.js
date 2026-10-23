@@ -4,7 +4,7 @@
 // Installed on PlayerState.prototype by server/match/PlayerState.js (a method container: never instantiated; `this` is
 // the player state).
 
-import { ERR, PHASE, layerGainRoom } from '../../../shared/constants.js';
+import { ERR, PHASE, layerGainRoom, CHEAT_KEYS, CHEAT_FREE_REFRESH_STEP, CHEAT_BOND_LAYER_STEP, CHEAT_GOLD_FLOOR, ITEM_SELL_PRICE } from '../../../shared/constants.js';
 import { ruleOption } from '../../../shared/plugins/rules.js';
 import { freeSlot } from '../board.js';
 import { computeBonds } from '../bondsMeta.js';
@@ -12,7 +12,7 @@ import { OK, fail } from './common.js';
 // 工坊 mod 层移植 (2026-10-16): the behaviour layer's shop bias. A pack declares `behaviour.shopBias`; with no such
 // declaration `behaviourIsDefault` is true and this returns null, so a vanilla match is byte-identical.
 import { behaviourIsDefault } from '../../../shared/behaviour.js';
-import { bondBiasPreference } from '../pool.js';
+
 
 /**
  * 工坊 mod 层 (behaviour `shopBias`): the bonds whose items the shop should favour, or null for the official roll.
@@ -204,7 +204,11 @@ export class PlayerEconomy {
     // bondBias therefore calls computeBonds at the roll (no rng). The official rule passes null and
     // does not call it, so the shop's rng stays today's two draws.
     let bias = null;
-    if (ruleOption(this.m?.rules, 'shopBias') === 'bondBias') {
+    // 两条通道（与 matchSlotPolicy / loadoutPhasesFor 同形）：（插件规则开关）优先，缺省回落到
+    // behaviour 声明 —— 工坊包一直是用后者声明  的。
+    const wantBias = ruleOption(this.m?.rules, 'shopBias') === 'bondBias'
+      || (!behaviourIsDefault(this.m && this.m.behaviour, 'shopBias'));
+    if (wantBias) {
       const bonds = computeBonds(this.gd, this);
       bias = new Set();
       for (const [id, st] of Object.entries(bonds)) if (st && st.active) bias.add(id);

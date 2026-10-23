@@ -145,10 +145,35 @@ export class FxZones {
   }
 
   /** Flash a set of tiles ([[r,c]]) on the ground (telegraphed boxes, blast tiles). */
-  tileFlash(tiles, tint, dur, warn = false, wall = null) {
+  /** 六.F: restore the medical rig's effective ecology field from UnitInfo, without replaying periodic binds. */
+  researchArea(view, previous = null) {
+    if (!view || view.prep || !view.alive || view.remove || view.destroyed || view.researchDevice?.key !== 'medical'
+      || view.info?.researchActive === false || !Number.isInteger(view.info?.researchStage)) return null;
+    const stage = view.info.researchStage;
+    if (stage < 0 || stage > 2) return null;
+    const bounds = this.ctx.fieldRect?.() || { r0: 0, r1: GEO.ROWS - 1, c0: 0, c1: GEO.COLS - 1 };
+    const row = Math.floor(view.y + .5), column = Math.floor(view.x + .5);
+    const key = `rhineEcology:${view.id}`;
+    const field = previous && this.tileFlashes.includes(previous) ? previous : this.tileFlashes.find(f => f.key === key);
+    const sameBounds = field?.bounds && ['r0','r1','c0','c1'].every(k => field.bounds[k] === bounds[k]);
+    if (field && field.row === row && field.column === column && field.stage === stage && sameBounds) {
+      field.anchor = view; field.dur = Infinity;
+      return field;
+    }
+    const range = researchRange({ id: view.info.defId, stage });
+    const tiles = researchRangeTiles(row, column, range.radius, bounds);
+    return this.tileFlash(tiles, FX_KINDS.rhineEcology.c, Infinity, false,
+      { steady: true, key, anchor: view, row, column, stage, bounds });
+  }
+
+  tileFlash(tiles, tint, dur, warn = false, options = undefined) {
     if (!Array.isArray(tiles) || !tiles.length) return;
-    this.tileFlashes.push({ tiles: tiles.slice(0, 60), tint, dur: Math.max(0.2, dur), t: 0, warn, wall });
-    if (this.tileFlashes.length > 12) this.tileFlashes.shift();
+    const record = { tiles: tiles.slice(0, 60), tint, dur: Math.max(0.2, dur), t: 0, warn, ...options };
+    const previous = options?.key && this.tileFlashes.find(f => f.key === options.key);
+    if (previous) Object.assign(previous, record);
+    else this.tileFlashes.push(record);
+    // Ordinary hit flashes may churn rapidly; they must not evict a still-active research field.
+    if (this.tileFlashes.filter(f => !f.steady).length > 12) this.tileFlashes.splice(this.tileFlashes.findIndex(f => !f.steady), 1);
   }
 
   _updateTileFlashes(dt) {
@@ -163,11 +188,15 @@ export class FxZones {
       if (f.anchor && (!f.anchor.alive || f.anchor.remove || f.anchor.destroyed || f.anchor.prep
         || f.anchor.info?.researchActive === false || !Number.isInteger(f.anchor.info?.researchStage))) continue;
       f.t += dt;
+      if (f.t >= f.dur) continue;
+      const k = f.t / f.dur;
+      const a = f.steady ? .15 + .025 * Math.sin(f.t * 2)
+        : (f.warn ? 0.35 + 0.35 * Math.abs(Math.sin(f.t * 7)) : 0.55 * (1 - k)) * (k > 0.85 ? (1 - k) / 0.15 : 1);
       const wall = f.wall;
       if (wall && (wall.owner.destroyed || wall.owner.alive === false || !wall.owner.statuses?.has('skill'))) continue;
       if (!wall && f.t >= f.dur) continue;
-      const k = wall ? 0 : f.t / f.dur;
-      const a = (f.warn ? 0.35 + 0.35 * Math.abs(Math.sin(f.t * 7)) : 0.55 * (1 - k)) * (k > 0.85 ? (1 - k) / 0.15 : 1);
+      const kw = wall ? 0 : f.t / f.dur;
+      const aw = (f.warn ? 0.35 + 0.35 * Math.abs(Math.sin(f.t * 7)) : 0.55 * (1 - kw)) * (kw > 0.85 ? (1 - kw) / 0.15 : 1);
       for (const [r, c] of f.tiles) {
         const z = (this.ctx.heightAt ? this.ctx.heightAt(r, c) : 0) + 0.015;
         const pts = [];

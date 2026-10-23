@@ -56,8 +56,10 @@ test('a room without rules stays the official match', () => {
   const h = prep();
   assert.equal(h.m.rules, undefined);
   assert.equal(h.m.phase, PHASE.PREP);
+  // ★ 需求方 2026-10-23：整备阶段**默认**就能改技能，所以一个没有 rules 的房间在 PREP 里 setLoadout 成功。
+  // （上游 0.3.1 的无 rules 房间是官方档 locked；这一格是本 fork 明确改掉的默认值。）
   const r = h.m.setLoadout('p_0', {});
-  assert.equal(r.error, ERR.WRONG_PHASE);
+  assert.deepEqual(r, { ok: true });
   const p = wearer(h, [HAMMER]);
   const item = p.items[0];
   const locked = h.m.handle('p_0', { t: 'g.unequip', itemUid: item.uid });

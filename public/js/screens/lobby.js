@@ -15,7 +15,7 @@
 import { TestMark } from '../ui/testConsole.js';
 import { ResumeMatchButton } from '../ui/resumeMatch.js';
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, MAX_SPECTATORS, modeIdFor, ERR } from '../../../shared/constants.js';
+import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, ULTIMATE_SEATS, ULTIMATE_DIFFICULTY, ROOM_MODES, MAX_SPECTATORS, modeIdFor, ERR } from '../../../shared/constants.js';
 import { html, confirmDialog, Button, Icon, MicroLabel, Panel, TextField, PingPill, AvatarFrame, Tooltip, Spinner, DifficultyIcon, doctorNo } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { GuideButton } from '../ui/guide.js';
@@ -33,6 +33,8 @@ import { t, tc, N_ } from '../../../shared/i18n.js';
 import { NoticesButton } from '../ui/notices.js';
 
 /** Official mode texts (activity_table act2autochess.modeDataDict), fallback when config.json is absent. */
+export const FORGE_EDITOR_URL = 'http://127.0.0.1:8787/';
+
 export const MODE_TEXT = {
   single: {
     FUNNY: { code: 'AC-1', desc: N_('时长较短的模拟训练'), effects: [N_('可以快速完成作战'), N_('常规奖励')] },
@@ -339,8 +341,12 @@ export function LobbyScreen() {
       if (alive.current) setBusy(null);
     }
   };
+  // Mod 开关 (ui/mods.js, MOD_KEYS): the switches are 房主配置 room options now (the lobby's Mod button is gone,
+  // 2026-10-16), so the room is created with them ALL OFF and the host sets them in the room (room.setMods). This
+  // device's last-used switches still ride along as the starting point, so a host who set them in a previous room does
+  // not have to set them again; `modsOn()` is that remembered preference.
   const create = () => run('create', () => net.request('room.create', {
-    mode: roomMode, difficulty, ...(testMode && asTest ? { test: true } : {}),
+    mode: roomMode, difficulty: effDifficulty, mods: modsOn(), ...(testMode && asTest ? { test: true } : {}),
   }));
   const join = (c = code) => {
     // `onClick=${join}` hands the click EVENT as the first argument, and a default parameter only applies to
@@ -383,6 +389,12 @@ export function LobbyScreen() {
           <${NoticesButton} />
           <${SettingsButton} class="lobby-settings" variant="secondary" square=${true} />
           <${GuideButton} class="lobby-guide" variant="secondary" square=${true} />
+          ${/* Forge 工坊 (需求方 2026-10-23): a jump to the LOCAL editor (`npm run editor` → 127.0.0.1:8787).
+               A plain anchor in a new tab — the game server does not proxy the editor (it never has: editor/ is a
+               separate process by design). If the editor is not running the browser shows its own "can't reach" page,
+               which is the honest answer; a button that pretended otherwise would be worse. */
+            html`<a class="btn btn--secondary btn--square lobby-forge" href=${FORGE_EDITOR_URL} target="_blank" rel="noopener noreferrer"
+              title=${t('Forge 工坊')} aria-label=${t('Forge 工坊')} data-testid="forge-link"><${Icon} name="hammer" /></a>`}
           <${PwaInstallButton} class="lobby-pwa" square=${true} />
         </div>
       </div>
@@ -392,6 +404,10 @@ export function LobbyScreen() {
       </div>
       <div class="topbar__right">
         <${ResumeMatchButton} />
+        <${LoadoutButton} from="lobby" class="lobby-loadout" label=${t('干员调配')} />
+        ${/* Mod 菜单 (fork, 需求方 2026-10-16): the 内容包 switches' own dialog, beside 干员调配 as asked. The five
+             game-rule switches are NOT here — they live in 房主配置 → 对局选项. */
+          html`<${ModMenuButton} class="lobby-modmenu" />`}
         <${Button} variant="secondary" size="sm" icon="book" class="lobby-sweep" onClick=${() => setSweepOpen(true)}
           title=${t('S.W.E.E.P.报告：盟约、策略与敌方资料')}>S.W.E.E.P.<//>
         <${LoadoutButton} from="lobby" size="sm" class="lobby-loadout" label=${t('干员调配')} />

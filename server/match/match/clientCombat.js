@@ -40,7 +40,10 @@ export class MatchClientCombat {
     const seq = `${this.battlePrefix}.${this.round}.${++this._battleSeq}`;
     // protocol ids are ≤ 64 chars (shared/protocol.js isId): the field id is informational, the sequence is unique
     const battleId = seq.length + 1 + String(fieldId).length <= 64 ? `${seq}.${fieldId}` : seq;
-    const spec = buildBattleSpec({ ...opts, ...morphBattleOpt(this.rules), battleId, fieldId, kind, content: this.battleContent, boss, cs: this.cs, vs: this.vs });
+    // 包声明的战斗逻辑（`server.battle`，DESIGN §34.17）：与 kit 清单同一条通道 —— `workshopBattle` 是浏览器要按 URL
+    // 加载的那份 `{ id, pack, hash, url }`，`mods` 是本局的内容集身份（`{ digest, packs }`）。三者都只在装了包时才
+    // 有值，干净安装的 spec 与从前**逐字节相同**（`buildBattleSpec` 对缺省输入写 `mods: null` / `workshopKits: []`）。
+    const spec = buildBattleSpec({ ...opts, ...morphBattleOpt(this.rules), battleId, fieldId, kind, workshopBattle: this.workshopBattleModules, mods: this.modSet, content: this.battleContent, boss, cs: this.cs, vs: this.vs });
     let total = 0;
     for (const x of spec.spawns) if (x && x.tag !== 'boss' && x.tag !== 'part' && x.countInTotal !== false) total += Math.max(1, Math.floor(Number(x.count) || 1));
     return {
