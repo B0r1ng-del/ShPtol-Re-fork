@@ -49,6 +49,8 @@ import {
 import { mitigate, hasHp, periodicDamage, isHpLoss } from '../../damage.js';
 import { RHINE_BOND, RHINE_EQUIPMENT } from '../../../../shared/rhineResearch.js';
 import { KAZDEL_BOND, KAZDEL_EQUIPMENT } from '../../../../shared/kazdel.js';
+import { REM_BOND, REM_EQUIPMENT } from '../../../../shared/rem.js';
+import { isRemMobile } from '../../remMobile.js';
 import { hypot } from '../../detmath.js';
 
 // =====================================================================================================================
@@ -166,8 +168,8 @@ export function carries(battle, u, key) {
   return false;
 }
 
-/** Only the corresponding 亡魂 benefits. Read live grants so borrowed pairings expire, and never store this multiplier
- * in inherited stats or accumulate it on soul refresh. */
+/** Only the corresponding soul benefits. Read live grants so borrowed pairings expire,
+ * and never store this multiplier in inherited stats or accumulate it on soul refresh. */
 export function kazdelEquipmentDamage(battle, soul) {
   const owner = soul?.ownerUnit;
   if (!soul?.kazdelSoul || !owner || soul.ownerId !== owner.ownerId
@@ -200,6 +202,65 @@ export function rhineEquipmentAttack(battle, ownerId, layers) {
     }
   }
   return best;
+}
+
+/** Strongest live nine-cell equipment effects for one actual, same-owner Rem reinforcement. */
+export function remEquipmentBonus(battle, reinforcement) {
+  const result = { damageReduction: 0, defIgnorePct: 0 };
+  if (!isRemMobile(reinforcement) || !onField(reinforcement) || reinforcement.removed || reinforcement.hidden) return result;
+  for (const [holder, grants] of runtime(battle).grants) {
+    if (holder.ownerId !== reinforcement.ownerId || !onField(holder) || holder.removed || holder.hidden
+      || !memberOf(battle, holder, REM_BOND)
+      || Math.abs(holder.x - reinforcement.x) > 1 + 1e-9 || Math.abs(holder.y - reinforcement.y) > 1 + 1e-9) continue;
+    const active = [...grants.values()].filter(grant => !grant.scope.disposed);
+    const combo = active.some(grant => grant.key === REM_EQUIPMENT.armor.key);
+    for (const grant of active) {
+      const armor = grant.key === REM_EQUIPMENT.armor.key, amplifier = grant.key === REM_EQUIPMENT.amplifier.key;
+      if (!armor && !amplifier) continue;
+      const p = bp(itemRecord(grant.id), armor ? 'rem_armor' : 'rem_amplifier');
+      if (armor) result.damageReduction = Math.max(result.damageReduction, num(p?.damage_reduction));
+      else result.defIgnorePct = Math.max(result.defIgnorePct, num(combo ? p?.combo_def_ignore : p?.def_ignore));
+    }
+  }
+  return result;
+}
+
+/** One strongest bonus per new Rem family, including ordinary/elite and temporary grants. */
+function refreshRemCarrierStats(battle, u) {
+  const key = 'item:rem_equipment:stat:carrier';
+  let hpPct = 0, atkPct = 0;
+  if (memberOf(battle, u, REM_BOND)) for (const grant of runtime(battle).grants.get(u)?.values() ?? []) {
+    if (grant.scope.disposed) continue;
+    if (grant.key === REM_EQUIPMENT.armor.key) hpPct = Math.max(hpPct, num(bp(itemRecord(grant.id), 'rem_armor')?.max_hp));
+    if (grant.key === REM_EQUIPMENT.amplifier.key) atkPct = Math.max(atkPct, num(bp(itemRecord(grant.id), 'rem_amplifier')?.atk));
+  }
+  const old = u.findBuff(key);
+  if (hpPct || atkPct) {
+    if (old?.mods?.hpPct !== hpPct || old?.mods?.atkPct !== atkPct) passiveBuff(battle, u, key, { hpPct, atkPct });
+  } else if (old) battle.removeBuff(u, key);
+}
+function remEquipmentRuntime(battle) {
+  const rt = runtime(battle);
+  if (rt.remEquipment) return;
+  rt.remEquipment = true;
+  const update = () => { for (const u of rt.grants.keys()) refreshRemCarrierStats(battle, u); };
+  battle.on('battleStart', update); battle.on('deploy', update); battle.on('tick', update);
+  // Resolve each reinforcement hit once. Live coordinates include vehicles and delayed pizza hits.
+  battle.on('hit', ({ source, target, dmg }) => {
+    if (isHpLoss(dmg) || dmg.type === 'element') return;
+    const reduction = remEquipmentBonus(battle, target).damageReduction;
+    if (reduction > 0) dmg.mul *= 1 - reduction;
+    if (dmg.type === 'phys' && target?.side === 'enemy') {
+      const ignore = remEquipmentBonus(battle, source).defIgnorePct;
+      if (ignore > 0) dmg.defIgnorePct += ignore;
+    }
+  }, { priority: -5 });
+}
+/** Only new Rem items use this guarded, strongest-family stat pipeline. */
+function remCarrierStats(battle, u, _p, S) {
+  remEquipmentRuntime(battle);
+  S.onDispose(() => refreshRemCarrierStats(battle, u));
+  refreshRemCarrierStats(battle, u);
 }
 
 // =====================================================================================================================
@@ -452,8 +513,10 @@ const BY_BUFF = {
   },
   // The live grant is consumed by rhineEquipmentAttack; the generic stat buff supplies carrier HP.
   rhine_mainframe() {},
-  // Resolved once per 亡魂 hit by kazdelEquipmentDamage; no per-copy hook and no self damage.
+  // Resolved once per soul hit by kazdelEquipmentDamage; no per-copy hook or self damage.
   kazdel_blade() {},
+  rem_armor: remCarrierStats,
+  rem_amplifier: remCarrierStats,
   // 源石溶剂: the text's "每秒流失 damage 点生命值" is officially 每秒受到 damage 点真实伤害 (PRTS 盟约记录 修正 "并非流失", 备注
   // "造成无来源真实持续环境伤害"; the `periodic_damage` template — also 狂暴宿主 "自身每秒受到N无来源真实伤害"): a damage instance,
   // not a 流失 — shields, damage-taken modifiers and the target-side `hit` effects apply, and it is a "受到伤害" for 受击回复
@@ -520,101 +583,8 @@ const BY_BUFF = {
   },
 };
 
-// ---- 自制装备的行为 buff key（二.3 东国 / 乌萨斯；普通/进阶共用同一 bbStr.key）----
-const MASK_KEY = 'act2autochess_equip_9_01_global_buff';   // 东国鬼面
-const CANYIN_KEY = 'act2autochess_equip_9_02_global_buff'; // 残心一闪
-const RATION_KEY = 'act2autochess_equip_9_03_global_buff'; // 乌萨斯军粮
-const ROAR_KEY = 'act2autochess_equip_9_04_global_buff';   // 冰原咆哮
-
 /** Item-key behaviours. */
 const BY_ITEM = {
-  // ---- 自制装备（tools/custom-content.mjs ITEMS，2026-10-13：东×2 + 乌萨斯×2）----
-
-  // 东国鬼面 (东副装备): 开启技能时流失 hp_loss_ratio × 当前生命，本技能期间攻击力 +atk。
-  //   流失与【东】盟约的技能烧血独立结算（loseHp 口径，不吃屏障）；ATK buff 的时长 = 该次技能的剩余
-  //   时间——被动技能引擎不 emit skillStart、瞬发技能无窗口，两者都跳过（与盟约烧血的触发面一致）。
-  chess_item_9_01_e(battle, u, rec, S) {
-    const p = bp(rec, MASK_KEY);
-    if (!p) return;
-    const lossRatio = num(p.hp_loss_ratio, 0.1), atkPct = num(p.atk, 0.3);
-    S.on('skillStart', (c) => {
-      if (c.unit !== u || !onField(u) || !u.alive) return;
-      const loss = u.hp * lossRatio;
-      if (loss > 0) battle.loseHp(u, loss, { source: u });
-      const sk = c.skill;
-      const tl = sk && Number.isFinite(sk.timeLeft) ? Math.max(0, sk.timeLeft) : 0;
-      if (tl > 0 && atkPct > 0) S.buff(u, { key: S.key('maskAtk'), duration: tl, refresh: 'replace', mods: directMods({ atk: atkPct }) });
-    });
-  },
-
-  // 残心一闪 (东签名): stat 由 attr_common_global_buff 承载；【东】成员的物/法攻击转化为弱点伤害
-  //   （weaknessRetype，双模机械臂同款）；与东国鬼面同带 → 生命首次低于 50% 时获得 shield_ratio × 生命上限
-  //   屏障（每场战斗一次，跨部署记账 unit.mem；组合判定实时——借出装备也算）。
-  chess_item_9_02_e(battle, u, rec, S) {
-    const p = bp(rec, CANYIN_KEY);
-    if (!p) return;
-    const partner = partnerOf(p);
-    S.on('hit', (c) => {
-      if (c.source !== u || !memberOf(battle, u, 'dongShip')) return;
-      weaknessRetype(c.dmg, u, c.target);
-    }, 5);
-    if (!partner) return;
-    const poll = () => {
-      if (!onField(u) || !u.alive) return;
-      (u.mem = u.mem || {});
-      if (u.mem.canyinShield || !(u.hp < u.s.maxHp * 0.5)) return;
-      if (!carries(battle, u, partner)) return;
-      u.mem.canyinShield = true;
-      const amount = u.s.maxHp * num(p.shield_ratio, 0.5);
-      if (amount > 0) {
-        battle.addBuff(u, { key: S.key('canyinShield'), shield: amount, visible: true, source: u });
-        fxOn(battle, 'buff', u, 'item:canyin', 'shield', { amount });
-      }
-    };
-    S.on('deploy', (c) => { if (c.unit === u) poll(); });
-    S.every(0.5, poll);
-  },
-
-  // 乌萨斯军粮 (乌萨斯副装备): 每 5 秒回复 hp_regen_ratio × 生命上限（生命上限加成由 attr_common_global_buff 承载）。
-  chess_item_9_03_e(battle, u, rec, S) {
-    const p = bp(rec, RATION_KEY);
-    if (!p) return;
-    const regen = num(p.hp_regen_ratio, 0.04);
-    S.every(5, () => {
-      if (!onField(u) || !u.alive) return;
-      const amount = u.s.maxHp * regen;
-      if (amount > 0) battle.heal(u, u, amount, { self: true });
-    });
-  },
-
-  // 冰原咆哮 (乌萨斯签名): stat 由 attr_common_global_buff 承载；【乌萨斯】成员在场每有 1 名其他【乌萨斯】
-  //   盟约干员（含军粮转籍 / 同构体授予）攻击力 +per，至多 cap；与乌萨斯军粮同带 → 上限提升至 cap_combo。
-  //   0.5s 周期重读 + 部署即时刷新（部署/撤退/转籍/借出装备都实时生效；下岗时撤掉 buff）。
-  chess_item_9_04_e(battle, u, rec, S) {
-    const p = bp(rec, ROAR_KEY);
-    if (!p) return;
-    const partner = partnerOf(p);
-    const per = num(p.per, 0.04), cap = num(p.cap, 0.2), capCombo = num(p.cap_combo, 0.3);
-    const key = S.key('roar');
-    const poll = () => {
-      if (!onField(u) || !u.alive || !memberOf(battle, u, 'ursusShip')) { battle.removeBuff(u, key); return; }
-      let n = 0;
-      for (const a of battle.allyUnits) {
-        if (a === u || a.kind !== 'op' || !a.alive || !a.deployed || a.ownerId !== u.ownerId) continue;
-        if (memberOf(battle, a, 'ursusShip')) n++;
-      }
-      const max = partner && carries(battle, u, partner) ? capCombo : cap;
-      const atkPct = Math.min(n * per, max);
-      const cur = u.findBuff(key);
-      if (!(atkPct > 0)) { if (cur) battle.removeBuff(u, cur); return; }
-      if (cur && Math.abs((cur.mods?.atkPct ?? 0) - atkPct) < 1e-9) return;
-      if (cur) battle.removeBuff(u, cur);
-      S.buff(u, { key, persist: true, allowDead: true, refresh: 'replace', mods: directMods({ atk: atkPct }) });
-    };
-    S.on('deploy', (c) => { if (c.unit === u) poll(); });
-    S.every(0.5, poll, { immediate: true });
-  },
-
   // 精准狙击镜: damage ×damage_scale against targets ≥ radius tiles away
   chess_item_3_02_e(battle, u, rec, S) {
     const p = bp(rec, 'act1autochess_equip_acarm063_global_buff');
