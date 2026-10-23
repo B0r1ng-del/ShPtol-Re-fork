@@ -41,11 +41,11 @@ test('slots: five per tier (5, 6), each with its elite twin', () => {
   assert.equal(diyTokenOwner(SIEGE, chess.chess_char_6_diy1_b.status), 'char_112_siege@2/60/7/3');
 });
 
-test('diyPool: tier 5 = 15 prototypes + 64 owned 6★, tier 6 = 9 + 64; no preset, no collab; with the kit registry only kitted operators', () => {
+test('diyPool: tier 5 = 73, tier 6 = 67 (prototypes + owned 6★); no preset, no collab; with the kit registry only kitted operators', () => {
   const p5 = diyPool(5, { data: DATA }), p6 = diyPool(6, { data: DATA });
   assert.deepEqual(p5, [...RESERVES5, ...ELITES, ...ownedPool]);
   assert.deepEqual(p6, [...ELITES, ...ownedPool]);
-  assert.deepEqual([p5.length, p6.length], [79, 73]);
+  assert.deepEqual([p5.length, p6.length], [73, 67]);
   // ★ 需求方 2026-10-23：**已经是棋手**的干员不再进自选池。从前这里是「重叠合法，只要棋手记录有 packId」，
   //   理由是「自选按 charId 用干员自己的 kit、棋手是商店抽的卡，两套选择器互不相干」。业主认为那会让同一个干员在
   //   两处各占一份拷贝、局内卡池的刷新概率因此异常，于是改成：`diy.ownedPool` 由 `tools/fork-overrides.mjs` 的

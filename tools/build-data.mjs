@@ -49,6 +49,7 @@ const OPERATOR_POTENTIAL = FULL_RANK;
 // drop it, and so every fork-only value sits in one file.
 import { FORK_APPLIERS, FORK_PASS_APPLIERS } from './fork-overrides.mjs';
 import { applyForkExtra6Act } from './fork-extra6.mjs';
+import { injectDongUrsusPack, applyDongUrsusPack, CUSTOM_VISIBLE_CHESS as DU_VISIBLE_CHESS, CUSTOM_BOND_COUNT as DU_BOND_COUNT, CUSTOM_BAND_COUNT as DU_BAND_COUNT } from './dong-ursus-content.mjs';
 
 // ===== CLI & IO ==================================================================================
 
@@ -368,6 +369,11 @@ async function loadContext() {
   const act = applyForkExtra6Act(activity?.activity?.AUTOCHESS_SEASON?.[SEASON], { charTable, uniequip });
   const ac = activity?.autoChessData;
   if (!act || !ac) throw new Error('activity_table has no act2autochess / autoChessData section');
+  // 二.3 东国 / 乌萨斯（需求方 2026-10-23）：port of Weedy-wendi/Dong-Ursus-Mod. The upstream injector writes straight
+  // into the official season tables, so it must run BEFORE every builder below. `injectDongUrsusPack` wraps it and
+  // stamps every record it adds with `packId: 'packDongUrsus'` (plus `packRestore` on the official records it edits),
+  // so `shared/packData.js` can strip the whole pack again when the room's switch is off.
+  const injectedDongUrsus = injectDongUrsusPack({ act, ac });
 
   // Note: summons/traps live in character_table (token_table.json only lists 4 unrelated traps).
 
@@ -404,6 +410,7 @@ async function loadContext() {
   return {
     act, ac, charTable, skillTable, rangeTable, uniequip, battleEquip, handbook, enemyDb,
     levels, templateIds: [...templateIds].sort(naturalCmp), stageIds, enemyDataLevelId, research,
+    dongUrsus: injectedDongUrsus,
     manifest: await loadManifest(),
   };
 }
@@ -3862,15 +3869,15 @@ function validateAll(f) {
   const visible = Object.values(chess).filter((c) => !c.isGolden && c.visible);
   // validateAll runs on the files AFTER the fork layer above, so the counts are the committed ones: the official 23
   // bonds plus the ported 莱茵生命 (`rhineShip`, fork-overrides.mjs applyForkBonds — 六.3).
-  if (Object.keys(bonds).length !== 24) err(`expected 24 bonds (23 official + the ported 莱茵生命), got ${Object.keys(bonds).length}`);
-  if (Object.keys(bands).length !== 40) err(`expected 40 bands, got ${Object.keys(bands).length}`);
+  if (Object.keys(bonds).length !== 24 + DU_BOND_COUNT) err(`expected ${24 + DU_BOND_COUNT} bonds (23 official + 莱茵生命 + 东/乌萨斯), got ${Object.keys(bonds).length}`);
+  if (Object.keys(bands).length !== 40 + DU_BAND_COUNT) err(`expected ${40 + DU_BAND_COUNT} bands (40 official + 5 自制策略), got ${Object.keys(bands).length}`);
   // the fork's two ported 额外干员 operators ride on top of the official 112 (tools/fork-overrides.mjs packExtra6), and
   // 二.1 地灵 (2026-10-23) adds one more: the official hidden operator `chess_char_1_11_a`, made visible by the
   // `packBeanstalk` applier (its `packRestore` puts `visible: false` back when the switch is off).
   // The per-record loop that used to follow (baseId / goldenId / bonds / garrisons / tokens / talents, the DESIGN §16
   // skill and module choices, `placement`) is now shared/plugins/validate.js `validateReferences` — upstream 0.3.0
   // extracted it, and `validateAll` already calls it above, so the fork's copy of the loop is gone.
-  if (visible.length !== 115) err(`expected 115 visible non-DIY chess (112 official + 2 packExtra6 + 地灵), got ${visible.length}`);
+  if (visible.length !== 115 + DU_VISIBLE_CHESS) err(`expected 115 visible non-DIY chess (112 official + 2 packExtra6 + 地灵), got ${visible.length}`);
   // the deliberate trigger deviations (DESIGN §21.29, §22.10) still override an official TAKE_DAMAGE row, on the normal
   // chess and its elite alike (a DEFAULT one may resolve to the owner's ACTIVE_RANGE on top: 深巡 S2)
   const deviationHolds = (rule, trig) => trig.rawRule === 'TAKE_DAMAGE' && (trig.rule === rule || (ACTIVE_RANGE_OVER.has(rule) && trig.rule === 'ACTIVE_RANGE'));
@@ -4019,6 +4026,15 @@ async function main() {
   // from the chess that name it, so running it earlier would have the next overlay drop 雷姆必拓's nine names again.
   const { applyRem } = await import('./rem.mjs');
   await applyRem(files);
+  // 二.3 东国 / 乌萨斯：把注入进来的记录**在写出前**盖上 `packId`。
+  //
+  // ★ 为什么不在 `injectDongUrsusPack` 里盖：那个函数跑在任何 builder 之前，而 builder（buildChess / buildBonds /
+  //   buildGarrisons / buildBands / buildItems）会**重新构造**每一条记录，只挑它认识的字段 —— 盖在 `act` 上的
+  //   `packId` 到不了 `data/*.json`。其它内容包（莱茵 / 卡兹戴尔 / 雷姆必拓）也都是**在 build 之后**由 overlay 盖章，
+  //   这里沿用同一条时序。
+  //
+  // `packRestore` 同理：它要落在最终的记录上，才能被 `shared/packData.js withPackRestore` 读到。
+  applyDongUrsusPack(files, ctx.dongUrsus);
   // 自选编队的可选池剔除「已经是棋手」的干员（需求方 2026-10-23：开启莱茵生命后伊芙利特这类干员既能当棋手、又能被
   // 重复加进自选编队，局内卡池刷新概率因此异常）。
   //

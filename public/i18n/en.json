@@ -2211,5 +2211,7 @@
   "开启后同一份策略可被多位博士各选一次；关闭时官方规则：每个策略只能由一位博士选择": "On: several doctors may each take the same strategy. Off: the official rule — one doctor per strategy.",
   "Forge 工坊": "Forge workshop",
   "地灵": "Beanstalk",
-  "开启后地灵进入卫戍协议卡池：盟约 奇迹 / 远见，特质为「获得时自身所属盟约层数+4（无需激活盟约）」。关闭（默认）时她仍是官方隐藏干员。": "On: Beanstalk joins the roster (bonds Miracle / Foresight; trait: on acquire, +4 layers to her own bonds, no activation needed). Off (default): she stays an official hidden operator."
+  "开启后地灵进入卫戍协议卡池：盟约 奇迹 / 远见，特质为「获得时自身所属盟约层数+4（无需激活盟约）」。关闭（默认）时她仍是官方隐藏干员。": "On: Beanstalk joins the roster (bonds Miracle / Foresight; trait: on acquire, +4 layers to her own bonds, no activation needed). Off (default): she stays an official hidden operator.",
+  "东国 / 乌萨斯": "Higashi / Ursus",
+  "开启后可使用移植内容：东国与乌萨斯两条盟约、13 名干员、4 件装备、5 条自制策略。关闭（默认）时完全不加载，回到原版内容。": "On: adds the Higashi and Ursus bonds, 13 operators, 4 items and 5 custom strategies. Off (default): nothing is loaded and the game is the original content."
 }

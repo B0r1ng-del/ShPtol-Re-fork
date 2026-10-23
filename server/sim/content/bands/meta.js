@@ -502,6 +502,144 @@ function merge(parts) {
 }
 
 /** Hooks of one band (null when it has no prep effect). */
+/**
+ * Random chess of exactly `tier`, walking DOWN when that tier has none (a strategy that names 等阶 keeps its bond first:
+ * the tier is the target, the bond the filter, so neither is given up before the other has to be).
+ */
+function rollAtTier(ctx, tier, bond = null) {
+  for (let t = Math.max(1, tier); t >= 1; t--) {
+    const id = bond ? ctx.rollChess({ bond, tier: t }) : ctx.rollChess({ tier: t });
+    if (id) return id;
+  }
+  return null;
+}
+
+/**
+ * The active bond with the most layers, ties to the earlier one in the bond table (data/bonds.json key order = 盟约表序).
+ * Null when nothing is active (天尊救我 then grants a random operator).
+ */
+function highestLayerBond(ctx) {
+  const order = new Map(Object.keys((ctx.data && ctx.data.bonds) || {}).map((id, i) => [id, i]));
+  let best = null;
+  let bestN = -1;
+  for (const [id, b] of Object.entries(ctx.bonds())) {
+    if (!b || !b.active) continue;
+    const n = ctx.layers(id);
+    const at = order.has(id) ? order.get(id) : Number.MAX_SAFE_INTEGER;
+    if (n > bestN || (n === bestN && best && at < best.at)) { best = { id, at }; bestN = n; }
+  }
+  return best ? best.id : null;
+}
+
+/**
+ * 人形天灾: replace every shop operator that counts an active bond of the player with one that counts none. A pool with
+ * nothing eligible leaves the card standing (the official text names no empty slot) [ASSUMED].
+ */
+function rerollOffActiveBonds(ctx) {
+  const active = new Set(Object.entries(ctx.bonds()).filter(([, b]) => b && b.active).map(([id]) => id));
+  if (!active.size) return 0;
+  const blocked = (id) => {
+    const c = ctx.gd.chess(id);
+    return !!(c && Array.isArray(c.bonds) && c.bonds.some((b) => active.has(b)));
+  };
+  const slots = ctx.shopSlots();
+  let n = 0;
+  for (let i = 0; i < slots.length; i++) {
+    const s = slots[i];
+    if (!s || s.kind !== 'chess' || s.sold || !blocked(s.id)) continue;
+    const id = ctx.rollChess({ maxTier: Math.max(1, ctx.shopLevel()), filter: (x) => !blocked(x) });
+    if (id && ctx.setShopSlot(i, { kind: 'chess', id, frozen: s.frozen })) n++;
+  }
+  return n;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// 自制策略（5 条，2026-10-17 用户需求；数据在 tools/custom-content.mjs 的 BANDS）
+//
+//   band_lp_loss_next_round_gain_highest_bond_char  天尊救我（泰拉大陆调查团） 目标生命值这一回合损失过 ⇒ 下回合开始时获得
+//       1 名干员：等阶 = 当前调度等级+1（最高 VI，该阶没有就往下取），盟约 = 已激活盟约中层数最高的那一个（并列取盟约表序靠前者）；
+//       一个盟约都没激活时随机取 1 名。**固定 1 名**，不按损失点数翻倍（用户口径 2026-10-17）。
+//   band_first_refresh_present_free_bond_char       雪原征召（凛冬）    每回合**首次**主动刷新是特殊刷新：必定出现 1 名
+//       <乌萨斯>，且这一名免费（slot.basePrice 直接写 0，价格链的下游修饰照常作用在 0 上）；已有的 <乌萨斯> 位优先，不够才换位。
+//   band_no_loss_next_round_gain_coin               完美偶像（遥）      本回合战斗没有损失目标生命值 ⇒ 下回合开始时 +coin 资金
+//       （直接进账，不走 pendingFunds：onRoundStart 已经在 income 之后，pending 会晚一回合）。
+//   band_sell_count_gain_bond_char                  以物易人（宴）      每回合每售出 count 名**普通**干员 ⇒ 1 名 <东>（等阶 ≤ 调度等级；
+//       精锐算干员但不算「普通干员」——与巫恋/商业包装方案同一口径）。
+//   band_round_coin_no_active_bond_shop              人形天灾（U-Official） 每回合 +coin 资金；商店刷新（回合开始 / 主动刷新）后
+//       把所有含「玩家已激活盟约」的干员换成不含的（池里没有可换的则保留原卡）。
+
+K.band_lp_loss_next_round_gain_highest_bond_char = (ps) => ({
+  onBattleResult(ctx, ev) {
+    if (num(ev.lpLoss, 0) > 0) ctx.setCounter('band:palico:pending', 1);
+  },
+  onRoundStart(ctx) {
+    if (ctx.counter('band:palico:pending') <= 0) return;
+    ctx.setCounter('band:palico:pending', 0);
+    const p = ps[0];
+    const tier = Math.min(Math.max(1, int(p.max_tier, 6)), Math.max(1, ctx.shopLevel()) + Math.max(0, int(p.tier_add, 1)));
+    const id = rollAtTier(ctx, tier, highestLayerBond(ctx));
+    if (id) grant(ctx, id, { source: 'band' });
+  },
+});
+
+K.band_first_refresh_present_free_bond_char = (ps) => ({
+  onRefresh(ctx) {
+    const p = ps[0];
+    if ((ctx.roundStats().refreshes || 0) !== 1) return;
+    const need = Math.max(1, int(p.count, 1));
+    const idx = chessSlots(ctx);
+    if (!idx.length) return;
+    let slots = ctx.shopSlots();
+    const have = idx.filter((i) => hasBond(ctx, slots[i].id, p.bond));
+    const picked = have.slice(0, need);
+    for (const i of ctx.rng.shuffle(idx.filter((i) => !have.includes(i)))) {
+      if (picked.length >= need) break;
+      const id = rollBond(ctx, p.bond);
+      if (!id) break;
+      slots = ctx.shopSlots();
+      if (!ctx.setShopSlot(i, { kind: 'chess', id, price: 0, frozen: slots[i].frozen })) break;
+      picked.push(i);
+    }
+    for (const i of picked) {
+      const s = ctx.shopSlots()[i];
+      if (s && s.kind === 'chess' && !s.sold) ctx.setShopSlot(i, { kind: 'chess', id: s.id, price: 0, frozen: s.frozen });
+    }
+  },
+});
+
+K.band_no_loss_next_round_gain_coin = (ps) => ({
+  onBattleResult(ctx, ev) {
+    ctx.setCounter('band:haruka:fought', ctx.round);
+    if (num(ev.lpLoss, 0) > 0) ctx.setCounter('band:haruka:lost', ctx.round);
+  },
+  onRoundStart(ctx) {
+    const last = ctx.round - 1;
+    if (ctx.counter('band:haruka:fought') !== last || ctx.counter('band:haruka:lost') === last) return;
+    const coin = Math.max(0, int(ps[0].coin, 2));
+    if (coin > 0) ctx.addFunds(coin, 'band');
+  },
+});
+
+K.band_sell_count_gain_bond_char = (ps) => ({
+  onSold(ctx, ev) {
+    const p = ps[0];
+    const piece = ev.piece;
+    if (!piece || piece.kind !== 'chess' || !isNormalChess(ctx, piece.id)) return;
+    if (bumpRound(ctx, 'band:utage') % Math.max(1, int(p.count, 2)) !== 0) return;
+    const id = rollBond(ctx, p.bond);
+    if (id) ctx.grantChess(id, { source: 'band' });
+  },
+});
+
+K.band_round_coin_no_active_bond_shop = (ps) => ({
+  onIncome(ctx, ev) {
+    const coin = Math.max(0, int(ps[0].coin, 1));
+    if (coin > 0) ev.income = int(ev.income, 0) + coin;
+  },
+  onRoundStart(ctx) { rerollOffActiveBonds(ctx); },
+  onRefresh(ctx) { rerollOffActiveBonds(ctx); },
+});
+
 export function bandMetaHandler(bandId) {
   const groups = new Map();
   for (const b of buffsOf(bandRecord(bandId))) {
