@@ -398,7 +398,7 @@ function skillTextNote(sk) {
   return note ? html`<p class="dhint dhint--rule" data-skill-note=${sk.skillId}><${Icon} name="info" />${t(note)}</p>` : null;
 }
 
-export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bonds, offBonds = null, loadout, onBond, live = null, hint = null, unitItems = null, standIn = null, diy = null, cultOpts = null, morphMode = 'official', onUnequip = null }) {
+export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bonds, offBonds = null, loadout, onBond, live = null, hint = null, unitItems = null, standIn = null, diy = null, cultOpts = null, morphMode = 'official', onUnequip = null, skillPicker = null }) {
   const m = data.get('assets');
   const hp = hpOf(live, snapHp);
   // 0.2.0 自选编队: `chess` is then the composed 自选 record (the operator, the slot's tier / price); its skill and module are
@@ -468,6 +468,21 @@ export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bond
   // (`fr` is the body the unit fights with — a stand-in's record for a 补位 chess; `chess` is only the range's fallback)
   blocks.stats = chessStatsBlock({ rec: fr, chess: c, live });
   blocks.skill = sk ? html`<${Section} key="skill" title=${t('技能')} micro="SKILL" class="dsec--skill">
+      ${skillPicker ? html`<div class="dskill-pick" role="radiogroup" aria-label=${t('选择技能')}>
+        ${skillPicker.options.map((i) => {
+          const rec = skillPicker.records[i];
+          if (!rec) return null;
+          const on = i === skillPicker.current;
+          return html`<button key=${i} type="button" role="radio" aria-checked=${on ? 'true' : 'false'}
+            class=${cx('dskill-pick__opt', on && 'is-on')} data-skill-opt=${i}
+            title=${rec.name || t('技能 {skSlot}', { skSlot: `S${i + 1}` })}
+            onClick=${() => skillPicker.onPick(i)}>
+            <${Img} src=${skillRecordIconUrl(m, rec, { empty: false })} class="dskill-pick__icon"
+              fallback=${html`<span class="dskill-pick__icon dskill-pick__icon--empty"><b class="num">S${i + 1}</b></span>`} />
+            <span class="dskill-pick__slot num">S${i + 1}</span>
+          </button>`;
+        })}
+      </div>` : null}
       <div class="dskill" data-skill=${sk.skillId || ''}>
         <${Img} src=${skIcon} class="dskill__icon" fallback=${html`<span class="dskill__icon dskill__icon--empty">${skSlot ? html`<b class="num">${skSlot}</b>` : null}</span>`} />
         <div class="dskill__meta">
@@ -891,7 +906,7 @@ export function selectVoiceKey(detail) {
  *   (the owner's request of 2026-10-08 「添加一下干员点击上去的语气一样的语音」 lifted 2026-10-03's 「整备阶段不需要干员语音」
  *   for this line only; [ASSUMED] the official prep tap says 选中干员 like the battle's FOCUS_CHAR)
  */
-export function DetailPanel({ detail, editable, snapHp, onClose, onSell, onDestroy, bonds = [], offBonds = null, loadout = null, ops = null, onBond = null, side = 'left', shopOpen = false, live = null, voice = false, itemSell = false, morphMode = 'official', onUnequip = null, unequipAllowed = false }) {
+export function DetailPanel({ detail, editable, snapHp, onClose, onSell, onDestroy, bonds = [], offBonds = null, loadout = null, ops = null, onBond = null, side = 'left', shopOpen = false, live = null, voice = false, itemSell = false, morphMode = 'official', onUnequip = null, unequipAllowed = false, skillPicker = null }) {
   const getter = typeof live === 'function' ? live : null;
   useTicker(detail && getter ? 250 : 0);
   // 选中干员 voice (audio.voice 'select'): once per opened operator — the panel stays mounted while the target changes,
@@ -924,7 +939,7 @@ export function DetailPanel({ detail, editable, snapHp, onClose, onSell, onDestr
     <div class="dpanel__scroll">
       ${detail.type === 'chess' ? html`<${ChessDetail} chess=${detail.chess} piece=${detail.piece} snapHp=${snapHp} editable=${editable} onSell=${sellIt}
         bonds=${bonds} offBonds=${offBonds} loadout=${loadout} onBond=${onBond} live=${liveNow} hint=${detail.hint || null} unitItems=${detail.unitItems || null}
-        standIn=${detail.standIn || null} diy=${detail.diy || null} cultOpts=${detail.cultOpts || { ops }} morphMode=${morphMode} onUnequip=${onUnequip} />` : null}
+        standIn=${detail.standIn || null} diy=${detail.diy || null} cultOpts=${detail.cultOpts || { ops }} morphMode=${morphMode} onUnequip=${onUnequip} skillPicker=${skillPicker} />` : null}
       ${detail.type === 'item' ? html`<${ItemDetail} item=${detail.item} piece=${detail.piece} editable=${editable} onDestroy=${destroyIt} offBonds=${offBonds}
         onSell=${itemSell ? onSell : null} sellPrice=${itemSell ? ITEM_SELL_PRICE : null} morphMode=${morphMode} unequipAllowed=${unequipAllowed} />` : null}
       ${detail.type === 'enemy' ? html`<${EnemyDetail} enemy=${detail.enemy} snapHp=${snapHp} count=${detail.count} live=${liveNow} />` : null}

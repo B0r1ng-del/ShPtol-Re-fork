@@ -33,7 +33,29 @@ import { t, tc, N_ } from '../../../shared/i18n.js';
 import { NoticesButton } from '../ui/notices.js';
 
 /** Official mode texts (activity_table act2autochess.modeDataDict), fallback when config.json is absent. */
-export const FORGE_EDITOR_URL = 'http://127.0.0.1:8787/';
+/**
+ * Forge 工坊（需求方 2026-10-24）：按钮跳的是**插件工作台** `/studio/`，不是 `editor/` 那个独立进程。
+ *
+ * 地址不能写死：工作台的 key 只打印在服务器窗口里（server/http/boot.js），浏览器拿不到。所以服务端开了一个
+ * 只对本机带 key 的端点（server/http/routes.js `STUDIO_LINK_PATH`），这个按钮问它要地址：
+ *   * 本机打开页面 ⇒ 拿到带 `#key=` 的深链，点一下就能改插件；
+ *   * 局域网其它设备 ⇒ 拿到不带 key 的 `/studio/`（能看，改动被 gate 拒）；
+ *   * 服务器关了工作台 ⇒ `url: null`，按钮**不画**（画一个点了 404 的按钮不如不画）。
+ */
+export const STUDIO_LINK_PATH = '/api/studio-link';
+/** 一次页面生命周期内只问一次；`undefined` = 还没问，`null` = 这台服务器没有工作台。 */
+let studioLink;
+export function studioLinkUrl() {
+  if (studioLink !== undefined) return studioLink;
+  studioLink = null;
+  try {
+    fetch(STUDIO_LINK_PATH, { headers: { Accept: 'application/json' } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { studioLink = j && typeof j.url === 'string' && j.url ? j.url : null; })
+      .catch(() => { studioLink = null; });
+  } catch { /* 没有 fetch（node 测试会 import 这个模块） */ }
+  return studioLink;
+}
 
 export const MODE_TEXT = {
   single: {
@@ -303,6 +325,15 @@ export function LobbyScreen() {
   const me = useStore((s) => s.me, shallowEqual);
   const conn = useStore((s) => s.connection, shallowEqual);
   useData('config');
+  // Forge 工坊按钮的地址（服务端给；本机带 key）。第一次渲染时还没问到 ⇒ 这一帧不画，问到了下一帧就有了。
+  const [studioHref, setStudioHref] = useState(() => studioLinkUrl());
+  useEffect(() => {
+    if (studioHref) return undefined;
+    let alive = true;
+    const tick = () => { const u = studioLinkUrl(); if (alive && u) setStudioHref(u); };
+    const id = setInterval(tick, 400);   // 问到了就停：studioLinkUrl 有缓存，tick 只是一次读
+    return () => { alive = false; clearInterval(id); };
+  }, [studioHref]);
   const [roomMode, setRoomMode] = useState(() => {
     const m = loadPref('lobby.mode', 'coop');
     return ROOM_MODES.includes(m) ? m : 'coop';
@@ -389,12 +420,11 @@ export function LobbyScreen() {
           <${NoticesButton} />
           <${SettingsButton} class="lobby-settings" variant="secondary" square=${true} />
           <${GuideButton} class="lobby-guide" variant="secondary" square=${true} />
-          ${/* Forge 工坊 (需求方 2026-10-23): a jump to the LOCAL editor (`npm run editor` → 127.0.0.1:8787).
-               A plain anchor in a new tab — the game server does not proxy the editor (it never has: editor/ is a
-               separate process by design). If the editor is not running the browser shows its own "can't reach" page,
-               which is the honest answer; a button that pretended otherwise would be worse. */
-            html`<a class="btn btn--secondary btn--square lobby-forge" href=${FORGE_EDITOR_URL} target="_blank" rel="noopener noreferrer"
-              title=${t('Forge 工坊')} aria-label=${t('Forge 工坊')} data-testid="forge-link"><${Icon} name="hammer" /></a>`}
+          ${/* Forge 工坊（需求方 2026-10-24）：跳**插件工作台** `/studio/`（不是 editor/ 那个独立进程）。
+               地址由服务端的 `/api/studio-link` 给（本机带 key，局域网不带）；没有工作台时 `studioLinkUrl()` 是
+               null，这一整个按钮就不画 —— 点了 404 的按钮不如不画。 */
+            studioHref ? html`<a class="btn btn--secondary btn--square lobby-forge" href=${studioHref} target="_blank" rel="noopener noreferrer"
+              title=${t('Forge 工坊')} aria-label=${t('Forge 工坊')} data-testid="forge-link"><${Icon} name="hammer" /></a>` : null}
           <${PwaInstallButton} class="lobby-pwa" square=${true} />
         </div>
       </div>

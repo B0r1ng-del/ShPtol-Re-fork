@@ -20,7 +20,10 @@
 import { PROTOCOL_VERSION, APP_VERSION } from '../../shared/constants.js';
 import { buildTag } from './buildTag.js';
 import { setSecurityHeaders, sendError, sendJson, splitUrl } from './common.js';
-import { clientAddress, isLocalIp, TokenBucket } from '../net.js';
+import { clientAddress, isLocalIp, normalizeIp, TokenBucket } from '../net.js';
+import { isLoopback } from '../studio/gate.js';
+/** Forge 工坊跳转端点（见下方注释）：游戏页问「该打开哪个工作台地址」。 */
+export const STUDIO_LINK_PATH = '/api/studio-link';
 // mod 目录的两条路径（server/http/mods.js）：`serveMods` 只认它们，准入（429）也只覆盖它们。
 import { MODS_CATALOG_URL, MOD_FILE_PREFIX } from './mods.js';
 
@@ -151,6 +154,20 @@ export function createRequestHandler({ serveStatic, health, log, trustProxy = 'a
     if (parts.rawPath === '/healthz') {
       const withTraffic = wantsTraffic(parts.query) && isLocalIp(clientAddress(req, trustProxy).ip);
       sendJson(req, res, 200, healthReport(health, withTraffic));
+      return;
+    }
+    // Forge 工坊跳转（需求方 2026-10-24）：游戏页上的按钮要知道该打开哪个地址。工作台的 key 只打印在服务器窗口里
+    // （server/http/boot.js），浏览器拿不到 —— 所以这里给一个**只对本机开口**的端点：
+    //   * 请求来自本机 ⇒ 返回带 `#key=` 的完整深链（点一下就能改插件）；
+    //   * 来自局域网任何其它设备 ⇒ 只返回**不带 key** 的 `/studio/` 页面（能看，但改动会被 gate 拒）。
+    // 这条边界是有意的：key 是 studio 写操作的**唯一**凭据（studio/gate.js —— 地址能被隧道伪造，key 不能），
+    // 让它变成「局域网人人可读」等于把门锁拆了。工作台关掉时返回 `url: null`，客户端就不画那个按钮。
+    if (parts.rawPath === STUDIO_LINK_PATH) {
+      const peer = normalizeIp(clientAddress(req, trustProxy).ip) || '';
+      const base = `${req.socket && req.socket.encrypted ? 'https' : 'http'}://${req.headers.host || 'localhost'}`;
+      const withKey = isLoopback(peer) && studio && typeof studio.pageUrl === 'function' ? studio.pageUrl(base) : null;
+      const plain = studio ? `${base.replace(/\/+$/, '')}/studio/` : null;
+      sendJson(req, res, 200, { url: withKey || plain, keyed: !!withKey });
       return;
     }
     await serveStatic(req, res, parts.rawPath, parts.query);
