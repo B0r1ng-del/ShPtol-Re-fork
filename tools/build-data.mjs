@@ -211,7 +211,7 @@ async function loadContext() {
   if (!act || !ac) throw new Error('activity_table has no act2autochess / autoChessData section');
   // 二.3 东国 / 乌萨斯（需求方 2026-10-23）：port of Weedy-wendi/Dong-Ursus-Mod. The upstream injector writes straight
   // into the official season tables, so it must run BEFORE every builder below. `injectDongUrsusPack` wraps it and
-  // stamps every record it adds with `packId: 'packDongUrsus'` (plus `packRestore` on the official records it edits),
+  // stamps every record it adds with `packId: 'packDong' / 'packUrsus'` (plus `packRestore` on the official records it edits),
   // so `shared/packData.js` can strip the whole pack again when the room's switch is off.
   const injectedDongUrsus = injectDongUrsusPack({ act, ac });
 
