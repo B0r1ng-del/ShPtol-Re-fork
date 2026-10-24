@@ -2722,5 +2722,9 @@
   "模拟邀约": "Open alliances",
   "输入同盟密钥": "Alliance key",
   "选择同盟方式": "Choose how to join",
-  "难度：{name}（可在同盟内更改）": "Difficulty: {name} (changeable inside)"
+  "难度：{name}（可在同盟内更改）": "Difficulty: {name} (changeable inside)",
+  "· 快速突袭": " · Blitz",
+  "· 持久鏖战": " · Endurance",
+  "本局遭遇敌方": "Enemies this match",
+  "第 {n} 回合 · 最终攻势": "Round {n} · Final assault"
 }

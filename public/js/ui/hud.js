@@ -506,25 +506,39 @@ function TopBarImpl({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, onR
       ${tools}
     </div>
 
-    <div class="gtop__center brackets">
-      <${Tooltip} text=${btn.left.tip} placement="bottom">
-        <${CheckBtn} sprite=${btn.left.sprite} cls=${cx('gtop__iconbtn', btn.left.back && 'is-back')} label=${btn.left.label}
-          chev=${btn.left.back ? '◀◀' : null} on=${!!drawer && !pen} onClick=${onLeft} testid="check-player" />
-      <//>
-      <div class="roundbox">
-        <span class="roundbox__label">${t('回合')}</span>
-        <b class="roundbox__num num">${roundText}</b>
+    <div class="gtop__center">
+      ${null /* 上游新框架三件套（图一红框那条顶栏）：`gtop__frame` 是带角标的外框，`gtop__band` 把「回合 + 胶囊 +
+            生命塔」收成一条带刻度边的横带，`gtop__plus` 是框与带之间的加号。原来这三样直接平铺在 center 里，
+            所以整条顶栏看着是散的 —— 这是上游结构与本地结构的真实差别。 */}
+      <span class="gtop__frame gtop__frame--l">
+        <${Tooltip} text=${btn.left.tip} placement="bottom">
+          <${CheckBtn} sprite=${btn.left.sprite} cls=${cx('gtop__iconbtn', btn.left.back && 'is-back')} label=${btn.left.label}
+            chev=${btn.left.back ? '◀◀' : null} on=${!!drawer && !pen} onClick=${onLeft} testid="check-player" />
+        <//>
+      </span>
+      <i class="gtop__plus" aria-hidden="true"></i>
+      <div class="gtop__band">
+        <div class="gtop__half gtop__half--l">
+          <div class="roundbox">
+            <span class="roundbox__label">${t('回合')}</span>
+            <b class="roundbox__num num" key=${roundText}>${roundText}</b>
+          </div>
+        </div>
+        <div class=${cx('gtop__cap', fx.kind && `is-fx-${fx.kind}`)} key=${`cap${fx.seq}`}>
+          <${PhaseCapsule} pub=${pub} hud=${hud} miss=${!boss && Number.isFinite(live?.left) ? live.left : null} />
+          ${fx.kind && fx.kind !== 'enter' ? html`<${CapsuleScene} kind=${fx.kind} />` : null}
+        </div>
+        <div class="gtop__half gtop__half--r">
+          <${LpTower} value=${lp} size="lg" tone=${lowLp ? 'danger' : boss ? 'team' : null} pending=${pending}
+            note=${pending > 0 && live?.unite ? t('联防中') : null} tip=${pendingTip(lp, pending, { unite: !!live?.unite, cap, left: live?.left ?? null })} />
+        </div>
       </div>
-      <div class=${cx('gtop__cap', fx.kind && `is-fx-${fx.kind}`)} key=${`cap${fx.seq}`}>
-        <${PhaseCapsule} pub=${pub} hud=${hud} miss=${!boss && Number.isFinite(live?.left) ? live.left : null} />
-        ${fx.kind && fx.kind !== 'enter' ? html`<${CapsuleScene} kind=${fx.kind} />` : null}
-      </div>
-      <${LpTower} value=${lp} size="lg" tone=${lowLp ? 'danger' : boss ? 'team' : null} pending=${pending}
-        note=${pending > 0 && live?.unite ? t('联防中') : null} tip=${pendingTip(lp, pending, { unite: !!live?.unite, cap, left: live?.left ?? null })} />
-      <${Tooltip} text=${btn.right.tip} placement="bottom">
-        <${CheckBtn} sprite=${btn.right.sprite} cls=${cx('enemybtn', btn.right.grey && 'is-grey')} label=${btn.right.label}
-          chev=${btn.right.grey ? null : '▶▶'} disabled=${btn.right.grey && !pen} onClick=${onRight} testid="check-enemy" />
-      <//>
+      <span class="gtop__frame gtop__frame--r">
+        <${Tooltip} text=${btn.right.tip} placement="bottom">
+          <${CheckBtn} sprite=${btn.right.sprite} cls=${cx('enemybtn', btn.right.grey && 'is-grey')} label=${btn.right.label}
+            chev=${btn.right.grey ? null : '▶▶'} disabled=${btn.right.grey && !pen} onClick=${onRight} testid="check-enemy" />
+        <//>
+      </span>
     </div>
 
     <div class="gtop__right">
