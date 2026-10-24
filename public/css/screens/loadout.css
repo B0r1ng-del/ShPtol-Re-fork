@@ -47,7 +47,6 @@
 }
 .lo-top__left { justify-self: start; display: flex; align-items: center; gap: .14rem; }
 .lo-top__center { display: flex; flex-direction: column; align-items: center; gap: .02rem; min-width: 0; }
-.lo-top__title { display: flex; align-items: center; gap: .12rem; margin: 0; font-size: max(.32rem, 16px); font-weight: 900; letter-spacing: .14em; line-height: 1.15; }
 .lo-top__icon { width: max(.3rem, 16px); height: max(.3rem, 16px); object-fit: contain; color: var(--mint-500); }
 .lo-top__right { justify-self: end; display: flex; align-items: center; gap: .16rem; min-width: 0; }
 .lo-count { font-size: max(.16rem, 11px); color: var(--text-lo); white-space: nowrap; }
@@ -725,7 +724,6 @@
   --rail: max(.44rem, 22px);          /* its left rail: tier, levels */
 }
 /* ---- the deck ---- */
-.lo-deckwrap { position: relative; flex: 1 1 auto; min-height: 0; display: flex; }
 .lo-deck { position: relative; flex: 1 1 auto; min-width: 0; display: flex; align-items: stretch; gap: .34rem; padding: .24rem .36rem .2rem;
   overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch;
   scrollbar-width: thin; scrollbar-color: var(--line-3) transparent; }
@@ -881,9 +879,5 @@
 .lo-bbar__diy { position: absolute; left: 50%; top: max(-.2rem, -14px); transform: translateX(-50%); display: inline-flex; align-items: center; gap: 1px; padding: 0 4px;
   font-size: max(.12rem, 9px); color: var(--text-md); background: rgba(255, 255, 255, .1); border-radius: 999px; }
 .lo-bbar__diy .icon { width: max(.13rem, 9px); height: max(.13rem, 9px); }
-.lo-confirm { flex: none; display: inline-flex; align-items: center; gap: .1rem; height: max(.6rem, 38px); padding: 0 max(.24rem, 14px); font: inherit;
-  font-size: max(.2rem, 13px); font-weight: 900; color: #111614; background: #eef1ef; border: 0; cursor: pointer; }
-.lo-confirm .icon { width: max(.26rem, 16px); height: max(.26rem, 16px); padding: 2px; color: #eef1ef; background: #1a1f1d; }
-.lo-confirm:hover { background: #fff; }
 
 /* ---- ⓘ 调度手册 ---- */

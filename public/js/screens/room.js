@@ -18,7 +18,7 @@
 
 import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SPECTATORS, HOST_CONFIG_DEFAULTS, HOST_ENEMY_MAX_STEPS, HOST_ENEMY_STEP_PCT, MOD_DEFAULTS, normalizeEnemyBuff, roomSeatCap } from '../../../shared/constants.js';
-import { MOD_ROWS, MOD_RULE_ROWS, modsCount, rememberMods, splitByLength } from '../ui/mods.js';
+import { MOD_ROWS, MOD_RULE_ROWS, rememberMods, splitByLength } from '../ui/mods.js';
 import { isAlignBlocked } from '../mods/align.js';
 import {
   html, Button, Icon, MicroLabel, PingPill, DifficultyTag, DifficultyIcon, Tooltip, confirmDialog, doctorNo, Modal, Spinner, SwitchRow,
@@ -540,19 +540,10 @@ export function RoomModsPanel({ room, myId, onAlignment }) {
   </div>`;
 }
 
-/** The ready bar's 房主配置 button (the 干员调配 button's shape), showing how many options differ from their default. */function HostConfigButton({ rows, enemyRows, modRows, busy, onClick }) {
-  if (!rows || !rows.length) return null;
-  // the switch rows that left their default, every enemy slider that is not at 0, and every Mod 开关 that is on
-  const n = rows.filter((r) => r.on !== HOST_CONFIG_DEFAULTS[r.key]).length
-    + (enemyRows || []).filter((r) => r.steps !== 0).length
-    + modsCount(Object.fromEntries((modRows || []).map((r) => [r.key, r.on])));
-  return html`<button type="button" class=${cx('btn', 'btn--secondary', 'btn--lg', 'hostcfg-entry')} data-testid="hostcfg-open"
-      disabled=${!!busy} onClick=${onClick} title=${t('房间配置 · 只有房主可以修改')}>
-    <${Icon} name="crown" class="btn__icon" />
-    <span class="btn__label">${t('房间配置')}</span>
-    ${n ? html`<span class="lo-entry__n num" aria-label=${t('{n} 项已调整', { n })}>${n}</span>` : null}
-  </button>`;
-}
+/* ★ 已删除 `HostConfigButton`（原来的左下角「房间配置」按钮，带「N 项已调整」徽章）：
+   需求方 2026-10-24 (图五→图七) 把房间配置搬进底栏右侧的小齿轮之后，它就没有任何调用者了 —— 留着是死代码，
+   而且它的 `data-testid="hostcfg-open"` 与齿轮上那个重复，e2e 用 `querySelector` 会随机命中前者（点不开面板）。
+   徽章计数也一起没了：齿轮上不再显示调整项数。 */
 
 /** Room screen component. */
 export function RoomScreen() {

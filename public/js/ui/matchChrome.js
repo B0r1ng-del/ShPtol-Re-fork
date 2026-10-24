@@ -122,9 +122,14 @@ export function AwayOverlay({ onBack = () => {} }) {
 
 /**
  * Pre-game step header.
- * @param {{ step: number, of: number, title: string, micro: string, pub: any, total?: number|null, onExit: Function }} props
+ *
+ * `status` 与 `extra` 是上游同名组件的两个插槽（上游 matchChrome 的 `status`/`extra`）：`status` 放在**中间栏下方**，
+ * 用来显示这一步的实时状态（选择策略页的 `dturn`「请选择策略 / X 正在选择策略… / 策略选择完成」就是它）；
+ * `extra` 放在**右侧工具区**，放这一步自己的小按钮。两个都可省。
+ * @param {{ step: number, of: number, title: string, micro: string, pub: any, total?: number|null, onExit: Function,
+ *   status?: any, extra?: any }} props
  */
-export function StepHeader({ step, of, title, micro, pub, total, onExit }) {
+export function StepHeader({ step, of, title, micro, pub, total, onExit, status = null, extra = null }) {
   const conn = useStore((s) => s.connection, shallowEqual);
   return html`<header class="stephead">
     <div class="stephead__left">
@@ -138,8 +143,10 @@ export function StepHeader({ step, of, title, micro, pub, total, onExit }) {
     <div class="stephead__center">
       <${MicroLabel} tone="mint">${micro}</${MicroLabel}>
       <h1 class="stephead__title"><b class="num">${step}</b><span class="num stephead__of">/${of}</span>${title}</h1>
+      ${status}
     </div>
     <div class="stephead__right">
+      ${extra}
       <${GuideButton} class="stephead__guide" variant="secondary" />
       <${Countdown} deadline=${pub?.deadline} total=${total ?? undefined} size="md" />
     </div>

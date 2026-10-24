@@ -117,8 +117,10 @@ test('the 对局选项 markup: one slider per row, wired to room.setEnemyBuff, w
   assert.match(SRC, /t\('本局敌人已获得强化（合计 \{n\}%），请谨慎调整', \{ n: total \}\)/);
   // the warning only renders once something is actually buffed
   assert.match(SRC, /\$\{total > 0 \? html`<p class="ebuff__warn">/);
-  // the ready bar's badge counts the buffed sliders too, not just the switch rows
-  assert.match(SRC, /\(enemyRows \|\| \[\]\)\.filter\(\(r\) => r\.steps !== 0\)\.length/);
+  // 需求方 2026-10-24 (图五→图七): 房间配置搬进底栏小齿轮后，那个「N 项已调整」徽章按钮（HostConfigButton）
+  // 已经没有调用者、且它的 data-testid 与齿轮重复，已删。原先这里断言徽章计数也数 buffed 滑块 —— 改为钉住
+  // 「四个滑块仍接 room.setEnemyBuff、且预警只在有强化时出现」，那才是这段 markup 的真正契约。
+  assert.match(SRC, /r\.editable && onEnemy\(r\.key, Number\(e\.currentTarget\.value\)\)/, '每个滑块仍连到 onEnemy');
   // the dialog's order (需求方 2026-10-17: 「把四个滑块功能放到最底下，有单独开关的往上放」):
   // 对局选项 switches → the four sliders last (the switches are ONE list now — 图一, see the bottom of this test)
   const dialog = SRC.slice(SRC.indexOf('function HostConfigDialog('), SRC.indexOf('/** The ready bar'));

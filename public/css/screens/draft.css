@@ -1,10 +1,11 @@
 /* ==========================================================================================
-   screens/draft.css — BAND_DRAFT 选择策略 (js/screens/bandDraft.js).
-   ★ 2026-10-24: 整段换成上游 v024（`.up/draft.css` 的 1–232 行 = layout / order / wall / detail / done /
-   dturn / draft-skip），不是补样式。上游同文件的 `.tbanner`+`.pboot`（本地已在 protocol-boot.css）与
-   `.minfo-dlg`（本地已有等价段）没有搬。
-   本地保留：`.draft-order__info`（本局信息入口，本地是 Button 而非上游的 `stephead__info`）、
-   `.dband__lp`（卡片上的 LP，上游改用 `dband__frame` 构图，fork 保留这个读数）。
+   screens/draft.css — BAND_DRAFT 选择策略 (js/screens/bandDraft.js). Research 06 §4.2：左决策顺序、中间立绘墙、
+   右侧详情（初始生命值 / 效果 / 确认选择）、末态 已选定策略；本局信息对话框见 js/ui/matchInfo.js。
+   ★ 2026-10-24 整段换成上游 v024（layout / order / wall / detail / done / dturn / draft-skip），不是补样式；
+     上游同文件的 `.tbanner`+`.pboot` 本地已在 protocol-boot.css、`.minfo-dlg` 本地已有等价段，均未搬。
+   本局信息入口用上游的 `stephead__info`（样式在 briefing.css，头部 extra 插槽）；本地原先另有一个
+   `.draft-order__info` 按钮，两个入口 data-testid 相同，已删并移除其样式。
+   保留 `.dband__lp`（卡片上的 LP，上游改用 dband__frame 构图，fork 保留这个读数）。
    ========================================================================================== */
 /* ==========================================================================================
    screens/draft.css — BAND_DRAFT strategy pick (js/screens/bandDraft.js). Research 06 §4.2: draft order on the left,
@@ -241,12 +242,6 @@
 
 
 /* ---- 本局信息入口与对话框（fork 自有，见文件头）---- */
-.draft-order__info {
-  margin-top: .04rem; justify-content: flex-start; padding: 0 .16rem;
-  height: max(.5rem, 28px); font-size: max(calc(.18 * var(--t)), 10px);
-  --btn-bd: var(--mint-800); --btn-bg: rgba(78, 216, 175, .06); --btn-bg-hover: rgba(78, 216, 175, .14);
-}
-.draft-order__info .btn__icon { color: var(--mint-400); }
 .modal__box.minfo-dlg {
   width: min(max(12rem, 600px), calc(100vw - .6rem - var(--sa-l, 0px) - var(--sa-r, 0px)));
   max-height: calc(100vh - .6rem);

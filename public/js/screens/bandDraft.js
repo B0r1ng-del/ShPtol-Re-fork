@@ -291,10 +291,27 @@ export function BandDraftScreen() {
 
   // 上游三态（图七）：grid（只听声音不切页）/ detail（点一张立绘，详情从右滑入、列表收窄）/ done（已选定策略）
   const view = donePicking ? 'done' : open && sel ? 'detail' : 'grid';
+  // 头部的这一轮状态（上游 `.dturn`）：全部选完 / 轮到我（带跳过按钮）/ 别人在选。CSS 早就在 draft.css 里，
+  // #95 搬样式时漏了这段 DOM —— 于是那一整块样式是死的（死规则审计发现的）。
+  const turnStatus = allPicked
+    ? html`<div class="dturn is-done"><span class="dturn__txt"><b>${t('策略选择完成')}</b><span>${t('正在进入模拟…')}</span></span><${Icon} name="hourglass" class="dturn__glass" /></div>`
+    : myTurn
+      ? html`<div class="dturn is-turn">
+          <span class="dturn__go"><${Icon} name="chevronRight" class="dturn__finger" /><b>${t('请选择策略')}</b></span>
+          ${!solo ? html`<button type="button" class="draft-skip" disabled=${!canSkip || busy === 'skip'} aria-busy=${busy === 'skip' ? 'true' : undefined} onClick=${skip}
+              title=${skipsLeft > 0 ? t('跳过本轮，稍后再选') : t('跳过次数已用完')}>
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 19v-5a7 7 0 0 1 7-7h7V3.5L22.5 9 17 14.5V11h-7a3 3 0 0 0-3 3v5z" /></svg>
+            <span>${skipsLeft > 0 ? t('跳过选择') : t('无法跳过')}</span></button>` : null}
+        </div>`
+      : turnName ? html`<div class="dturn"><span class="dturn__txt"><b>${turnName}</b><span>${t('正在选择策略…')}</span></span><${Icon} name="hourglass" class="dturn__glass" /></div>`
+      : null;
   return html`<div class=${cx('screen draft', `draft--${view}`)}>
     <div class="brief__bg" aria-hidden="true"></div>
     <${StepHeader} step=${2} of=${2} title=${t('选择策略')} micro="STRATEGY // BAND CHECK" pub=${clock ? { ...pub, deadline: clock.deadline } : { ...pub, deadline: 0 }}
-      total=${clock ? clock.total : null} onExit=${() => setExit(true)} />
+      total=${clock ? clock.total : null} onExit=${() => setExit(true)}
+      status=${turnStatus}
+      extra=${html`<button type="button" class="stephead__info" data-testid="match-info-open" aria-haspopup="dialog" onClick=${() => setInfoOpen(true)}
+        title=${t('查看禁用盟约与干员')}><${Icon} name="search" /><span>${t('本局信息')}</span></button>`} />
     <main class="draft__main">
       <aside class="draft-order">
         <div class="draft-order__deco" aria-hidden="true"><i></i><i></i><span>STRONGHOLD PROTOCOL<br />${solo ? 'SINGLE OPERATOR' : 'COLLABORATIVE SYSTEM'}</span></div>
@@ -321,8 +338,9 @@ export function BandDraftScreen() {
             </div>`;
           })}
         </div>
-        <${Button} variant="secondary" icon="search" block=${true} class="draft-order__info" data-testid="match-info-open"
-          aria-haspopup="dialog" onClick=${() => setInfoOpen(true)}>${t('查看禁用盟约与干员')}<//>
+        ${/* 本局信息 入口已经移到头部（`stephead__info`，与上游一致）—— 这里原来还有一个 `draft-order__info`
+             Button，两个入口 `data-testid` 相同会让 e2e 命中两个元素，已删。`draft-order__info` 的样式随之成为
+             死规则，一并从 draft.css 移除。 */ null}
         ${!solo ? html`<p class="draft-order__tip" data-testid="draft-tip">${draftTip({ timed, turnSeconds: turnLen, autoName: donePicking ? null : autoName, selected: autoId === sel })}</p>` : null}
       </aside>
       <i class="draft__link" aria-hidden="true"></i>
