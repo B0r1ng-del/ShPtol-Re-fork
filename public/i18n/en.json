@@ -2736,5 +2736,8 @@
   "同盟成员，左右滑动查看": "Alliance members — swipe to see more",
   "更改模拟难度": "Change the simulation difficulty",
   "同盟设置": "Alliance settings",
-  "再次点击取消就绪": "Click again to cancel ready"
+  "再次点击取消就绪": "Click again to cancel ready",
+  "我": "Me",
+  "查看「{name}」": "View {name}",
+  "已选定策略": "Strategy selected"
 }
