@@ -18,7 +18,7 @@ import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, ULTIMATE_SEATS, ULTIMATE_DIFFICULTY, ROOM_MODES, MAX_SPECTATORS, modeIdFor, ERR } from '../../../shared/constants.js';
 import { html, confirmDialog, Button, Icon, MicroLabel, Panel, TextField, PingPill, AvatarFrame, Tooltip, Spinner, DifficultyIcon, doctorNo, Modal } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
-import { GuideButton } from '../ui/guide.js';
+import { GuideButton, openGuide } from '../ui/guide.js';
 import { openStats } from './stats.js';
 import { SweepReport } from './sweep.js';
 import { SettingsButton } from '../ui/settings.js';
@@ -39,6 +39,7 @@ import { LobbyMusicButton } from '../ui/lobbyMusic.js';
 // 选择模拟协议 (from the old UI PR #643's keep list): the full-screen page a mode opens — the difficulty's isometric
 // scene at the left, the difficulty cards down the right.
 import { ProtocolScene } from '../ui/protocolScene.js';
+import { RadarScene, CreateArt, JoinArt } from '../ui/matchFlow.js';
 import { useLeave } from '../ui/transitions.js';
 
 /** Official mode texts (activity_table act2autochess.modeDataDict), fallback when config.json is absent. */
@@ -371,6 +372,62 @@ function ProtoCard({ roomMode, difficulty, selected, onSelect }) {
 }
 
 /**
+ * 选择同盟方式: the screen 同盟模拟 opens (upstream `AllianceSelect`). The radar at the left with 入门协议, and on the
+ * right 创建同盟 (a room at the remembered difficulty — changed inside the room), 搜寻队友 / 模拟邀约, and 加入同盟 with
+ * its key field, 观战 and the recent keys. Esc or ‹ returns to the hub.
+ *
+ * Why its own screen: 同盟模拟 is not "a mode with a difficulty" like 独立模拟 — you first decide whether to create an
+ * alliance or join one, and only the create branch goes on to pick a difficulty (ProtocolSelect).
+ */
+function AllySelect({ onClose, code, onCode, codeOk, recent, online, busy, onCreate, onJoin, onSpectate, onSearch, recruiting = 0, difficulty }) {
+  const [leaving, leave] = useLeave(onClose);
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape' && !document.querySelector('.modal, .guide')) leave(); };
+    addEventListener('keydown', onKey);
+    return () => removeEventListener('keydown', onKey);
+  }, []);
+
+  return html`<div class=${`proto ally${leaving ? ' is-leaving' : ''}`} role="dialog" aria-label=${t('选择同盟方式')}>
+    <div class="proto__bg ally__bg" aria-hidden="true"></div>
+    <header class="proto-top">
+      <button type="button" class="proto-back" onClick=${leave} title=${t('返回大厅 (Esc)')} aria-label=${t('返回大厅')}>
+        <${Icon} name="chevronLeft" /><span class="proto-back__home"><${Icon} name="rook" /></span>
+      </button>
+      <div class="proto-title"><h2>${t('选择同盟方式')}</h2><span class="proto-title__mode ally__mode">${t('同盟模拟')}<i>ALLIANCE SIMULATION</i></span></div>
+    </header>
+    <div class="proto-body ally-body">
+      <section class="ally-stage"><${RadarScene} />
+        <button type="button" class="ally-guide" onClick=${() => openGuide(0)}><span class="ally-guide__icon"><${Icon} name="book" /></span>${t('入门协议')}</button>
+      </section>
+      <section class="ally-side">
+        <button type="button" class="ally-card ally-card--create" disabled=${!online || busy === 'create'} onClick=${onCreate}>
+          <span class="ally-card__art"><${CreateArt} /></span>
+          <span class="ally-card__bar"><span class="ally-card__icon"><${Icon} name="plus" /></span>${t('创建同盟')}
+            ${busy === 'create' ? html`<${Spinner} size="sm" />` : html`<small>${t('难度：{name}（可在同盟内更改）', { name: t(DIFFICULTY_NAMES[difficulty]) })}</small>`}</span>
+        </button>
+        <div class="ally-links">
+          <button type="button" class="ally-pill" onClick=${onSearch}><${Icon} name="search" />${t('搜寻队友')}</button>
+          <button type="button" class="ally-pill ally-pill--invite" onClick=${onSearch}>${t('模拟邀约')}${recruiting ? html`<b class="num">${recruiting}</b>` : null}<span class="ally-pill__mark" aria-hidden="true"></span></button>
+        </div>
+        <div class="ally-card ally-card--join">
+          <span class="ally-card__art"><${JoinArt} /></span>
+          <label class="ally-key"><${Icon} name="search" />
+            <input type="text" value=${code} placeholder=${t('输入同盟密钥')} maxlength="64" autocomplete="off" spellcheck="false"
+              onInput=${(e) => onCode(e.currentTarget.value)} onKeyDown=${(e) => { if (e.key === 'Enter') onJoin(); }} />
+            ${codeOk ? html`<button type="button" class="ally-key__spec" disabled=${!online || busy === 'spectate'} onClick=${onSpectate}
+              title=${t('以观战者身份进入：不占博士席位，只能观看（每个同盟最多 {MAX_SPECTATORS} 名，模拟进行中也可进入）', { MAX_SPECTATORS })}><${Icon} name="eye" />${t('观战')}</button>` : null}
+          </label>
+          ${recent.length ? html`<span class="ally-recent">${recent.map((c) => html`<button key=${c} type="button" class="code-chip num" title=${t('填入密钥（不会直接加入）')} onClick=${() => onCode(c)}>${c}</button>`)}</span>` : null}
+          <button type="button" class="ally-card__bar ally-card__bar--join" disabled=${!codeOk || !online || busy === 'join'} onClick=${() => onJoin()}>
+            <span class="ally-card__icon"><${Icon} name="users" /></span>${t('加入同盟')}${busy === 'join' ? html`<${Spinner} size="sm" />` : null}
+          </button>
+        </div>
+      </section>
+    </div>
+  </div>`;
+}
+
+/**
  * 选择模拟协议: full screen over the hub — the selected difficulty's scene at the left (ui/protocolScene.js), the
  * difficulties down the right with the 已选定 stamp, 开始模拟 at the bottom right. Esc or ‹ returns to the hub.
  *
@@ -479,7 +536,10 @@ export function LobbyScreen() {
   // 选择模拟协议 (owner 2026-10-24): the hub picks a MODE and opens this page; the difficulty is chosen there and 开始模拟
   // creates the room. `protoOpen` is the mode whose page is up (null = the hub).
   const [protoOpen, setProtoOpen] = useState(null);
-  const openProto = (m) => { pickMode(m); setProtoOpen(m); };
+  // 选择同盟方式 (upstream `AllianceSelect`): 同盟模拟 opens ITS OWN screen first (create / join / 寻队友), and only the
+  // create branch continues to the difficulty page. 独立模拟 / 扩展模拟 go straight to ProtocolSelect.
+  const [allyOpen, setAllyOpen] = useState(false);
+  const openProto = (m) => { pickMode(m); if (m === 'coop') setAllyOpen(true); else setProtoOpen(m); };
 
   const run = async (kind, fn) => {
     if (inFlight.current) return;
@@ -622,6 +682,10 @@ export function LobbyScreen() {
     ${sweepOpen ? html`<${SweepReport} onClose=${() => setSweepOpen(false)} />` : null}
     ${bgOpen ? html`<${Modal} open=${true} title=${t('大厅背景')} micro="LOBBY BACKDROP" width="min(24rem, calc(100vw - 2rem))"
       onClose=${() => setBgOpen(false)}><${BackdropSettings} bg=${bg} /><//>` : null}
+    ${allyOpen ? html`<${AllySelect} onClose=${() => setAllyOpen(false)} code=${code} onCode=${(v) => setCode(normalizeCode(v))}
+      codeOk=${codeOk} recent=${recent} online=${online} busy=${busy} difficulty=${difficulty}
+      onCreate=${() => { setAllyOpen(false); setProtoOpen('coop'); }} onJoin=${() => join()} onSpectate=${spectate}
+      onSearch=${() => setJoinOpen(true)} />` : null}
     ${protoOpen ? html`<${ProtocolSelect} card=${MODE_CARDS.find((c) => c.id === protoOpen) || MODE_CARDS[0]} roomMode=${protoOpen}
       difficulty=${protoOpen === 'ultimate' ? ULTIMATE_DIFFICULTY : difficulty}
       onDifficulty=${(d) => { if (protoOpen !== 'ultimate') pickDifficulty(d); }}
