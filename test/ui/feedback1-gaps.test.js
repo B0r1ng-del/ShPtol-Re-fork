@@ -127,7 +127,10 @@ describe('§21.26 1 — 变形同构体: the pairing list (gameLogic morphPairin
     const talent = ct[items[ISO].trapId].talents[0].candidates.at(-1).description.replace(/\\n/g, '\n');
     const pairs = [...talent.matchAll(/“([^”]+)”(?:系列装备)?→【([^】]+)】盟约/g)].map(([, item, bond]) => ({ item, bond }));
     assert.equal(pairs.length, 14, talent);
-    const rows = morphPairings(ITEMS, BONDS).filter((r) => r.bondId !== 'rhineShip');
+    // 内容包（二.3 东国/乌萨斯、莱茵、卡兹戴尔）也各有一件 giveBondId 装备，但官方天赋栏只列官方 14 条：按 **记录来源** 比，
+    // 即「不带 packId 的道具」给出的那 14 条 —— 不是再写死一个要排除的 bondId。带包的道具由下面的包开关用例验。
+    const rows = morphPairings(ITEMS.filter((it) => !it.packId), BONDS);
+    assert.equal(rows.length, 14, 'the official 14 pairings');
     assert.deepEqual(pairs.map((p) => p.bond).sort(), rows.map((r) => r.name).sort(), 'the same 14 bonds');
     for (const p of pairs) {
       const r = rows.find((x) => x.name === p.bond);
@@ -172,7 +175,9 @@ describe('§21.26 1 — 变形同构体 on the cards', () => {
     assert.ok(sec, 'a 天赋 section (the item text points at its 天赋栏)');
     assert.match(textOf(v), /搭配以下装备时，携带者视为对应盟约的成员：/);
     const rows = byClass(v, 'dmorph__row');
-    assert.equal(rows.length, 15, 'the official 14 plus the Rhine terminal');
+    // 卡片画的是 data 仓里的道具（`data.list('items')`，受内容包开关过滤）：默认全关 ⇒ 官方 14 条；开着莱茵 ⇒ 多一条莱茵实验终端。
+    assert.equal(rows.length, morphPairings(data.list('items'), data.list('bonds')).length, 'one row per pair bond the store holds');
+    assert.ok(rows.length >= 14, 'at least the official 14');
     const off = rows.filter((r) => hasClass(r, 'is-off'));
     assert.deepEqual(off.map((r) => r.props['data-bond']), ['lateranoShip', 'egirShip', 'kazimierzShip', 'arcaneShip', 'raidShip']);
     for (const r of off) assert.match(textOf(r), /本局禁用/);
@@ -182,6 +187,15 @@ describe('§21.26 1 — 变形同构体 on the cards', () => {
     assert.equal(byClass(v, 'dmorph__none').length, 0);
     // other modes: no mark
     assert.equal(byClass(ItemDetail({ item: items[ISO_B], piece: null, editable: false, onDestroy() {}, offBonds: new Set() }), 'is-off').length, 0, '进阶 copy, 绝境');
+    // 内容包开关是这条列表的第二个来源：开着莱茵生命 ⇒ 多一条「莱茵实验终端 →【莱茵生命】」（六.F）；关掉 ⇒ 只回官方 14 条。
+    try {
+      data.setPacks({ packRhine: true });
+      const on = byClass(ItemDetail({ item: items[ISO], piece: null, editable: false, onDestroy() {}, offBonds: funny }), 'dmorph__row');
+      assert.equal(on.length, rows.length + 1, '六.F adds the Rhine terminal');
+      assert.match(textOf(on.find((r) => r.props['data-bond'] === 'rhineShip')), /【莱茵生命】莱茵实验终端/);
+    } finally {
+      data.setPacks(null);
+    }
   });
 
   test('a wearer\'s card (装备): the 变形同构体 row lists the pairings with the worn one highlighted (生效中); the bond item\'s row says it', () => {
@@ -189,7 +203,8 @@ describe('§21.26 1 — 变形同构体 on the cards', () => {
     const blocks = ChessDetail({ chess: chess[WEARER], piece, editable: false, bonds: [], offBonds: funny, loadout: null });
     const equip = blocks.find((b) => b?.key === 'equip');
     const rows = byClass(equip, 'dmorph__row');
-    assert.equal(rows.length, 15, 'the official 14 plus the Rhine terminal');
+    assert.equal(rows.length, morphPairings(data.list('items'), data.list('bonds')).length, 'the same list as the item card');
+    assert.ok(rows.length >= 14, 'at least the official 14');
     const worn = rows.filter((r) => hasClass(r, 'is-worn'));
     assert.deepEqual(worn.map((r) => r.props['data-bond']), ['victoriaShip']);
     assert.match(textOf(worn[0]), /生效中/);
@@ -346,10 +361,15 @@ describe('§21.26 4 — the strategy draft marks a strategy built around a bond 
     const { GameData } = await import('../../server/match/gamedata.js');
     const { getData } = await import('../../server/data.js');
     const DATA = getData({ log: { warn() {}, error() {}, info() {} } });
+    // 全关（缺省）：`gd.bandBondIds` 是 bands.json `bondIds` 再按**本局实际有的盟约**（gd.bondIds，内容包过滤后）窄化 ——
+    // 凛冬 <乌萨斯> / 宴 <东> 要开着对应包才在局内（二.3 拆开关后的口径）。
+    const ALL_PACKS_ON = Object.fromEntries(['packRhine', 'packBeanstalk', 'packRelic', 'packKazdel', 'packRem', 'packDong', 'packUrsus'].map((k) => [k, true]));
     for (const modeId of modeIds) {
       const gd = new GameData(DATA, modeId);
+      const all = new GameData(DATA, modeId, ALL_PACKS_ON);
       for (const id of Object.keys(bands)) {
-        assert.deepEqual([...gd.bandBondIds(id)], bands[id].bondIds, `${id}: the same field`);
+        assert.deepEqual([...gd.bandBondIds(id)], bands[id].bondIds.filter((b) => gd.bondIds.includes(b)), `${id}: the same field, narrowed to this room's bonds`);
+        assert.deepEqual([...all.bandBondIds(id)], bands[id].bondIds, `${id}: every pack on = the raw field`);
         const server = gd.bandBondIds(id).filter((b) => gd.modeInactiveBonds.has(b));
         assert.deepEqual(server, bandOffBonds(bands[id], modeOffBonds(getMode(modeId))), `${modeId} ${id}`);
       }

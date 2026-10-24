@@ -58,11 +58,17 @@ describe('变形同构体 — the client rule', () => {
     // (shared/packData.js). The 14 official pairings read the same in an all-off room.
     const gd = new GameData(getData({ log: { warn() {}, error() {}, info() {} } }), 'mode_multi_hard', { packRhine: true });
     const grants = Object.values(items).filter((r) => r.giveBondId);
-    assert.equal(grants.length, 38, '18 upstream bond items plus the Rhine terminal × normal / golden');
+    // ★ 不要写死条数：这个数字随内容包增删而变（18 条上游 + 莱茵实验终端 + 东国 / 乌萨斯 / 卡兹戴尔各一件，
+    // × 普通 / 精锐）。这条测试要钉的是「客户端规则 === 服务端规则」，不是「有 38 件装备」；条数只做形态校验。
+    assert.ok(grants.length >= 28 && grants.length % 2 === 0,
+      `bond items come in normal / golden pairs (18 upstream plus the ported packs; first measured ${grants.length})`);
     for (const r of grants) {
       for (const iso of [ISO, ISO_B]) {
         const p = { id: WEARER, items: [{ id: r.id }, { id: iso }] };
-        assert.deepEqual(pieceBondIds(chess[WEARER], p.items, getItem), pieceBonds(gd, p), `${r.id} + ${iso}`);
+        // ★ 两端必须喂**同一个** `hasBond`：服务端 `pieceBonds` 内部用 `gd.bond(id)`（按本局已加载的包过滤），
+        // 客户端 `pieceBondIds` 也收同一个判据。不给客户端这一格，它会保留本局根本没启用的内容包的盟约
+        // （东国 `dongShip` 等）—— 那不是「两端规则不同」，是两边输入不同。
+        assert.deepEqual(pieceBondIds(chess[WEARER], p.items, getItem, (id) => !!gd.bond(id)), pieceBonds(gd, p), `${r.id} + ${iso}`);
       }
     }
   });

@@ -43,15 +43,17 @@ const textOf = (v) => (v == null || typeof v === 'boolean' ? '' : typeof v !== '
 
 const card = (props) => DeckCard({ m: null, chess: get(INSIDE), golden: get(get(INSIDE).goldenId), entries: {}, ops: {}, onPick: () => {}, onChange: () => {}, onOps: () => {}, ...props });
 
-test('the view: the list unless this browser chose the cards', () => {
+test('the view: the cards unless this browser chose the list', () => {
   mem.clear();
-  assert.equal(loadoutViewPref(), 'list', 'nothing stored: the list (0.3.x default)');
-  localStorage.setItem('sp.pref.loadout.view', JSON.stringify('deck'));
-  assert.equal(loadoutViewPref(), 'deck');
+  // ★ 本 fork 的默认是**卡片**（`cebb2652` 补完 #643：物资调配处卡片视图）。上游 0.3.x 把默认改成了列表，
+  // 但按业主「fork 功能全部都要保」的原则保留 fork 的默认；`test/ui/loadout-deck.test.js` 钉的是同一条。
+  assert.equal(loadoutViewPref(), 'deck', 'nothing stored: the cards (this fork\'s default)');
+  localStorage.setItem('sp.pref.loadout.view', JSON.stringify('list'));
+  assert.equal(loadoutViewPref(), 'list');
   localStorage.setItem('sp.pref.loadout.view', JSON.stringify('grid'));
-  assert.equal(loadoutViewPref(), 'list', 'an unknown value falls back to the list');
+  assert.equal(loadoutViewPref(), 'deck', 'an unknown value falls back to the cards');
   localStorage.setItem('sp.pref.loadout.view', '{oops');
-  assert.equal(loadoutViewPref(), 'list', 'unreadable JSON falls back to the list');
+  assert.equal(loadoutViewPref(), 'deck', 'unreadable JSON falls back to the cards');
   mem.clear();
 });
 
