@@ -171,10 +171,12 @@ h1, h2, h3, h4, p { margin: 0; }
 
 ::selection { background: var(--mint-500); color: var(--text-on-mint); }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--line-2); }
-::-webkit-scrollbar-thumb:hover { background: var(--mint-700); }
+/* 需求方 2026-10-24 (图二: 「记住以后所有滑条都隐藏不要显示出来」): 全局隐藏滚动条，但**保留滚动能力** ——
+   内容照样能滚（鼠标滚轮 / 触控板 / 拖动），只是不画那条可见的轨道。用 `scrollbar-width: none`（标准）
+   + `::-webkit-scrollbar { display: none }`（Chromium/Safari）。 */
+* { scrollbar-width: none; }
+::-webkit-scrollbar { width: 0; height: 0; display: none; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-thumb { display: none; background: transparent; }
 
 .sr-only {
   position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;

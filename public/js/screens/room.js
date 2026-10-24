@@ -562,8 +562,9 @@ export function RoomScreen() {
   const [busy, setBusy] = useState(null);
   // 房主配置 opens as a dialog over the room (the 干员调配 button's pattern), not as a band under the seats
   const [cfgOpen, setCfgOpen] = useState(false);
-  // ⚙ of the bottom pill: the 同盟设置 popover (上游 rs-opts)
+  // ⚙ of the bottom pill: the 房间配置 popover (upstream rs-opts), and the difficulty button's own 更改模拟难度 popover
   const [opts, setOpts] = useState(false);
+  const [diffOpen, setDiffOpen] = useState(false);
   // the room's wait clock (上游 rs-clock): re-render once a second
   const [since] = useState(() => Date.now());
   const [, tick] = useState(0);
@@ -775,6 +776,15 @@ export function RoomScreen() {
           ${statusLine}
         </p>
         <div class="rs-pill">
+          ${/* 需求方 2026-10-24 (图二): 齿轮**左边**那个改本局难度的按钮回来了 —— 上一轮把这整行当成「齿轮里的难度控件」
+               一起删掉了，删错了：用户要删的是 ⚙ 弹出层里的那个，不是底栏这个。点它打开 选择模拟协议。*/ null}
+          <button type="button" class="rs-pill__diff" disabled=${!facts.isHost || !!busy || room.mode === 'ultimate'} onClick=${() => setDiffOpen((v) => !v)}
+            aria-expanded=${diffOpen ? 'true' : 'false'}
+            title=${room.mode === 'ultimate' ? t('扩展模拟固定难度') : facts.isHost ? t('更改模拟难度') : t('由创建者选择')}>
+            <${DifficultyIcon} difficulty=${room.difficulty} />${t(DIFFICULTY_NAMES[room.difficulty])}</button>
+          ${diffOpen ? html`<div class="rs-opts" role="dialog" aria-label=${t('更改模拟难度')}><h4>${t('更改模拟难度')}</h4>
+            <${DifficultyPicker} room=${room} isHost=${facts.isHost} busy=${busy} onPick=${(d) => { setDiffOpen(false); setDifficulty(d); }} />
+          </div>` : null}
           <button type="button" class=${`rs-pill__gear${opts ? ' is-on' : ''}`} onClick=${() => setOpts((v) => !v)}
             data-testid="hostcfg-open"
             title=${t('房间配置')} aria-label=${t('房间配置')} aria-expanded=${opts ? 'true' : 'false'}>

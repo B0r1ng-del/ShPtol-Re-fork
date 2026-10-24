@@ -226,6 +226,13 @@ function MatchScreen() {
   const hostRef = useRef(null);
   const barRef = useRef(null);
   const hudElRef = useRef(null);                         // .gm__hud (inside the safe-area insets: the panels' frame)
+  // 局内界面入场（上游 `gm__hud.is-enter` 的逐件错峰编排，game.css 的 gtop-* 一组）：
+  // 挂上 is-enter 播放一次，等最后一拍（shopbar 460ms 延迟 + 460ms）结束后摘掉，之后的 DOM 变化不再重播。
+  const [hudEnter, setHudEnter] = useState(true);
+  useEffect(() => {
+    const id = setTimeout(() => setHudEnter(false), 1000);
+    return () => clearTimeout(id);
+  }, []);
   const { view, kind: viewKind } = useFieldView(hostRef);
 
   const [watching, setWatching] = useState(null);        // fieldId the player chose to watch (null = home)
@@ -1778,7 +1785,7 @@ function MatchScreen() {
       ready=${phase === PHASE.PREP && !!priv?.ready} />` : null}
     ${showPrep && view && viewKind !== 'loading' && priv && !pen ? html`<${StandInTags} view=${view} priv=${priv} getChess=${gd.chess} backups=${gd.backups} />` : null}
 
-    <div class="gm__hud" ref=${hudElRef}>
+    <div class=${`gm__hud${hudEnter ? ' is-enter' : ''}`} ref=${hudElRef}>
       <${TopBar} pub=${pub} priv=${priv} conn=${conn} hud=${hud} total=${total} drawer=${drawer}
         onExit=${() => setExitOpen(true)} onDrawer=${(t) => setDrawer((d) => (d ? null : t))} onReady=${toggleReady}
         readyBusy=${readyBusy} readyCount=${readyCount} playerCount=${solo ? 1 : aliveCount}

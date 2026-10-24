@@ -1134,11 +1134,44 @@
 .gtop__half--r { margin-left: -.06rem; }
 .gtop__half .roundbox { gap: .12rem; }
 .gtop__half .roundbox__label { font-size: .2rem; color: #d8dcdc; letter-spacing: .1em; }
-.gtop__half .roundbox__num { min-width: .48rem; height: .34rem; padding: 0 .07rem; font-size: .28rem; background: #cfd3d3; color: #121516; border-radius: .03rem; clip-path: none; }
+/* 回合数字：块内垂直居中靠 grid（这一条在前面的框架段里）。下面那条 `display: inline-block` 的入场动画会覆盖它，
+   所以居中改由 `line-height` 承担 —— 两者配合，任何字号都居中。 */
+.gtop__half .roundbox__num { display: grid; place-items: center; min-width: .48rem; height: .34rem; padding: 0 .07rem; font-size: .28rem; line-height: 1; background: #cfd3d3; color: #121516; border-radius: .03rem; clip-path: none; }
 .gtop__half .lp--lg { font-size: .32rem; gap: .03rem; }
 .gtop__half .lp--lg:not(.lp--danger):not(.lp--team) .lp__val { color: #eef2f2; }
 
-/* 局内顶栏入场：从上方落下（上游 gtop-drop，需求方 2026-10-24:「入场前也有一个过渡动画」） */
-.gtop__center { animation: gtop-drop 420ms var(--ease-out) both; }
-@keyframes gtop-drop { from { transform: translateY(-.5rem); opacity: 0; } }
-.gtop__half .roundbox__num, .gtop__cap .capsule__kills b { display: inline-block; animation: capfx-flip 260ms var(--ease-out) both; }
+/* 局内界面入场（上游 game.css:1584-1605 `gm__hud.is-enter` 的逐件错峰编排，需求方 2026-10-24:
+   「上游每个界面切换都会有相应的过渡元素，对比我的原仓库还是缺少很多」）。本地原先只有一条 `gtop-drop` 让整个
+   center 一起落下；上游是把顶栏拆成 9 件按 0/150/260/380/400/440/460ms 错峰入场，读起来像界面在「装配」。
+   类名由 screens/game.js 挂 1s 后摘掉（`hudEnter`），只播一次。 */
+.gm__hud.is-enter .gtop__cap { animation: gtop-cap-in 420ms cubic-bezier(.2, 1.35, .45, 1) both; }
+.gm__hud.is-enter .gtop__half { animation: gtop-open 380ms cubic-bezier(.16, .84, .3, 1) 150ms both; }
+.gm__hud.is-enter .gtop__band::before, .gm__hud.is-enter .gtop__band::after { animation: gtop-fade 360ms ease-out 480ms both; }
+.gm__hud.is-enter .gtop__plus { animation: gtop-fade 240ms ease-out 400ms both; }
+.gm__hud.is-enter .gtop__frame--l { animation: gtop-out-l 320ms cubic-bezier(.16, .84, .3, 1) 440ms both; }
+.gm__hud.is-enter .gtop__frame--r { animation: gtop-out-r 320ms cubic-bezier(.16, .84, .3, 1) 440ms both; }
+.gm__hud.is-enter .gtop__left { animation: gtop-from-l 420ms cubic-bezier(.16, .84, .3, 1) 260ms both; }
+.gm__hud.is-enter .gtop__right { animation: gtop-from-r 420ms cubic-bezier(.16, .84, .3, 1) 260ms both; }
+.gm__hud.is-enter .shopbar { animation: gtop-rise 460ms cubic-bezier(.16, .84, .3, 1) 460ms both; }
+@keyframes gtop-cap-in { 0% { opacity: 0; transform: translateY(-.5rem) scale(.92); filter: brightness(2.2); } 60% { opacity: 1; } 100% { filter: none; } }
+@keyframes gtop-open { from { opacity: 0; transform: scaleX(.05); } }
+@keyframes gtop-fade { from { opacity: 0; } }
+@keyframes gtop-out-l { from { opacity: 0; transform: translateX(.6rem); } }
+@keyframes gtop-out-r { from { opacity: 0; transform: translateX(-.6rem); } }
+@keyframes gtop-from-l { from { opacity: 0; transform: translateX(-.4rem); } }
+@keyframes gtop-from-r { from { opacity: 0; transform: translateX(.4rem); } }
+@keyframes gtop-rise { from { opacity: 0; transform: translateY(.4rem); } }
+@media (prefers-reduced-motion: reduce) {
+  .gm__hud.is-enter .gtop__cap, .gm__hud.is-enter .gtop__half, .gm__hud.is-enter .gtop__band::before, .gm__hud.is-enter .gtop__band::after,
+  .gm__hud.is-enter .gtop__plus, .gm__hud.is-enter .gtop__frame--l, .gm__hud.is-enter .gtop__frame--r, .gm__hud.is-enter .gtop__left,
+  .gm__hud.is-enter .gtop__right, .gm__hud.is-enter .shopbar { animation: none; }
+}
+
+/* 局内顶栏入场：从上方落下（上游 gtop-drop，需求方 2026-10-24:「入场前也有一个过渡动画」）—— 由上面那套按件编排取代，
+   这里只保留给 `prefers-reduced-motion` 之外的兜底：`is-enter` 被摘掉后不再重播任何入场。 */
+/* 回合数字入场（上游 game.css:124 + :163）：数字翻转落下。本地之前只搬了 `animation:` 那一句、**漏搬了
+   `@keyframes capfx-flip`**，于是这条动画一直是死的（浏览器静默忽略未知动画名）。
+   同时：上游那行的 `display: inline-block` 是刻意的（翻转需要它），所以居中不能靠 `place-items` ——
+   改用同高的 `line-height` 把数字压到方块正中。需求方 2026-10-24 图三: 「回合数字显示有点偏移」。 */
+.gtop__half .roundbox__num, .gtop__cap .capsule__kills b { display: inline-block; line-height: .34rem; animation: capfx-flip 260ms var(--ease-out) both; }
+@keyframes capfx-flip { from { transform: translateY(-55%); opacity: 0; } }
