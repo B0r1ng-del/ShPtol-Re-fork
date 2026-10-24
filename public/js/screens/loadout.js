@@ -31,7 +31,7 @@ import { chessAvatarUrl, chessPortraitUrl, subProfIconUrl, bondIconUrl, moduleTy
 import { GarrisonBlock } from '../ui/detailPanel.js';
 import { modComponent } from '../ui/modComponents.js';
 import { data, useData, localAsset, DATA_FILES } from '../data.js';
-import { useStore, loadPref, savePref } from '../store.js';
+import { useStore, loadPref } from '../store.js';
 import { PHASE } from '../../../shared/constants.js';
 import { ruleOption } from '../../../shared/plugins/rules.js';
 import {
@@ -358,10 +358,18 @@ function useDragScroll() {
  * The deck: one group per tier present in `list` (a tall marker, then the cards flowing in two rows), the 甄选 card closing
  * tiers 5 / 6. A vertical wheel scrolls it sideways.
  */
-function DeckView({ m, list, getChess, st, selId, onPick, onDiy, diySlots, diyPicks, deckRef, filtered }) {
+function DeckView({ m, list, getChess, st, selId, onPick, onDiy, diySlots, diyPicks, deckRef, filtered, jumpTo = null }) {
   const groups = TIERS.map((tier) => ({ tier, items: list.filter((c) => c.tier === tier) }))
     .filter((g) => g.items.length || (!filtered && diySlots.some((s) => s.tier === g.tier)));
   const dragScroll = useDragScroll();
+  // 底部阶位栏的跳转: scroll the deck sideways to that tier's marker. `jumpTo` is the tier the bar asked for; the effect
+  // keys on it so asking for the same tier twice still scrolls (the value is bumped in the screen's onJump).
+  useEffect(() => {
+    if (!jumpTo || !deckRef.current) return;
+    const el = deckRef.current;
+    const sec = el.querySelector(`.lo-tgroup[data-tier="${jumpTo.tier}"]`);
+    if (sec) el.scrollTo({ left: sec.offsetLeft - el.offsetLeft - 12, behavior: 'smooth' });
+  }, [jumpTo]);
   const onWheel = (e) => {
     const el = e.currentTarget;
     if (e.ctrlKey || Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
@@ -773,12 +781,15 @@ function LoadoutScreen({ st }) {
   const prepOpen = phase === PHASE.PREP && ruleOption(rules, 'prepLoadout') === 'prep' && !seatReady;
   const locked = ((inMatch && phase && phase !== PHASE.INFO_CHECK && phase !== PHASE.LOBBY) && !prepOpen) || st.sync === 'locked';
   const gridRef = useRef(null);
-  // 物资调配处 deck / 对齐列表 — a per-browser view pref (from the old UI PR #643's keep list)
-  const [view, setViewState] = useState(loadoutViewPref);
-  const setView = (v) => { setViewState(v); savePref(VIEW_PREF, v); };
+  // 物资调配处 deck — the only view now (the owner asked for the 卡片 / 列表 toggle to go, 2026-10-24). `view` stays so the
+  // saved pref of an older build still reads back as 'deck'; the list branch below is dead and can go with it later.
+  const [view] = useState(loadoutViewPref);
   // 干员 / 道具 (the deck's two tabs), the tier the deck is scrolled to, and the open equipment sheet
   const [deckTab, setDeckTab] = useState('ops');
   const [deckTier, setDeckTier] = useState(1);
+  // 阶位跳转: { tier, seq } — seq bumps on every click so asking for the same tier twice still scrolls
+  const [jumpTo, setJumpTo] = useState(null);
+  const jumpTier = (tier) => { setDeckTier(tier); setJumpTo((j) => ({ tier, seq: (j?.seq || 0) + 1 })); };
   const [itemOpen, setItemOpen] = useState(null);
   const fileRef = useRef(null);                            // hidden <input type=file> of the 导入 dialog
   const [narrowDetail, setNarrowDetail] = useState(false); // phones: the detail slides over the roster
@@ -1007,28 +1018,27 @@ function LoadoutScreen({ st }) {
       : html`<main class=${cx('lo-body', narrowDetail && 'is-detail')}>
       <section class="lo-roster">
         <${Filters} m=${m} filters=${st.filters} bonds=${bonds} onFilters=${(filters) => loadoutStore.set({ filters })} />
-        <div class="lo-viewtoggle" role="group" aria-label=${t('视图')}>
-          ${[['deck', t('卡片')], ['list', t('列表')]].map(([id, label]) => html`<button key=${id} type="button"
-            class=${cx('lo-viewtoggle__btn', view === id && 'is-on')} aria-pressed=${view === id ? 'true' : 'false'}
-            onClick=${() => setView(id)}>${label}</button>`)}
-        </div>
         <div class="lo-list" ref=${gridRef}>
-          ${view === 'deck' ? html`${deckTab === 'items'
-            ? html`<${ItemCodex} m=${m} items=${codexItems(data.get('items'))} deckRef=${gridRef}
-                onOpen=${(i) => setItemOpen(i)} onTier=${setDeckTier} />`
-            : html`<${DeckView} m=${m} list=${list} getChess=${getChess} st=${st} selId=${selId} onPick=${pick}
-                onDiy=${() => setTab('diy')} diySlots=${diySlotList(diyData())} diyPicks=${st.diy} deckRef=${gridRef}
-                filtered=${!!(st.filters?.q || st.filters?.bond || st.filters?.tier)} />`}
-            <${DeckBar} deckTab=${deckTab} onDeckTab=${setDeckTab} active=${deckTier} onJump=${setDeckTier}
-              counts=${Object.fromEntries(TIERS.map((x) => [x, list.filter((c) => c.tier === x).length]))}
-              diyOpen=${Object.fromEntries(TIERS.map((x) => [x, diySlotList(diyData()).filter((s) => s.tier === x && !(st.diy || {})[s.slotId]).length]))} />`
-          : html`<${RosterHead} />
-          <div class="lo-list__rows" role="list" aria-label=${t('干员列表')}>
-            ${list.length ? list.map((c) => html`<${RosterRow} key=${c.chessId} m=${m} chess=${c} golden=${c.goldenId ? getChess(c.goldenId) : null}
-              entries=${st.entries} ops=${st.ops} selected=${c.chessId === selId} onPick=${pick} onChange=${quickChange} onOps=${setOpsOf}
-              level=${previewLevel} notOwned=${(st.notOwned || []).includes(c.chessId)} />`) : html`<p class="lo-empty t-dim">${t('没有符合条件的干员')}</p>`}
-          </div>`}
+          ${view === 'deck'
+            ? (deckTab === 'items'
+              ? html`<${ItemCodex} m=${m} items=${codexItems(data.get('items'))} deckRef=${gridRef}
+                  onOpen=${(i) => setItemOpen(i)} onTier=${setDeckTier} />`
+              : html`<${DeckView} m=${m} list=${list} getChess=${getChess} st=${st} selId=${selId} onPick=${pick}
+                  onDiy=${() => setTab('diy')} diySlots=${diySlotList(diyData())} diyPicks=${st.diy} deckRef=${gridRef} jumpTo=${jumpTo}
+                  filtered=${!!(st.filters?.q || st.filters?.bond || st.filters?.tier)} />`)
+            : html`<${RosterHead} />
+              <div class="lo-list__rows" role="list" aria-label=${t('干员列表')}>
+                ${list.length ? list.map((c) => html`<${RosterRow} key=${c.chessId} m=${m} chess=${c} golden=${c.goldenId ? getChess(c.goldenId) : null}
+                  entries=${st.entries} ops=${st.ops} selected=${c.chessId === selId} onPick=${pick} onChange=${quickChange} onOps=${setOpsOf}
+                  level=${previewLevel} notOwned=${(st.notOwned || []).includes(c.chessId)} />`) : html`<p class="lo-empty t-dim">${t('没有符合条件的干员')}</p>`}
+              </div>`}
         </div>
+        ${null /* The bottom bar sits OUTSIDE `.lo-list`: that element scrolls (`overflow: auto`), so a bar inside it was
+             pushed below the fold and only appeared once the window was tall enough — the owner's report of 2026-10-24.
+             As a sibling it is a fixed row of `.lo-roster` and always visible. */}
+        ${view === 'deck' ? html`<${DeckBar} deckTab=${deckTab} onDeckTab=${setDeckTab} active=${deckTier} onJump=${jumpTier}
+            counts=${Object.fromEntries(TIERS.map((x) => [x, list.filter((c) => c.tier === x).length]))}
+            diyOpen=${Object.fromEntries(TIERS.map((x) => [x, diySlotList(diyData()).filter((s) => s.tier === x && !(st.diy || {})[s.slotId]).length]))} />` : null}
       </section>
       <div class="lo-detail-wrap">
         <button type="button" class="lo-detail-back tapx" onClick=${() => setNarrowDetail(false)}><${Icon} name="chevronLeft" />${t('干员列表')}</button>
