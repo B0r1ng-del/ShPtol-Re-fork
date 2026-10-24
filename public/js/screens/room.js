@@ -51,7 +51,7 @@ import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.
 import { DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SEATS, MAX_SPECTATORS, HOST_CONFIG_DEFAULTS, HOST_ENEMY_MAX_STEPS, HOST_ENEMY_STEP_PCT, MOD_DEFAULTS, normalizeEnemyBuff, roomSeatCap } from '../../../shared/constants.js';
 // ★ fork 的工坊 / 房主配置 / 终极模拟导入：`-X theirs` 用了上游那份 import 表，函数体里的 fork 分支却还在
 // （`N_` 20 处、`roomMods`、`MOD_RULE_ROWS`、`isAlignBlocked`、`roomSeatCap` …）。两边合并，不是二选一。
-import { MOD_ROWS, MOD_RULE_ROWS, rememberMods, splitByLength, modPanel } from '../ui/mods.js';
+import { MOD_ROWS, MOD_RULE_ROWS, rememberMods, splitByLength } from '../ui/mods.js';
 import { isAlignBlocked } from '../mods/align.js';
 import * as roomMods from '../roomMods.js';
 import {
@@ -171,6 +171,31 @@ export const HOST_CONFIG_ROWS = Object.freeze([
  * @param {any} myId
  * @returns {Array<{ key: string, label: string, tip: string, on: boolean, editable: boolean }> | null}
  */
+/**
+ * The panel's Mod-开关 rows: one per MOD_ROWS entry, `{ key, col, label, tip, on, editable }`. Shown in EVERY mode — a
+ * Mod 开关 changes the host's own match, so 独立模拟 gets them too. No room at all ⇒ null.
+ *
+ * 2026-10-16 (owner): the caller filters to MOD_RULE_ROWS (对局选项) — the 内容包 switches live in the lobby's
+ * 「Mod 菜单」 dialog (screens/mods.js), which reads the room's own state. `modPanel` still returns every MOD_ROWS entry
+ * (it is the fork's record of what the switches ARE, and the pack switches are still room state).
+ * @param {any} room room.state payload @param {any} myId
+ * @returns {Array<{ key: string, col: string, label: string, tip: string, on: boolean, editable: boolean }> | null}
+ */
+export function modPanel(room, myId) {
+  if (!room) return null;
+  const mods = room.mods;
+  const editable = room.hostId != null && room.hostId === myId;
+  return MOD_ROWS.map((r) => ({
+    key: r.key,
+    col: r.col,
+    label: r.label,
+    tip: r.tip,
+    // the server sends every MOD_KEYS key (room.state.mods); a missing payload is the official all-off
+    on: mods && typeof mods[r.key] === 'boolean' ? mods[r.key] : MOD_DEFAULTS[r.key],
+    editable,
+  }));
+}
+
 export function hostConfigPanel(room, myId) {
   if (!room) return null;
   const cfg = room.hostConfig;
@@ -933,7 +958,10 @@ export function RoomScreen() {
       </div>
     </header>
 
-    <main class=${`seats rs-seats${coop ? '' : ' seats--solo'}`}>
+    ${/* ★ `seats--ultimate` 只能挂在**座位区**上：它是一条 `display: grid` 规则，挂到最外层 `.screen` 上会盖住
+         `.screen` 的 `display:flex; flex-direction:column`，整页变成 6 列网格（#94 引入、#97 修的回归）。
+         上游 v0.3.2 没有终极模拟这个模式，合并时这一行被换成了它自己的 `seats rs-seats`。 */ ''}
+    <main class=${`rs-seats${ultimate ? ' seats--ultimate' : ''}`}>
       ${facts.seats.map((s, i) => {
         const op = seatOperator(s, cards, { myId: me.playerId, myCard });
         // the player's outfit for that operator (header "Outfits"); null = the default art

@@ -169,6 +169,10 @@
   overflow-y: hidden;
   scrollbar-width: thin;
 }
+/* ★ fork 的终极模拟六座：六列等宽一行（上游 v0.3.2 没有这个模式，合并时这两条规则丢了）。
+   挂在座位区上，**不能**挂到 `.screen` 根 —— 它是 display:grid，会盖掉 .screen 的 flex column。 */
+.seats--ultimate { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); align-items: stretch; overflow-x: auto; }
+.rs-seats.seats--ultimate .rseat { width: auto; }
 .rseat {
   --w: min(18vw, 3.4rem, calc((100vw - 1.6rem) / var(--n, 4) - .3rem));
   position: relative;

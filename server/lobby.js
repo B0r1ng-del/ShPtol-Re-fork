@@ -229,7 +229,7 @@
 
 import { aiTakeover, resetAiTakeover, reconcileAiTakeover } from './aiTakeover.js';
 import { randomBytes, randomInt } from 'node:crypto';
-import { DIFFICULTIES, ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor, HOST_CONFIG_KEYS, HOST_CONFIG_SOLO_KEYS, HOST_ENEMY_KEYS, HOST_ENEMY_MAX_STEPS, MOD_KEYS, roomSeatCap } from '../shared/constants.js';
+import { DIFFICULTIES, ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor, HOST_CONFIG_KEYS, HOST_CONFIG_SOLO_KEYS, HOST_CONFIG_DEFAULTS, HOST_ENEMY_KEYS, HOST_ENEMY_DEFAULTS, HOST_ENEMY_MAX_STEPS, MOD_KEYS, MOD_DEFAULTS, roomSeatCap } from '../shared/constants.js';
 import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks, charPotentialChanges, checkSkinSelection, operatorCharIds, PACK_MSG_LIMITS } from '../shared/protocol.js';
 import { encode, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
@@ -403,6 +403,16 @@ export class Room {
      * opts.soloUnlimited. room.state omits the key unless this is true.
      */
     this.soloUnlimited = false;
+    /**
+     * ★ fork 的四个房间字段：`hostConfig`（房主配置的四个共享 / 多同盟 / 装备可售卖 / 在线聊天开关）、
+     * `enemyBuff`（四个敌人强化滑块，10% 步进）、`mods`（MOD_KEYS 玩法开关）、`modSet`（本房间声明的包集合，
+     * 本 fork 没移植 W-A 所以恒为 null）。`-X theirs` 只留下上游的构造体，这四行初始化全丢了 ——
+     * 而 `room.state` 与 `startMatch` 都在读它们（`Cannot read properties of undefined (reading 'sharedPool')`）。
+     */
+    this.hostConfig = { ...HOST_CONFIG_DEFAULTS };
+    this.enemyBuff = { ...HOST_ENEMY_DEFAULTS };
+    this.mods = { ...MOD_DEFAULTS };
+    this.modSet = null;
     /** @type {string | null} */
     this.hostId = null;
     /** @type {(Seat | null)[]} */

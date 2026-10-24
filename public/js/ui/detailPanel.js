@@ -35,8 +35,8 @@
 // screen's 局内数值 section draws the same ones for the chosen skill / module, without a live entry (GitHub issue #64).
 
 // ★ fork 的内容包读数（莱茵装置 / 莱茵射程 / 激光进度）：`-X theirs` 删了这三行 import，引用还在。
-import { rhineDevice } from '../../shared/rhineResearch.js';
-import { researchRangeText } from '../../shared/rhineRange.js';
+import { rhineDevice } from '../../../shared/rhineResearch.js';
+import { researchRangeText } from '../../../shared/rhineRange.js';
 import { laserProgressText } from './rhineDock.js';
 import { BondTimers } from './bondTimers.js';
 import { useEffect } from '../../vendor/hooks.module.js';

@@ -1146,14 +1146,14 @@ describe('screen helpers', () => {
     assert.equal(MODE_CARDS.filter((c) => c.id === 'solo').length, 1);
   });
 
-  test('layout: the three 模拟方式 cards and the six 终极模拟 席位 are equal 竖向 columns (fork UI)', () => {
-    // 图一 (选择模拟协议) and 图二 (房间): the mode cards and the six seats are meant to be N EQUAL 竖向 choices — one
-    // row of N equal columns, every card keeping its portrait shape. The old grid was 2 columns, so the third mode
-    // card and seats 5–6 wrapped onto a second row at a different width, which is the layout accident being fixed.
-    const rules = cssRules(readFileSync(path.join(PUBLIC, 'css/screens/lobby.css'), 'utf8'));
-    const cards = rules.find((r) => r.selector === '.mode-cards');
-    assert.ok(cards, '.mode-cards exists');
-    assert.match(cards.body, /grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/, 'three equal columns, one row');
+  test('layout: the six 终极模拟 席位 are equal 竖向 columns (fork UI)', () => {
+    // 图二 (房间): the six seats of the fork's 终极模拟 are meant to be N EQUAL 竖向 choices — one row of 6 equal
+    // columns, every card keeping its portrait shape. The old grid was 2 columns, so seats 5–6 wrapped onto a second
+    // row at a different width, which is the layout accident being fixed.
+    //
+    // ★ 2026-10-25: 前半段（`.mode-cards` 三张模式卡片等宽）随上游 v0.3.2 一起作废 —— 它把选择模拟协议那页改成了
+    // `proto-title__mode` 的标题栏，`.mode-cards` 在三个版本里都已经不存在。座位区这一半仍然有效：终极模拟是本 fork
+    // 的模式，上游没有它，所以这两条规则在合并时被覆盖掉了，已补回。
 
     const room = cssRules(readFileSync(path.join(PUBLIC, 'css/screens/room.css'), 'utf8'));
     const seats = room.find((r) => r.selector === '.seats--ultimate');

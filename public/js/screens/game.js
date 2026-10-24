@@ -2077,6 +2077,9 @@ function MatchScreen() {
           emote=${spectator ? null : html`<${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen}
             onSend=${(id, o) => (o && o.burst ? actions.emoteBurst(id) : actions.emote(id))} disabled=${conn.status !== 'online'} />`} />` : null}
 
+      ${/* ★ fork 的聊天弹幕飘落层（上游 v0.3.2 没有这个功能，合并时这一行丢了 —— 表情仍会发，但飘落层不渲染） */ ''}
+      ${barrage ? html`<${EmoteBarrage} emotes=${emotes} myId=${myId} />` : null}
+
       ${drawer ? html`<${EnemyDrawer} tab=${drawer} onTab=${setDrawer} pub=${pub} priv=${priv} onClose=${() => setDrawer(null)}
         bandId=${scoutBandId} bandOwner=${scoutBandOwner}
         onEnemy=${(k, n) => setDetail({ kind: 'enemy', id: k, count: n })} onChess=${(id) => setDetail({ kind: 'chess', id, foreign: true })} />` : null}

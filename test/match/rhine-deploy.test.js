@@ -20,7 +20,7 @@ import { RHINE_BOND, RHINE_DEVICES } from '../../shared/rhineResearch.js';
 import { tileKey } from '../../server/match/board.js';
 
 /** The three min-3 莱茵生命 operators the pack carries (their bond membership grants the devices). */
-const MEMBERS = ['chess_rhine_astgenne_a', 'chess_rhine_dorothy_a', 'chess_rhine_mayer_a'];
+const MEMBERS = ['chess_rhine_astgenne_a', 'chess_rhine_ifrit_a', 'chess_rhine_mayer_a'];
 
 /**
  * A 1-human 同盟 match in PREP with 莱茵生命 active on real board members.

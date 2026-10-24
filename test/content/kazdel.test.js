@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { makeBattle, chessRec, enemyRec, checkInvariants, hashOf } from '../helpers/battleHarness.js';
 import { KAZDEL_BOND as K, KAZDEL_CHARACTERS as CHAR } from '../../shared/kazdel.js';
 import { chainHealNext, acquireTargets } from '../../server/sim/ai.js';
-import { canReceiveHeal } from '../../server/sim/damage.js';
+import { canReceiveHeal } from '../../server/sim/content/portRules.js';
 import { soulBaseline } from '../../server/sim/content/kazdel/souls.js';
 import { cannonKeys, cannonSource, tickCannon } from '../../server/sim/content/kazdel/cannon.js';
 
