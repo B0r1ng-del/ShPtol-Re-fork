@@ -117,6 +117,21 @@ export function setEntries(entries) {
   loadoutStore.set({ entries: next });
 }
 
+/**
+ * 局内改技能（需求方 2026-10-24: 「局内修改干员技能，不影响局外的干员调配」）：只把**这一局**的 entries 发给服务端，
+ * 不写 pref、不动 `loadoutStore` —— 局外 干员调配 保持原样，下一局开局 `room.loadout` 仍按局外配置重发。
+ *
+ * 与 {@link setEntries} 的唯一区别就是「不持久化」：发给服务端的那条消息 `room.loadout { entries, ops }` 完全一样
+ * （`ops` 沿用当前值，技能切换从不改潜能 / 练度）。
+ * @param {Record<string, any>} entries 这一局要用的 entries
+ * @param {{ net: any }} o
+ * @returns {Promise<any>}
+ */
+export function sendMatchLoadout(entries, { net }) {
+  const next = entries && typeof entries === 'object' ? entries : {};
+  return net.request('room.loadout', { entries: next, ops: loadoutStore.get().ops || {} });
+}
+
 /** Replace the stored per-operator 潜能 / 练度 (0.2.2; persisted at once with the entries; the sync picks it up). */
 export function setOpsMap(ops) {
   const next = ops && typeof ops === 'object' ? ops : {};

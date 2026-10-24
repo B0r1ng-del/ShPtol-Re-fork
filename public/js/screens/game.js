@@ -125,7 +125,7 @@ import {
   mergeTarget, modeOffBonds, readyFundsPrompt, readyShopFold, ownerBandId, ownDiyRecord, ownStandIn, roundStartReplay,
 } from '../ui/gameLogic.js';
 // 整备阶段改技能（三.2）：提交走既有的 room.loadout —— 只改技能，不动模组。
-import { loadoutStore, setEntries, prepLoadoutAllowed } from '../ui/loadoutSync.js';
+import { loadoutStore, setEntries, sendMatchLoadout, prepLoadoutAllowed } from '../ui/loadoutSync.js';
 import { loadoutOptions } from '../../../shared/protocol.js';
 import { toast } from '../ui/toasts.js';
 import { researchRange } from '../../../shared/rhineRange.js';
@@ -1706,11 +1706,15 @@ function MatchScreen() {
    *   ② 现在是休整期且这张卡是**我自己棋盘上**的干员（`resolved.piece`，不是商店 / 手牌 / 队友的）；
    *   ③ 这个座位还没准备（准备了就锁死，与服务端「未准备才收」同一条判据）；
    *   ④ 技能不止一个。
-   * 提交走既有的 `room.loadout`（`loadoutSync.setEntries`），**不新增协议消息**；模组不在这一格（需求方：只改技能）。
-   * 局内改的只影响这一局 —— 大厅的 `干员调配` 是同一份 pref，但下一局开局 `room.loadout` 会按它重发一次。
+   * 提交走既有的 `room.loadout`（`loadoutSync.sendMatchLoadout`），**不新增协议消息**；模组不在这一格（需求方：只改技能）。
+   * ★ 局内改的**只影响这一局**（需求方 2026-10-24: 「不影响局外的干员调配」）：`sendMatchLoadout` 只发服务端，
+   *   不写 pref、不动 `loadoutStore` —— 局外 干员调配 原样保留，下一局开局仍按局外配置重发。
    */
   const skillPicker = (() => {
-    if (!prepLoadoutOpen || phase !== PHASE.PREP || !priv || priv.ready || !alive) return null;
+    // 需求方 2026-10-24: 局内改技能不再限于休整期 —— 战斗中也能换（服务端只落进「下一次战斗」，不改已打出的伤害）。
+    // 仍然只在「自己的棋盘干员」上出：队友的 / 商店的 / 手牌的不该从这一格改。
+    if (!priv || !alive) return null;
+    if (phase !== PHASE.PREP && phase !== PHASE.COMBAT) return null;
     if (!resolved || resolved.type !== 'chess' || !resolved.piece || detailTarget?.kind !== 'chess') return null;
     const body = resolved.chess;
     // 补位干员用替身的技能，不在这一格改
@@ -1735,7 +1739,7 @@ function MatchScreen() {
         if (index === opt.defaultSkill) delete entry.skill; else entry.skill = index;
         const next = { ...cur };
         if (Object.keys(entry).length) next[id] = entry; else delete next[id];
-        setEntries(next);
+        sendMatchLoadout(next, { net });
       },
     };
   })();
