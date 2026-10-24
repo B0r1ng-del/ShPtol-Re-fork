@@ -37,7 +37,7 @@
 import { TestMark } from '../ui/testConsole.js';
 import { ResumeMatchButton } from '../ui/resumeMatch.js';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, MAX_SPECTATORS, modeIdFor, ERR, ULTIMATE_SEATS } from '../../../shared/constants.js';
+import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, MAX_SPECTATORS, modeIdFor, ERR, ULTIMATE_SEATS, ULTIMATE_DIFFICULTY } from '../../../shared/constants.js';
 import { html, confirmDialog, Button, Icon, MicroLabel, Modal, PingPill, Spinner, DifficultyIcon, TextField } from '../ui/components.js';
 import { Sprite, Img } from '../ui/gameComponents.js';
 import { uiUrl } from '../ui/assetUrls.js';
@@ -423,9 +423,11 @@ export function HubEntry({ card, onOpen, timePoint = null, timeShort = null }) {
     : card.pointShort
       ? html`<span class="hub-entry__long">${t(card.points[0], card.pointParams)}</span><span class="hub-entry__short">${t(card.pointShort, card.pointParams)}</span>`
       : t(card.points[0], card.pointParams);
+  // 扩展模拟 (需求方 2026-10-24): the hardest mode — its words go red, like its AC-4 card in 选择模拟协议
+  const tone = card.id === 'ultimate' ? 'red' : null;
   return html`<div class="hub-entry-wrap">
     <span class="hub-entry__group"><${Icon} name=${card.icon} />${line}</span>
-    <button type="button" class=${`mode-card hub-entry hub-entry--${card.id}`} data-mode=${card.id} onClick=${() => onOpen(card.id)}
+    <button type="button" class=${`mode-card hub-entry hub-entry--${card.id}${tone ? ` hub-entry--${tone}` : ''}`} data-mode=${card.id} onClick=${() => onOpen(card.id)}
         title=${t(card.desc, card.params)}>
       <span class="hub-entry__icon" aria-hidden="true"><${Icon} name=${card.icon} /></span>
       <span class="hub-entry__en">${card.en}</span>
@@ -588,10 +590,14 @@ function BackPlate({ onClick, class: cls = '' }) {
 export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, onCreate, busy, online, testMode, asTest, onTest, action = null, hint = null, readOnly = false,
   difficulties = DIFFICULTIES, loading = false, failed = false, soloTime = null }) {
   const card = MODE_CARDS.find((c) => c.id === roomMode) || MODE_CARDS[0];
-  const info = difficultyInfo(roomMode, difficulty);
-  const label = action || (roomMode === 'solo' ? t('开始独立模拟') : t('创建同盟'));
+  // 扩展模拟 is fixed to AC-4 (the server forces ULTIMATE_DIFFICULTY): offering the other three cards showed a difficulty
+  // the room could never have — the owner's report of 2026-10-24. One card, and picking it changes nothing. Guarded HERE
+  // because both callers route through this page (the lobby's entry and a room's host).
+  const shown = roomMode === 'ultimate' ? ULTIMATE_DIFFICULTY : difficulty;
+  const info = difficultyInfo(roomMode, shown);
+  const label = action || (roomMode === 'solo' ? t('开始独立模拟') : roomMode === 'ultimate' ? t('开始模拟') : t('创建同盟'));
   return html`<${Modal} open=${true} onClose=${onClose} class="proto" veilClass="proto-veil">
-    <div class="proto__body" style=${`--d-color:${DIFFICULTY_COLORS[difficulty]}`} data-difficulty=${difficulty} data-mode=${roomMode}>
+    <div class="proto__body" style=${`--d-color:${DIFFICULTY_COLORS[shown]}`} data-difficulty=${shown} data-mode=${roomMode}>
       <div class="proto__bg" aria-hidden="true"></div>
       <${ProtoFit} />
       <header class="proto-top">
@@ -603,10 +609,10 @@ export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, on
       </header>
       <div class="proto-body">
         <section class="proto-stage">
-          <div key=${difficulty} class="proto__pic"><${ProtocolArt} difficulty=${difficulty} /></div>
+          <div key=${shown} class="proto__pic"><${ProtocolArt} difficulty=${shown} /></div>
           <div class="proto-brief">
             <span class="proto-brief__code num">${info.code}</span>
-            <b class="proto-brief__name">${t(DIFFICULTY_NAMES[difficulty])}</b>
+            <b class="proto-brief__name">${t(DIFFICULTY_NAMES[shown])}</b>
             <p>${info.desc}</p>
             <div class="proto-brief__more" data-testid="proto-brief-more">
               <span class="proto-brief__effects">${info.effects.map((e) => html`<span key=${e}>${e}</span>`)}</span>
@@ -619,7 +625,9 @@ export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, on
             ${failed ? html`<p class="proto-list__wait is-failed" data-testid="proto-failed"><${Icon} name="warn" />${t('版本数据校验失败')}
                 <${Button} size="sm" variant="secondary" data-testid="proto-retry" onClick=${retryContentSet}>${t('重试')}<//></p>`
               : loading ? html`<p class="proto-list__wait" data-testid="proto-loading"><${Spinner} size="sm" />${t('正在载入版本数据…')}</p>` : null}
-            ${difficulties.map((d) => html`<${DifficultyCard} key=${d} roomMode=${roomMode} difficulty=${d} selected=${difficulty === d} onSelect=${onDifficulty} disabled=${readOnly || loading} />`)}
+            ${/* 扩展模拟 sorts by the mode, every other mode by the version's own list (`difficulties`, versions.js) */
+              (roomMode === 'ultimate' ? [ULTIMATE_DIFFICULTY] : DIFFICULTIES).filter((d) => difficulties.includes(d))
+              .map((d) => html`<${DifficultyCard} key=${d} roomMode=${roomMode} difficulty=${d} selected=${shown === d} onSelect=${onDifficulty} disabled=${readOnly || loading || roomMode === 'ultimate'} />`)}
           </div>
           ${readOnly ? html`<div class="proto-foot proto-foot--ro">
             <p class="proto-hint proto-hint--ro"><${Icon} name="info" />${hint || t('由创建者选择')}</p>
@@ -731,9 +739,10 @@ export function LobbyScreen() {
   // 「不限时」 for the next timed solo (DESIGN §35.23.10; default off). The room's 模拟设置 is the authority once the
   // room exists; this pref is what the lobby card and the create message say before that.
   const [soloFree, setSoloFree] = useState(() => loadPref('lobby.soloUnlimited', false) === true);
-  // the open dialogs: 选择同盟方式 (同盟模拟 / 密钥加入) and 选择模拟协议 (独立模拟)
+  // the open dialogs: 选择同盟方式 (同盟模拟 / 密钥加入), and 选择模拟协议 — `protoOpen` is the mode whose page is up
+  // (独立模拟 / 扩展模拟), null = the hub
   const [allyOpen, setAllyOpen] = useState(false);
-  const [soloOpen, setSoloOpen] = useState(false);
+  const [protoOpen, setProtoOpen] = useState(null);
   const [code, setCode] = useState('');
   const [asTest, setAsTest] = useState(false);
   const testMode = useStore((s) => s.testMode === true);
@@ -765,8 +774,11 @@ export function LobbyScreen() {
   const shownSolo = fallbackDifficulty(solo, difficulty);
   const shownCoop = fallbackDifficulty(coop, difficulty);
 
-  const openMode = (m) => { if (m === 'solo') setSoloOpen(true); else setAllyOpen(true); };
+  const openMode = (m) => { if (m === 'solo' || m === 'ultimate') setProtoOpen(m); else setAllyOpen(true); };
   const pickDifficulty = (d) => { setDifficulty(d); savePref('lobby.difficulty', d); };
+  // 扩展模拟 has one difficulty (the server forces ULTIMATE_DIFFICULTY): its page shows AC-4 alone and a card click
+  // changes no state — the guard sits here, at the one place both mounts pass their picks through
+  const pickProtoDifficulty = (d) => { if (protoOpen !== 'ultimate') pickDifficulty(d); };
   const setSoloFreePref = (on) => { const next = on === true; setSoloFree(next); savePref('lobby.soloUnlimited', next); };
 
   const run = async (kind, fn) => {
@@ -779,7 +791,9 @@ export function LobbyScreen() {
       if (alive.current) setBusy(null);
     }
   };
-  // 独立模拟: at the difficulty picked on 选择模拟协议; 创建同盟: at the remembered one, changed in the room by the host
+  // 独立模拟: at the difficulty picked on 选择模拟协议; 创建同盟: at the remembered one, changed in the room by the host.
+  // 扩展模拟 sends the co-op pick like any other mode — the server forces ULTIMATE_DIFFICULTY for it (lobby.js create()),
+  // so the room always runs AC-4 whatever went in the message.
   // (`version`: the lobby's, only when welcome.versions is present — protocol §4; omitted when the server offers 第二期下半 alone)
   const create = (mode) => run('create', () => net.request('room.create', {
     mode, difficulty: mode === 'solo' ? shownSolo : shownCoop, ...(testMode && asTest ? { test: true } : {}), ...(versions ? { version } : {}),
@@ -863,10 +877,13 @@ export function LobbyScreen() {
       code=${code} onCode=${(v) => setCode(normalizeCode(v))} codeOk=${codeOk} online=${online} busy=${busy}
       onJoin=${join} onSpectate=${spectate} recent=${recent} marks=${marks} focusKey=${!coarse}
       testMode=${testMode} asTest=${asTest} onTest=${setAsTest} short=${shortScreen} />` : null}
-    ${soloOpen ? html`<${ProtocolSelect} roomMode="solo" difficulty=${shownSolo} onDifficulty=${pickDifficulty}
-      onClose=${() => setSoloOpen(false)} onCreate=${() => create('solo')} busy=${busy} online=${online}
+    ${protoOpen === 'solo' ? html`<${ProtocolSelect} roomMode="solo" difficulty=${shownSolo} onDifficulty=${pickProtoDifficulty}
+      onClose=${() => setProtoOpen(null)} onCreate=${() => create('solo')} busy=${busy} online=${online}
       testMode=${testMode} asTest=${asTest} onTest=${setAsTest} difficulties=${solo} loading=${versionLoading} failed=${versionFailed}
       soloTime=${soloTimed === true ? { on: soloFree, onToggle: setSoloFreePref } : null} />` : null}
+    ${protoOpen === 'ultimate' ? html`<${ProtocolSelect} roomMode="ultimate" difficulty=${protoOpen === 'ultimate' ? ULTIMATE_DIFFICULTY : difficulty} onDifficulty=${pickProtoDifficulty}
+      onClose=${() => setProtoOpen(null)} onCreate=${() => create('ultimate')} busy=${busy} online=${online}
+      testMode=${testMode} asTest=${asTest} onTest=${setAsTest} difficulties=${[ULTIMATE_DIFFICULTY]} />` : null}
     ${sweepOpen ? html`<${SweepReport} onClose=${() => setSweepOpen(false)} />` : null}
     ${achOpen ? html`<${AchievementDialog} onClose=${() => setAchOpen(false)} />` : null}
   </div>`;

@@ -1971,10 +1971,9 @@ function MatchScreen() {
         pause=${canPause || paused ? { show: canPause, paused, busy: pauseBusy, onToggle: () => togglePause(!paused) } : null}
         live=${liveLpNow} spectator=${spectator}
         spectators=${specFacts.list} myId=${myId} isHost=${specFacts.isHost} onRemoveSpectator=${removeSpectator} room=${modRoom}
-        held=${hudIn === 'wait'}
         ${/* ★ fork 顶栏工具栏（需求方 2026-10-17）：设置 / 玩法说明 / 全屏 / 作战统计 四个 `.gm__gear` 方格，
               **只能在顶栏这一行**（`TopBar` 的 `tools` 插槽）。上游 v0.3.2 把这一整块丢了，于是作战统计按钮
-              从界面消失、只剩面板。 */ ''}
+              从界面消失、只剩面板。`held` 留在最后（进场动画的权威开关，测试逐字比对这一行的收尾）。 */ ''}
         tools=${html`<div class="gm__tools">
           <button type="button" class="gm__gear" aria-label=${t('设置')} title=${t('设置')} onClick=${() => setSettingsOpen(true)}><${GIcon} name="gear" /></button>
           <button type="button" class="gm__gear gm__guide" aria-label=${t('玩法说明')} title=${t('玩法说明')} onClick=${() => openGuide(0)}><${Icon} name="book" /></button>
@@ -1987,7 +1986,8 @@ function MatchScreen() {
               setSel(null);
               setBondOpen(null);
             }}><${Icon} name="signal" /></button>` : null}
-        </div>`} />
+        </div>`}
+        held=${hudIn === 'wait'} />
 
       <div class="gm__bonds">
         ${/* 需求方 2026-10-17 (图五: 「盟约居中优化未到位」). ROOT CAUSE, measured in Chrome: the flex row centred

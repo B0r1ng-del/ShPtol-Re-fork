@@ -469,6 +469,12 @@
 .hub-entry--coop .hub-entry__en { color: rgba(4, 20, 15, .75); }
 .hub-entry--coop .hub-entry__icon { color: rgba(4, 20, 15, .25); }
 .hub-entry--coop .hub-entry__corner { background: linear-gradient(135deg, transparent 50%, #e8fff7 50%); }
+/* 扩展模拟 (需求方 2026-10-24:「主页的扩展模拟文字改成红色」) — the hardest mode, red like its 终极 AC-4 card. */
+.hub-entry--red .hub-entry__name { color: var(--red-premium); }
+.hub-entry--red .hub-entry__en { color: var(--red-premium); opacity: .8; }
+.hub-entry--red .hub-entry__icon { color: rgba(255, 90, 90, .38); }
+.hub-entry--red .hub-entry__corner { background: linear-gradient(135deg, transparent 50%, var(--red-premium) 50%); }
+.hub-entry--red:hover { border-color: var(--red-premium); }
 @keyframes card-in { from { opacity: 0; transform: translateY(.14rem); } }
 
 /* ---- tips -------------------------------------------------------------------------------------------- */
