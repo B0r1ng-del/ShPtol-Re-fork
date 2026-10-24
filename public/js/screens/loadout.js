@@ -576,7 +576,8 @@ function DetailImpl({ m, chess, golden, entries, ops = {}, onChange, onOps, onRe
   const setLevel = onLevel;
   const bodyRef = useRef(null);
   useEffect(() => { if (bodyRef.current) bodyRef.current.scrollTop = 0; }, [chess?.chessId]);
-  if (!chess) return html`<aside class="lo-detail lo-detail--empty"><p class="t-dim">${t('没有符合条件的干员')}</p></aside>`;
+  // no card picked yet: the column is a placeholder, not an error (需求方 2026-10-24: 默认不显示详情)
+  if (!chess) return html`<aside class="lo-detail lo-detail--empty"><p class="t-dim">${t('选择一名干员查看详情')}</p></aside>`;
   const opt = chessOptions(chess, golden);
   const choice = effectiveChoice(entries, chess, golden);
   const cv = cultivationView(chess.charId, ops);
@@ -661,11 +662,9 @@ function Filters({ m, filters, onFilters, bonds }) {
   const set = (patch) => onFilters({ ...filters, ...patch });
   return html`<div class="lo-filters">
     <div class="lo-frow">
-      <div class="lo-chips" role="group" aria-label=${t('阶级')}>
-        <button type="button" class=${cx('lo-chip', !filters.tier && 'is-on')} onClick=${() => set({ tier: null })}>${t('全部')}</button>
-        ${[1, 2, 3, 4, 5, 6].map((tier) => html`<button key=${tier} type="button" class=${cx('lo-chip', 'lo-chip--tier', `lo-chip--t${tier}`, filters.tier === tier && 'is-on')}
-          aria-pressed=${filters.tier === tier ? 'true' : 'false'} title=${t('{tier}阶', { tier })} onClick=${() => set({ tier: filters.tier === tier ? null : tier })}><span class="num">${ROMAN[tier]}</span></button>`)}
-      </div>
+      ${/* 阶级筛选 chips removed (需求方 2026-10-24): the deck groups by tier already and its bottom bar jumps between
+           them, so this row was a second, redundant way to filter the same thing. */
+        null}
       <${TextField} size="sm" icon="search" value=${filters.query} placeholder=${t('搜索干员 / 职业 / 盟约')} class="lo-search"
         onInput=${(v) => set({ query: String(v).slice(0, 24) })} />
     </div>
@@ -772,7 +771,10 @@ function LoadoutScreen({ st }) {
       .sort((a, b) => (b.isCore ? 1 : 0) - (a.isCore ? 1 : 0) || (a.bondOrder ?? 0) - (b.bondOrder ?? 0) || String(a.name).localeCompare(String(b.name), 'zh'));
   }, [ready, roster]);
   const list = filterRoster(roster, st.filters, st.entries, getChess, getBond, st.ops, potentialEditable);
-  const selId = st.sel && roster.some((c) => c.chessId === st.sel) ? st.sel : list[0]?.chessId || roster[0]?.chessId || null;
+  // 需求方 2026-10-24: 「进入干员调配默认侧边不显示干员详细，手动点干员再显示」 — so no auto-selection of the first
+  // operator any more. The detail column stays mounted but empty until the player picks a card (or one is already
+  // remembered from a previous visit, which `st.sel` carries).
+  const selId = st.sel && roster.some((c) => c.chessId === st.sel) ? st.sel : null;
   const { base, golden } = selId ? recordsOf(selId, getChess) : { base: null, golden: null };
   // potentialEditable is upstream's gate for whether 潜能 / 练度 count as a change; the fork's 一键满配 (二.9) keeps its
   // own count below — the operators it may set are the roster's (the 干员调配 tab's list, the same scope as 全部恢复默认;
