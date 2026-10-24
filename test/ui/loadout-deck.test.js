@@ -24,32 +24,37 @@ test('两个视图都在，且选择记在本机', () => {
   const src = read('public/js/screens/loadout.js');
   assert.match(src, /const VIEW_PREF = 'loadout\.view'/);
   assert.match(src, /export const loadoutViewPref = \(\) => \(loadPref\(VIEW_PREF, 'deck'\) === 'list' \? 'list' : 'deck'\)/);
-  // the deck branch holds two tabs: 干员 (DeckView) and 道具 (ItemCodex), and the bottom bar sits OUTSIDE `.lo-list`
-  assert.match(src, /view === 'deck'\s*\n\s*\? \(deckTab === 'items'/);
+  // the deck branch holds two tabs: 干员 (DeckView) and 道具 (ItemCodex), and the bottom bar sits OUTSIDE the scroller
+  assert.match(src, /deckTab === 'items'/, '道具 tab 的分支');
   assert.match(src, /<\\?\$\{DeckView\}/);
   assert.match(src, /<\\?\$\{ItemCodex\}/, '道具 tab');
   assert.match(src, /<\\?\$\{DeckBar\}/, '底部阶位栏');
   assert.match(src, /<\\?\$\{RosterRow\}/);
   // ★ 需求方 2026-10-24: the 卡片 / 列表 toggle is gone — the deck is the only view offered
   assert.doesNotMatch(src, /class="lo-viewtoggle"/, '列表切换按钮已删除');
-  // the bottom bar must be a SIBLING of `.lo-list` (which scrolls), or it hides below the fold
-  const listClose = src.indexOf('</div>\n        ${null /* The bottom bar sits OUTSIDE');
-  assert.ok(listClose > 0, '底栏在 .lo-list 之外');
+  // the bottom bar is a SIBLING of the element that scrolls (.lo-deck / .lo-list), or it hides below the fold: it is
+  // rendered right after the deck's `</main>`, outside `.lo-deckwrap`
+  const bar = src.indexOf('<${DeckBar}');
+  assert.ok(bar > src.indexOf('class="lo-deckwrap"'), '底栏在滚动容器之后');
+  assert.ok(src.slice(src.indexOf('class="lo-deckwrap"'), bar).includes('</main>'), '底栏与 main 同级');
 });
 
 test('卡片按 tier 分组，组头是罗马数字 + 数量', () => {
   const src = read('public/js/screens/loadout.js');
   assert.match(src, /const TIERS = \[1, 2, 3, 4, 5, 6\]/);
   assert.match(src, /TIERS\.map\(\(tier\) => \(\{ tier, items: list\.filter\(\(c\) => c\.tier === tier\) \}\)\)/);
-  assert.match(src, /lo-tmark__n">\$\{ROMAN\[g\.tier\]\}/, '组头的罗马数字');
-  assert.match(src, /lo-tmark__cnt num">\$\{g\.items\.length\}/, '组头的数量');
+  // the marker is the TierMark component (official shopLevelSprite, the CSS NO. + numeral as its fallback); the numeral
+  // and the count are pinned there by loadout-cards.test.js, so this one pins that the group draws it with its count
+  assert.match(src, /<\\?\$\{TierMark\} m=\$\{m\} tier=\$\{g\.tier\} count=\$\{g\.items\.length\}/, '组头带阶位与数量');
   assert.match(src, /data-tier=\$\{g\.tier\}/);
 });
 
 test('卡片与列表用同一套 handler 与数据（技能 / 模组 / 潜能 / 替补）', () => {
   const src = read('public/js/screens/loadout.js');
-  const i = src.indexOf('export function OpCard(');
-  assert.ok(i > 0, 'OpCard 在');
+  // upstream v0.3.2 renamed the fork's OpCard to DeckCard (and added the 快速配置 columns); the card's data and handlers
+  // are the point, and they are still the list's own
+  const i = src.indexOf('export function DeckCard(');
+  assert.ok(i > 0, 'DeckCard 在');
   const body = src.slice(i, src.indexOf('function DiyDeckCard(', i));
   // 同一套解析函数
   assert.match(body, /const choice = effectiveChoice\(entries, chess, golden\)/);

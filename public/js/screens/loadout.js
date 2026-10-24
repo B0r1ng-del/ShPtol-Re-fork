@@ -41,8 +41,8 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, MicroLabel, Button, TierChip, TextField, Countdown, Spinner, confirmDialog, hasDeadline, Modal, Fragment, Tooltip } from '../ui/components.js';
-import { OperatorImage, Img, UnitThumb, PromotionIcon } from '../ui/gameComponents.js';
-import { profGlyphUrl, subProfIconUrl, bondIconUrl, uiUrl } from '../ui/assetUrls.js';
+import { OperatorImage, Img, RichText, UnitThumb, PromotionIcon } from '../ui/gameComponents.js';
+import { profGlyphUrl, subProfIconUrl, bondIconUrl, itemIconUrl, uiUrl } from '../ui/assetUrls.js';
 import { GarrisonBlock } from '../ui/detailPanel.js';
 import { modComponent } from '../ui/modComponents.js';
 import { data, useData, localAsset, DATA_FILES } from '../data.js';
@@ -210,123 +210,19 @@ export function RosterRow({ m, chess, golden, entries, ops = {}, selected, onPic
     <${CultivationSelects} charId=${chess.charId} ops=${ops} onSet=${onOps} note=${standInNote} />
   </div>`;
 }
-// ---- detail --------------------------------------------------------------------------------------------------------------
-
-/** The same attribute records and rich-text renderer as the in-match card, including literal trigger markers. */
-export function LoadoutGarrisons({ chess, m }) {
-  const records = (chess?.garrisonIds || []).map((id) => data.lookup('garrisons', id)).filter(Boolean);
-  return records.length ? html`<section class="lo-garrisons" data-variant=${chess.isGolden ? 'elite' : 'normal'}>
-    ${records.map((garrison) => html`<${GarrisonBlock} key=${garrison.garrisonId} garrison=${garrison} m=${m} />`)}
-  </section>` : null;
-}
-
-
-/** The name of a chess's 补位 stand-in (data/backups.json), or null. */
-const standInName = (chess) => data.get('backups')?.units?.[chess?.backup?.charId]?.name ?? null;
-
-
-function DetailImpl({ m, chess, golden, entries, ops = {}, onChange, onOps, onReset, locked, level = 'normal', onLevel, notOwned = false }) {
-  const [statLevel, setStatLevel] = useState('elite'); // 局内数值: the 精锐 shows the chosen module's effect
-  const setLevel = onLevel;
-  const bodyRef = useRef(null);
-  useEffect(() => { if (bodyRef.current) bodyRef.current.scrollTop = 0; }, [chess?.chessId]);
-  // no card picked yet: the column is a placeholder, not an error (需求方 2026-10-24: 默认不显示详情)
-  if (!chess) return html`<aside class="lo-detail lo-detail--empty"><p class="t-dim">${t('选择一名干员查看详情')}</p></aside>`;
-  const opt = chessOptions(chess, golden);
-  const choice = effectiveChoice(entries, chess, golden);
-  const cv = cultivationView(chess.charId, ops);
-  const changed = choice.changed || cv.changed;
-  return html`<aside class="lo-detail" aria-label=${t('{name} 调配', { name: chess.name })}>
-    <div class="lo-dhead">
-      <div class=${cx('lo-dhead__art', `lo-dhead__art--t${chess.tier}`)}>
-        <${OperatorImage} m=${m} chess=${golden || chess} portrait fallback=${html`<${UnitThumb} kind="chess" id=${chess.chessId} size="lg" />`} />
-      </div>
-      <div class="lo-dhead__info">
-        <div class="lo-dhead__chips"><${TierChip} tier=${chess.tier} size="md" />
-          ${changed ? html`<span class="lo-badge lo-badge--changed">${t('已调整')}</span>` : html`<span class="lo-badge lo-badge--plain">${t('默认配置')}</span>`}</div>
-        <h2 class="lo-dhead__name">${chess.name}</h2>
-        <span class="lo-dhead__en">${chess.appellation || ''}</span>
-        <span class="lo-dhead__class">
-          <${Img} src=${profGlyphUrl(m, chess.profession)} class="lo-dhead__prof lo-profglyph" />${t(PROF_NAME[chess.profession] || '')}
-          <i class="lo-sep"></i><${Img} src=${subProfIconUrl(m, chess)} class="lo-dhead__prof" />${chess.subProfessionName || ''}
-        </span>
-        <span class="lo-dhead__bonds">${(chess.bonds || []).map((b) => html`<span key=${b} class="lo-bond">
-          <${Img} src=${bondIconUrl(m, b)} class="lo-bond__icon" fallback=${html`<i class="lo-bond__dot"></i>`} />${data.lookup('bonds', b)?.name || b}</span>`)}</span>
-      </div>
-      <${Button} variant="ghost" size="sm" icon="refresh" class="lo-dhead__reset" disabled=${!changed} onClick=${onReset}>${t('恢复默认')}<//>
-    </div>
-    <div class="lo-detail__body" ref=${bodyRef}>
-      <${OperatorVoice} charId=${chess.assets?.voice || chess.charId} />
-      ${/* 外观 (docs/SKINS.md) sits directly under the operator's name, before 潜能与练度 and above the 技能 /
-           局内数值 / 模组 sections: a skill and a module usually keep their default and the two selects are a one-off,
-           while the appearance is what a player opens the panel to change. The section itself lives in ui/skinPicker.js
-           (one line here, so upstream rewriting this panel costs one line rather than a conflict). Whether it exists
-           is a GLOBAL question — any operator of the manifest wearing something — so an install without a cosmetic
-           layer keeps the panel's shape, while a loaded plugin gives every operator the section (one 默认 tile when
-           it has no skin). */ null}
-      <${SkinSection} charId=${chess.charId} />
-      <${CultivationSection} charId=${chess.charId} ops=${ops} onSet=${onOps} standIn=${notOwned} />
-      <${LoadoutGarrisons} chess=${level === 'elite' && golden ? golden : chess} m=${m} />
-      <${SkillSection} m=${m} chess=${chess} golden=${golden} skillOptions=${opt.skillOptions} skill=${choice.skill} level=${level}
-        onLevel=${setLevel} onPick=${(i) => onChange({ skill: i })} />
-      <${LoadoutStats} base=${chess} golden=${golden} entries=${entries} ops=${ops} level=${statLevel} onLevel=${setStatLevel} />
-      <${ModuleSection} m=${m} golden=${golden} moduleOptions=${opt.moduleOptions} module=${choice.module}
-        onPick=${(id) => onChange({ module: id })} potential=${cv.potentialOn ? cv.potential : null} />
-      ${notOwned ? html`<p class="lo-locknote lo-locknote--standin" data-testid="loadout-standin-note"><${Icon} name="info" />${standInName(chess) ? t('干员持有中标记为未持有：此棋子由替补干员 {name} 上场，技能与模组固定（补位干员技能不可更改）；这里的调配在改回「持有」后生效', { name: standInName(chess) })
-        : t('干员持有中标记为未持有：此棋子由替补干员上场，技能与模组固定（补位干员技能不可更改）；这里的调配在改回「持有」后生效')}</p>` : null}
-      ${locked ? html`<p class="lo-locknote"><${Icon} name="info" />${t('本局的调配已锁定，修改将在下一局生效')}</p>` : null}
-    </div>
-    ${html`<div class="modslot" data-mod-slot="screen.loadout.detail"></div>`}
-  </aside>`;
-}
-
-// ---- filters -------------------------------------------------------------------------------------------------------------
-
-/** The roster's filters; `onDeck` (the list view): a button at the end that switches to the 卡片视图. */
-function Filters({ m, filters, onFilters, bonds, onDeck = null }) {
-  const set = (patch) => onFilters({ ...filters, ...patch });
-  // 需求方 2026-10-24 (图二): 职业 chips 一行；盟约下拉 + 「仅看已调整」 + 搜索 **同一行并行** —— 搜索在最右，
-  // 前面两个筛选与它一条水平线（原来它们独占第二行、搜索独占第一行，中间空一大截）。阶级 chips 已删。
-  return html`<div class="lo-filters">
-    <div class="lo-frow">
-      <div class="lo-chips" role="group" aria-label=${t('阶级')}>
-        <button type="button" class=${cx('lo-chip', !filters.tier && 'is-on')} onClick=${() => set({ tier: null })}>${t('全部')}</button>
-        ${[1, 2, 3, 4, 5, 6].map((tier) => html`<button key=${tier} type="button" class=${cx('lo-chip', 'lo-chip--tier', `lo-chip--t${tier}`, filters.tier === tier && 'is-on')}
-          aria-pressed=${filters.tier === tier ? 'true' : 'false'} title=${t('{tier}阶', { tier })} onClick=${() => set({ tier: filters.tier === tier ? null : tier })}><span class="num">${ROMAN[tier]}</span></button>`)}
-      </div>
-      <${TextField} size="sm" icon="search" value=${filters.query} placeholder=${t('搜索干员 / 职业 / 盟约')} class="lo-search"
-        onInput=${(v) => set({ query: String(v).slice(0, 24) })} />
-    </div>
-    <div class="lo-frow">
-      <${ProfFilter} m=${m} prof=${filters.prof} onProf=${(prof) => set({ prof })} />
-      <label class="lo-select">
-        <span class="lo-select__k">${t('盟约')}</span>
-        <select value=${filters.bond || ''} onChange=${(e) => set({ bond: e.currentTarget.value || null })} aria-label=${t('按盟约筛选')}>
-          <option value="">${t('全部盟约')}</option>
-          ${bonds.map((b) => html`<option key=${b.bondId} value=${b.bondId}>${b.name}</option>`)}
-        </select>
-      </label>
-      <button type="button" class=${cx('lo-toggle', filters.changedOnly && 'is-on')} aria-pressed=${filters.changedOnly ? 'true' : 'false'}
-        onClick=${() => set({ changedOnly: !filters.changedOnly })}><i class="lo-toggle__box"><${Icon} name="check" /></i>${t('仅看已调整')}</button>
-      ${onDeck ? html`<button type="button" class="lo-tbtn lo-viewbtn" data-testid="loadout-view-deck" onClick=${onDeck}
-        title=${t('切换为卡片视图（物资调配处）')}><${Icon} name="expand" /><span class="lo-tbtn__l">${t('卡片视图')}</span></button>` : null}
-    </div>
-  </div>`;
-}
-
-// ---- 卡片视图 (物资调配处) ------------------------------------------------------------------------------------------------
+// ---- 物资调配处 deck (卡片视图) -------------------------------------------------------------------------------------------
 //
-// The optional view of the 干员调配 tab (see the header). DeckCard / TierMark / DeckBar / DeckHelp are hook-free (the
-// tests draw them).
+// The view of the 干员调配 tab (see the header): the roster as cards in tier groups, plus the bottom bar's 干员 / 道具 tabs
+// (the 道具 one is the equipment codex). DeckCard / TierMark / DeckBar / ItemCodex / DeckHelp are hook-free (the tests draw
+// them).
 
 const VIEW_PREF = 'loadout.view';
 /** The stored view: 'deck' (the cards, the default) or 'list' (the aligned rows). */
 export const loadoutViewPref = () => (loadPref(VIEW_PREF, 'deck') === 'list' ? 'list' : 'deck');
-const DECK_TIERS = [1, 2, 3, 4, 5, 6];
 
 /** 潜能 as six pips (the card's star row). */
 function PotPips({ n }) {
-  return html`<span class="lo-op__pot" title=${t('潜能 {n}', { n })}>${DECK_TIERS.map((i) => html`<i key=${i} class=${i <= n ? 'is-on' : ''}></i>`)}</span>`;
+  return html`<span class="lo-op__pot" title=${t('潜能 {n}', { n })}>${TIERS.map((i) => html`<i key=${i} class=${i <= n ? 'is-on' : ''}></i>`)}</span>`;
 }
 
 /**
@@ -454,11 +350,22 @@ function useDragScroll() {
  * tiers 5 / 6 (not while filtering). A vertical wheel scrolls it sideways; `onTier` reports the tier group at the left
  * edge (the bottom bar).
  */
-function DeckView({ m, list, getChess, st, selId, quick, onPick, onChange, onOps, onDiy, diySlots, diyPicks, deckRef, drawer, onTier, filtered }) {
-  const groups = DECK_TIERS.map((tier) => ({ tier, items: list.filter((c) => c.tier === tier) }))
+function DeckView({ m, list, getChess, st, selId, quick, onPick, onChange, onOps, onDiy, diySlots, diyPicks, deckRef, drawer, onTier, filtered, jumpTo = null }) {
+  const groups = TIERS.map((tier) => ({ tier, items: list.filter((c) => c.tier === tier) }))
     .filter((g) => g.items.length || (!filtered && diySlots.some((s) => s.tier === g.tier)));
   const raf = useRef(0);
   useEffect(() => () => cancelAnimationFrame(raf.current), []); // no tier report after the deck is gone
+  // 底部阶位栏的跳转: scroll sideways to that tier's marker. `seq` bumps on every click, so asking for the same tier twice
+  // still scrolls. The offset is measured with getBoundingClientRect against the SCROLLER: `offsetLeft` is relative to the
+  // `offsetParent`, which IS `.lo-deck` (position: relative), so its own padding skewed the target.
+  useEffect(() => {
+    if (!jumpTo || !deckRef.current) return;
+    const el = deckRef.current;
+    const sec = el.querySelector(`.lo-tgroup[data-tier="${jumpTo.tier}"]`);
+    if (!sec) return;
+    const left = sec.getBoundingClientRect().left - el.getBoundingClientRect().left + el.scrollLeft;
+    el.scrollTo({ left: Math.max(0, left - 12), behavior: reducedMotion() ? 'auto' : 'smooth' });
+  }, [jumpTo]);
   const dragScroll = useDragScroll();
   const onScroll = (e) => {
     const el = e.currentTarget;
@@ -493,16 +400,23 @@ function DeckView({ m, list, getChess, st, selId, quick, onPick, onChange, onOps
 }
 
 /**
- * The deck's bottom bar: jump to a tier (the open 自选 slots above 5 / 6), 确认配置 while 快速配置 is on, and — while this
- * match's loadout is locked (`locked`: the full notice, its title) — a 「本局已锁定 · 下一局生效」 chip: the bar is the one
- * strip every width and 快速配置 keep on screen (the top bar's note is cut short or hidden on narrow screens).
+ * The deck's bottom bar: 干员 / 道具 (the deck's two tabs), jump to a tier (the open 自选 slots above 5 / 6), 确认配置 while
+ * 快速配置 is on, and — while this match's loadout is locked (`locked`: the full notice, its title) — a 「本局已锁定 ·
+ * 下一局生效」 chip: the bar is the one strip every width and 快速配置 keep on screen (the top bar's note is cut short or
+ * hidden on narrow screens).
  */
-export function DeckBar({ counts, active, onJump, diyOpen, quick, onConfirm, locked = null }) {
+export function DeckBar({ deckTab = 'ops', onDeckTab = () => {}, counts, active, onJump, diyOpen, quick, onConfirm, locked = null }) {
   return html`<nav class="lo-bbar" aria-label=${t('按阶级跳转')}>
+    <div class="lo-bbar__seg" role="tablist">
+      <button type="button" role="tab" aria-selected=${deckTab === 'ops' ? 'true' : 'false'} class=${cx(deckTab === 'ops' && 'is-on')} onClick=${() => onDeckTab('ops')}>
+        <${Icon} name="users" />${t('干员')}</button>
+      <button type="button" role="tab" aria-selected=${deckTab === 'items' ? 'true' : 'false'} class=${cx(deckTab === 'items' && 'is-on')} onClick=${() => onDeckTab('items')}>
+        <${Icon} name="book" />${t('道具')}</button>
+    </div>
     <div class="lo-bbar__tiers">
-      ${DECK_TIERS.map((tier) => html`<button key=${tier} type="button" class=${cx('lo-bbar__tier', active === tier && 'is-on')} disabled=${!counts[tier]}
+      ${TIERS.map((tier) => html`<button key=${tier} type="button" class=${cx('lo-bbar__tier', active === tier && 'is-on')} disabled=${!counts[tier]}
           data-tier=${tier} onClick=${() => onJump(tier)} title=${t('{tier}阶', { tier })}>
-        ${diyOpen[tier] ? html`<span class="lo-bbar__diy" title=${t('{tier}阶 还有 {n} 个自选名额', { tier, n: diyOpen[tier] })}><${Icon} name="user" /><b class="num">${diyOpen[tier]}</b></span>` : null}
+        ${deckTab === 'ops' && diyOpen[tier] ? html`<span class="lo-bbar__diy" title=${t('{tier}阶 还有 {n} 个自选名额', { tier, n: diyOpen[tier] })}><${Icon} name="user" /><b class="num">${diyOpen[tier]}</b></span>` : null}
         <span class="lo-bbar__roman num">${ROMAN[tier]}</span><span>${t('{tier}阶', { tier })}</span>
       </button>`)}
     </div>
@@ -511,16 +425,80 @@ export function DeckBar({ counts, active, onJump, diyOpen, quick, onConfirm, loc
   </nav>`;
 }
 
-/**
- * DeckBar with the tier at the deck's left edge as its own state: the deck reports a crossing through `sink` while it
- * scrolls, so only the bar redraws — not the overlay and its 112 cards (PR #811 review).
- * @param {{ sink: { current: ((tier: number) => void) | null } } & Record<string, any>} props
- */
-function DeckBarLive({ sink, ...props }) {
-  const [active, setActive] = useState(1);
-  sink.current = setActive;
-  useEffect(() => () => { if (sink.current === setActive) sink.current = null; }, []);
-  return html`<${DeckBar} ...${props} active=${active} />`;
+/** The equipment of the codex: this game's shop items (data/items.json), base forms, by tier then shop order. */
+export function codexItems(items) {
+  return Object.values(items || {})
+    .filter((x) => x && !x.isGolden && x.itemType === 'EQUIP' && !x.hideInShop)
+    .sort((a, b) => (a.tier ?? 0) - (b.tier ?? 0) || (a.shopSortId ?? 0) - (b.shopSortId ?? 0));
+}
+
+/** 道具: the equipment codex — a tile per item (icon, tier, name, base effect), grouped by tier; a tile opens ItemDetail. */
+function ItemCodex({ m, items, deckRef, onOpen, onTier }) {
+  const groups = TIERS.map((tier) => ({ tier, items: items.filter((x) => x.tier === tier) })).filter((g) => g.items.length);
+  const raf = useRef(0);
+  useEffect(() => () => cancelAnimationFrame(raf.current), []);
+  const dragScroll = useDragScroll();
+  const onScroll = (e) => {
+    const el = e.currentTarget;
+    cancelAnimationFrame(raf.current);
+    raf.current = requestAnimationFrame(() => {
+      const left = el.getBoundingClientRect().left + 24;
+      let cur = groups[0]?.tier || 1;
+      for (const sec of el.querySelectorAll('.lo-tgroup')) if (sec.getBoundingClientRect().left <= left) cur = Number(sec.dataset.tier);
+      onTier(cur);
+    });
+  };
+  const onWheel = (e) => {
+    if (e.ctrlKey || Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
+    e.currentTarget.scrollLeft += e.deltaY;
+    e.preventDefault();
+  };
+  if (!items.length) return html`<div class="lo-deck lo-deck--empty" ref=${deckRef}><p class="lo-empty t-dim">${t('装备数据载入中…')}</p></div>`;
+  let n = -1;
+  return html`<div class="lo-deck lo-deck--items" ref=${deckRef} onScroll=${onScroll} onWheel=${onWheel} ...${dragScroll} role="list" aria-label=${t('装备一览')}>
+    ${groups.map((g) => html`<section key=${g.tier} class=${cx('lo-tgroup', `lo-tgroup--t${g.tier}`)} data-tier=${g.tier}>
+      <${TierMark} m=${m} tier=${g.tier} count=${g.items.length} />
+      <div class="lo-igrid">${g.items.map((it) => { n += 1; const idx = n; return html`<button key=${it.id} type="button" role="listitem" class="lo-item" data-item=${it.id} onClick=${() => onOpen(idx)}>
+        <span class="lo-item__icon"><${Img} src=${itemIconUrl(m, it)} fallback=${html`<${Icon} name="book" />`} /></span>
+        <span class="lo-item__body">
+          <span class="lo-item__head"><${TierChip} tier=${it.tier} size="sm" /><b class="lo-item__name">${it.name}</b></span>
+          <${RichText} class="lo-item__desc" text=${it.descRaw || it.desc || ''} />
+        </span>
+        ${it.shopExcluded ? html`<span class="lo-item__tag">${t('特殊获取')}</span>` : null}
+        <span class="lo-item__zoom" aria-hidden="true"><${Icon} name="search" /></span>
+      </button>`; })}</div>
+    </section>`)}
+  </div>`;
+}
+
+/** One item, base and advanced (the merged golden form), its flavour text and price; ‹ / › browse the codex. */
+function ItemDetail({ m, items, index, all, onIndex, onClose }) {
+  const it = items[index];
+  if (!it) return null;
+  const adv = it.goldenId ? all?.[it.goldenId] : null;
+  const same = adv && (adv.descRaw || adv.desc) === (it.descRaw || it.desc);
+  const go = (d) => onIndex((index + d + items.length) % items.length);
+  return html`<div class="lo-idetail" role="dialog" aria-modal="true" aria-label=${it.name} onMouseDown=${(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <button type="button" class="lo-idetail__nav is-prev" onClick=${() => go(-1)} aria-label=${t('上一件')}><${Icon} name="chevronLeft" /></button>
+    <div class="lo-idetail__box">
+      <button type="button" class="lo-idetail__close" onClick=${onClose} aria-label=${t('关闭')}><${Icon} name="close" /></button>
+      <header class="lo-idetail__head"><${TierChip} tier=${it.tier} size="md" /><h3>${it.name}</h3>
+        <span class="lo-idetail__price">${t('售价')} <b class="num">${it.price ?? '—'}</b></span>
+        ${it.shopExcluded ? html`<span class="lo-item__tag">${t('特殊获取')}</span>` : null}</header>
+      <div class="lo-idetail__main">
+        <span class="lo-idetail__icon"><${Img} src=${itemIconUrl(m, it)} fallback=${html`<${Icon} name="book" />`} /></span>
+        <div class="lo-idetail__text">
+          <span class="lo-idetail__chip">${same ? t('基础 & 进阶效果') : t('基础效果')}</span>
+          <${RichText} as="p" class="lo-idetail__eff" text=${it.descRaw || it.desc || ''} />
+          ${adv && !same ? html`<span class="lo-idetail__chip is-adv">${t('进阶效果')}</span>
+            <${RichText} as="p" class="lo-idetail__eff" text=${adv.descRaw || adv.desc || ''} />` : null}
+          ${it.flavor ? html`<p class="lo-idetail__flavor">${it.flavor}</p>` : null}
+        </div>
+      </div>
+      <footer class="lo-idetail__foot num">${index + 1} / ${items.length}</footer>
+    </div>
+    <button type="button" class="lo-idetail__nav is-next" onClick=${() => go(1)} aria-label=${t('下一件')}><${Icon} name="chevronRight" /></button>
+  </div>`;
 }
 
 /**
@@ -539,6 +517,110 @@ export function DeckHelp({ onClose }) {
       actions=${html`<${Button} variant="primary" onClick=${onClose}>${t('知道了')}<//>`}>
     <dl class="lo-help">${DECK_HELP.map(([k, v]) => html`<${Fragment} key=${k}><dt>${t(k)}</dt><dd>${t(v)}</dd><//>`)}</dl>
   <//>`;
+}
+
+// ---- detail --------------------------------------------------------------------------------------------------------------
+
+/** The same attribute records and rich-text renderer as the in-match card, including literal trigger markers. */
+export function LoadoutGarrisons({ chess, m }) {
+  const records = (chess?.garrisonIds || []).map((id) => data.lookup('garrisons', id)).filter(Boolean);
+  return records.length ? html`<section class="lo-garrisons" data-variant=${chess.isGolden ? 'elite' : 'normal'}>
+    ${records.map((garrison) => html`<${GarrisonBlock} key=${garrison.garrisonId} garrison=${garrison} m=${m} />`)}
+  </section>` : null;
+}
+
+
+/** The name of a chess's 补位 stand-in (data/backups.json), or null. */
+const standInName = (chess) => data.get('backups')?.units?.[chess?.backup?.charId]?.name ?? null;
+
+
+function DetailImpl({ m, chess, golden, entries, ops = {}, onChange, onOps, onReset, locked, level = 'normal', onLevel, notOwned = false }) {
+  const [statLevel, setStatLevel] = useState('elite'); // 局内数值: the 精锐 shows the chosen module's effect
+  const setLevel = onLevel;
+  const bodyRef = useRef(null);
+  useEffect(() => { if (bodyRef.current) bodyRef.current.scrollTop = 0; }, [chess?.chessId]);
+  // no card picked yet: the column is a placeholder, not an error (需求方 2026-10-24: 默认不显示详情)
+  if (!chess) return html`<aside class="lo-detail lo-detail--empty"><p class="t-dim">${t('选择一名干员查看详情')}</p></aside>`;
+  const opt = chessOptions(chess, golden);
+  const choice = effectiveChoice(entries, chess, golden);
+  const cv = cultivationView(chess.charId, ops);
+  const changed = choice.changed || cv.changed;
+  return html`<aside class="lo-detail" aria-label=${t('{name} 调配', { name: chess.name })}>
+    <div class="lo-dhead">
+      <div class=${cx('lo-dhead__art', `lo-dhead__art--t${chess.tier}`)}>
+        <${OperatorImage} m=${m} chess=${golden || chess} portrait fallback=${html`<${UnitThumb} kind="chess" id=${chess.chessId} size="lg" />`} />
+      </div>
+      <div class="lo-dhead__info">
+        <div class="lo-dhead__chips"><${TierChip} tier=${chess.tier} size="md" />
+          ${changed ? html`<span class="lo-badge lo-badge--changed">${t('已调整')}</span>` : html`<span class="lo-badge lo-badge--plain">${t('默认配置')}</span>`}</div>
+        <h2 class="lo-dhead__name">${chess.name}</h2>
+        <span class="lo-dhead__en">${chess.appellation || ''}</span>
+        <span class="lo-dhead__class">
+          <${Img} src=${profGlyphUrl(m, chess.profession)} class="lo-dhead__prof lo-profglyph" />${t(PROF_NAME[chess.profession] || '')}
+          <i class="lo-sep"></i><${Img} src=${subProfIconUrl(m, chess)} class="lo-dhead__prof" />${chess.subProfessionName || ''}
+        </span>
+        <span class="lo-dhead__bonds">${(chess.bonds || []).map((b) => html`<span key=${b} class="lo-bond">
+          <${Img} src=${bondIconUrl(m, b)} class="lo-bond__icon" fallback=${html`<i class="lo-bond__dot"></i>`} />${data.lookup('bonds', b)?.name || b}</span>`)}</span>
+      </div>
+      <${Button} variant="ghost" size="sm" icon="refresh" class="lo-dhead__reset" disabled=${!changed} onClick=${onReset}>${t('恢复默认')}<//>
+    </div>
+    <div class="lo-detail__body" ref=${bodyRef}>
+      <${OperatorVoice} charId=${chess.assets?.voice || chess.charId} />
+      ${/* 外观 (docs/SKINS.md) sits directly under the operator's name, before 潜能与练度 and above the 技能 /
+           局内数值 / 模组 sections: a skill and a module usually keep their default and the two selects are a one-off,
+           while the appearance is what a player opens the panel to change. The section itself lives in ui/skinPicker.js
+           (one line here, so upstream rewriting this panel costs one line rather than a conflict). Whether it exists
+           is a GLOBAL question — any operator of the manifest wearing something — so an install without a cosmetic
+           layer keeps the panel's shape, while a loaded plugin gives every operator the section (one 默认 tile when
+           it has no skin). */ null}
+      <${SkinSection} charId=${chess.charId} />
+      <${CultivationSection} charId=${chess.charId} ops=${ops} onSet=${onOps} standIn=${notOwned} />
+      <${LoadoutGarrisons} chess=${level === 'elite' && golden ? golden : chess} m=${m} />
+      <${SkillSection} m=${m} chess=${chess} golden=${golden} skillOptions=${opt.skillOptions} skill=${choice.skill} level=${level}
+        onLevel=${setLevel} onPick=${(i) => onChange({ skill: i })} />
+      <${LoadoutStats} base=${chess} golden=${golden} entries=${entries} ops=${ops} level=${statLevel} onLevel=${setStatLevel} />
+      <${ModuleSection} m=${m} golden=${golden} moduleOptions=${opt.moduleOptions} module=${choice.module}
+        onPick=${(id) => onChange({ module: id })} potential=${cv.potentialOn ? cv.potential : null} />
+      ${notOwned ? html`<p class="lo-locknote lo-locknote--standin" data-testid="loadout-standin-note"><${Icon} name="info" />${standInName(chess) ? t('干员持有中标记为未持有：此棋子由替补干员 {name} 上场，技能与模组固定（补位干员技能不可更改）；这里的调配在改回「持有」后生效', { name: standInName(chess) })
+        : t('干员持有中标记为未持有：此棋子由替补干员上场，技能与模组固定（补位干员技能不可更改）；这里的调配在改回「持有」后生效')}</p>` : null}
+      ${locked ? html`<p class="lo-locknote"><${Icon} name="info" />${t('本局的调配已锁定，修改将在下一局生效')}</p>` : null}
+    </div>
+    ${html`<div class="modslot" data-mod-slot="screen.loadout.detail"></div>`}
+  </aside>`;
+}
+
+// ---- filters -------------------------------------------------------------------------------------------------------------
+
+/** The roster's filters; `onDeck` (the list view): a button at the end that switches to the 卡片视图. */
+function Filters({ m, filters, onFilters, bonds, onDeck = null }) {
+  const set = (patch) => onFilters({ ...filters, ...patch });
+  // 需求方 2026-10-24 (图二): 职业 chips 一行；盟约下拉 + 「仅看已调整」 + 搜索 **同一行并行** —— 搜索在最右，
+  // 前面两个筛选与它一条水平线（原来它们独占第二行、搜索独占第一行，中间空一大截）。阶级 chips 已删。
+  return html`<div class="lo-filters">
+    <div class="lo-frow">
+      <div class="lo-chips" role="group" aria-label=${t('阶级')}>
+        <button type="button" class=${cx('lo-chip', !filters.tier && 'is-on')} onClick=${() => set({ tier: null })}>${t('全部')}</button>
+        ${[1, 2, 3, 4, 5, 6].map((tier) => html`<button key=${tier} type="button" class=${cx('lo-chip', 'lo-chip--tier', `lo-chip--t${tier}`, filters.tier === tier && 'is-on')}
+          aria-pressed=${filters.tier === tier ? 'true' : 'false'} title=${t('{tier}阶', { tier })} onClick=${() => set({ tier: filters.tier === tier ? null : tier })}><span class="num">${ROMAN[tier]}</span></button>`)}
+      </div>
+      <${TextField} size="sm" icon="search" value=${filters.query} placeholder=${t('搜索干员 / 职业 / 盟约')} class="lo-search"
+        onInput=${(v) => set({ query: String(v).slice(0, 24) })} />
+    </div>
+    <div class="lo-frow">
+      <${ProfFilter} m=${m} prof=${filters.prof} onProf=${(prof) => set({ prof })} />
+      <label class="lo-select">
+        <span class="lo-select__k">${t('盟约')}</span>
+        <select value=${filters.bond || ''} onChange=${(e) => set({ bond: e.currentTarget.value || null })} aria-label=${t('按盟约筛选')}>
+          <option value="">${t('全部盟约')}</option>
+          ${bonds.map((b) => html`<option key=${b.bondId} value=${b.bondId}>${b.name}</option>`)}
+        </select>
+      </label>
+      <button type="button" class=${cx('lo-toggle', filters.changedOnly && 'is-on')} aria-pressed=${filters.changedOnly ? 'true' : 'false'}
+        onClick=${() => set({ changedOnly: !filters.changedOnly })}><i class="lo-toggle__box"><${Icon} name="check" /></i>${t('仅看已调整')}</button>
+      ${onDeck ? html`<button type="button" class="lo-tbtn lo-viewbtn" data-testid="loadout-view-deck" onClick=${onDeck}
+        title=${t('切换为卡片视图（物资调配处）')}><${Icon} name="expand" /><span class="lo-tbtn__l">${t('卡片视图')}</span></button>` : null}
+    </div>
+  </div>`;
 }
 
 // ---- screen -------------------------------------------------------------------------------------------------------------
@@ -605,7 +687,9 @@ export function DataMissing({ files }) {
 
 /** The overlay screen. */
 function LoadoutScreen({ st }) {
-  const ready = useData('chess', 'bonds', 'assets', 'local', 'backups', 'garrisons', 'effects');
+  // 'items' is the 道具 tab's own file (the codex and the bar's per-tier counts read it): without it in this list nothing
+  // ever loaded it, so that tab sat on 「载入中」 for good (the fork read data.get('items') without loading it)
+  const ready = useData('chess', 'bonds', 'assets', 'local', 'backups', 'garrisons', 'effects', 'items');
   const phase = useStore((s) => s.match?.public?.phase || null);
   const inMatch = useStore((s) => !!s.room?.inMatch);
   // co-op briefing (INFO_CHECK, 25 s): the overlay covers the briefing's own countdown, so it shows the time left — the
@@ -650,8 +734,12 @@ function LoadoutScreen({ st }) {
   const [menu, setMenu] = useState(null);                  // null | 'filter' | 'more'
   const setView = (v) => { setViewState(v); savePref(VIEW_PREF, v); setDrawer(false); setQuick(null); setMenu(null); };
   const [help, setHelp] = useState(false);
-  const tierSink = useRef(null);                           // the bottom bar's tier (DeckBarLive), set without a redraw here
-  const setActiveTier = (tier) => tierSink.current?.(tier);
+  // 干员 / 道具 (the deck's two tabs), the tier the deck is scrolled to, and the open equipment sheet
+  const [deckTab, setDeckTab] = useState('ops');
+  const [deckTier, setDeckTier] = useState(1);
+  // 阶位跳转: { tier, seq } — seq bumps on every click so asking for the same tier twice still scrolls
+  const [jumpTo, setJumpTo] = useState(null);
+  const [itemOpen, setItemOpen] = useState(null);
   const deckRef = useRef(null);
   const ui = useRef({});
   ui.current = { drawer, menu, quick, setDrawer, setMenu, setQuick };
@@ -856,16 +944,14 @@ function LoadoutScreen({ st }) {
     document.addEventListener('pointerdown', onDown, true);
     return () => document.removeEventListener('pointerdown', onDown, true);
   }, [menu]);
-  const jumpTier = (tier) => {
-    const deck = deckRef.current;
-    const sec = deck?.querySelector(`.lo-tgroup[data-tier="${tier}"]`);
-    if (!deck || !sec) return;
-    deck.scrollTo({ left: Math.max(0, sec.offsetLeft - (drawer ? deck.clientWidth * 0.4 : 0)), behavior: reducedMotion() ? 'auto' : 'smooth' });
-    setActiveTier(tier);
-  };
+  // 阶位跳转: DeckView scrolls to `jumpTo.tier` (and the bar's `seq` makes a repeat click scroll again)
+  const jumpTier = (tier) => { setDeckTier(tier); setJumpTo((j) => ({ tier, seq: (j?.seq || 0) + 1 })); };
   const nFilters = ['tier', 'prof', 'bond', 'changedOnly'].filter((k) => !!st.filters?.[k]).length + (String(st.filters?.query || '').trim() ? 1 : 0);
-  const tierCounts = Object.fromEntries(DECK_TIERS.map((tier) => [tier, list.filter((c) => c.tier === tier).length + (nFilters ? 0 : diySlots.filter((s) => s.tier === tier).length)]));
-  const diyOpen = Object.fromEntries(DECK_TIERS.map((tier) => [tier, diySlots.filter((s) => s.tier === tier && !diyLegal[s.slotId]).length]));
+  const tierCounts = Object.fromEntries(TIERS.map((tier) => [tier, list.filter((c) => c.tier === tier).length + (nFilters ? 0 : diySlots.filter((s) => s.tier === tier).length)]));
+  const diyOpen = Object.fromEntries(TIERS.map((tier) => [tier, diySlots.filter((s) => s.tier === tier && !diyLegal[s.slotId]).length]));
+  // the 道具 tab's bar counts the codex's own tiers (the roster's counts would enable empty jumps)
+  const codex = codexItems(data.get('items'));
+  const deckCounts = deckTab === 'items' ? Object.fromEntries(TIERS.map((tier) => [tier, codex.filter((x) => x.tier === tier).length])) : tierCounts;
   const clearFilters = () => loadoutStore.set({ filters: { ...st.filters, tier: null, prof: null, bond: null, query: '', changedOnly: false } });
 
   const [syncText, syncCls] = tab === 'ownership' ? OWN_SYNC_TEXT[st.ownSync] || OWN_SYNC_TEXT.idle
@@ -998,15 +1084,18 @@ function LoadoutScreen({ st }) {
       : tab === 'ownership'
       ? html`<${OwnershipPanel} m=${m} roster=${ownRoster} notOwned=${st.notOwned} onToggle=${toggleOwned} />`
       : deck ? html`<main class="lo-deckwrap">
-        <${DeckView} m=${m} list=${list} getChess=${getChess} st=${st} selId=${selId} quick=${quick} onPick=${pick} onChange=${quickChange} onOps=${setOpsOf}
-          onDiy=${() => setTab('diy')} diySlots=${diySlots} diyPicks=${diyLegal} deckRef=${deckRef} drawer=${drawer && !!base} onTier=${setActiveTier} filtered=${nFilters > 0} />
-        ${drawer && base ? html`<div class="lo-drawer" data-testid="loadout-drawer">
+        ${deckTab === 'items'
+          ? html`<${ItemCodex} m=${m} items=${codex} deckRef=${deckRef} onOpen=${setItemOpen} onTier=${setDeckTier} />`
+          : html`<${DeckView} m=${m} list=${list} getChess=${getChess} st=${st} selId=${selId} quick=${quick} onPick=${pick} onChange=${quickChange} onOps=${setOpsOf}
+              onDiy=${() => setTab('diy')} diySlots=${diySlots} diyPicks=${diyLegal} deckRef=${deckRef} drawer=${drawer && !!base}
+              onTier=${setDeckTier} filtered=${nFilters > 0} jumpTo=${jumpTo} />`}
+        ${deckTab === 'ops' && drawer && base ? html`<div class="lo-drawer" data-testid="loadout-drawer">
           <button type="button" class="lo-drawer__close" onClick=${() => setDrawer(false)} title=${t('收起 (Esc)')}><${Icon} name="chevronLeft" />${t('收起')}</button>
           ${loadoutDetail}
         </div>` : null}
       </main>
-      <${DeckBarLive} sink=${tierSink} counts=${tierCounts} onJump=${jumpTier} diyOpen=${diyOpen} quick=${quick} onConfirm=${() => setQuick(null)}
-        locked=${locked ? lockedText : null} />`
+      <${DeckBar} deckTab=${deckTab} onDeckTab=${setDeckTab} counts=${deckCounts} active=${deckTier} onJump=${jumpTier} diyOpen=${diyOpen}
+        quick=${quick} onConfirm=${() => setQuick(null)} locked=${locked ? lockedText : null} />`
       : html`<main class=${cx('lo-body', narrowDetail && 'is-detail')}>
       <section class="lo-roster">
         <${Filters} m=${m} filters=${st.filters} bonds=${bonds} onFilters=${(filters) => loadoutStore.set({ filters })} onDeck=${() => setView('deck')} />
@@ -1018,12 +1107,6 @@ function LoadoutScreen({ st }) {
               level=${previewLevel} notOwned=${(st.notOwned || []).includes(c.chessId)} />`) : html`<p class="lo-empty t-dim">${t('没有符合条件的干员')}</p>`}
           </div>
         </div>
-        ${null /* The bottom bar sits OUTSIDE `.lo-list`: that element scrolls (`overflow: auto`), so a bar inside it was
-             pushed below the fold and only appeared once the window was tall enough — the owner's report of 2026-10-24.
-             As a sibling it is a fixed row of `.lo-roster` and always visible. */}
-        ${view === 'deck' ? html`<${DeckBar} active=${1} onJump=${() => {}}
-            counts=${Object.fromEntries(TIERS.map((x) => [x, list.filter((c) => c.tier === x).length]))}
-            diyOpen=${Object.fromEntries(TIERS.map((x) => [x, diySlotList(diyData()).filter((s) => s.tier === x && !(st.diy || {})[s.slotId]).length]))} />` : null}
       </section>
       <div class="lo-detail-wrap">
         <button type="button" class="lo-detail-back tapx" onClick=${() => setNarrowDetail(false)}><${Icon} name="chevronLeft" />${t('干员列表')}</button>
@@ -1059,6 +1142,8 @@ function LoadoutScreen({ st }) {
         onInput=${(e) => setIo({ ...io, text: e.currentTarget.value })}></textarea>
       <input type="file" accept=".json,application/json,text/plain" class="lo-io__file" ref=${fileRef} onChange=${ioFile} />
     <//>` : null}
+  ${itemOpen != null ? html`<${ItemDetail} m=${m} items=${codex} all=${data.get('items')}
+    index=${itemOpen} onIndex=${setItemOpen} onClose=${() => setItemOpen(null)} />` : null}
 <//>`;
 }
 
