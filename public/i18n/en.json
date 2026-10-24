@@ -2660,5 +2660,11 @@
   "视频读取超时，请换一个文件": "Reading the video timed out — try another file",
   "视频文件无效": "The video file is not valid",
   "请使用最高 1080p 的视频": "Use a video of at most 1080p",
-  "浏览器无法播放，请使用 H.264 MP4 或 WebM": "This browser cannot play it — use an H.264 MP4 or WebM"
+  "浏览器无法播放，请使用 H.264 MP4 或 WebM": "This browser cannot play it — use an H.264 MP4 or WebM",
+  "视图": "View",
+  "卡片": "Cards",
+  "列表": "List",
+  "普通 / 精锐等级": "Normal / elite level",
+  "甄选干员": "Selected operators",
+  "{tier}阶 自选名额：持有的 6★ 干员或原型干员": "Tier {tier} picks: an owned 6★ operator or a prototype operator"
 }

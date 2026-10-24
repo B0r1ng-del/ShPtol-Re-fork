@@ -176,6 +176,24 @@ export class MatchPlatform {
     return res;
   }
 
+  /**
+   * room.card (ui/seatArt.js): the operator a doctor shows on their seat card — cosmetic and public, accepted in any
+   * phase for the same reason as setSkins. The lobby already checked the id against this room's operators.
+   * @param {string} playerId
+   * @param {string} charId  '' clears the pick
+   * @returns {{ ok: true } | { error: string, detail?: string }}
+   */
+  setCard(playerId, charId) {
+    const ps = this.players.get(playerId);
+    if (!ps || ps.isBot || ps.left) return fail(ERR.NOT_IN_ROOM);
+    this.guard(() => {
+      ps.card = charId;
+      // the seat card is drawn from m.public.players[].card, so the public broadcast is the whole update
+      this.markPublic();
+    });
+    return OK;
+  }
+
   onDisconnect(playerId) {
     const ps = this.players.get(playerId);
     if (!ps || ps.isBot || this.disposed) return;

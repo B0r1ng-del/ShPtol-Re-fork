@@ -706,3 +706,97 @@
   .lo-skin__art--face > .lo-skin__art--big { display: none; }
   .lo-skin__art--face > .lo-skin__art--faceimg { display: block; }
 }
+
+/* ==========================================================================================
+   物资调配处 deck (from the old UI PR #643's keep list): the 干员调配 tab's card view — the roster as
+   cards in tier groups scrolling sideways (js/screens/loadout.js OpCard / DeckView). Only the cards and
+   their groups are here: the 道具 tab, 快速配置 and the bottom bar were not ported (the list already
+   offers those choices).
+   ========================================================================================== */
+.lo-deck {
+  --opw: max(2.1rem, 100px);          /* a card */
+  --rail: max(.44rem, 22px);          /* its left rail: tier, levels */
+}
+/* ---- the deck ---- */
+.lo-deckwrap { position: relative; flex: 1 1 auto; min-height: 0; display: flex; }
+.lo-deck { position: relative; flex: 1 1 auto; min-width: 0; display: flex; align-items: stretch; gap: .34rem; padding: .24rem .36rem .2rem;
+  overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin; scrollbar-color: var(--line-3) transparent; }
+.lo-deck.is-dragging { cursor: grabbing; user-select: none; }
+.lo-deck.is-dragging * { cursor: grabbing !important; }
+.lo-deck--empty { align-items: center; justify-content: center; }
+.lo-deck.has-drawer { padding-left: calc(var(--drawer-w) + .3rem); scroll-padding-left: calc(var(--drawer-w) + .2rem); }
+.lo-tgroup { flex: none; display: flex; align-items: stretch; gap: .18rem; }
+.lo-tmark { position: relative; flex: none; display: flex; flex-direction: column; align-items: center; gap: .04rem; width: max(.86rem, 44px);
+  padding: .12rem 0 .14rem; overflow: hidden; background: linear-gradient(180deg, #2a2f2d, #151918 60%, #101312);
+  border: 1px solid rgba(255, 255, 255, .1); box-shadow: inset 0 3px 0 var(--tc), 0 .06rem .2rem rgba(0, 0, 0, .4); }
+.lo-tmark__no { font-family: var(--font-display); font-size: max(.1rem, 8px); letter-spacing: .12em; color: var(--text-dim); }
+.lo-tmark__n { display: grid; place-items: center; width: 76%; aspect-ratio: 1 / 1.3; font-family: var(--font-num); font-size: max(.38rem, 20px); font-weight: 900;
+  line-height: 1; color: var(--tc); border: 1px solid rgba(255, 255, 255, .22); background: rgba(0, 0, 0, .35); }
+.lo-tmark__cnt { margin-top: auto; font-size: max(.15rem, 10px); color: var(--text-lo); }
+.lo-tmark::after { content: 'RHODES ISLAND · OPERATOR DISPATCH'; position: absolute; left: 50%; top: 52%; transform: translate(-50%, -50%) rotate(180deg);
+  writing-mode: vertical-rl; font-family: var(--font-display); font-size: max(.09rem, 7px); letter-spacing: .3em; color: rgba(255, 255, 255, .12); white-space: nowrap; }
+.lo-tgrid { display: grid; grid-auto-flow: column; grid-template-rows: repeat(2, minmax(0, 1fr)); grid-auto-columns: max-content; gap: .16rem .14rem; min-height: 0; }
+
+/* ---- an operator card ---- */
+.lo-op { --tc: var(--tier-1); position: relative; display: flex; min-height: 0; }
+.lo-op--t2 { --tc: var(--tier-2); } .lo-op--t3 { --tc: var(--tier-3); } .lo-op--t4 { --tc: var(--tier-4); }
+.lo-op--t5 { --tc: var(--tier-5); } .lo-op--t6 { --tc: var(--tier-6); }
+.lo-op__card { position: relative; width: var(--opw); min-height: 0; display: grid; grid-template-columns: var(--rail) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto auto; column-gap: max(.05rem, 3px); padding: max(.06rem, 3px) max(.06rem, 3px) max(.07rem, 4px);
+  background: linear-gradient(180deg, rgba(44, 50, 48, .94), rgba(24, 28, 27, .96)); border: 1px solid rgba(255, 255, 255, .08);
+  box-shadow: 0 .05rem .16rem rgba(0, 0, 0, .45); transition: border-color var(--t-fast), box-shadow var(--t-fast); cursor: pointer; }
+.lo-op:hover .lo-op__card { border-color: rgba(255, 255, 255, .22); }
+.lo-op.is-sel .lo-op__card { border-color: var(--mint-400); box-shadow: 0 0 0 1px var(--mint-400), 0 0 .18rem rgba(89, 244, 202, .3); }
+.lo-op__rail { grid-row: 1 / 3; grid-column: 1; display: flex; flex-direction: column; align-items: center; gap: max(.08rem, 4px); padding-top: 2px; }
+.lo-op__tier.tier { width: 100%; }
+.lo-op__lv { display: flex; flex-direction: column; align-items: center; gap: max(.05rem, 3px); width: 86%; padding: max(.06rem, 3px) 0;
+  background: rgba(0, 0, 0, .45); border: 1px solid rgba(255, 255, 255, .14); border-radius: 999px; }
+.lo-op__lvrow { display: flex; flex-direction: column; align-items: center; line-height: 1; }
+.lo-op__lvrow b { font-size: max(.15rem, 10px); color: var(--text-md); }
+.lo-op__lvrow.is-elite b { color: var(--gold-2); }
+.lo-op__chev { width: max(.18rem, 11px); height: max(.12rem, 7px); background: currentColor; color: var(--text-lo);
+  clip-path: polygon(0 40%, 50% 0, 100% 40%, 100% 62%, 50% 22%, 0 62%, 0 100%, 50% 60%, 100% 100%, 100% 78%, 50% 38%, 0 78%); }
+.lo-op__lvrow.is-elite .lo-op__chev { color: var(--gold-2); }
+.lo-op__mark { width: max(.12rem, 8px); height: max(.12rem, 8px); margin-top: auto; background: var(--mint-400); transform: rotate(45deg); box-shadow: 0 0 6px rgba(89, 244, 202, .6); }
+.lo-op__pick { grid-row: 1; grid-column: 2; position: relative; display: block; min-height: 0; padding: 0; overflow: hidden; cursor: pointer;
+  background: linear-gradient(180deg, #d7dbd9, #aeb4b1 70%, #8d9390); border: 1px solid rgba(240, 244, 242, .55); }
+.lo-op__art { position: absolute; inset: 0 0 max(.42rem, 22px) 0; display: block; overflow: hidden; }
+.lo-op__art img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 6%; display: block; }
+.lo-op__glyph { display: grid; place-items: center; width: 100%; height: 100%; font-size: max(.5rem, 22px); font-weight: 900; color: rgba(17, 22, 20, .45); }
+.lo-op__sub { position: absolute; left: 2px; top: 2px; width: max(.2rem, 12px); height: max(.2rem, 12px); padding: 2px; object-fit: contain; background: rgba(20, 24, 23, .85); }
+.lo-op__ribbon { position: absolute; right: 3px; top: 0; padding: 3px 3px 7px; font-size: max(.11rem, 8px); font-weight: 800; line-height: 1.1; writing-mode: vertical-rl;
+  color: var(--ice-900, #0d2236); background: var(--ice); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 5px), 0 100%); }
+.lo-op__kit { position: absolute; left: 0; right: 0; bottom: 0; height: max(.42rem, 22px); display: flex; align-items: center; gap: 3px; padding: 0 3px;
+  background: linear-gradient(180deg, rgba(20, 24, 23, .7), rgba(20, 24, 23, .95)); }
+.lo-op__slot { display: grid; place-items: center; width: max(.34rem, 18px); height: max(.34rem, 18px); background: rgba(0, 0, 0, .5); border: 1px solid rgba(255, 255, 255, .2); }
+.lo-op__slot .lo-sicon, .lo-op__slot .lo-mglyph { width: 100%; height: 100%; border: 0; }
+.lo-op__slot .lo-sicon__outline, .lo-op__slot .lo-sicon__ring { display: none; }
+.lo-op__slot .lo-mglyph__t { font-size: max(.16rem, 10px); }
+.lo-op__meta { grid-row: 2; grid-column: 2; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; min-width: 0; padding-top: max(.04rem, 2px); }
+.lo-op__pot { display: flex; gap: 2px; }
+.lo-op__pot i { width: max(.06rem, 4px); height: max(.06rem, 4px); background: rgba(255, 255, 255, .18); transform: rotate(45deg); }
+.lo-op__pot i.is-on { background: #c9cfcc; }
+.lo-op__name { max-width: 100%; font-size: max(.17rem, 11px); font-weight: 800; color: var(--text-hi); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lo-op__bonds { grid-row: 3; grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 3px; min-height: max(.26rem, 16px); padding-top: 2px; }
+.lo-op__bond { display: grid; place-items: center; width: max(.26rem, 16px); height: max(.26rem, 16px); border-radius: 50%; background: rgba(0, 0, 0, .55); border: 1px solid rgba(255, 255, 255, .22); }
+.lo-op__bond img { width: 70%; height: 70%; object-fit: contain; }
+
+/* 甄选干员 (自选编队) closing tiers 5 / 6 */
+.lo-op--diy { flex-direction: column; align-items: center; justify-content: center; gap: max(.08rem, 4px); width: var(--opw); padding: .1rem; font: inherit; color: var(--text-hi);
+  cursor: pointer; background: linear-gradient(180deg, rgba(150, 160, 156, .2), rgba(80, 88, 85, .14)); border: 1px solid rgba(255, 255, 255, .16); }
+.lo-op--diy:hover { border-color: var(--tc); background: linear-gradient(180deg, rgba(170, 180, 176, .26), rgba(90, 98, 95, .18)); }
+.lo-diy__frame { position: relative; display: grid; place-items: center; width: 74%; aspect-ratio: 1 / 1.25; color: rgba(255, 255, 255, .78);
+  border-left: 2px solid rgba(255, 255, 255, .5); border-right: 2px solid rgba(255, 255, 255, .5); }
+.lo-diy__glyph { width: 62%; height: 62%; }
+.lo-diy__faces { display: flex; flex-direction: column; gap: 4px; width: 70%; }
+.lo-diy__face { display: grid; place-items: center; width: 100%; aspect-ratio: 1; object-fit: cover; background: #1a1f1d; border: 1px solid var(--tc); font-weight: 900; }
+.lo-diy__label { font-size: max(.16rem, 11px); font-weight: 800; letter-spacing: .1em; }
+.lo-diy__n { font-size: max(.3rem, 16px); color: var(--text-lo); }
+.lo-diy__n b { color: var(--text-hi); font-size: max(.4rem, 20px); }
+
+
+/* ---- view toggle (卡片 / 列表) ---------------------------------------------------------------------- */
+.lo-viewtoggle { display: inline-flex; align-self: flex-start; margin: 0 0 .1rem; padding: 3px; border: 1px solid var(--line-2); border-radius: 999px; background: rgba(0, 0, 0, .35); }
+.lo-viewtoggle__btn { height: max(.46rem, 30px); padding: 0 max(.24rem, 13px); font: inherit; font-size: max(calc(.15 * var(--t)), 10px); color: var(--text-lo); background: none; border: 0; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+.lo-viewtoggle__btn.is-on { color: #111614; background: #eef1ef; }
