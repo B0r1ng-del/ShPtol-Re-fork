@@ -851,9 +851,6 @@
    fixed --sq, so they did not shrink with the window — only S.W.E.E.P. and the Forge link adapted (S.W.E.E.P.'s
    rule lives in sweep.css). These three steps bring every one of them down together, so the row never wraps or
    pushes the centre title out. The icons keep their 50% box, so they stay legible at the smallest step. */
-@media (max-width: 1280px) { .lobby-screen .topbar__tools { gap: .1rem; } .lobby-screen .topbar__tools .btn--square { --sq: .4rem; } }
-@media (max-width: 1000px) { .lobby-screen .topbar__tools { gap: .08rem; } .lobby-screen .topbar__tools .btn--square { --sq: .36rem; } .lobby-screen .topbar__tools .lobby-modmenu, .lobby-screen .topbar__tools .lobby-pwa { --sq: .36rem; } }
-@media (max-width: 760px) { .lobby-screen .topbar__tools { gap: .06rem; } .lobby-screen .topbar__tools .btn--square { --sq: .32rem; } }
 
 /* ---- 成就面板本体 (the panel's own styles: .ach__box / .ach-plate / .ach-card / .ach-bar / .ach-hex / .ach-counts)
    上一轮只搬了入口卡和 .ach 骨架，面板内部没有规则 ⇒ 元素全用默认尺寸，看起来「过大」。本段补齐。 ---- */
@@ -1114,3 +1111,55 @@
 .hub-entry--red .hub-entry__icon { color: rgba(255, 90, 90, .38); }
 .hub-entry--red .hub-entry__corner { background: linear-gradient(135deg, transparent 50%, var(--red-premium) 50%); }
 .hub-entry--red:hover:not(:disabled) { border-color: var(--red-premium); }
+
+/* ---- 顶栏按钮缩放 (需求方 2026-10-24, 图九) ----------------------------------------------------------
+   Every square control in the lobby's top bar shrinks together with the window. The targets are written
+   per control because SettingsButton / GuideButton render a plain `.btn` (no `.btn--square`), so a
+   `.btn--square`-only rule silently missed them. Sizing the `.btn` inside `.topbar__tools` catches all of
+   them, and the S.W.E.E.P. / Forge / PWA / Mod controls by their own classes. */
+.lobby-screen .topbar__tools > .btn,
+.lobby-screen .topbar__tools > .settings-btn,
+.lobby-screen .topbar__tools > .guide-btn,
+.lobby-screen .topbar__tools > .lobby-settings,
+.lobby-screen .topbar__tools > .lobby-guide,
+.lobby-screen .topbar__tools > .lobby-sweep,
+.lobby-screen .topbar__tools > .lobby-forge,
+.lobby-screen .topbar__tools > .lobby-pwa,
+.lobby-screen .topbar__tools > .lobby-modmenu,
+.lobby-screen .topbar__tools > .hub-bg-btn,
+.lobby-screen .topbar__tools > .hub-music-btn { --sq: .44rem; height: max(.44rem, 28px); min-width: max(.44rem, 28px); }
+@media (max-width: 1280px) {
+  .lobby-screen .topbar__tools { gap: .1rem; }
+  .lobby-screen .topbar__tools > .btn, .lobby-screen .topbar__tools > .settings-btn, .lobby-screen .topbar__tools > .guide-btn,
+  .lobby-screen .topbar__tools > .lobby-sweep, .lobby-screen .topbar__tools > .lobby-forge, .lobby-screen .topbar__tools > .lobby-pwa,
+  .lobby-screen .topbar__tools > .lobby-modmenu, .lobby-screen .topbar__tools > .hub-bg-btn, .lobby-screen .topbar__tools > .hub-music-btn {
+    --sq: .4rem; height: max(.4rem, 26px); min-width: max(.4rem, 26px); }
+}
+@media (max-width: 1000px) {
+  .lobby-screen .topbar__tools { gap: .07rem; }
+  .lobby-screen .topbar__tools > .btn, .lobby-screen .topbar__tools > .settings-btn, .lobby-screen .topbar__tools > .guide-btn,
+  .lobby-screen .topbar__tools > .lobby-sweep, .lobby-screen .topbar__tools > .lobby-forge, .lobby-screen .topbar__tools > .lobby-pwa,
+  .lobby-screen .topbar__tools > .lobby-modmenu, .lobby-screen .topbar__tools > .hub-bg-btn, .lobby-screen .topbar__tools > .hub-music-btn {
+    --sq: .36rem; height: max(.36rem, 24px); min-width: max(.36rem, 24px); }
+}
+@media (max-width: 760px) {
+  .lobby-screen .topbar__tools { gap: .05rem; }
+  .lobby-screen .topbar__tools > .btn, .lobby-screen .topbar__tools > .settings-btn, .lobby-screen .topbar__tools > .guide-btn,
+  .lobby-screen .topbar__tools > .lobby-sweep, .lobby-screen .topbar__tools > .lobby-forge, .lobby-screen .topbar__tools > .lobby-pwa,
+  .lobby-screen .topbar__tools > .lobby-modmenu, .lobby-screen .topbar__tools > .hub-bg-btn, .lobby-screen .topbar__tools > .hub-music-btn {
+    --sq: .3rem; height: max(.3rem, 22px); min-width: max(.3rem, 22px); }
+}
+
+/* 密钥加入 dialog (需求方 2026-10-24, 图八: 「显示太宽了」) — 窄弹窗，输入框在上、两个按钮并排在下。
+   The old body reused `.join-row` (the lobby's inline panel layout: input + two buttons in ONE row), which is
+   what stretched the dialog to 22rem. */
+.join-dialog { display: flex; flex-direction: column; gap: .14rem; }
+.join-dialog__row { display: flex; gap: .1rem; }
+.join-dialog__row > .btn { flex: 1 1 auto; }
+.join-dialog .join-foot { margin-top: .04rem; }
+
+/* `LoadoutButton` carries the same plate look but adds its 已调整 / 替补 / 自选 badges after the label:
+   they must sit at the right edge like S.W.E.E.P.'s REPORT tag, not stretch the row. */
+.hub-plate.hub-plate--loadout .lo-entry__n, .hub-plate.hub-plate--loadout .lo-entry__own { margin-left: 0; }
+.hub-plate.hub-plate--loadout .lo-entry__n { margin-left: auto; }
+.hub-plate.hub-plate--loadout .lo-entry__n + .lo-entry__own { margin-left: 0; }

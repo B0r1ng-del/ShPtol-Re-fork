@@ -128,6 +128,10 @@ test('★ 底部阶位栏：点了真的滚到那个阶位（不是只改状态�
   assert.match(src, /jumpTo=\$\{jumpTo\}/, 'DeckView 收到 jumpTo');
   const i = src.indexOf('function DeckView(');
   const body = src.slice(i, src.indexOf('function DiyDeckCard(', i) > 0 ? src.indexOf('function DiyDeckCard(', i) : i + 4000);
-  assert.match(body, /el\.scrollTo\(\{ left: sec\.offsetLeft/, '真的滚动容器的 scrollLeft');
+  // offsets are measured against the scroller with getBoundingClientRect: `offsetLeft` is relative to the
+  // `offsetParent` (which IS `.lo-deck` because it is position: relative), so its own padding skewed the target.
+  assert.match(body, /sec\.getBoundingClientRect\(\)\.left - el\.getBoundingClientRect\(\)\.left \+ el\.scrollLeft/,
+    '按滚动容器量偏移');
+  assert.match(body, /el\.scrollTo\(\{ left: Math\.max\(0, left - 12\)/, '真的滚动容器');
   assert.match(body, /data-tier="\$\{jumpTo\.tier\}"/, '按阶位找 section');
 });

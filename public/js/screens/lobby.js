@@ -331,10 +331,14 @@ function HubEntry({ card, onSelect }) {
 }
 
 /** The S.W.E.E.P. report entry on the hub's right column (the fork's own screen). */
+/** The S.W.E.E.P. report entry on the hub's right column — the upstream structure (`__glyph` / `__label` / `__tag`),
+ *  which is what `.hub-plate`'s CSS actually styles. My first version invented `__icon` / `__text` / `__name`, so the
+ *  plate rendered unstyled (the owner's screenshots 3 / 4). */
 function SweepPlate({ onClick }) {
-  return html`<button type="button" class="hub-plate hub-plate--sweep" onClick=${onClick}>
-    <span class="hub-plate__icon"><${Icon} name="book" /></span>
-    <span class="hub-plate__text"><span class="hub-plate__name">S.W.E.E.P.<span class="hub-plate__en">REPORT</span></span></span>
+  return html`<button type="button" class="hub-plate hub-plate--sweep" onClick=${onClick} title=${t('S.W.E.E.P.报告：盟约、策略与敌方资料')}>
+    <span class="hub-plate__glyph"><${Icon} name="book" /></span>
+    <span class="hub-plate__label">S.W.E.E.P.${t('报告')}</span>
+    <span class="hub-plate__tag">REPORT</span>
   </button>`;
 }
 
@@ -596,21 +600,23 @@ export function LobbyScreen() {
       </section>
     </main>
 
-    <${Modal} open=${joinOpen} title=${t('密钥加入')} micro="JOIN WITH KEY" width="min(22rem, calc(100vw - 2rem))"
+    <${Modal} open=${joinOpen} title=${t('密钥加入')} micro="JOIN WITH KEY" width="min(9.2rem, calc(100vw - 2rem))"
       onClose=${() => setJoinOpen(false)}>
-      <div class="join-row">
+      <div class="join-dialog">
         <${TextField} size="code" icon="key" value=${code} placeholder=${t('输入同盟密钥 / 粘贴邀请链接')}
           transform=${normalizeCode} onInput=${(v) => setCode(normalizeCode(v))} onEnter=${() => join()} />
-        <${Button} variant="amber" size="lg" icon="users" loading=${busy === 'join'} disabled=${!codeOk || !online} onClick=${() => join()}>${t('加入同盟')}<//>
-        <${Tooltip} text=${t('以观战者身份进入：不占博士席位，只能观看（每个同盟最多 {MAX_SPECTATORS} 名，模拟进行中也可进入）', { MAX_SPECTATORS })}>
-          <${Button} variant="secondary" size="lg" icon="eye" class="join-spectate" loading=${busy === 'spectate'} disabled=${!codeOk || !online} onClick=${spectate}>${t('观战')}<//>
-        <//>
-      </div>
-      <div class="join-foot">
-        ${recent.length ? html`<span class="t-lo">${t('最近的同盟')}</span>
-          ${recent.map((c) => html`<button key=${c} type="button" class="code-chip num" title=${t('填入密钥（不会直接加入）')}
-            onClick=${() => setCode(c)}>${c}${Array.isArray(marks) && marks.includes(c) ? html` <${TestMark} />` : null}</button>`)}`
-          : html`<span class="t-dim">${t('向同伴索取 {ROOM_CODE_LEN} 位同盟密钥，或直接打开邀请链接', { ROOM_CODE_LEN })}</span>`}
+        <div class="join-dialog__row">
+          <${Button} variant="amber" size="lg" icon="users" block=${true} loading=${busy === 'join'} disabled=${!codeOk || !online} onClick=${() => join()}>${t('加入同盟')}<//>
+          <${Tooltip} text=${t('以观战者身份进入：不占博士席位，只能观看（每个同盟最多 {MAX_SPECTATORS} 名，模拟进行中也可进入）', { MAX_SPECTATORS })}>
+            <${Button} variant="secondary" size="lg" icon="eye" class="join-spectate" disabled=${!codeOk || !online} onClick=${spectate}>${t('观战')}<//>
+          <//>
+        </div>
+        <div class="join-foot">
+          ${recent.length ? html`<span class="t-lo">${t('最近的同盟')}</span>
+            ${recent.map((c) => html`<button key=${c} type="button" class="code-chip num" title=${t('填入密钥（不会直接加入）')}
+              onClick=${() => setCode(c)}>${c}${Array.isArray(marks) && marks.includes(c) ? html` <${TestMark} />` : null}</button>`)}`
+            : html`<span class="t-dim">${t('向同伴索取 {ROOM_CODE_LEN} 位同盟密钥，或直接打开邀请链接', { ROOM_CODE_LEN })}</span>`}
+        </div>
       </div>
     <//>
     ${sweepOpen ? html`<${SweepReport} onClose=${() => setSweepOpen(false)} />` : null}

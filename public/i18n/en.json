@@ -2713,5 +2713,7 @@
   "获赞数": "Likes",
   "读取中": "Loading…",
   "账号 {name}": "Account: {name}",
-  "还没有可展示的战果：完成一局模拟后在这里记录盟约叠加最高的一局": "Nothing to show yet — finish a match and the one that stacked a bond highest is recorded here"
+  "还没有可展示的战果：完成一局模拟后在这里记录盟约叠加最高的一局": "Nothing to show yet — finish a match and the one that stacked a bond highest is recorded here",
+  "报告": "Report",
+  "成就统计": "Achievements"
 }
