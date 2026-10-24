@@ -809,9 +809,12 @@
 .lo-viewtoggle__btn.is-on { color: #111614; background: #eef1ef; }
 
 /* ---- 道具图鉴 + 底部阶位栏 (from the old UI PR #643's keep list) ------------------------------------ */
-/* 需求方 2026-10-24 (图一): 道具卡与干员卡**同宽** —— `--itw` 原来根本没定义（`var(--itw)` 落到 auto，卡片按内容撑开，
-   所以一排道具比一排干员宽一截）。这两个值与 `.lo-deck` 的 `--opw` 保持一致（道具界面不在 `.lo-deck` 里，取不到那个变量）。 */
-.lo-igrid { --itw: max(2.1rem, 100px); display: grid; grid-auto-flow: column; grid-template-rows: repeat(3, minmax(0, 1fr)); grid-auto-columns: var(--itw); gap: .14rem .16rem; min-height: 0; }
+/* 需求方 2026-10-24 (图一/图二): 道具卡与干员卡**同宽**，但**高度按内容走**（「长度可以是原本的样子，但宽度要与干员卡
+   一致」）。`--itw` 原来根本没定义 —— `grid-auto-columns: var(--itw)` 里 `var(--itw)` 无值 ⇒ 该属性整条失效 ⇒
+   `grid-auto-columns` 回落到 `auto`，列宽由内容撑开，所以道具比干员宽一截。
+   `--opw` 定义在 `.lo-deck` 上，道具界面虽然也在 `.lo-deck` 里但 `.lo-igrid` 是它后代，取得到 —— 直接复用同一个变量，
+   两栏永远同步。 */
+.lo-igrid { --itw: var(--opw, max(2.1rem, 100px)); display: grid; grid-auto-flow: column; grid-template-rows: repeat(3, minmax(min-content, max-content)); grid-auto-columns: var(--itw); align-content: start; gap: .14rem .16rem; min-height: 0; }
 /* 与干员卡同宽后，卡片内部也得随之收窄：图标列原来是固定的 40% / 1.45rem，卡一变窄就挤掉文字。 */
 .lo-item { position: relative; display: grid; grid-template-columns: min(1.05rem, 34%) minmax(0, 1fr); align-items: start; gap: .1rem; min-height: 0; padding: .1rem .08rem .08rem .14rem; font: inherit;
   color: var(--text-hi); text-align: left; cursor: pointer; overflow: hidden;

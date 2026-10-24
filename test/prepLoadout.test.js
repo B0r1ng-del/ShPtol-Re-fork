@@ -178,3 +178,20 @@ test('协议面一个字节都不动：`room.loadout` 仍登记在 C2S，lobby �
   assert.match(platform, /start\(\) \{[\s\S]{0,300}this\.phase !== PHASE\.LOBBY/,
     '别的闸门**不动**（它不是这一格）');
 });
+
+// 需求方 2026-10-24（「局内换技能始终没做出来」）：**真根因**是选择器的可见条件写错了。
+// 局内点自己棋盘上的干员时 `detailTarget.kind` 是 `'unit'`（game.js `setDetail({kind:'unit'})`），
+// 只有商店 / 手牌 / 盟约弹窗里的卡片才是 `'chess'`。早期条件 `kind !== 'chess'` 于是把整个功能排除了，
+// 技能选择器一次都没渲染过。这一条把「必须接受 unit」钉住，防止再改回去。
+test('整备期改技能：局内点棋盘干员（detailTarget.kind === unit）也必须出现技能选择器', () => {
+  const src = readFileSync(join(ROOT, 'public/js/screens/game.js'), 'utf8');
+  const at = src.indexOf('const skillPicker = (() => {');
+  assert.ok(at > 0, 'skillPicker 必须还在');
+  const body = src.slice(at, src.indexOf('\n  })();', at));
+  assert.match(body, /detailTarget\?\.kind !== 'unit'/, "必须接受 'unit'（局内点棋盘干员的路径）");
+  assert.equal(/detailTarget\?\.kind !== 'chess'\)/.test(body), false, '不许再只认 chess 一种');
+  // 且必须落到「自己的」loadout，队友的不能改
+  assert.match(body, /detailLoadout !== priv\.loadout/, '必须只在读自己的 loadout 时可改');
+  // 相位：服务端 setLoadout 只收 INFO_CHECK（prepLoadout=prep 再放 PREP），**COMBAT 一律 WRONG_PHASE**
+  assert.equal(/phase !== PHASE\.COMBAT/.test(body), false, '不得在 COMBAT 出技能选择器（服务端会拒）');
+});

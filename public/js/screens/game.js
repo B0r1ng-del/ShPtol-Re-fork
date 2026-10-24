@@ -1719,10 +1719,20 @@ function MatchScreen() {
    */
   const skillPicker = (() => {
     // 需求方 2026-10-24: 局内改技能不再限于休整期 —— 战斗中也能换（服务端只落进「下一次战斗」，不改已打出的伤害）。
-    // 仍然只在「自己的棋盘干员」上出：队友的 / 商店的 / 手牌的不该从这一格改。
+    // ★ 为什么前几轮「始终没做出来」的**真根因**：旧条件写的是 `detailTarget.kind !== 'chess'` ⇒ 直接把这个功能
+    //   整个排除了。局内点自己棋盘上的干员，`detailTarget.kind` 是 **'unit'**（game.js setDetail({kind:'unit'})），
+    //   只有商店 / 手牌 / 盟约弹窗里的卡片才是 `'chess'`。所以条件永远不成立，技能选择器一次都没渲染过。
+    //   现在两种打开方式都接受，但都必须**落到自己棋盘上的那块 piece**（`resolved.piece` 存在），队友的、商店的照旧不给改。
     if (!priv || !alive) return null;
-    if (phase !== PHASE.PREP && phase !== PHASE.COMBAT) return null;
-    if (!resolved || resolved.type !== 'chess' || !resolved.piece || detailTarget?.kind !== 'chess') return null;
+    // ★ 相位：服务端 `setLoadout` **只收 INFO_CHECK**，`prepLoadout=prep` 档位再额外允许 PREP 合并一次；进入战斗后一律
+    //   `WRONG_PHASE`（server/match/match.js:79-83 的契约）。所以这里**不能**放开到 COMBAT —— 那会发出注定被拒的请求
+    //   （上一轮就是这么错的）。战斗内改技能需要服务端新能力，见 sendMatchLoadout 的注释与 docs。
+    if (phase !== PHASE.PREP && phase !== PHASE.INFO_CHECK) return null;
+    if (!resolved || resolved.type !== 'chess' || !resolved.piece) return null;
+    if (detailTarget?.kind !== 'unit' && detailTarget?.kind !== 'chess' && detailTarget?.kind !== 'piece') return null;
+    // 必须读的是**我自己**的 loadout（`detailLoadout` 对队友的单位返回 unitLoadout ⇒ 不是同一个对象引用），
+    // 这样「队友的干员」即使点开了也不会出现可以改的按钮。
+    if (detailLoadout !== priv.loadout) return null;
     const body = resolved.chess;
     // 补位干员用替身的技能，不在这一格改
     if (!body || (resolved.standIn && resolved.standIn.standInFor)) return null;
