@@ -261,41 +261,8 @@ export async function joinKnown(type, key) {
   }
 }
 
-const FALLBACK_TIPS = [
-  N_('联合模拟在选择策略时可以进行一次跳过'),
-  N_('调度中心即使冻结，依然可以主动刷新'),
-  N_('两件同名装备可以合成一件更强力的装备'),
-  N_('只有达成完美作战的队友可以进行联防'),
-];
-const TIP_ROTATE_MS = 5000; // matchingTipRotateInterval
 
 /** Rotating tactical tips (config.json `tips`, weighted list of { tip, weight }). */
-function TipsPanel() {
-  const cfg = getConfig();
-  const fallback = FALLBACK_TIPS.map((x) => t(x));
-  const tips = Array.isArray(cfg?.tips)
-    ? cfg.tips.map((x) => (typeof x === 'string' ? x : x?.tip)).filter((x) => typeof x === 'string' && x)
-    : fallback;
-  const list = tips.length ? tips : fallback;
-  const [idx, setIdx] = useState(() => Math.floor(Math.random() * list.length));
-  useEffect(() => {
-    const id = setInterval(() => setIdx((i) => i + 1), TIP_ROTATE_MS);
-    return () => clearInterval(id);
-  }, []);
-  const i = ((idx % list.length) + list.length) % list.length;
-  return html`<div class="tips brackets">
-    <div class="tips__head">
-      <${Icon} name="info" />
-      <span>${t('作战提示')}</span>
-      <${MicroLabel}>TACTICAL TIPS<//>
-      <span class="tips__idx num">${String(i + 1).padStart(2, '0')}<span class="t-dim">/${String(list.length).padStart(2, '0')}</span></span>
-      <button type="button" class="tips__nav" onClick=${() => setIdx(i - 1 + list.length)} aria-label=${t('上一条')}><${Icon} name="chevronLeft" /></button>
-      <button type="button" class="tips__nav" onClick=${() => setIdx(i + 1)} aria-label=${t('下一条')}><${Icon} name="chevronRight" /></button>
-    </div>
-    <p key=${i} class="tips__text">${list[i]}</p>
-  </div>`;
-}
-
 function ModeCard({ card, selected, onSelect }) {
   return html`<button type="button" class=${`mode-card brackets${selected ? ' is-selected' : ''}`} onClick=${() => onSelect(card.id)}
       aria-pressed=${selected ? 'true' : 'false'}>
@@ -544,7 +511,7 @@ export function LobbyScreen() {
   // 选择同盟方式 (upstream `AllianceSelect`): 同盟模拟 opens ITS OWN screen first (create / join / 寻队友), and only the
   // create branch continues to the difficulty page. 独立模拟 / 扩展模拟 go straight to ProtocolSelect.
   const [allyOpen, setAllyOpen] = useState(false);
-  const openProto = (m) => { pickMode(m); if (m === 'coop') setAllyOpen(true); else setProtoOpen(m); };
+  const openProto = (m) => { pickMode(m); if (m === 'coop' || m === 'ultimate') setAllyOpen(true); else setProtoOpen(m); };
 
   const run = async (kind, fn) => {
     if (inFlight.current) return;
@@ -650,7 +617,8 @@ export function LobbyScreen() {
       <aside class="hub-side">
         <${AchievementEntry} onOpen=${() => setAchOpen(true)} />
         <${HubTile} icon="key" label=${t('密钥加入')} en="JOIN WITH KEY" onClick=${() => setJoinOpen(true)} />
-        <${TipsPanel} />
+        ${null /* 作战提示 removed (需求方 2026-10-24): the hub keeps 成就统计 + 密钥加入 only — upstream's left column has
+             no tips panel, and the tips are still reachable from 玩法说明. */}
       </aside>
 
       <aside class="hub-right">
@@ -689,7 +657,7 @@ export function LobbyScreen() {
       onClose=${() => setBgOpen(false)}><${BackdropSettings} bg=${bg} /><//>` : null}
     ${allyOpen ? html`<${AllySelect} onClose=${() => setAllyOpen(false)} code=${code} onCode=${(v) => setCode(normalizeCode(v))}
       codeOk=${codeOk} recent=${recent} online=${online} busy=${busy} difficulty=${difficulty}
-      onCreate=${() => { setAllyOpen(false); setProtoOpen('coop'); }} onJoin=${() => join()} onSpectate=${spectate}
+      onCreate=${() => { setAllyOpen(false); setProtoOpen(roomMode); }} onJoin=${() => join()} onSpectate=${spectate}
       onSearch=${() => setJoinOpen(true)} />` : null}
     ${protoOpen ? html`<${ProtocolSelect} card=${MODE_CARDS.find((c) => c.id === protoOpen) || MODE_CARDS[0]} roomMode=${protoOpen}
       difficulty=${protoOpen === 'ultimate' ? ULTIMATE_DIFFICULTY : difficulty}

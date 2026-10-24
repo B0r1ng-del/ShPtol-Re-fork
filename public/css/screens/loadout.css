@@ -83,6 +83,9 @@
   flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 7rem);
   gap: .22rem; padding: .18rem .3rem .22rem;
 }
+/* 需求方 2026-10-24: 没选干员时右侧不该占位 —— 干员要「全部铺开」。选中之后详情列才出现（.draft--detail 的同一思路）。 */
+.lo-body.is-empty { grid-template-columns: minmax(0, 1fr) 0; gap: 0; }
+.lo-body.is-empty .lo-detail-wrap { display: none; }
 .lo-roster { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: .12rem; }
 .lo-detail-wrap { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .lo-detail-back { display: none; }

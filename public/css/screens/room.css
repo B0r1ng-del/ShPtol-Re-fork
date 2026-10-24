@@ -475,3 +475,9 @@
 .rseat__content { position: absolute; left: .08rem; right: .08rem; bottom: .08rem; z-index: 2; padding: 0 .1rem; font-size: max(calc(.12 * var(--t)), 9px); text-align: center; border-radius: 3px; background: rgba(0, 0, 0, .6); }
 .rseat__content.is-ready { color: var(--mint-400); } .rseat__content.is-failed { color: var(--red-premium); }
 .rseat__you { padding: 0 .1rem; font-size: max(calc(.12 * var(--t)), 9px); color: #08221b; background: var(--mint-400); border-radius: 3px; }
+
+/* 空位卡的「添加机器人」按钮：上游用行内样式写的，这里收成规则（图六） */
+.rseat__addbot { width: 100%; min-height: max(.5rem, 30px); padding: .08rem .14rem; font: inherit; font-size: max(calc(.15 * var(--t)), 10px);
+  color: #4fe8c0; background: #102d26; border: 1px solid #397e6b; cursor: pointer; transition: background var(--t-fast), border-color var(--t-fast); }
+.rseat__addbot:hover:not(:disabled) { background: #164036; border-color: #4fe8c0; }
+.rseat__addbot:disabled { opacity: .5; cursor: default; }

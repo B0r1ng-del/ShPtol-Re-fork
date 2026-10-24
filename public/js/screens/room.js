@@ -199,22 +199,27 @@ function CardPicker({ current, list, m, onPick, onClose }) {
   <//>`;
 }
 
-function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot, onKick, portraits = null, onPickCard = null }) {
+function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot, onKick, onInvite = null, portraits = null, onPickCard = null }) {
   const coop = room.mode !== 'solo';
   if (!seat) {
-    const canAdd = coop && facts.isHost;
+    // ★ 空位卡照上游结构（图六）: 中间是一个**可点的「邀请」大卡**（rseat__invite + 圆形加号），
+    //   底部是 `rseat__addbot` 的「添加机器人」按钮。本地原先自己写了一套 radar + Button，
+    //   CSS 里的 `rseat__invite` / `rseat__plus` / `rseat__addbot`（各 4 条）因此从来没被用上 ——
+    //   这就是「样式都搬了、界面还是不一样」的原因。这次是整段替换，不是补样式。
+    const invitable = room.mode !== 'solo' && !facts.spectating;
     return html`<article class="rseat rseat--empty" style=${`--i:${index}`}>
       <span class="rseat__clip" aria-hidden="true"></span>
       <header class="rseat__strip"><i></i><span class="num">P${index + 1}</span></header>
       <div class="rseat__art">
-        <div class="rseat__radar" aria-hidden="true"></div>
-        <span class="rseat__wait"><small>${t('等待博士加入')}</small><${MicroLabel}>AWAITING DOCTOR<//></span>
+        ${invitable
+          ? html`<button type="button" class="rseat__invite" onClick=${onInvite} title=${t('邀请在线好友，或复制同盟密钥')}>
+              <span class="rseat__plus" aria-hidden="true"></span><b>${t('邀请')}</b><small>${t('邀请在线好友，或复制同盟密钥')}</small></button>`
+          : html`<span class="rseat__wait"><small>${t('等待博士加入')}</small><${MicroLabel}>AWAITING DOCTOR<//></span>`}
         <span class="rseat__noinfo" aria-hidden="true">NOINFO</span>
       </div>
       <div class="rseat__plate rseat__plate--empty">
-        ${canAdd
-          ? html`<${Button} variant="secondary" size="sm" icon="robot" block=${true} loading=${busy === `add`} onClick=${onAddBot}>${t('添加 AI 队友')}<//>`
-          : html`<span class="rseat__state t-dim">${t('空位')}</span>`}
+        ${facts.isHost && room.mode !== 'solo' ? html`<button type="button" class="rseat__addbot" disabled=${!!busy}
+          onClick=${onAddBot}>${t('添加机器人')}</button>` : null}
       </div>
     </article>`;
   }
@@ -721,6 +726,7 @@ export function RoomScreen() {
     <main class=${`rs-seats${coop ? '' : ' rs-seats--solo'}${room.mode === 'ultimate' ? ' seats--ultimate' : ''}`} style=${`--n:${facts.seats.length || 4}`}>
       ${facts.seats.map((s, i) => html`<${SeatCard} key=${s ? `p${s.playerId}` : `e${i}`} seat=${s} index=${i} room=${room} facts=${facts}
         myId=${me.playerId} busy=${busy} onAddBot=${addBot} onRemoveBot=${removeBot} onKick=${kick}
+        onInvite=${() => { copyText(inviteLink(room.code)).then((ok) => ok && toast(t('已复制邀请链接'), 'success')); }}
         portraits=${portraits} onPickCard=${() => setPicking(true)} />`)}
       ${coop ? null : html`<aside class="solo-brief brackets">
         <${MicroLabel} tone="mint">BRIEFING<//>
