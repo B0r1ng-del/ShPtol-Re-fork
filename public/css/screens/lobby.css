@@ -1285,8 +1285,13 @@ button.ally-card:disabled { filter: grayscale(.7) brightness(.7); cursor: defaul
 @keyframes tr-draw { to { stroke-dashoffset: 0; } }
 
 /* ---- full-screen overlays over the hub ---- */
-.sw { background-color: #080909; } /* the black it comes up from (the misty field is .sw__bg) */
-.proto, .sw { animation: tr-veil 150ms linear backwards; }
+/* ★ NO bare `.sw` in this block. `.sw` is the pill SWITCH (components.css, 44×24) — the S.W.E.E.P. report was
+   once the `.sw` overlay and was renamed to `swp` (see the head of screens/sweep.css, which explains why), but the
+   transition rules below kept the old name. Result: every switch in every menu inherited this block — a `#080909`
+   background (the pill goes near-black) plus `tr-veil` and the `tr-diamond` pseudo-element, which drew a rotating
+   16 px diamond at the top edge of each pill. That is the 「开关上的奇怪特效」. Only `.proto` (选择协议 / 同盟) is
+   a real overlay here; the `.sw__*` / `.sw-*` names below are S.W.E.E.P.'s own children and stay. */
+.proto { animation: tr-veil 150ms linear backwards; }
 .proto.is-chained { animation: none; }
 .proto__bg, .sw__bg { animation: tr-fade 340ms ease-out 140ms backwards; }
 .proto-top, .sw-top { animation: tr-fade 260ms ease-out 170ms backwards; }
@@ -1303,14 +1308,14 @@ button.ally-card:disabled { filter: grayscale(.7) brightness(.7); cursor: defaul
 .sw-right { animation: tr-right 440ms var(--tr-ease) 280ms backwards; }
 .sw-right > * { animation: tr-fade 260ms ease-out backwards; } /* a tab's tiles come up when it is opened */
 /* the diamond at the bottom while it loads */
-.proto::after, .sw::after { content: ''; position: absolute; left: 50%; bottom: max(.5rem, 24px); z-index: 9; width: max(.3rem, 16px); height: max(.3rem, 16px);
+.proto::after { content: ''; position: absolute; left: 50%; bottom: max(.5rem, 24px); z-index: 9; width: max(.3rem, 16px); height: max(.3rem, 16px);
   border: 2px solid rgba(223, 230, 226, .55); box-shadow: inset 0 0 0 3px #0a0b0b, inset 0 0 0 5px rgba(223, 230, 226, .3); pointer-events: none; opacity: 0;
   animation: tr-diamond 720ms ease-out 60ms both; }
 .proto.is-chained::after { animation-delay: 0ms; }
 /* leaving: the content fades, then the black lifts off the hub (LEAVE_MS 300 = 130 + 170) */
-.proto.is-leaving, .sw.is-leaving { pointer-events: none; animation: tr-lift 170ms linear 130ms forwards; }
-.proto.is-leaving > *, .sw.is-leaving > * { animation: tr-out 140ms ease-in forwards; }
-.proto.is-leaving::after, .sw.is-leaving::after { display: none; }
+.proto.is-leaving { pointer-events: none; animation: tr-lift 170ms linear 130ms forwards; }
+.proto.is-leaving > * { animation: tr-out 140ms ease-in forwards; }
+.proto.is-leaving::after { display: none; }
 
 /* 正在加入同盟… */
 .tr-join { position: absolute; left: 0; right: 0; bottom: 0; z-index: 8; display: flex; align-items: center; gap: .1rem; padding: 0 max(.24rem, 12px) max(.05rem, 3px);
