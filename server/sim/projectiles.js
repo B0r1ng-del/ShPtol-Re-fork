@@ -35,7 +35,10 @@ export class ProjectileSystem {
       tx: fin(p.to ? p.to.x : (target ? target.x : fx), fx),
       ty: fin(p.to ? p.to.y : (target ? target.y : fy), fy),
       speed: Number.isFinite(p.speed) && p.speed >= 0 ? p.speed : PROJECTILE_SPEED,
-      onHit: p.onHit ?? null,
+      // ★ 八 卡兹戴尔：大炮打出来的投射物，它的 onHit 回调必须带着大炮归属 —— 否则落地后的衍生伤害会被当成
+      // 「普通伤害」，从而伤到亡魂、也伤到别的玩家的友军。`captureKazdelCallback` 只在当前确实处于大炮深度里才包，
+      // 普通投射物拿到的还是原函数（行为逐字节不变）。
+      onHit: captureKazdelCallback(this.battle, p.onHit ?? null),
       visual,
       speedChangeable,
       // PRTS 弹道: automatic removal follows speed-change eligibility, normally visible VFX.

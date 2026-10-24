@@ -161,9 +161,12 @@ test('7: 房间配置 (was 房主配置), 在线聊天 on by default', async () 
 
 test('8: 对局选项 opens the 房间配置 dialog, above the switch rows', () => {
   const src = read('public/js/screens/room.js');
-  const body = src.slice(src.indexOf('function HostConfigDialog('), src.indexOf('/** The ready bar'));
+  const body = src.slice(src.indexOf('function RoomConfigBody('), src.indexOf('/** The ready bar'));
   assert.ok(body.includes('MatchOptionSection'), 'the section is still rendered by its own component');
-  assert.ok(body.indexOf('MatchOptionSection') < body.indexOf('hostcfg__rows'), 'and now comes FIRST');
+  // 开关在前、滑块在后（需求方 2026-10-17：「四个滑块放最后，因为它们是另一种控件」）。
+  // 旧断言拿 `hostcfg__rows` 当锚点 —— 那一块已经不存在了（`ui/host-config.test.js` 钉的是「已删」），
+  // 于是 `indexOf` 两边都是 -1、比较恒假。改成拿真正的后继 `EnemyBuffSection` 当锚点。
+  assert.ok(body.indexOf('MatchOptionSection') < body.indexOf('EnemyBuffSection'), 'and now comes FIRST');
   // the block's top separator would draw a stray rule under the dialog title
   assert.match(read('public/css/screens/room.css'), /\.hostcfg > \.ebuff:first-child \{ padding-top: 0; border-top: 0; \}/);
 });

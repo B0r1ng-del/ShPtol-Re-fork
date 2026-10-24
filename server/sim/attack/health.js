@@ -1,6 +1,7 @@
 // Final HP application and HP loss (流失). Shared by damage and the explicit HP-loss entry.
 import { BOSS_HIT_LIMIT } from '../../../shared/constants.js';
 import { mitigate } from './calculation.js';
+import { kazdelCannonImmune } from '../content/portRules.js';
 
 /**
  * 限伤 — the official boss-hit limit (shared/constants.js BOSS_HIT_LIMIT, docs/research/11-limits-official.md §2;
@@ -44,6 +45,18 @@ export function loseHp(battle, ctx, amount, { noHitLimit = false } = {}) {
 export function applyHpDecrease(battle, ctx, amount, mark) {
   const { source, credit, target, dmg, kind = 'damage' } = ctx;
   if (!target.alive) return 0;
+  // ★ 八 卡兹戴尔 众魂大炮的命中资格（内容包接缝 content/portRules.js）。上游 v0.3.2 没有内容包，这条判据原先挂在
+  // 上游已删除的 damage.js `applyHpLoss` 里，合并后整条没接回来 —— 大炮打出来的派生伤害于是会打到亡魂、也会打到
+  // 别的玩家的友军。
+  // ★ 判据按**路径**分开，这是两条性质不同的东西：
+  //   * `kind === 'hpLoss'`（流失）：深度窗口内的一律按大炮算。实测一致 —— 大炮打死目标时 `damaged` 里触发的
+  //     `loseHp` 必须被拦，而「大炮自己生成亡魂 / 充能层数」的流失不在窗口里，照常放行。
+  //   * `kind === 'damage'`（普通伤害，含反伤）：**只认**这次伤害自己记着来自大炮（`kazdelCannonOwnerId` / tag /
+  //     来源是大炮），**不看深度** —— 反伤也发生在同一个窗口内，看深度会把 Mlynar 那条一起拦掉。
+  const cannonHit = kind === 'hpLoss'
+    ? kazdelCannonImmune(battle, source, target, dmg)
+    : kazdelCannonImmune(battle, source, target, dmg, { ignoreDepth: true });
+  if (cannonHit) return 0;
   // PRTS 特殊生命值机制 changes only the HP delta, not calculation, injury effects or damage-based riders.
   let hpAmount = amount;
   // [ASSUMED] HP loss retains the prior final-amount policy; native special-HP/loss interaction is unsettled (S46).

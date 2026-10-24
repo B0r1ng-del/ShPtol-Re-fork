@@ -33,6 +33,10 @@ export function startTinmanCoverage(battle, source, { key, x, y, radius, duratio
       held.set(target, refreshTinmanWither(battle, target, source, key, Infinity, mul));
     }
     if (regen > 0) for (const target of battle.alliesInRadius(x, y, radius, null)) {
+      // ★ 八 卡兹戴尔：锡人 S2 是**唯一**获准给亡魂治疗的来源（`kazdelSoulHeal`，content/portRules.js canReceiveHeal
+      // 的显式例外）。亡魂过不了 `allySelectable`（普通活人不能治它，它也不能治活人），所以必须在这里单独走一条
+      // 显式治疗；活人那一条照旧用 hpRegen buff，行为逐字节不变。
+      if (target.kazdelSoul) { battle.heal(source, target, regen, { tags: ['kazdelSoulHeal'], regen: true }); continue; }
       if (!battle.allySelectable(target, source)) continue;
       covered.add(target);
       if (!target.buffs.includes(held.get(target))) held.set(target,

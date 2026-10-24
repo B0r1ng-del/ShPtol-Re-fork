@@ -62,9 +62,14 @@ export function canReceiveHeal(source, target, opts = {}) {
 /**
  * 卡兹戴尔 众魂大炮: whether this hit may reach `target` at all. A cannon never harms another player's ally, and never
  * a 亡魂; missing provenance means the hit is refused rather than turned into team-wide friendly fire.
+ *
+ * `opts.ignoreDepth` —— **不看** `_kazdelCannonDamageDepth` 这个窗口，只认「这次伤害自己是否记着来自大炮」
+ * （`kazdelCannonOwnerId` / `kazdelCannon` 标记 / 来源就是大炮）。给通用 HP 减扣那类**公共**入口用：窗口开在整个
+ * `damaged` 事件期间，反伤 / 受击触发的普通伤害也在里面，按深度判会把它们当成大炮伤害一起拦掉。
  */
-export function kazdelCannonImmune(battle, source, target, dmg) {
-  const cannon = source?.kazdelCannon || dmg?.tags?.includes('kazdelCannon') || battle._kazdelCannonDamageDepth > 0;
+export function kazdelCannonImmune(battle, source, target, dmg, opts = {}) {
+  const cannon = source?.kazdelCannon || dmg?.tags?.includes('kazdelCannon')
+    || (opts.ignoreDepth !== true && battle._kazdelCannonDamageDepth > 0);
   if (!cannon) return false;
   const ownerId = kazdelCannonOwner(battle, source, dmg);
   return !!target?.kazdelSoul || (target?.side === 'ally' && (ownerId == null || target.ownerId !== ownerId));

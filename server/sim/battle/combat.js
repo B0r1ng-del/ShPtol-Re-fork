@@ -33,7 +33,16 @@ export class BattleCombat {
    * @returns {number}
    */
   dealDamage(source, target = undefined, dmg = undefined, opts = {}) {
-    try { return arguments.length === 1 ? attack.dealDamage(this, source) : legacyDamage(this, source, target, dmg, opts); } catch (e) { this._internalError('dealDamage', e); return 0; }
+    // ★ 八 卡兹戴尔：位置参数版也必须过 `cannonOrigin` —— 它负责在「来源确实是大炮」时把 kazdelCannon 标记写进这一帧
+    // 的 dmg，并开一个深度窗口，好让 `damaged` 里触发的派生效果（投射物 onHit、buff onTick/onExpire、延迟死亡区）
+    // 落地时仍认得出自己来自大炮。上游 v0.3.2 把这一层换成了裸 `legacyDamage`，`cannonOrigin` 于是成了没人调用的
+    // 死代码 —— 派生伤害全部被当成普通伤害，打到亡魂、也打到别的玩家的友军。
+    // 没有大炮参与的调用走 `run(dmg)` 原样分支，行为与从前逐字节相同。
+    try {
+      return arguments.length === 1
+        ? attack.dealDamage(this, source)
+        : cannonOrigin(this, source, dmg, (hit) => legacyDamage(this, source, target, hit, opts));
+    } catch (e) { this._internalError('dealDamage', e); return 0; }
   }
 
   /** @overload

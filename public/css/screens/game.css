@@ -483,6 +483,7 @@
 .gm__bonds { position: absolute; left: 0; top: 1.36rem; right: 0; pointer-events: none;
   display: flex; align-items: flex-start; justify-content: center; gap: max(.1rem, 8px); }
 .gm__bond-box { position: relative; display: flex; align-items: flex-start; min-width: 0; }
+.gm__bond-box.is-collapsed .bonds-toggle { right: auto; left: 50%; transform: translateX(-50%); }
 /* Only the bond discs (and the +N chip) take the pointer: the strip's box spans the width under the top bar, where the
    top board row's units stand (row 12 at 16:9 / 21:9 / 720p / phones, the boss field's row 5 in a boss prep) — it used
    to swallow the taps and drags on them (review of user playtest #2 item 8: every own unit reachable). */
@@ -666,8 +667,8 @@
   --bk-c: var(--mint-500);
   position: absolute; left: .26rem; top: calc(100% + max(.1rem, 8px)); z-index: 12;
   width: min(max(5.2rem, 32px, calc(340px * var(--sp-ui, 1))), calc(100vw - var(--sa-l, 0px) - var(--sa-r, 0px) - .48rem));
-  max-height: min(max(6.6rem, calc(280px * var(--sp-ui, 1))), calc(100vh - var(--combat-corner-height, 110px) - max(.9rem, calc(48px * var(--sp-ui, 1))) - .34rem - var(--sa-t, 0px) - var(--sa-b, 0px)));
-  max-height: min(max(6.6rem, calc(280px * var(--sp-ui, 1))), calc(100dvh - var(--combat-corner-height, 110px) - max(.9rem, calc(48px * var(--sp-ui, 1))) - .34rem - var(--sa-t, 0px) - var(--sa-b, 0px)));
+  max-height: min(max(6.6rem, calc(280px * var(--sp-ui, 1))), var(--combat-available-height, calc(100vh - var(--combat-anchor-bottom, 0px) - max(.9rem, calc(48px * var(--sp-ui, 1))) - .34rem - var(--sa-t, 0px) - var(--sa-b, 0px))));
+  max-height: min(max(6.6rem, calc(280px * var(--sp-ui, 1))), var(--combat-available-height, calc(100dvh - var(--combat-anchor-bottom, 0px) - max(.9rem, calc(48px * var(--sp-ui, 1))) - .34rem - var(--sa-t, 0px) - var(--sa-b, 0px))));
   display: flex; flex-direction: column; overflow: hidden;
   background: linear-gradient(180deg, rgba(28, 35, 32, .98), rgba(17, 21, 19, .98));
   border: 1px solid var(--line-2); border-top: 2px solid var(--mint-700);

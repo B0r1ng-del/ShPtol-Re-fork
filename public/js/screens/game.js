@@ -2069,12 +2069,14 @@ function MatchScreen() {
 
       <div class="ui-slot gm__ui-slot" data-ui-slot="hud.right" aria-label=${t('界面插件')} dangerouslySetInnerHTML=${{ __html: '' }}></div>
 
-      <div class="gm__corner">
+      <div class=${`gm__corner${chatOn && !chatOpen ? ' is-chat-folded' : ''}`}>
+        ${/* ★ `.is-chat-folded`（chat.css）把这一行整体抬高，给**收起的**聊天窗腾出位置。这一格与下面 corner 轮盘的
+             条件（`!chatOn || !chatOpen`）**必须同步**：只有「窗口开着且收起」才需要让位。 */ null}
         <${AiTakeoverPanel} />
         ${showMetrics && metricsOpen ? html`<${CombatMetricsPanel} myId=${myId} onClose=${() => setMetricsOpen(false)} />` : null}
-        ${/* 交流键 (fork 2026-10-17): with 在线聊天 off there is no chat window, so this corner copy is the wheel's ONLY home
-             — it must render unconditionally then; with the window on it moves into the window (see the ChatWindow below). */
-          spectator ? null : (!chatOn || !chatOpen) ? html`<${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen}
+        ${/* 交流键 (fork 2026-10-17): 两个家、同时只有一个。聊天窗开着但收起时（`chatOn && !chatOpen`）用这一份 corner
+             副本；聊天功能整体关掉时聊天窗根本不渲染，同一条件也覆盖了它（`!chatOn ⇒ !chatOpen`），所以轮盘永远有一个家。 */
+          spectator ? null : chatOn && !chatOpen ? html`<${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen}
             onSend=${(id, o) => (o && o.burst ? actions.emoteBurst(id) : actions.emote(id))} disabled=${conn.status !== 'online'} />` : null}
         ${/* 设置 / 玩法说明 / 全屏 / 作战统计 have exactly ONE home: the top bar's `tools` row (see the TopBar above).
              This corner used to carry a second copy of all four; with the chat window open it sat underneath it, and the
@@ -2095,6 +2097,9 @@ function MatchScreen() {
 
       ${/* ★ fork 的聊天弹幕飘落层（上游 v0.3.2 没有这个功能，合并时这一行丢了 —— 表情仍会发，但飘落层不渲染） */ ''}
       ${barrage ? html`<${EmoteBarrage} emotes=${emotes} myId=${myId} />` : null}
+      ${/* 聊天弹幕 (fork, 设置「聊天弹幕」): the room's lines cross the screen. Gated on the ROOM option too — with 在线聊天
+           off there are no `m.chat` lines to show anyway, and the settings row is not offered either. */
+        chatOn ? html`<${ChatBarrage} lines=${chatLines} room=${chatRoom} myId=${myId} on=${chatBarrage} />` : null}
 
       ${drawer ? html`<${EnemyDrawer} tab=${drawer} onTab=${setDrawer} pub=${pub} priv=${priv} onClose=${() => setDrawer(null)}
         bandId=${scoutBandId} bandOwner=${scoutBandOwner}

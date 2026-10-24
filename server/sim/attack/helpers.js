@@ -77,6 +77,11 @@ export function makeDamageInfo(d = {}) {
     // carries that ally, and the trait hook (professions.js installIncantation) heals it instead of the lowest-HP ally
     // in range. null = the ordinary target of the trait.
     traitAlly: d.traitAlly ?? null,
+    // ★ 八 卡兹戴尔 众魂大炮的归属（内容包接缝 content/portRules.js kazdelCannonOwner）。它必须**始终**在这个对象上，
+    // 哪怕是 null：派生效果（投射物 onHit / buff 回调 / 延迟死亡区 / 分裂流失）要靠这次伤害的原始归属判断
+    // 「能不能打到亡魂、能不能打到别的玩家的友军」。上游 v0.3.2 没有内容包，这一格在合并时整条丢了，于是派生伤害
+    // 全部被当成普通伤害。null = 这次伤害不属于任何大炮。
+    kazdelCannonOwnerId: d.kazdelCannonOwnerId ?? null,
     ...(d.origin != null ? { origin: d.origin } : {}),
     ...(d.dodgeMode != null ? { dodgeMode: d.dodgeMode } : {}),
     ...(d.calculation != null ? { calculation: d.calculation } : {}),
