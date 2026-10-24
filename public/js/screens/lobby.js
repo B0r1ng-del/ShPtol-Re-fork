@@ -16,7 +16,7 @@ import { TestMark } from '../ui/testConsole.js';
 import { ResumeMatchButton } from '../ui/resumeMatch.js';
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, ULTIMATE_SEATS, ULTIMATE_DIFFICULTY, ROOM_MODES, MAX_SPECTATORS, modeIdFor, ERR } from '../../../shared/constants.js';
-import { html, confirmDialog, Button, Icon, MicroLabel, Panel, TextField, PingPill, AvatarFrame, Tooltip, Spinner, DifficultyIcon, doctorNo } from '../ui/components.js';
+import { html, confirmDialog, Button, Icon, MicroLabel, Panel, TextField, PingPill, AvatarFrame, Tooltip, Spinner, DifficultyIcon, doctorNo, Modal } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { GuideButton } from '../ui/guide.js';
 import { openStats } from './stats.js';
@@ -31,6 +31,9 @@ import { store, useStore, shallowEqual, loadPref, savePref } from '../store.js';
 import { getConfig, getMode, getStage, useData } from '../data.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
 import { NoticesButton } from '../ui/notices.js';
+// 大厅背景与音乐 (from the old UI PR #643's keep list): the generated scenes / one's own picture, and the lobby BGM.
+import { useHubBackdrop, HubBackdrop, backdropTheme, BackdropSettings, BackdropGlyph } from '../ui/hubBackdrop.js';
+import { LobbyMusicButton } from '../ui/lobbyMusic.js';
 
 /** Official mode texts (activity_table act2autochess.modeDataDict), fallback when config.json is absent. */
 /**
@@ -327,6 +330,10 @@ export function LobbyScreen() {
   useData('config');
   // Forge 工坊按钮的地址（服务端给；本机带 key）。第一次渲染时还没问到 ⇒ 这一帧不画，问到了下一帧就有了。
   const [studioHref, setStudioHref] = useState(() => studioLinkUrl());
+  // 大厅背景 (from the old UI PR #643's keep list): the generated scenes or the player's own picture, and its dim /
+  // blur / overlay / motion settings — a localStorage pref, the picture itself in IndexedDB (never uploaded).
+  const bg = useHubBackdrop();
+  const [bgOpen, setBgOpen] = useState(false);
   useEffect(() => {
     if (studioHref) return undefined;
     let alive = true;
@@ -410,7 +417,8 @@ export function LobbyScreen() {
     store.set((s) => ({ session: { ...s.session, entered: false } }));
   };
 
-  return html`<div class="screen lobby-screen">
+  return html`<div class="screen lobby-screen lobby-hub" data-hub-theme=${backdropTheme(bg)}>
+    <${HubBackdrop} bg=${bg} />
     <header class="topbar">
       <div class="topbar__left">
         <${Button} variant="ghost" size="sm" icon="chevronLeft" onClick=${backToTitle} title=${t('返回标题')}>${t('返回')}<//>
@@ -420,6 +428,9 @@ export function LobbyScreen() {
           <${NoticesButton} />
           <${SettingsButton} class="lobby-settings" variant="secondary" square=${true} />
           <${GuideButton} class="lobby-guide" variant="secondary" square=${true} />
+          <${Button} variant="secondary" size="sm" square=${true} class="hub-bg-btn" onClick=${() => setBgOpen(true)}
+            title=${t('大厅背景')} aria-label=${t('大厅背景')}><${BackdropGlyph} /><//>
+          <${LobbyMusicButton} />
           ${/* Forge 工坊（需求方 2026-10-24）：跳**插件工作台** `/studio/`（不是 editor/ 那个独立进程）。
                地址由服务端的 `/api/studio-link` 给（本机带 key，局域网不带）；没有工作台时 `studioLinkUrl()` 是
                null，这一整个按钮就不画 —— 点了 404 的按钮不如不画。 */
@@ -504,5 +515,7 @@ export function LobbyScreen() {
       </section>
     </div>
     ${sweepOpen ? html`<${SweepReport} onClose=${() => setSweepOpen(false)} />` : null}
+    ${bgOpen ? html`<${Modal} open=${true} title=${t('大厅背景')} micro="LOBBY BACKDROP" width="min(24rem, calc(100vw - 2rem))"
+      onClose=${() => setBgOpen(false)}><${BackdropSettings} bg=${bg} /><//>` : null}
   </div>`;
 }

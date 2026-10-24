@@ -16,7 +16,7 @@
 // CONTENT_NOT_READY), and a plugin mode the host chose shows beside the difficulty.
 // Texts go through t() (docs/I18N.md).
 
-import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
+import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SPECTATORS, HOST_CONFIG_DEFAULTS, HOST_ENEMY_MAX_STEPS, HOST_ENEMY_STEP_PCT, MOD_DEFAULTS, normalizeEnemyBuff, roomSeatCap } from '../../../shared/constants.js';
 import { MOD_ROWS, MOD_RULE_ROWS, modsCount, rememberMods, splitByLength } from '../ui/mods.js';
 import { isAlignBlocked } from '../mods/align.js';
@@ -33,7 +33,12 @@ import { LoadoutButton } from './loadout.js';
 import { PluginTag, isModdedRoom } from '../ui/pluginTag.js';
 import { hasScriptConsent, rememberScriptConsent } from '../content.js';
 import { net } from '../net.js';
-import { store, useStore, shallowEqual, emptyMatch, isSpectating } from '../store.js';
+import { store, useStore, shallowEqual, emptyMatch, isSpectating, loadPref, savePref } from '../store.js';
+// 名片干员 (from the old UI PR #643's keep list): the portrait a doctor shows on the room's seat card.
+import { CARD_PREF, cardOperators, seatPortrait } from '../ui/seatArt.js';
+import { data, useData } from '../data.js';
+import { chessAvatarUrl } from '../ui/assetUrls.js';
+import { C2S } from '../../../shared/protocol.js';
 import { difficultyInfo } from './lobby.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
 
@@ -163,7 +168,38 @@ export function inviteLink(code) {
  */
 export { copyText };
 
-function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot, onKick }) {
+/** 名片干员: the pick, else one chosen by the player id — shared with the strategy draft's rows (ui/seatArt.js). */
+export { CARD_PREF, cardOperators, seatPortrait };
+/** The server takes room.card once its protocol knows it; before that the pick stays on this device. */
+export const CARD_SYNC = Object.hasOwn(C2S, 'room.card');
+
+/** 名片干员 picker: search, rarity, the operators' avatars; 默认 clears the pick. */
+function CardPicker({ current, list, m, onPick, onClose }) {
+  const [q, setQ] = useState('');
+  const [star, setStar] = useState(0);
+  const needle = q.trim().toLowerCase();
+  const shown = list.filter((c) => (!star || c.rarity === star) && (!needle || String(c.name || '').toLowerCase().includes(needle)
+    || String(c.appellation || '').toLowerCase().includes(needle)));
+  return html`<${Modal} open=${true} title=${t('名片干员')} micro="SEAT CARD" onClose=${onClose} width="min(9.6rem, 94vw)" class="cardpick">
+    <div class="cardpick__bar">
+      <label class="cardpick__search"><${Icon} name="search" /><input type="search" value=${q} placeholder=${t('搜索干员')} onInput=${(e) => setQ(e.currentTarget.value)} /></label>
+      <div class="cardpick__stars" role="radiogroup" aria-label=${t('稀有度')}>
+        ${[[0, t('全部')], [6, '6★'], [5, '5★'], [4, '4★']].map(([v, label]) => html`<button key=${v} type="button" role="radio" aria-checked=${star === v ? 'true' : 'false'}
+          class=${star === v ? 'is-on' : ''} onClick=${() => setStar(v)}>${label}</button>`)}
+      </div>
+    </div>
+    <div class="cardpick__grid">
+      <button type="button" class=${`cardpick__op cardpick__op--auto${!current ? ' is-on' : ''}`} onClick=${() => onPick('')} title=${t('按博士编号自动分配')}>
+        <span class="cardpick__img"><${Icon} name="refresh" /></span><span class="cardpick__name">${t('默认')}</span></button>
+      ${shown.map((c) => html`<button key=${c.charId} type="button" class=${`cardpick__op${current === c.charId ? ' is-on' : ''}`} onClick=${() => onPick(c.charId)} title=${c.name}>
+        <span class="cardpick__img"><img src=${chessAvatarUrl(m, c)} alt="" loading="lazy" draggable=${false} /></span>
+        <span class="cardpick__name">${c.name}</span>${c.rarity ? html`<span class=${`cardpick__star r${c.rarity}`}>${c.rarity}★</span>` : null}</button>`)}
+    </div>
+    <p class="cardpick__note"><${Icon} name="info" />${CARD_SYNC ? t('选择后，同盟里的博士都会看到这张立绘') : t('目前只有你自己看得到；服务器下次更新后，同盟里的其他博士也能看到你的选择')}</p>
+  <//>`;
+}
+
+function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot, onKick, portraits = null, onPickCard = null }) {
   const coop = room.mode !== 'solo';
   if (!seat) {
     const canAdd = coop && facts.isHost;
@@ -187,6 +223,9 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
   const offline = seat.connected === false && !seat.isBot;
   // The host never needs to toggle ready: starting the match readies them (server rule).
   const state = offline ? 'offline' : seat.ready || seat.isBot ? 'ready' : isHostSeat ? 'host' : 'waiting';
+  // 名片干员: the picked operator's portrait, else one chosen by the player id (the same on every client)
+  const cardSrc = seat.isBot || !portraits ? null : seatPortrait(seat, portraits);
+  const canPick = isMe && !seat.isBot && !!onPickCard;
   return html`<article class=${`seat brackets${isMe ? ' is-me' : ''}${isHostSeat ? ' is-host' : ''}${seat.isBot ? ' is-bot' : ''} is-${state}`}
       style=${`--seat-i:${index}`}>
     ${consent ? html`<span data-testid="script-consented">${t('已同意')}</span>` : null}
@@ -195,9 +234,10 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
       <${MicroLabel}>SEAT ${String(index + 1).padStart(2, '0')}<//>
       ${isHostSeat ? html`<span class="seat__host"><${Icon} name="crown" />${t('创建者')}</span>` : null}
     </header>
-    <div class="seat__art">
+    <div class=${`seat__art${canPick ? ' is-pickable' : ''}`} onClick=${canPick ? onPickCard : undefined}
+        title=${canPick ? t('点击更换名片干员') : undefined}>
       <div class="seat__stripes" aria-hidden="true"></div>
-      <${AvatarFrame} size="xl" name=${seat.name} seat=${index} bot=${seat.isBot} self=${isMe} ready=${state === 'ready'} offline=${offline} />
+      <${AvatarFrame} size="xl" name=${seat.name} src=${cardSrc} seat=${index} bot=${seat.isBot} self=${isMe} ready=${state === 'ready'} offline=${offline} />
       ${seat.isBot ? html`<span class="seat__bot-label"><${Icon} name="robot" />${t('AI 队友')}</span>` : null}
     </div>
     <div class="seat__who">
@@ -526,6 +566,11 @@ export function RoomScreen() {
   const [cfgOpen, setCfgOpen] = useState(false);
   // 对齐到房间那套包 (W-D)：`RoomModsPanel` 把结论交回这里，`alignBlocked` 是唯一的门（准备就绪与开始模拟都读它）
   const [align, setAlign] = useState(null);
+  // 名片干员: the pick is a localStorage pref; 默认 ('' ) means 「按博士编号自动分配」
+  useData('chess', 'assets');
+  const [myCard, setMyCard] = useState(() => { const v = loadPref(CARD_PREF, ''); return typeof v === 'string' ? v : ''; });
+  const [picking, setPicking] = useState(false);
+  const pickCard = (charId) => { setMyCard(charId); savePref(CARD_PREF, charId); setPicking(false); };
   const alive = useRef(true);
   const inFlight = useRef(false); // synchronous guard against double clicks (state updates are async)
   useEffect(() => () => { alive.current = false; }, []);
@@ -537,6 +582,19 @@ export function RoomScreen() {
   const facts = roomFacts(room, me.playerId);
   const myReady = !!facts.mine?.ready;
   const info = difficultyInfo(room.mode, room.difficulty);
+  // 名片干员: the pickable operators, the default pool (5★/6★ by charId, the same order on every client), one's pick
+  const cardList = useMemo(() => cardOperators(data.list('chess')), [data.get('chess')]);
+  const portraits = useMemo(() => ({
+    pool: cardList.filter((c) => (c.rarity ?? 0) >= 5).sort((a, b) => (a.charId < b.charId ? -1 : 1)),
+    byChar: new Map(cardList.map((c) => [c.charId, c])), m: data.get('assets'), myId: me.playerId, myCard,
+  }), [cardList, myCard, me.playerId]);
+  // tell the server (teammates see it) once it knows room.card; a refused id stays local
+  const seatCard = facts.mine?.card || '';
+  useEffect(() => {
+    if (!CARD_SYNC || conn.status !== 'online' || seatCard === (myCard || '')) return;
+    if (myCard && !portraits.byChar.has(myCard)) return;
+    net.request('room.card', { charId: myCard || '' }).catch(() => {});
+  }, [room?.code, myCard, seatCard, conn.status]);
   // 房主配置 (null in a single-seat room: nothing to share with, so neither the button nor the dialog renders)
   const cfgRows = hostConfigPanel(room, me.playerId);
   // 对局选项 (room.setEnemyBuff): the four enemy-buff sliders, shown in EVERY mode (no solo gate — a buff on one's own
@@ -665,7 +723,8 @@ export function RoomScreen() {
 
     <main class=${`seats${coop ? '' : ' seats--solo'}${room.mode === 'ultimate' ? ' seats--ultimate' : ''}`}>
       ${facts.seats.map((s, i) => html`<${SeatCard} key=${s ? `p${s.playerId}` : `e${i}`} seat=${s} index=${i} room=${room} facts=${facts}
-        myId=${me.playerId} busy=${busy} onAddBot=${addBot} onRemoveBot=${removeBot} onKick=${kick} />`)}
+        myId=${me.playerId} busy=${busy} onAddBot=${addBot} onRemoveBot=${removeBot} onKick=${kick}
+        portraits=${portraits} onPickCard=${() => setPicking(true)} />`)}
       ${coop ? null : html`<aside class="solo-brief brackets">
         <${MicroLabel} tone="mint">BRIEFING<//>
         <h2>${DIFFICULTY_NAMES[room.difficulty] ? t(DIFFICULTY_NAMES[room.difficulty]) : ''}<span class="num t-dim"> ${info.code}</span></h2>
@@ -680,6 +739,8 @@ export function RoomScreen() {
     </main>
     <${SpectatorBar} facts=${facts} myId=${me.playerId} busy=${busy} onRemove=${removeSpectator} onSit=${sit} />
     <${RoomModsPanel} room=${room} myId=${me.playerId} onAlignment=${setAlign} />
+    ${picking ? html`<${CardPicker} current=${myCard} list=${cardList} m=${data.get('assets')}
+      onPick=${pickCard} onClose=${() => setPicking(false)} />` : null}
 
     <footer class="room-bar">
       <div class="room-bar__left">
