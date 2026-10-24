@@ -362,13 +362,18 @@ function DeckView({ m, list, getChess, st, selId, onPick, onDiy, diySlots, diyPi
   const groups = TIERS.map((tier) => ({ tier, items: list.filter((c) => c.tier === tier) }))
     .filter((g) => g.items.length || (!filtered && diySlots.some((s) => s.tier === g.tier)));
   const dragScroll = useDragScroll();
-  // 底部阶位栏的跳转: scroll the deck sideways to that tier's marker. `jumpTo` is the tier the bar asked for; the effect
-  // keys on it so asking for the same tier twice still scrolls (the value is bumped in the screen's onJump).
+  // 底部阶位栏的跳转: scroll the deck sideways to that tier's marker. `jumpTo` is the tier the bar asked for and its `seq`
+  // bumps on every click, so asking for the same tier twice still scrolls.
+  // ★ offsets are measured with getBoundingClientRect against the SCROLLER: `offsetLeft` is relative to `offsetParent`, and
+  // `.lo-deck` is `position: relative`, so the two differ by the deck's own padding — the first version scrolled to the
+  // wrong place, which read as 「点了没反应」.
   useEffect(() => {
     if (!jumpTo || !deckRef.current) return;
     const el = deckRef.current;
     const sec = el.querySelector(`.lo-tgroup[data-tier="${jumpTo.tier}"]`);
-    if (sec) el.scrollTo({ left: sec.offsetLeft - el.offsetLeft - 12, behavior: 'smooth' });
+    if (!sec) return;
+    const left = sec.getBoundingClientRect().left - el.getBoundingClientRect().left + el.scrollLeft;
+    el.scrollTo({ left: Math.max(0, left - 12), behavior: 'smooth' });
   }, [jumpTo]);
   const onWheel = (e) => {
     const el = e.currentTarget;
