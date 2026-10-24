@@ -2674,5 +2674,16 @@
   " + 隐秘核心": " + Hidden Core",
   "更换立绘": "Change portrait",
   "卫戍协议：盟约": "Stronghold Protocol: Alliance",
-  "密钥加入": "Join with a key"
+  "密钥加入": "Join with a key",
+  "物资调配": "Dispatch",
+  "上一件": "Previous item",
+  "下一件": "Next item",
+  "售价": "Price",
+  "基础效果": "Base effect",
+  "进阶效果": "Advanced effect",
+  "基础 & 进阶效果": "Base & advanced effect",
+  "特殊获取": "Special acquisition",
+  "装备一览": "Equipment list",
+  "装备数据载入中…": "Loading equipment…",
+  "{tier}阶 还有 {n} 个自选名额": "Tier {tier}: {n} picks left"
 }

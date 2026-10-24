@@ -25,7 +25,11 @@ test('两个视图都在，且选择记在本机', () => {
   assert.match(src, /const VIEW_PREF = 'loadout\.view'/);
   assert.match(src, /export const loadoutViewPref = \(\) => \(loadPref\(VIEW_PREF, 'deck'\) === 'list' \? 'list' : 'deck'\)/);
   // 两个分支都渲染：deck 走 DeckView，list 走 RosterRow
-  assert.match(src, /view === 'deck' \? html`<\$\{DeckView\}/);
+  // the deck branch now holds two tabs: 干员 (DeckView) and 道具 (ItemCodex), plus the bottom bar
+  assert.match(src, /view === 'deck' \? html`\$\{deckTab === 'items'/);
+  assert.match(src, /<\\?\$\{DeckView\}/);
+  assert.match(src, /<\\?\$\{ItemCodex\}/, '道具 tab');
+  assert.match(src, /<\\?\$\{DeckBar\}/, '底部阶位栏');
   assert.match(src, /<\\?\$\{RosterRow\}/);
   // 切换时写回偏好
   assert.match(src, /const setView = \(v\) => \{ setViewState\(v\); savePref\(VIEW_PREF, v\); \}/);
@@ -71,8 +75,42 @@ test('甄选干员卡只在 5 / 6 阶，筛选时不出现', () => {
   assert.match(src, /\$\{!filtered \? html`<\\?\$\{DiyDeckCard\}/);
 });
 
-test('★ 卡片视图不碰服务端：没有新协议消息，也不发请求', () => {
+test('道具图鉴：只列可买的装备，按阶位分组，点开看基础 / 进阶效果', async () => {
+  const { codexItems } = await import('../../public/js/screens/loadout.js');
+  const items = {
+    a: { id: 'a', itemType: 'EQUIP', tier: 1, price: 2, name: 'A' },
+    hidden: { id: 'hidden', itemType: 'EQUIP', tier: 1, hideInShop: true },
+    golden: { id: 'golden', itemType: 'EQUIP', tier: 2, isGolden: true },
+    consume: { id: 'consume', itemType: 'CONSUME', tier: 1 },
+    b: { id: 'b', itemType: 'EQUIP', tier: 2, price: 4, name: 'B' },
+  };
+  assert.deepEqual(codexItems(items).map((x) => x.id), ['a', 'b'], '只留可买的装备，按阶位排序');
+  assert.deepEqual(codexItems(null), [], '没有数据时是空列表');
+
   const src = read('public/js/screens/loadout.js');
+  const i = src.indexOf('function ItemCodex(');
+  const body = src.slice(i, src.indexOf('function ItemDetail(', i));
+  assert.match(body, /TIERS\.map\(\(tier\) => \(\{ tier, items: items\.filter\(\(x\) => x\.tier === tier\) \}\)\)/, '按阶位分组');
+  assert.match(body, /onClick=\$\{\(\) => onOpen\(idx\)\}/, '点开详情');
+  const d = src.indexOf('function ItemDetail(');
+  const detail = src.slice(d, src.indexOf('function DeckBar(', d));
+  assert.match(detail, /基础 & 进阶效果|基础效果/, '基础效果标题');
+  assert.match(detail, /进阶效果/, '进阶效果');
+  assert.match(detail, /it\.goldenId \? all\?\.\[it\.goldenId\]/, '进阶形态按 goldenId 取');
+});
+
+test('底部阶位栏：干员 / 道具切换 + 跳阶位', () => {
+  const src = read('public/js/screens/loadout.js');
+  const i = src.indexOf('function DeckBar(');
+  const body = src.slice(i, src.indexOf('// ---- detail', i));
+  assert.match(body, /role="tablist"/, '两个 tab');
+  assert.match(body, /onDeckTab\('ops'\)/);
+  assert.match(body, /onDeckTab\('items'\)/);
+  assert.match(body, /disabled=\$\{!counts\[tier\]\}/, '空阶位不可跳');
+  assert.match(body, /onClick=\$\{\(\) => onJump\(tier\)\}/);
+});
+
+test('★ 卡片视图不碰服务端：没有新协议消息，也不发请求', () => {  const src = read('public/js/screens/loadout.js');
   const i = src.indexOf('// ---- 物资调配处 deck');
   assert.ok(i > 0, 'deck 段在');
   const deck = src.slice(i, src.indexOf('// ---- detail', i));

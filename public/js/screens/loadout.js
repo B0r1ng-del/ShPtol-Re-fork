@@ -27,7 +27,7 @@
 import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, MicroLabel, Button, TierChip, TextField, Countdown, Spinner, confirmDialog, hasDeadline, Modal, Fragment, Tooltip } from '../ui/components.js';
 import { Img, RichText, UnitThumb } from '../ui/gameComponents.js';
-import { chessAvatarUrl, chessPortraitUrl, subProfIconUrl, bondIconUrl, moduleTypeIconUrl } from '../ui/assetUrls.js';
+import { chessAvatarUrl, chessPortraitUrl, subProfIconUrl, bondIconUrl, moduleTypeIconUrl, itemIconUrl } from '../ui/assetUrls.js';
 import { GarrisonBlock } from '../ui/detailPanel.js';
 import { modComponent } from '../ui/modComponents.js';
 import { data, useData, localAsset, DATA_FILES } from '../data.js';
@@ -386,6 +386,102 @@ function DeckView({ m, list, getChess, st, selId, onPick, onDiy, diySlots, diyPi
   </div>`;
 }
 
+/** The equipment of the codex: this game's shop items (data/items.json), base forms, by tier then shop order. */
+export function codexItems(items) {
+  return Object.values(items || {})
+    .filter((x) => x && !x.isGolden && x.itemType === 'EQUIP' && !x.hideInShop)
+    .sort((a, b) => (a.tier ?? 0) - (b.tier ?? 0) || (a.shopSortId ?? 0) - (b.shopSortId ?? 0));
+}
+
+/** 道具: the equipment codex — a tile per item (icon, tier, name, base effect), grouped by tier; a tile opens ItemDetail. */
+function ItemCodex({ m, items, deckRef, onOpen, onTier }) {
+  const groups = TIERS.map((tier) => ({ tier, items: items.filter((x) => x.tier === tier) })).filter((g) => g.items.length);
+  const raf = useRef(0);
+  const dragScroll = useDragScroll();
+  const onScroll = (e) => {
+    const el = e.currentTarget;
+    cancelAnimationFrame(raf.current);
+    raf.current = requestAnimationFrame(() => {
+      const left = el.getBoundingClientRect().left + 24;
+      let cur = groups[0]?.tier || 1;
+      for (const sec of el.querySelectorAll('.lo-tgroup')) if (sec.getBoundingClientRect().left <= left) cur = Number(sec.dataset.tier);
+      onTier(cur);
+    });
+  };
+  const onWheel = (e) => {
+    if (e.ctrlKey || Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
+    e.currentTarget.scrollLeft += e.deltaY;
+    e.preventDefault();
+  };
+  if (!items.length) return html`<div class="lo-deck lo-deck--empty" ref=${deckRef}><p class="lo-empty t-dim">${t('装备数据载入中…')}</p></div>`;
+  let n = -1;
+  return html`<div class="lo-deck lo-deck--items" ref=${deckRef} onScroll=${onScroll} onWheel=${onWheel} ...${dragScroll} role="list" aria-label=${t('装备一览')}>
+    ${groups.map((g) => html`<section key=${g.tier} class=${cx('lo-tgroup', `lo-tgroup--t${g.tier}`)} data-tier=${g.tier}>
+      <div class=${cx('lo-tmark', `tier--${g.tier}`)} aria-hidden="true">
+        <span class="lo-tmark__no">NO.</span><b class="lo-tmark__n">${ROMAN[g.tier]}</b><span class="lo-tmark__cnt num">${g.items.length}</span>
+      </div>
+      <div class="lo-igrid">${g.items.map((it) => { n += 1; const idx = n; return html`<button key=${it.id} type="button" role="listitem" class="lo-item" data-item=${it.id} onClick=${() => onOpen(idx)}>
+        <span class="lo-item__icon"><${Img} src=${itemIconUrl(m, it)} fallback=${html`<${Icon} name="box" />`} /></span>
+        <span class="lo-item__body">
+          <span class="lo-item__head"><${TierChip} tier=${it.tier} size="sm" /><b class="lo-item__name">${it.name}</b></span>
+          <${RichText} class="lo-item__desc" text=${it.descRaw || it.desc || ''} />
+        </span>
+        ${it.shopExcluded ? html`<span class="lo-item__tag">${t('特殊获取')}</span>` : null}
+        <span class="lo-item__zoom" aria-hidden="true"><${Icon} name="search" /></span>
+      </button>`; })}</div>
+    </section>`)}
+  </div>`;
+}
+
+/** One item, base and advanced (the merged golden form), its flavour text and price; ‹ / › browse the codex. */
+function ItemDetail({ m, items, index, all, onIndex, onClose }) {
+  const it = items[index];
+  if (!it) return null;
+  const adv = it.goldenId ? all?.[it.goldenId] : null;
+  const same = adv && (adv.descRaw || adv.desc) === (it.descRaw || it.desc);
+  const go = (d) => onIndex((index + d + items.length) % items.length);
+  return html`<div class="lo-idetail" role="dialog" aria-modal="true" aria-label=${it.name} onMouseDown=${(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <button type="button" class="lo-idetail__nav is-prev" onClick=${() => go(-1)} aria-label=${t('上一件')}><${Icon} name="chevronLeft" /></button>
+    <div class="lo-idetail__box">
+      <button type="button" class="lo-idetail__close" onClick=${onClose} aria-label=${t('关闭')}><${Icon} name="close" /></button>
+      <header class="lo-idetail__head"><${TierChip} tier=${it.tier} size="md" /><h3>${it.name}</h3>
+        <span class="lo-idetail__price">${t('售价')} <b class="num">${it.price ?? '—'}</b></span>
+        ${it.shopExcluded ? html`<span class="lo-item__tag">${t('特殊获取')}</span>` : null}</header>
+      <div class="lo-idetail__main">
+        <span class="lo-idetail__icon"><${Img} src=${itemIconUrl(m, it)} fallback=${html`<${Icon} name="box" />`} /></span>
+        <div class="lo-idetail__text">
+          <span class="lo-idetail__chip">${same ? t('基础 & 进阶效果') : t('基础效果')}</span>
+          <${RichText} as="p" class="lo-idetail__eff" text=${it.descRaw || it.desc || ''} />
+          ${adv && !same ? html`<span class="lo-idetail__chip is-adv">${t('进阶效果')}</span>
+            <${RichText} as="p" class="lo-idetail__eff" text=${adv.descRaw || adv.desc || ''} />` : null}
+          ${it.flavor ? html`<p class="lo-idetail__flavor">${it.flavor}</p>` : null}
+        </div>
+      </div>
+      <footer class="lo-idetail__foot num">${index + 1} / ${items.length}</footer>
+    </div>
+    <button type="button" class="lo-idetail__nav is-next" onClick=${() => go(1)} aria-label=${t('下一件')}><${Icon} name="chevronRight" /></button>
+  </div>`;
+}
+
+/** The deck's bottom bar: 干员 / 道具, jump to a tier (the 自选 slots still open above 5 / 6). */
+function DeckBar({ deckTab, onDeckTab, counts, active, onJump, diyOpen }) {
+  return html`<nav class="lo-bbar" aria-label=${t('物资调配')}>
+    <div class="lo-bbar__seg" role="tablist">
+      <button type="button" role="tab" aria-selected=${deckTab === 'ops' ? 'true' : 'false'} class=${cx(deckTab === 'ops' && 'is-on')} onClick=${() => onDeckTab('ops')}>
+        <${Icon} name="users" />${t('干员')}</button>
+      <button type="button" role="tab" aria-selected=${deckTab === 'items' ? 'true' : 'false'} class=${cx(deckTab === 'items' && 'is-on')} onClick=${() => onDeckTab('items')}>
+        <${Icon} name="box" />${t('道具')}</button>
+    </div>
+    <div class="lo-bbar__tiers">
+      ${TIERS.map((tier) => html`<button key=${tier} type="button" class=${cx('lo-bbar__tier', active === tier && 'is-on')} disabled=${!counts[tier]}
+          onClick=${() => onJump(tier)} title=${t('{tier}阶', { tier })}>
+        ${deckTab === 'ops' && diyOpen[tier] ? html`<span class="lo-bbar__diy" title=${t('{tier}阶 还有 {n} 个自选名额', { tier, n: diyOpen[tier] })}><${Icon} name="user" /><b class="num">${diyOpen[tier]}</b></span>` : null}
+        <span class="lo-bbar__roman num">${ROMAN[tier]}</span><span>${t('{tier}阶', { tier })}</span>
+      </button>`)}
+    </div>
+  </nav>`;
+}
+
 // ---- detail --------------------------------------------------------------------------------------------------------------
 
 /** The same attribute records and rich-text renderer as the in-match card, including literal trigger markers. */
@@ -680,6 +776,10 @@ function LoadoutScreen({ st }) {
   // 物资调配处 deck / 对齐列表 — a per-browser view pref (from the old UI PR #643's keep list)
   const [view, setViewState] = useState(loadoutViewPref);
   const setView = (v) => { setViewState(v); savePref(VIEW_PREF, v); };
+  // 干员 / 道具 (the deck's two tabs), the tier the deck is scrolled to, and the open equipment sheet
+  const [deckTab, setDeckTab] = useState('ops');
+  const [deckTier, setDeckTier] = useState(1);
+  const [itemOpen, setItemOpen] = useState(null);
   const fileRef = useRef(null);                            // hidden <input type=file> of the 导入 dialog
   const [narrowDetail, setNarrowDetail] = useState(false); // phones: the detail slides over the roster
   // the detail's 普通 / 精锐 skill toggle: one preview for its skills, its 特质 and the rows' skill details (display only)
@@ -913,9 +1013,15 @@ function LoadoutScreen({ st }) {
             onClick=${() => setView(id)}>${label}</button>`)}
         </div>
         <div class="lo-list" ref=${gridRef}>
-          ${view === 'deck' ? html`<${DeckView} m=${m} list=${list} getChess=${getChess} st=${st} selId=${selId} onPick=${pick}
-            onDiy=${() => setTab('diy')} diySlots=${diySlotList(diyData())} diyPicks=${st.diy} deckRef=${gridRef}
-            filtered=${!!(st.filters?.q || st.filters?.bond || st.filters?.tier)} />`
+          ${view === 'deck' ? html`${deckTab === 'items'
+            ? html`<${ItemCodex} m=${m} items=${codexItems(data.get('items'))} deckRef=${gridRef}
+                onOpen=${(i) => setItemOpen(i)} onTier=${setDeckTier} />`
+            : html`<${DeckView} m=${m} list=${list} getChess=${getChess} st=${st} selId=${selId} onPick=${pick}
+                onDiy=${() => setTab('diy')} diySlots=${diySlotList(diyData())} diyPicks=${st.diy} deckRef=${gridRef}
+                filtered=${!!(st.filters?.q || st.filters?.bond || st.filters?.tier)} />`}
+            <${DeckBar} deckTab=${deckTab} onDeckTab=${setDeckTab} active=${deckTier} onJump=${setDeckTier}
+              counts=${Object.fromEntries(TIERS.map((x) => [x, list.filter((c) => c.tier === x).length]))}
+              diyOpen=${Object.fromEntries(TIERS.map((x) => [x, diySlotList(diyData()).filter((s) => s.tier === x && !(st.diy || {})[s.slotId]).length]))} />`
           : html`<${RosterHead} />
           <div class="lo-list__rows" role="list" aria-label=${t('干员列表')}>
             ${list.length ? list.map((c) => html`<${RosterRow} key=${c.chessId} m=${m} chess=${c} golden=${c.goldenId ? getChess(c.goldenId) : null}
@@ -932,6 +1038,8 @@ function LoadoutScreen({ st }) {
       </div>
     </main>`}
   </div>
+  ${itemOpen != null ? html`<${ItemDetail} m=${m} items=${codexItems(data.get('items'))} all=${data.get('items')}
+    index=${itemOpen} onIndex=${setItemOpen} onClose=${() => setItemOpen(null)} />` : null}
   ${io ? html`<${Modal} open=${true} onClose=${() => setIo(null)}
       title=${ioDiy ? t(io.mode === 'export' ? '导出自选编队' : '导入自选编队')
         : io.mode === 'export' ? (ioOwn ? t('导出干员持有') : t('导出干员调配')) : (ioOwn ? t('导入干员持有') : t('导入干员调配'))}
