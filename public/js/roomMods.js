@@ -126,13 +126,13 @@ export function clearSelection() { selectedModIds = []; }
  * the server declared one. `modIds` is the host's picks and is added only when there is at least one: an empty pick
  * means "declare nothing", which is the same message as omitting the field (and the default behaviour must not change).
  * @param {string} mode @param {string} difficulty
- * @returns {{ mode: string, difficulty: string, mods?: string, modIds?: string[] }}
+ * @returns {{ mode: string, difficulty: string, modDigest?: string, modIds?: string[] }}
  */
 export function buildCreatePayload(mode, difficulty) {
-  /** @type {{ mode: string, difficulty: string, mods?: string, modIds?: string[] }} */
+  /** @type {{ mode: string, difficulty: string, modDigest?: string, modIds?: string[] }} */
   const fields = { mode, difficulty };
   if (welcomeModSet) {
-    fields.mods = welcomeModSet.digest;
+    fields.modDigest = welcomeModSet.digest;
     if (selectedModIds.length) fields.modIds = selectedModIds.slice();
   }
   return fields;
@@ -149,13 +149,13 @@ export function buildCreatePayload(mode, difficulty) {
  * 它只在 `welcome` 报过模组集合时才可能出现 —— 没有包的服务器上 `modSet` 是 `null`，房间也就无法声明任何集合
  * （`resolveRoomModSet` 只收这台机器装载过的 id），所以那条拒绝在纯安装上不存在，这个键也永远不出现。
  * @param {string} code @param {{ consent?: boolean }} [opts]
- * @returns {{ code: string, mods?: string, consent?: true }}
+ * @returns {{ code: string, modDigest?: string, consent?: true }}
  */
 export function buildJoinPayload(code, { consent = false } = {}) {
-  /** @type {{ code: string, mods?: string, consent?: true }} */
+  /** @type {{ code: string, modDigest?: string, consent?: true }} */
   const fields = { code };
   if (welcomeModSet) {
-    fields.mods = welcomeModSet.digest;
+    fields.modDigest = welcomeModSet.digest;
     if (consent === true) fields.consent = true;
   }
   return fields;
@@ -178,7 +178,7 @@ export function isConsentRefusal(err) {
  * 这里只负责**重发什么**。
  * @param {any} err 那一条拒绝
  * @param {string} code
- * @returns {{ code: string, mods?: string, consent?: true }|null} `null` = 不是这条拒绝，调用方原样抛
+ * @returns {{ code: string, modDigest?: string, consent?: true }|null} `null` = 不是这条拒绝，调用方原样抛
  */
 export function consentRetryPayload(err, code) {
   if (!isConsentRefusal(err)) return null;
