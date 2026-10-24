@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { KITTED_CHARS, OPERATOR_KITS, KITS } from '../../server/sim/content/kits/index.js';
 import { diyPool, validateDiyPicks } from '../../shared/diy.js';
+import { diyPoolSource, shippedPool } from '../helpers/diyPoolSource.js';
 
 const load = (f) => JSON.parse(readFileSync(new URL(`../../data/${f}.json`, import.meta.url), 'utf8'));
 const CHESS = load('chess');
@@ -37,7 +38,8 @@ const label = ([tier, elite, mod]) => `T${tier} ${elite ? 'elite' : 'normal'} ${
 /** A battle with 伊芙利特 as uid 1 at (row, col) facing RIGHT (her line: that row, col … col + 5), plus `others`. */
 function field({ tier = 5, elite = false, mod = null, skill = 0, row = 10, col = 4, others = [], seed = 5, flags = {} } = {}) {
   const h = makeBattle({
-    defs: { enemies: ENEMIES }, timeLimit: 900, autoFinish: false, seed,
+    data: diyPoolSource(IFRIT, { bonds: ['emptyShip'], raw: { enemies: ENEMIES } }),
+    timeLimit: 900, autoFinish: false, seed,
     flags: { dpPerSec: 0, dpMax: 999, ...flags }, hooks: ['damaged', 'skillStart', 'skillEnd', 'statusApplied', 'spGain'], captureNoisy: true,
     units: [{ uid: 1, diy: { slot: SLOT[tier], charId: IFRIT, skillIndex: skill, uniEquipId: mod }, elite, row, col }, ...others],
   });
@@ -62,7 +64,7 @@ test('伊芙利特 in every 自选 form: her operator kit (all three skills auth
       assert.deepEqual([u.base.maxHp, u.base.atk, u.base.def, u.base.aspd], [form.stats.maxHp + (m?.attr.maxHp ?? 0), form.stats.atk + (m?.attr.atk ?? 0), form.stats.def + (m?.attr.def ?? 0), 100 + (m?.attr.aspd ?? 0)], `${label(f)}: stats`);
       assert.deepEqual([u.profile.attack, u.profile.dmgType, u.profile.canHitFly, u.profile.allInRange, u.profile.projectile, u.base.bat], ['ranged', 'arts', true, true, 'beam', 2.9], `${label(f)}: 轰击术师`);
       assert.deepEqual(u.liveRangeGrid, form.rangeGrid, `${label(f)}: 5-1`);
-      assert.deepEqual([u.def.bonds, u.def.raw.garrisonIds], [BACKUPS.diy.operators[IFRIT].bonds, []], `${label(f)}: bonds / 特质`);
+      assert.deepEqual([u.def.bonds, u.def.raw.garrisonIds], [["emptyShip"], []], `${label(f)}: bonds / 特质`);
       assert.ok(!u.s.flags.liftoff && !u.s.flags.camou && !u.s.flags.stealth, `${label(f)}: enemies target her`);
       done(h);
     }
@@ -73,7 +75,8 @@ test('伊芙利特 in every 自选 form: her operator kit (all three skills auth
 });
 
 test('a 自选 pick: 伊芙利特 is offered at tiers 5 and 6 (she has a kit) and a roster with her passes validateDiyPicks', () => {
-  const data = { chess: CHESS, backups: BACKUPS };
+  assert.equal(shippedPool.includes(IFRIT), false, 'the shipped pool does not offer him (he is a chess piece)');
+  const data = diyPoolSource(IFRIT, { bonds: ['emptyShip'] });
   assert.ok(KITTED_CHARS.includes(IFRIT));
   for (const t of [5, 6]) assert.ok(diyPool(t, { data, kitted: KITTED_CHARS }).includes(IFRIT), `tier ${t}`);
   assert.deepEqual(validateDiyPicks({ [SLOT[6]]: { charId: IFRIT, skillIndex: 2, uniEquipId: BLAD } }, { data, kitted: KITTED_CHARS }),

@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { KITTED_CHARS, OPERATOR_KITS, KITS } from '../../server/sim/content/kits/index.js';
 import { diyPool, validateDiyPicks } from '../../shared/diy.js';
+import { diyPoolSource, shippedPool } from '../helpers/diyPoolSource.js';
 
 const load = (f) => JSON.parse(readFileSync(new URL(`../../data/${f}.json`, import.meta.url), 'utf8'));
 const CHESS = load('chess');
@@ -38,7 +39,8 @@ const FORMS_ALL = [[5, false, null], [6, false, null], ...[5, 6].flatMap((t) => 
 /** A battle with 赫德雷 as uid 1 at (row, col) facing RIGHT, plus `others`. */
 function field({ tier = 5, elite = false, mod = null, skill = 0, row = 10, col = 5, others = [], seed = 5, noSp = false } = {}) {
   const h = makeBattle({
-    defs: { enemies: ENEMIES }, timeLimit: 900, autoFinish: false, seed,
+    data: diyPoolSource(HOD, { bonds: ['emptyShip'], raw: { enemies: ENEMIES } }),
+    timeLimit: 900, autoFinish: false, seed,
     flags: { dpPerSec: 0, dpMax: 999 }, hooks: ['damaged', 'heal', 'skillStart', 'skillEnd', 'statusApplied', 'attack'], captureNoisy: true,
     units: [{ uid: 1, diy: { slot: SLOT[tier], charId: HOD, skillIndex: skill, uniEquipId: mod }, elite, row, col }, ...others],
   });
@@ -82,7 +84,8 @@ test('赫德雷 in every 自选 form: his operator kit (all three skills authore
 });
 
 test('a 自选 pick: 赫德雷 is offered at tiers 5 and 6 (he has a kit) and a roster with him passes validateDiyPicks', () => {
-  const data = { chess: CHESS, backups: BACKUPS };
+  assert.equal(shippedPool.includes(HOD), false, 'the shipped pool does not offer him (he is a chess piece)');
+  const data = diyPoolSource(HOD, { bonds: ['emptyShip'] });
   assert.ok(KITTED_CHARS.includes(HOD));
   for (const t of [5, 6]) assert.ok(diyPool(t, { data, kitted: KITTED_CHARS }).includes(HOD), `tier ${t}`);
   assert.deepEqual(validateDiyPicks({ [SLOT[6]]: { charId: HOD, skillIndex: 0, uniEquipId: CRUY } }, { data, kitted: KITTED_CHARS }),

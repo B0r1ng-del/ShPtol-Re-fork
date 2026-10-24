@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { KITTED_CHARS, OPERATOR_KITS, KITS } from '../../server/sim/content/kits/index.js';
 import { diyPool, validateDiyPicks } from '../../shared/diy.js';
+import { diyPoolSource, shippedPool } from '../helpers/diyPoolSource.js';
 
 const load = (f) => JSON.parse(readFileSync(new URL(`../../data/${f}.json`, import.meta.url), 'utf8'));
 const CHESS = load('chess');
@@ -40,7 +41,8 @@ const sortN = (a) => [...a].sort((x, y) => x - y);
 /** A battle with 珊比 as uid 1 at (row, col) facing `dir` (RIGHT), plus `others`. */
 function field({ tier = 5, elite = false, mod = null, skill = 2, row = 10, col = 5, dir = 'RIGHT', others = [], seed = 5 } = {}) {
   const h = makeBattle({
-    defs: { enemies: ENEMIES }, timeLimit: 900, autoFinish: false, seed,
+    data: diyPoolSource(THUMPY, { bonds: ['emptyShip'], raw: { enemies: ENEMIES } }),
+    timeLimit: 900, autoFinish: false, seed,
     flags: { dpPerSec: 0, dpMax: 999 }, hooks: ['damaged', 'skillStart', 'skillEnd', 'statusApplied', 'elementBurst'], captureNoisy: true,
     units: [{ uid: 1, diy: { slot: SLOT[tier], charId: THUMPY, skillIndex: skill, uniEquipId: mod }, elite, row, col, dir }, ...others],
   });
@@ -66,7 +68,7 @@ test('珊比 in every 自选 form: her operator kit (all three skills authored),
       assert.deepEqual([u.base.maxHp, u.base.atk, u.base.def, u.base.res], [form.stats.maxHp + (m?.attr.maxHp ?? 0), form.stats.atk + (m?.attr.atk ?? 0), form.stats.def, 10], `${label(f)}: stats`);
       assert.deepEqual([u.s.blockCnt, u.profile.attack, u.profile.canHitFly, u.profile.dmgType, u.base.bat], [3, 'melee', false, 'phys', 1.6], `${label(f)}: 本源铁卫`);
       assert.deepEqual(u.liveRangeGrid, [[0, 0]], `${label(f)}: 0-1`);
-      assert.deepEqual([u.def.bonds, u.def.raw.garrisonIds], [BACKUPS.diy.operators[THUMPY].bonds, []], `${label(f)}: bonds / 特质`);
+      assert.deepEqual([u.def.bonds, u.def.raw.garrisonIds], [["emptyShip"], []], `${label(f)}: bonds / 特质`);
       assert.ok(!u.s.flags.liftoff && !u.s.flags.camou && !u.s.flags.stealth && !u.s.flags.untargetable, `${label(f)}: ground enemies target her`);
       done(h);
     }
@@ -78,7 +80,8 @@ test('珊比 in every 自选 form: her operator kit (all three skills authored),
 });
 
 test('a 自选 pick: 珊比 is offered at tiers 5 and 6 (she has a kit) and a roster with her passes validateDiyPicks', () => {
-  const data = { chess: CHESS, backups: BACKUPS };
+  assert.equal(shippedPool.includes(THUMPY), false, 'the shipped pool does not offer him (he is a chess piece)');
+  const data = diyPoolSource(THUMPY, { bonds: ['emptyShip'] });
   assert.ok(KITTED_CHARS.includes(THUMPY));
   for (const t of [5, 6]) assert.ok(diyPool(t, { data, kitted: KITTED_CHARS }).includes(THUMPY), `tier ${t}`);
   assert.deepEqual(validateDiyPicks({ [SLOT[5]]: { charId: THUMPY, skillIndex: 1, uniEquipId: PRPX } }, { data, kitted: KITTED_CHARS }),

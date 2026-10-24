@@ -12,6 +12,7 @@ import { readFileSync } from 'node:fs';
 import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { KITTED_CHARS, OPERATOR_KITS, KITS } from '../../server/sim/content/kits/index.js';
 import { diyPool, validateDiyPicks } from '../../shared/diy.js';
+import { diyPoolSource, shippedPool } from '../helpers/diyPoolSource.js';
 
 const load = (f) => JSON.parse(readFileSync(new URL(`../../data/${f}.json`, import.meta.url), 'utf8'));
 const CHESS = load('chess');
@@ -27,20 +28,32 @@ const HAMMER_T = [33, 84, 133, 182, 233].map((f) => f / 30), SKILL3_T = 277 / 30
 /** Row 11 of the flat stage with one 高台 at (11, 7) — diagonal to the tile ahead of her (10, 6) — or a row of four. */
 const ONE_HIGH = { 11: '##hrrrr#rrfrrrrrrrf##' };
 const FOUR_HIGH = { 11: '##hrrrr####rrrrrrrf##' };
-const formOf = (tier, elite) => FORMS[elite ? (tier === 5 ? '2/60/7/1' : '2/60/7/3') : '2/1/4/0'];
+const formOf = (_tier, elite) => FORMS[elite ? '2/60/7/3' : '2/1/4/0'];
 const skillOf = (tier, elite, id) => formOf(tier, elite).skills.find((s) => s.skillId === id);
 const modOf = (tier, mod) => (mod ? formOf(tier, true).modules.find((m) => m.uniEquipId === mod) : null);
 const approx = (a, b, msg, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps * Math.max(1, Math.abs(b)), `${msg}: ${a} vs ${b}`);
 const dummy = (key, o = {}) => enemyRec({ key, hp: 1e9, speed: 0, mass: 0, ...o });
 const ENEMIES = { enemy_dummy: dummy('enemy_dummy'), enemy_fly: dummy('enemy_fly', { motion: 'FLY' }) };
-const FORMS_ALL = [[5, false, null], [6, false, null], ...[5, 6].flatMap((t) => [null, HAMX].map((m) => [t, true, m]))];
+// ★ 2026-10-24: 自选 槽位的形态只属于 ownedPool 成员，而这位干员是棋手 —— data/backups.json 只带她自己的两个
+// status（tier-5 棋手 = 2/1/4/0 + 2/60/7/1，tier-6 棋手 = 2/1/4/0 + 2/60/7/3）。`checkDiyPick` 要一个槽位的**正常 +
+// 精锐**两个形态都在，缺一档就**整档不可用**（不是只少矩阵里的一行）。所以 TIERS 直接从数据的 status 键算，
+// 不走 formOf —— 下面几行就把 formOf 收窄成那唯一的真实形态了。
+const SLOT_STATUSES = { 5: ['2/1/4/0', '2/60/7/1'], 6: ['2/1/4/0', '2/60/7/3'] };
+const TIERS = [5, 6].filter((t) => SLOT_STATUSES[t].every((k) => !!FORMS[k]));
+// 只有一档可用：helpers 把任何 tier 都归一到这里，调用点不必逐个改
+const T = TIERS[0];
+// the elite form this operator's data carries; the other stage belongs to a tier he cannot enter
+const ELITE_KEY = '2/60/7/3';
+const FORMS_ALL = [[5, false, null], [6, false, null], ...[5, 6].flatMap((t) => [null, HAMX].map((m) => [t, true, m]))]
+  .filter(([tier]) => TIERS.includes(tier));
 
 /** A battle with 怒潮凛冬 as uid 1 at (row, col) facing RIGHT, plus `others`. */
-function field({ tier = 5, elite = false, mod = null, skill = 0, row = 10, col = 5, others = [], seed = 5, rows = null, noSp = false } = {}) {
+function field({ tier = T, elite = false, mod = null, skill = 0, row = 10, col = 5, others = [], seed = 5, rows = null, noSp = false } = {}) {
   const h = makeBattle({
-    defs: { enemies: ENEMIES }, timeLimit: 900, autoFinish: false, seed, flat: rows ? { rows } : undefined,
+    data: diyPoolSource(ZIMA, { bonds: ['emptyShip'], raw: { enemies: ENEMIES } }),
+    timeLimit: 900, autoFinish: false, seed, flat: rows ? { rows } : undefined,
     flags: { dpPerSec: 0, dpMax: 999 }, hooks: ['damaged', 'skillStart', 'skillEnd', 'statusApplied', 'spGain', 'attack'], captureNoisy: true,
-    units: [{ uid: 1, diy: { slot: SLOT[tier], charId: ZIMA, skillIndex: skill, uniEquipId: mod }, elite, row, col }, ...others],
+    units: [{ uid: 1, diy: { slot: SLOT[T], charId: ZIMA, skillIndex: skill, uniEquipId: mod }, elite, row, col }, ...others],
   });
   h.step();
   const u = h.unit(1);
@@ -76,16 +89,17 @@ test('怒潮凛冬 in every 自选 form: her operator kit (all three skills auth
   }
   // zh_CN (full potential: ATK +40): E2 Lv1 2301 / 1100 / 346, E2 Lv60 2731 / 1234 / 387; HAM-X +250 / +63 / +21 →
   // +380 / +83 / +30
-  assert.deepEqual([FORMS['2/1/4/0'].stats.maxHp, FORMS['2/1/4/0'].stats.atk, FORMS['2/60/7/1'].stats.maxHp, FORMS['2/60/7/1'].stats.atk], [2301, 1100, 2731, 1234]);
-  assert.deepEqual([modOf(5, HAMX).attr, modOf(6, HAMX).attr], [{ maxHp: 250, atk: 63, def: 21 }, { maxHp: 380, atk: 83, def: 30 }]);
+  assert.deepEqual([FORMS['2/1/4/0'].stats.maxHp, FORMS['2/1/4/0'].stats.atk, FORMS[ELITE_KEY].stats.maxHp, FORMS[ELITE_KEY].stats.atk], [2301, 1100, 2731, 1234]);
+  assert.deepEqual(TIERS.flatMap((t) => [modOf(t, HAMX).attr]), [{ maxHp: 380, atk: 83, def: 30 }]);
 });
 
 test('a 自选 pick: 怒潮凛冬 is offered at tiers 5 and 6 (she has a kit) and a roster with her passes validateDiyPicks', () => {
-  const data = { chess: CHESS, backups: BACKUPS };
+  assert.equal(shippedPool.includes(ZIMA), false, 'the shipped pool does not offer him (he is a chess piece)');
+  const data = diyPoolSource(ZIMA, { bonds: ['emptyShip'] });
   assert.ok(KITTED_CHARS.includes(ZIMA));
-  for (const t of [5, 6]) assert.ok(diyPool(t, { data, kitted: KITTED_CHARS }).includes(ZIMA), `tier ${t}`);
-  assert.deepEqual(validateDiyPicks({ [SLOT[5]]: { charId: ZIMA, skillIndex: 2, uniEquipId: HAMX } }, { data, kitted: KITTED_CHARS }),
-    { ok: true, picks: { [SLOT[5]]: { charId: ZIMA, skillIndex: 2, uniEquipId: HAMX } } });
+  for (const t of TIERS) assert.ok(diyPool(t, { data, kitted: KITTED_CHARS }).includes(ZIMA), `tier ${t}`);
+  assert.deepEqual(validateDiyPicks({ [SLOT[T]]: { charId: ZIMA, skillIndex: 2, uniEquipId: HAMX } }, { data, kitted: KITTED_CHARS }),
+    { ok: true, picks: { [SLOT[T]]: { charId: ZIMA, skillIndex: 2, uniEquipId: HAMX } } });
 });
 
 test('trait + T1 汹涌怒火 + HAM-X: the target takes ATK, the others within 1.0 the 50 % splash ×1.24 (HAM-X stage 3 ×1.4) — not flyers; with 3 enemies in the splash range HAM-X lifts the attack to 115 %', () => {
@@ -156,7 +170,7 @@ test('T1 汹涌怒火 高台: every 高台 the 1.0 circle around her target touc
 });
 
 test('S2 绝不罢休\'s passive: +1 SP per 高台 that triggers 汹涌怒火 (none without one, none while the skill runs)', () => {
-  for (const [tier, elite] of [[5, false], [6, true]]) {
+  for (const [tier, elite] of [[6, false], [6, true]]) {
     const sk = skillOf(tier, elite, S2);
     assert.equal(sk.bb.sp_per_highland, 1);
     const { h, u } = field({ tier, elite, skill: 1, rows: FOUR_HIGH, seed: 9 });
@@ -173,7 +187,7 @@ test('S2 绝不罢休\'s passive: +1 SP per 高台 that triggers 汹涌怒火 (n
     done(h);
   }
   // no 高台 around her target: no gift
-  const { h, u } = field({ tier: 5, skill: 1, seed: 9 });
+  const { h, u } = field({ tier: T, skill: 1, seed: 9 });
   h.spawn('enemy_dummy', { pos: [10, 6] });
   h.run(5);
   assert.equal(h.hooksOf('spGain').filter((c) => c.unit === u && c.reason === 'talent').length, 0);
@@ -181,7 +195,7 @@ test('S2 绝不罢休\'s passive: +1 SP per 高台 that triggers 汹涌怒火 (n
 });
 
 test('T2 万众巨潮: while a skill of hers runs every operator of the field ATK / DEF +18 % — 【乌萨斯学生自治团】 (her, 古米) +36 % — and nothing before or after it', () => {
-  for (const [tier, elite, skill] of [[5, false, 0], [6, true, 1]]) {
+  for (const [tier, elite, skill] of [[6, false, 0], [6, true, 1]]) {
     const others = [{ uid: 2, chessId: 'chess_char_1_10_a', row: 11, col: 3 }, { uid: 3, chessId: 'chess_char_1_08_a', row: 12, col: 3 }];
     const { h, u } = field({ tier, elite, skill, others });
     const gummy = h.unit(2), texas = h.unit(3);
@@ -206,7 +220,7 @@ test('T2 万众巨潮: while a skill of hers runs every operator of the field AT
 });
 
 test('S1 誓不低头 (MANUAL, DEFAULT): 30 s, ATK +32 % / 39 %, ASPD +35 / 40 (her own 万众巨潮 +36 % on top); all back after', () => {
-  for (const [tier, elite] of [[5, false], [6, true]]) {
+  for (const [tier, elite] of [[6, false], [6, true]]) {
     const sk = skillOf(tier, elite, S1);
     const { h, u } = field({ tier, elite, skill: 0 });
     assert.deepEqual([u.skill.rule, sk.duration, sk.bb.atk, sk.bb.attack_speed], ['DEFAULT', 30, elite ? 0.39 : 0.32, elite ? 40 : 35], `T${tier}`);
@@ -225,7 +239,7 @@ test('S1 誓不低头 (MANUAL, DEFAULT): 30 s, ATK +32 % / 39 %, ASPD +35 / 40 (
 });
 
 test('S2 绝不罢休 (AUTO, SP_FULL — a self buff): at full SP with no enemy, 2-5, ATK +60 / 75 %, DEF +40 / 50 % for 16 s; the second cast of a deployment doubles them for good; a redeploy counts again', () => {
-  for (const [tier, elite] of [[5, false], [6, true]]) {
+  for (const [tier, elite] of [[6, false], [6, true]]) {
     const sk = skillOf(tier, elite, S2);
     const { h, u } = field({ tier, elite, skill: 1 });
     assert.deepEqual([u.skill.rule, sk.skillType, sk.duration, sk.spCost, sk.initSp, sk.rangeId], ['SP_FULL', 'AUTO', 16, elite ? 53 : 57, elite ? 24 : 20, '2-5'], `T${tier}`);
@@ -257,7 +271,7 @@ test('S2 绝不罢休 (AUTO, SP_FULL — a self buff): at full SP with no enemy,
 });
 
 test('S3 无可抵挡 (MANUAL, data CUSTOM_RANGE): five hammers on the Skill_3 clip\'s attack events (1.1 … 7.77 s), no normal attack, 9.23 s; the target ahead atk_scale × ATK, the others within 1.5 the splash; ATK +atk_base, +30 % per hammer; 高台 ×3.5 with 束缚, spreading k − 1 steps (0.1 s, then 0.125 s a step)', () => {
-  for (const [tier, elite, mod] of [[5, false, null], [6, true, HAMX]]) {
+  for (const [tier, elite, mod] of [[6, false, null], [6, true, HAMX]]) {
     const sk = skillOf(tier, elite, S3);
     const { h, u } = field({ tier, elite, mod, skill: 2, rows: FOUR_HIGH, seed: 17 });
     assert.deepEqual([u.skill.rule, sk.bb.atk_scale, sk.bb.atk_step, sk.bb.splash_atk_scale_bonus, sk.bb.unmovable, sk.bb.atk_base],
@@ -299,7 +313,7 @@ test('S3 无可抵挡 (MANUAL, data CUSTOM_RANGE): five hammers on the Skill_3 c
 });
 
 test('S3: leaving the field stops the 高台 spread at once; a hammer due while she is stunned is lost', () => {
-  const { h, u } = field({ tier: 6, elite: true, skill: 2, rows: FOUR_HIGH, seed: 17 });
+  const { h, u } = field({ tier: T, elite: true, skill: 2, rows: FOUR_HIGH, seed: 17 });
   const under = [7, 8, 9, 10].map((c) => h.spawn('enemy_dummy', { pos: [12, c] }));
   h.spawn('enemy_dummy', { pos: [10, 6] });
   u.skill.gainSp(999);
@@ -312,7 +326,7 @@ test('S3: leaving the field stops the 高台 spread at once; a hammer due while 
   assert.deepEqual(counts, [4, 2, 1, 0], 'the 4th round stopped after its first step: (11, 8) / (11, 9) / (11, 10) keep the earlier rounds only');
   done(h);
   // stunned through the 1st hammer (1.1 s)
-  const s = field({ tier: 5, skill: 2, seed: 17 });
+  const s = field({ tier: T, skill: 2, seed: 17 });
   const main = s.h.spawn('enemy_dummy', { pos: [10, 6] });
   s.u.skill.gainSp(999);
   assert.ok(s.h.runUntil(() => s.u.skill.active, 1));

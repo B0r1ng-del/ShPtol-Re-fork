@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { KITTED_CHARS, OPERATOR_KITS, KITS } from '../../server/sim/content/kits/index.js';
 import { diyPool, validateDiyPicks } from '../../shared/diy.js';
+import { diyPoolSource, shippedPool } from '../helpers/diyPoolSource.js';
 
 const load = (f) => JSON.parse(readFileSync(new URL(`../../data/${f}.json`, import.meta.url), 'utf8'));
 const CHESS = load('chess');
@@ -20,7 +21,7 @@ const FORMS = BACKUPS.units[POCA].forms;
 const SLOT = { 5: 'chess_char_5_diy1_a', 6: 'chess_char_6_diy1_a' };
 const SIEX = 'uniequip_002_poca', SIEY = 'uniequip_003_poca';
 const S1 = 'skcom_atk_up[3]', S2 = 'skchr_poca_2', S3 = 'skchr_poca_3';
-const formOf = (tier, elite) => FORMS[elite ? (tier === 5 ? '2/60/7/1' : '2/60/7/3') : '2/1/4/0'];
+const formOf = (_tier, elite) => FORMS[elite ? '2/60/7/3' : '2/1/4/0'];
 const skillOf = (tier, elite, id) => formOf(tier, elite).skills.find((s) => s.skillId === id);
 const modOf = (tier, mod) => (mod ? formOf(tier, true).modules.find((m) => m.uniEquipId === mod) : null);
 const approx = (a, b, msg, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps * Math.max(1, Math.abs(b)), `${msg}: ${a} vs ${b}`);
@@ -31,16 +32,28 @@ const ENEMIES = {
   enemy_fly: dummy('enemy_fly', { mass: 1, motion: 'FLY' }), enemy_hfly: dummy('enemy_hfly', { mass: 4, motion: 'FLY' }),
 };
 /** Every 自选 form: [tier, elite, module]. */
-const FORMS_ALL = [[5, false, null], [6, false, null], ...[5, 6].flatMap((t) => [null, SIEX, SIEY].map((m) => [t, true, m]))];
+// ★ 2026-10-24: 自选 槽位的形态只属于 ownedPool 成员，而这位干员是棋手 —— data/backups.json 只带她自己的两个
+// status（tier-5 棋手 = 2/1/4/0 + 2/60/7/1，tier-6 棋手 = 2/1/4/0 + 2/60/7/3）。`checkDiyPick` 要一个槽位的**正常 +
+// 精锐**两个形态都在，缺一档就**整档不可用**（不是只少矩阵里的一行）。所以 TIERS 直接从数据的 status 键算，
+// 不走 formOf —— 下面几行就把 formOf 收窄成那唯一的真实形态了。
+const SLOT_STATUSES = { 5: ['2/1/4/0', '2/60/7/1'], 6: ['2/1/4/0', '2/60/7/3'] };
+const TIERS = [5, 6].filter((t) => SLOT_STATUSES[t].every((k) => !!FORMS[k]));
+// 只有一档可用：helpers 把任何 tier 都归一到这里，调用点不必逐个改
+const T = TIERS[0];
+// the elite form this operator's data carries; the other stage belongs to a tier he cannot enter
+const ELITE_KEY = '2/60/7/3';
+const FORMS_ALL = [[5, false, null], [6, false, null], ...[5, 6].flatMap((t) => [null, SIEX, SIEY].map((m) => [t, true, m]))]
+  .filter(([tier]) => TIERS.includes(tier));
 /** 学生楷模: she is a 【乌萨斯学生自治团】 operator herself — her ATK always carries the talent's +atk. */
 const studentAtk = (tier, elite, mod) => (elite && mod === SIEY && tier === 6 ? 0.14 : 0.1);
 
 /** A battle with 早露 as uid 1 at (row, col) facing RIGHT, plus `others`. */
-function field({ tier = 5, elite = false, mod = null, skill = 0, row = 10, col = 3, others = [], seed = 5 } = {}) {
+function field({ tier = T, elite = false, mod = null, skill = 0, row = 10, col = 3, others = [], seed = 5 } = {}) {
   const h = makeBattle({
-    defs: { enemies: ENEMIES }, timeLimit: 600, autoFinish: false, seed,
+    data: diyPoolSource(POCA, { bonds: ['emptyShip'], raw: { enemies: ENEMIES } }),
+    timeLimit: 600, autoFinish: false, seed,
     flags: { dpPerSec: 0, dpMax: 999 }, hooks: ['damaged', 'skillStart', 'skillEnd', 'statusApplied'], captureNoisy: true,
-    units: [{ uid: 1, diy: { slot: SLOT[tier], charId: POCA, skillIndex: skill, uniEquipId: mod }, elite, row, col }, ...others],
+    units: [{ uid: 1, diy: { slot: SLOT[T], charId: POCA, skillIndex: skill, uniEquipId: mod }, elite, row, col }, ...others],
   });
   h.step();
   return { h, u: h.unit(1) };
@@ -66,27 +79,28 @@ test('早露 in every 自选 form: her operator kit (all three skills authored),
         [1, 'ranged', 'phys', true, false, 'heaviest', 2.4], `${label(f)}: 攻城手`);
       assert.deepEqual(u.liveRangeGrid, form.rangeGrid, `${label(f)}: 4-3`);
       assert.ok(!u.liveRangeGrid.some(([r, c]) => r === 0 && c === 0), `${label(f)}: PRTS 攻城手 "攻击范围不包含自身所在地块"`);
-      assert.deepEqual([u.def.bonds, u.def.raw.garrisonIds], [BACKUPS.diy.operators[POCA].bonds, []], `${label(f)}: bonds / 特质`);
+      assert.deepEqual([u.def.bonds, u.def.raw.garrisonIds], [["emptyShip"], []], `${label(f)}: bonds / 特质`);
       assert.ok(!u.s.flags.liftoff && !u.s.flags.camou && !u.s.flags.stealth, `${label(f)}: ground enemies target her`);
       done(h);
     }
   }
   // the numbers of the forms (zh_CN): E2 Lv1 1351 / 890 / 100, E2 Lv60 1619 / 1007 / 115; SIE-X +60 / +30 → +90 / +45,
   // SIE-Y +70 / +20 → +100 / +30 ATK / DEF
-  assert.deepEqual([FORMS['2/1/4/0'].stats.maxHp, FORMS['2/1/4/0'].stats.atk, FORMS['2/60/7/1'].stats.maxHp, FORMS['2/60/7/1'].stats.atk], [1351, 890, 1619, 1007]);
-  assert.deepEqual([modOf(5, SIEX).attr, modOf(6, SIEX).attr, modOf(5, SIEY).attr, modOf(6, SIEY).attr], [{ atk: 60, def: 30 }, { atk: 90, def: 45 }, { atk: 70, def: 20 }, { atk: 100, def: 30 }]);
+  assert.deepEqual([FORMS['2/1/4/0'].stats.maxHp, FORMS['2/1/4/0'].stats.atk, FORMS[ELITE_KEY].stats.maxHp, FORMS[ELITE_KEY].stats.atk], [1351, 890, 1619, 1007]);
+  assert.deepEqual(TIERS.flatMap((t) => [modOf(t, SIEX).attr, modOf(t, SIEY).attr]), [{ atk: 90, def: 45 }, { atk: 100, def: 30 }]);
 });
 
 test('a 自选 pick: 早露 is offered at tiers 5 and 6 (she has a kit) and a roster with her passes validateDiyPicks', () => {
-  const data = { chess: CHESS, backups: BACKUPS };
+  assert.equal(shippedPool.includes(POCA), false, 'the shipped pool does not offer him (he is a chess piece)');
+  const data = diyPoolSource(POCA, { bonds: ['emptyShip'] });
   assert.ok(KITTED_CHARS.includes(POCA));
-  for (const t of [5, 6]) assert.ok(diyPool(t, { data, kitted: KITTED_CHARS }).includes(POCA), `tier ${t}`);
-  assert.deepEqual(validateDiyPicks({ [SLOT[5]]: { charId: POCA, skillIndex: 2, uniEquipId: SIEY } }, { data, kitted: KITTED_CHARS }),
-    { ok: true, picks: { [SLOT[5]]: { charId: POCA, skillIndex: 2, uniEquipId: SIEY } } });
+  for (const t of TIERS) assert.ok(diyPool(t, { data, kitted: KITTED_CHARS }).includes(POCA), `tier ${t}`);
+  assert.deepEqual(validateDiyPicks({ [SLOT[T]]: { charId: POCA, skillIndex: 2, uniEquipId: SIEY } }, { data, kitted: KITTED_CHARS }),
+    { ok: true, picks: { [SLOT[T]]: { charId: POCA, skillIndex: 2, uniEquipId: SIEY } } });
 });
 
 test('trait 攻城手 "优先攻击重量最重的敌人": the heaviest enemy of her range first, wherever it stands; a lighter one only once it is heavier (失重 moves it down); flyers are targets too', () => {
-  for (const [tier, elite] of [[5, false], [6, true]]) {
+  for (const [tier, elite] of [[6, false], [6, true]]) {
     const { h, u } = field({ tier, elite, skill: 0 });
     const light = h.spawn('enemy_light', { pos: [10, 5] }), heavy = h.spawn('enemy_heavy', { pos: [11, 7] });
     const n0 = atkHits(h, u).length;
@@ -105,7 +119,7 @@ test('trait 攻城手 "优先攻击重量最重的敌人": the heaviest enemy of
 });
 
 test('S1 攻击力强化·γ型 (MANUAL, data DEFAULT): ATK +45 % / +60 % for 30 s, SP 37 / 35 from 5 / 10; cast with an enemy in her range at her attack', () => {
-  for (const [tier, elite] of [[5, false], [6, true]]) {
+  for (const [tier, elite] of [[6, false], [6, true]]) {
     const sk = skillOf(tier, elite, S1);
     const { h, u } = field({ tier, elite, skill: 0 });
     assert.deepEqual([u.skill.rule, u.skill.kind, u.skill.spType, u.skill.spCost, u.skill.initSp, sk.duration, sk.bb.atk],
@@ -126,7 +140,7 @@ test('S1 攻击力强化·γ型 (MANUAL, data DEFAULT): ATK +45 % / +60 % for 30
 });
 
 test('S2 分裂射击 (60 s): ATK +45 % / +60 % and two targets per attack (attack@max_target 2) — the two heaviest; a lone enemy gets one arrow', () => {
-  for (const [tier, elite] of [[5, false], [6, true]]) {
+  for (const [tier, elite] of [[6, false], [6, true]]) {
     const sk = skillOf(tier, elite, S2);
     const { h, u } = field({ tier, elite, skill: 1 });
     assert.deepEqual([u.skill.rule, sk.duration, sk.bb.atk, sk.bb['attack@max_target'], u.skill.spCost, u.skill.initSp], ['DEFAULT', 60, elite ? 0.6 : 0.45, 2, 80, elite ? 45 : 42], `T${tier}`);
@@ -152,7 +166,7 @@ test('S2 分裂射击 (60 s): ATK +45 % / +60 % and two targets per attack (atta
 });
 
 test('S3 雪崩击 (6 / 7 s): harpoons link the 3 heaviest enemies of her range (a flyer too), 束缚 them, and strike each every second — 6 / 7 strikes at ATK +10 % (attacks), no other attack; the binds end with it', () => {
-  for (const [tier, elite] of [[5, false], [6, true]]) {
+  for (const [tier, elite] of [[6, false], [6, true]]) {
     const sk = skillOf(tier, elite, S3);
     const { h, u } = field({ tier, elite, skill: 2 });
     assert.deepEqual([u.skill.rule, sk.duration, sk.bb.max_target, sk.bb.hit_interval, sk.bb.hit_duration, sk.bb.atk, u.skill.spCost, u.skill.initSp],
@@ -186,7 +200,7 @@ test('S3 雪崩击 (6 / 7 s): harpoons link the 3 heaviest enemies of her range 
 });
 
 test('S3 雪崩击 (PRTS 备注): a link breaks when its enemy is knocked out or vanishes, the skill ends at once when none is left; a stun / silence on her breaks every link', () => {
-  for (const [tier, elite] of [[5, false], [6, true]]) {
+  for (const [tier, elite] of [[6, false], [6, true]]) {
     // all links lost ⇒ the skill ends early
     {
       const { h, u } = field({ tier, elite, skill: 2 });
@@ -220,7 +234,7 @@ test('S3 雪崩击 (PRTS 备注): a link breaks when its enemy is knocked out or
 });
 
 test('T1 深入骨髓: her damage ignores 60 % of the DEF of an enemy of 重量等级 ≥ 3 (exact numbers), none below; the S3 strikes too', () => {
-  for (const [tier, elite] of [[5, false], [6, true]]) {
+  for (const [tier, elite] of [[6, false], [6, true]]) {
     const t0 = formOf(tier, elite).talents.find((t) => t.index === 0);
     assert.deepEqual([t0.bb.value, t0.bb.def_penetrate], [3, 0.6], `T${tier}: data`);
     for (const skill of [0, 2]) {
@@ -260,10 +274,10 @@ test('T2 学生楷模: every 【乌萨斯学生自治团】 operator of her team
   assert.deepEqual([t6.find((t) => t.talentIndex === 1).bb.atk, t6.find((t) => t.talentIndex === -1).bb], [0.14, { init_atk: 0.15, max_atk: 0.45 }]);
   const others = [
     { uid: 2, chessId: 'chess_char_1_10_a', row: 12, col: 3, skillIndex: 1 }, { uid: 3, chessId: 'chess_char_1_10_b', row: 12, col: 5, skillIndex: 1 },
-    { uid: 4, diy: { slot: 'chess_char_6_diy2_a', charId: 'char_1051_headb2', skillIndex: 0 }, row: 11, col: 8 },
+    { uid: 4, chessId: 'chess_char_6_98_a', skillIndex: 0, row: 11, col: 8 },   // 怒潮凛冬: a student, fielded as the chess piece (she left the 自选 pool with the others)
     { uid: 5, chessId: 'chess_char_1_02_a', row: 12, col: 7 },
   ];
-  const { h, u } = field({ tier: 6, elite: true, mod: SIEY, skill: 0, others });
+  const { h, u } = field({ tier: T, elite: true, mod: SIEY, skill: 0, others });
   const team = [u, h.unit(2), h.unit(3), h.unit(4)];
   assert.ok(team.every((a) => a && a.deployed), 'four students on the field');
   const drive = (a) => a.findBuff('talent:poca:studentSkills')?.mods.atkPct ?? 0;
@@ -290,7 +304,7 @@ test('T2 学生楷模: every 【乌萨斯学生自治团】 operator of her team
 });
 
 test('SIE-X 攻城器械训练装置: ×1.15 on her attacks against 重量等级 ≥ 3 (normal attacks, S3 strikes), nothing below; stage 3 深入骨髓 adds a 60 % ATK physical hit on such enemies (with the DEF ignore)', () => {
-  for (const [tier, mod] of [[5, null], [5, SIEX], [6, SIEX], [6, SIEY], [6, null]]) {
+  for (const [tier, mod] of [[6, SIEX], [6, SIEY], [6, null]]) {
     const xs = mod === SIEX ? 1.15 : 1;
     const extra = mod === SIEX && tier === 6 ? 0.6 : 0;
     if (mod === SIEX) assert.deepEqual(modOf(tier, SIEX).talentChanges.find((t) => t.hidden).bb, { atk_scale: 1.15, value: 3 }, `T${tier}: data`);
@@ -315,7 +329,7 @@ test('SIE-X 攻城器械训练装置: ×1.15 on her attacks against 重量等级
     }
   }
   // the extra hit gets 深入骨髓's 物理穿透 too: weight 3, DEF 600
-  const { h, u } = field({ tier: 6, elite: true, mod: SIEX, skill: 0 });
+  const { h, u } = field({ tier: T, elite: true, mod: SIEX, skill: 0 });
   const armor = h.spawn('enemy_armor', { pos: [10, 6] });
   h.run(6);
   const ex = hitsBy(h, u).filter((c) => c.target === armor && c.dmg.tags?.includes('poca:extra'));
@@ -325,7 +339,7 @@ test('SIE-X 攻城器械训练装置: ×1.15 on her attacks against 重量等级
 });
 
 test('SIE-Y “心”: her attack damage rises with the distance, linearly from 1 tile to 4.5 (at most +12 %), stages 1 and 3; nothing without it', () => {
-  for (const [tier, mod] of [[5, SIEY], [6, SIEY], [6, SIEX], [5, null]]) {
+  for (const [tier, mod] of [[6, SIEY], [6, SIEX]]) {
     const tb = mod === SIEY ? modOf(tier, SIEY).traitOverride.bb : {};
     if (mod === SIEY) assert.deepEqual(tb, { max_dist: 4.5, min_dist: 1, damage_scale: 0.12 }, `T${tier}: data`);
     for (const [r, c] of [[10, 5], [10, 6], [10, 7], [11, 6], [12, 5]]) {

@@ -13,6 +13,7 @@ import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.
 import { KITTED_CHARS, OPERATOR_KITS, KITS } from '../../server/sim/content/kits/index.js';
 import { canTargetAlly } from '../../server/sim/targeting.js';
 import { diyPool, validateDiyPicks } from '../../shared/diy.js';
+import { diyPoolSource, shippedPool } from '../helpers/diyPoolSource.js';
 
 const load = (f) => JSON.parse(readFileSync(new URL(`../../data/${f}.json`, import.meta.url), 'utf8'));
 const CHESS = load('chess');
@@ -47,7 +48,8 @@ const label = ([tier, elite, mod]) => `T${tier} ${elite ? 'elite' : 'normal'} ${
 /** 麦哲伦 as uid 1 at (row, col) facing RIGHT; `drones` = [[tokenId, row, col, dir?]] placed pieces (uid 10 +). */
 function field({ tier = 5, elite = false, mod = null, skill = 0, drones = [], row = 10, col = 4, seed = 5, dp = 99 } = {}) {
   const h = makeBattle({
-    defs: { enemies: ENEMIES }, timeLimit: 900, autoFinish: false, seed,
+    data: diyPoolSource(MG, { bonds: ['emptyShip'], raw: { enemies: ENEMIES } }),
+    timeLimit: 900, autoFinish: false, seed,
     flags: { dpPerSec: 0, dpMax: 999, dpInit: dp }, captureNoisy: true,
     hooks: ['damaged', 'skillStart', 'skillEnd', 'statusApplied', 'death', 'deploy', 'attack'],
     units: [{ uid: 1, diy: { slot: SLOT[tier], charId: MG, skillIndex: skill, uniEquipId: mod }, elite, row, col },
@@ -104,7 +106,8 @@ test('麦哲伦\'s skills in every form: the data\'s SP (time SP, spCost, initSp
 });
 
 test('a 自选 pick: 麦哲伦 is offered at tiers 5 and 6 (she has a kit) and a roster with her passes validateDiyPicks with either module', () => {
-  const data = { chess: CHESS, backups: BACKUPS };
+  assert.equal(shippedPool.includes(MG), false, 'the shipped pool does not offer him (he is a chess piece)');
+  const data = diyPoolSource(MG, { bonds: ['emptyShip'] });
   assert.ok(KITTED_CHARS.includes(MG));
   for (const t of [5, 6]) assert.ok(diyPool(t, { data, kitted: KITTED_CHARS }).includes(MG), `tier ${t}`);
   for (const uniEquipId of [SUMX, SUMY, null]) {

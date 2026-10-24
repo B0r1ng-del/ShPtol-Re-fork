@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { KITTED_CHARS, OPERATOR_KITS, KITS } from '../../server/sim/content/kits/index.js';
 import { diyPool, validateDiyPicks } from '../../shared/diy.js';
+import { diyPoolSource, shippedPool } from '../helpers/diyPoolSource.js';
 
 const load = (f) => JSON.parse(readFileSync(new URL(`../../data/${f}.json`, import.meta.url), 'utf8'));
 const CHESS = load('chess');
@@ -34,7 +35,8 @@ const FORMS_ALL = [[5, false, null], [6, false, null], ...[5, 6].flatMap((t) => 
 /** 维什戴尔 as uid 1 at (10, 4) facing RIGHT (3-9: rows 8–12; (10, 4..8), (9 / 11, 4..7), (8 / 12, 4..6)). */
 function field({ tier = 5, elite = false, mod = null, skill = 0, row = 10, col = 4, others = [], seed = 5 } = {}) {
   const h = makeBattle({
-    defs: { enemies: ENEMIES }, timeLimit: 1200, autoFinish: false, seed,
+    data: diyPoolSource(WD, { bonds: ['emptyShip'], raw: { enemies: ENEMIES } }),
+    timeLimit: 1200, autoFinish: false, seed,
     flags: { dpPerSec: 0, dpMax: 999 }, hooks: ['damaged', 'skillStart', 'skillEnd', 'statusApplied', 'death', 'deploy', 'heal'], captureNoisy: true,
     units: [{ uid: 1, diy: { slot: SLOT[tier], charId: WD, skillIndex: skill, uniEquipId: mod }, elite, row, col }, ...others],
   });
@@ -75,7 +77,8 @@ test('维什戴尔 in every 自选 form: her kit (all three skills authored), th
   assert.deepEqual(formOf(6, true).skills.map((s) => [s.skillType, s.trigger.rule, s.trigger.rawRule]), [['AUTO', 'DEFAULT', 'DEFAULT'], ['MANUAL', 'DEFAULT', 'DEFAULT'], ['MANUAL', 'SP_FULL', 'ALWAYS']]);
   assert.deepEqual([FORMS['2/1/4/0'].stats.maxHp, FORMS['2/1/4/0'].stats.atk, FORMS['2/60/7/1'].stats.maxHp, FORMS['2/60/7/1'].stats.atk], [1434, 615, 1735, 684]);
   assert.deepEqual([modOf(5, BOM).attr, modOf(6, BOM).attr], [{ atk: 45, aspd: 5 }, { atk: 65, aspd: 7 }]);
-  const data = { chess: CHESS, backups: BACKUPS };
+  assert.equal(shippedPool.includes(WD), false, 'the shipped pool does not offer him (he is a chess piece)');
+  const data = diyPoolSource(WD, { bonds: ['emptyShip'] });
   assert.ok(KITTED_CHARS.includes(WD) && [5, 6].every((t) => diyPool(t, { data, kitted: KITTED_CHARS }).includes(WD)));
   assert.equal(validateDiyPicks({ [SLOT[6]]: { charId: WD, skillIndex: 2, uniEquipId: BOM } }, { data, kitted: KITTED_CHARS }).ok, true);
 });

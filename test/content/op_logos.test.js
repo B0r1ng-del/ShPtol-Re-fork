@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { KITTED_CHARS, OPERATOR_KITS, KITS } from '../../server/sim/content/kits/index.js';
 import { diyPool, validateDiyPicks } from '../../shared/diy.js';
+import { diyPoolSource, shippedPool } from '../helpers/diyPoolSource.js';
 
 const load = (f) => JSON.parse(readFileSync(new URL(`../../data/${f}.json`, import.meta.url), 'utf8'));
 const CHESS = load('chess');
@@ -41,7 +42,8 @@ const label = ([tier, elite, mod]) => `T${tier} ${elite ? 'elite' : 'normal'} ${
 /** A battle with 逻各斯 as uid 1 at (row, col) facing RIGHT. */
 function field({ tier = 5, elite = false, mod = null, skill = 0, row = 10, col = 5, others = [], seed = 5, setup } = {}) {
   const h = makeBattle({
-    defs: { enemies: ENEMIES }, timeLimit: 900, autoFinish: false, seed, setup,
+    data: diyPoolSource(LOGOS, { bonds: ['emptyShip'], raw: { enemies: ENEMIES } }),
+    timeLimit: 900, autoFinish: false, seed, setup,
     flags: { dpPerSec: 0 }, hooks: ['damaged', 'skillStart', 'skillEnd', 'statusApplied', 'attack', 'elementBurst'], captureNoisy: true,
     units: [{ uid: 1, diy: { slot: SLOT[tier], charId: LOGOS, skillIndex: skill, uniEquipId: mod }, elite, row, col }, ...others],
   });
@@ -79,9 +81,12 @@ test('逻各斯 in every 自选 form: his operator kit (all three skills authore
   assert.deepEqual([modOf(5, CCRD).attr, modOf(6, CCRD).attr, modOf(5, CCRY).attr, modOf(6, CCRY).attr], [{ maxHp: 100, atk: 36 }, { maxHp: 170, atk: 67 }, { atk: 35, res: 5 }, { atk: 60, res: 5 }]);
 });
 
-test('a 自选 pick: 逻各斯 is offered at tiers 5 and 6 (he has a kit) and a roster with him passes validateDiyPicks', () => {
-  const data = { chess: CHESS, backups: BACKUPS };
+test('a 自选 pick: 逻各斯 has a kit, the shipped pool no longer offers him (he is a chess piece), and a roster that does passes validateDiyPicks', () => {
   assert.ok(KITTED_CHARS.includes(LOGOS));
+  // 2026-10-23: an operator who is already a chess piece leaves diy.ownedPool (tools/fork-overrides.mjs ownedPoolOf)
+  // — 「同一位干员能被上两次、局内卡池概率异常」. This kit is unaffected; only the pool is.
+  assert.equal(shippedPool.includes(LOGOS), false, 'the shipped pool does not offer him');
+  const data = diyPoolSource(LOGOS, { bonds: ['emptyShip'] });
   for (const t of [5, 6]) assert.ok(diyPool(t, { data, kitted: KITTED_CHARS }).includes(LOGOS), `tier ${t}`);
   assert.deepEqual(validateDiyPicks({ [SLOT[6]]: { charId: LOGOS, skillIndex: 2, uniEquipId: CCRY } }, { data, kitted: KITTED_CHARS }),
     { ok: true, picks: { [SLOT[6]]: { charId: LOGOS, skillIndex: 2, uniEquipId: CCRY } } });

@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { KITTED_CHARS, OPERATOR_KITS, KITS } from '../../server/sim/content/kits/index.js';
 import { diyPool, validateDiyPicks } from '../../shared/diy.js';
+import { diyPoolSource, shippedPool } from '../helpers/diyPoolSource.js';
 
 const load = (f) => JSON.parse(readFileSync(new URL(`../../data/${f}.json`, import.meta.url), 'utf8'));
 const CHESS = load('chess');
@@ -36,14 +37,24 @@ const tokOf = (tier, elite, skill, mod) => {
 const approx = (a, b, msg, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps * Math.max(1, Math.abs(b)), `${msg}: ${a} vs ${b}`);
 const dummy = (key, o = {}) => enemyRec({ key, hp: 1e9, speed: 0, mass: 0, ...o });
 const ENEMIES = { enemy_dummy: dummy('enemy_dummy'), enemy_fly: dummy('enemy_fly', { motion: 'FLY' }) };
-const FORMS_ALL = [[5, false, null], [6, false, null], ...[5, 6].flatMap((t) => [null, Y, X].map((m) => [t, true, m]))];
+// ★ 2026-10-24: 自选 槽位的形态只属于 ownedPool 成员，而这位干员是棋手 —— data/backups.json 只带她自己的两个
+// status（tier-5 棋手 = 2/1/4/0 + 2/60/7/1，tier-6 棋手 = 2/1/4/0 + 2/60/7/3）。`checkDiyPick` 要一个槽位的**正常 +
+// 精锐**两个形态都在，缺一档就**整档不可用**（不是只少矩阵里的一行）。所以 TIERS 直接从数据的 status 键算，
+// 不走 formOf —— 下面几行就把 formOf 收窄成那唯一的真实形态了。
+const SLOT_STATUSES = { 5: ['2/1/4/0', '2/60/7/1'], 6: ['2/1/4/0', '2/60/7/3'] };
+const TIERS = [5, 6].filter((t) => SLOT_STATUSES[t].every((k) => !!FORMS[k]));
+// 只有一档可用：helpers 把任何 tier 都归一到这里，调用点不必逐个改
+const T = TIERS[0];
+const FORMS_ALL = [[5, false, null], [6, false, null], ...[5, 6].flatMap((t) => [null, Y, X].map((m) => [t, true, m]))]
+  .filter(([tier]) => TIERS.includes(tier));
 
 /** 鸿雪 as uid 1 at (10, 5) facing RIGHT; `tok` = the typewriter piece's tile (uid 2) or null. */
-function field({ tier = 5, elite = false, mod = null, skill = 0, tok = null, tokFirst = false, seed = 5, others = [] } = {}) {
-  const op = { uid: 1, diy: { slot: SLOT[tier], charId: SNOW, skillIndex: skill, uniEquipId: mod }, elite, row: 10, col: 5 };
+function field({ tier = T, elite = false, mod = null, skill = 0, tok = null, tokFirst = false, seed = 5, others = [] } = {}) {
+  const op = { uid: 1, diy: { slot: SLOT[T], charId: SNOW, skillIndex: skill, uniEquipId: mod }, elite, row: 10, col: 5 };
   const piece = tok ? [{ uid: 2, kind: 'token', tokenId: TOK, ownerUid: 1, row: tok[0], col: tok[1] }] : [];
   const h = makeBattle({
-    defs: { enemies: ENEMIES }, timeLimit: 900, autoFinish: false, seed,
+    data: diyPoolSource(SNOW, { bonds: ['sargonShip'], raw: { enemies: ENEMIES } }),
+    timeLimit: 900, autoFinish: false, seed,
     flags: { dpPerSec: 0, dpMax: 999 }, hooks: ['damaged', 'skillStart', 'skillEnd', 'statusApplied', 'death', 'deploy', 'attack', 'dodge'], captureNoisy: true,
     units: tokFirst ? [...piece, op, ...others] : [op, ...piece, ...others],
   });
@@ -75,15 +86,15 @@ test('鸿雪 in every 自选 form: her kit, the form\'s stats + module attribute
     }
   }
   assert.deepEqual(formOf(6, true).skills.map((s) => s.trigger.rule), ['DEFAULT', 'SKILL_RANGE', 'ACTIVE_RANGE']);
-  assert.deepEqual([modOf(5, Y).attr, modOf(6, Y).attr, modOf(5, X).attr, modOf(6, X).attr],
-    [{ maxHp: 130, atk: 55 }, { maxHp: 170, atk: 75 }, { atk: 80, def: 10, respawnTime: -25 }, { atk: 120, def: 16, respawnTime: -25 }]);
-  const data = { chess: CHESS, backups: BACKUPS };
-  assert.ok(KITTED_CHARS.includes(SNOW) && [5, 6].every((t) => diyPool(t, { data, kitted: KITTED_CHARS }).includes(SNOW)));
-  assert.equal(validateDiyPicks({ [SLOT[5]]: { charId: SNOW, skillIndex: 1, uniEquipId: X } }, { data, kitted: KITTED_CHARS }).ok, true);
+  assert.deepEqual(TIERS.flatMap((t) => [modOf(t, Y).attr, modOf(t, X).attr]), [{ maxHp: 130, atk: 55 }, { atk: 80, def: 10, respawnTime: -25 }]);
+  assert.equal(shippedPool.includes(SNOW), false, 'the shipped pool does not offer him (he is a chess piece)');
+  const data = diyPoolSource(SNOW, { bonds: ['sargonShip'] });
+  assert.ok(KITTED_CHARS.includes(SNOW) && TIERS.every((t) => diyPool(t, { data, kitted: KITTED_CHARS }).includes(SNOW)));
+  assert.equal(validateDiyPicks({ [SLOT[T]]: { charId: SNOW, skillIndex: 1, uniEquipId: X } }, { data, kitted: KITTED_CHARS }).ok, true);
 });
 
 test('S1 抑扬格 (AUTO, attack SP 29 / 25, data DEFAULT): after that many attacks ATK +35 % / +50 % until she leaves the field, every attack meanwhile 30 % to deal ×145 % / ×160 %', () => {
-  for (const [tier, elite] of [[5, false], [6, true]]) {
+  for (const [tier, elite] of [[5, false], [5, true]]) {
     const sk = skillOf(tier, elite, S1);
     assert.deepEqual([sk.spCost, sk.bb.atk, sk.bb.prob, sk.bb.atk_scale], elite ? [25, 0.5, 0.3, 1.6] : [29, 0.35, 0.3, 1.45], `T${tier}`);
     const { h, u } = field({ tier, elite, skill: 0, seed: 12 });
@@ -108,7 +119,7 @@ test('S1 抑扬格 (AUTO, attack SP 29 / 25, data DEFAULT): after that many atta
 });
 
 test('S2 点题 (MANUAL, 2 charges, data SKILL_RANGE on 3-1): an enemy 3 tiles ahead (3-1, not 3-6) casts it and is struck at once: atk_scale × ATK as a 普通伤害 attack, then twice as 持续伤害 (not dodgeable); her card range stays 3-6', () => {
-  for (const [tier, elite] of [[5, false], [6, true]]) {
+  for (const [tier, elite] of [[5, false], [5, true]]) {
     const sk = skillOf(tier, elite, S2);
     assert.deepEqual([sk.bb.atk_scale, sk.bb.respawn_time, sk.maxChargeTime, sk.spCost, sk.initSp], elite ? [2, 0.6, 2, 10, 6] : [1.8, 0.65, 2, 11, 3], `T${tier}`);
     const { h, u } = field({ tier, elite, skill: 1, seed: 3 });
@@ -144,7 +155,7 @@ test('S2 点题 (MANUAL, 2 charges, data SKILL_RANGE on 3-1): an enemy 3 tiles a
 });
 
 test('S3 锐笔速写 (MANUAL, data ACTIVE_RANGE on 3-1): an enemy only on [0,3] casts it; range 3-1 (and back), interval 1.6 − 0.6 s, ×155 % / 170 % off her line, ×185 % / 215 % on the 正前方3格', () => {
-  for (const [tier, elite] of [[5, false], [6, true]]) {
+  for (const [tier, elite] of [[5, false], [5, true]]) {
     const sk = skillOf(tier, elite, S3);
     assert.deepEqual([sk.duration, sk.bb.base_attack_time, sk.bb.atk_scale, sk.bb['bgsnow_s_3[atk_up].atk_scale'], sk.rangeId], elite ? [27, -0.6, 1.7, 2.15, '3-1'] : [26, -0.6, 1.55, 1.85, '3-1'], `T${tier}`);
     const { h, u } = field({ tier, elite, skill: 2, seed: 7 });
@@ -233,7 +244,7 @@ test('“打字机”: her placed piece runs its kit (not the generic one) — t
     done(h);
   }
   // 鸿雪 down: the typewriter waits for her
-  const { h, u, t } = field({ tier: 5, elite: false, skill: 0, tok: [12, 3] });
+  const { h, u, t } = field({ tier: T, elite: false, skill: 0, tok: [12, 3] });
   h.b.players[0].dp = 0;
   h.run(10);
   h.b.kill(u, null);
@@ -246,7 +257,7 @@ test('“打字机”: her placed piece runs its kit (not the generic one) — t
 });
 
 test('“打字机”\'s skill is the copy of hers, free once per deployment: S1 ATK +35 % / +50 % for good with the 30 % proc, S2 three hits of ×180 % / ×200 % (普通 + 2 × 持续), S3 4-1 + interval −0.6 s + ×185 % / ×215 % for 16 / 17 s', () => {
-  for (const [tier, elite] of [[5, false], [6, true]]) {
+  for (const [tier, elite] of [[5, false], [5, true]]) {
     for (const skill of [0, 1, 2]) {
       const v = tokOf(tier, elite, skill, null);
       const tb = v.skill.bb;

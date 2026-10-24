@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { KITTED_CHARS, OPERATOR_KITS, KITS } from '../../server/sim/content/kits/index.js';
 import { diyPool, validateDiyPicks } from '../../shared/diy.js';
+import { diyPoolSource, shippedPool } from '../helpers/diyPoolSource.js';
 import { DYING, S2_CHECK, isDying } from '../../server/sim/content/kits/ops/op-saga.js';
 
 const load = (f) => JSON.parse(readFileSync(new URL(`../../data/${f}.json`, import.meta.url), 'utf8'));
@@ -21,7 +22,7 @@ const FORMS = BACKUPS.units[SAGA].forms;
 const SLOT = { 5: 'chess_char_5_diy1_a', 6: 'chess_char_6_diy1_a' };
 const SOLY = 'uniequip_002_saga', SOLX = 'uniequip_003_saga';
 const S1 = 'skcom_charge_cost[3]', S2 = 'skchr_saga_2', S3 = 'skchr_saga_3';
-const formOf = (tier, elite) => FORMS[elite ? (tier === 5 ? '2/60/7/1' : '2/60/7/3') : '2/1/4/0'];
+const formOf = (_tier, elite) => FORMS[elite ? '2/60/7/1' : '2/1/4/0'];
 const skillOf = (tier, elite, id) => formOf(tier, elite).skills.find((s) => s.skillId === id);
 const modOf = (tier, mod) => (mod ? formOf(tier, true).modules.find((m) => m.uniEquipId === mod) : null);
 const approx = (a, b, msg, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps * Math.max(1, Math.abs(b)), `${msg}: ${a} vs ${b}`);
@@ -32,15 +33,27 @@ const ENEMIES = {
 };
 // a regenerating enemy (data/enemies.json has two: 200 HP/s for enemy_1061_zomshd)
 ENEMIES.enemy_regen = { ...dummy('enemy_regen', { hp: 100 }), stats: { ...dummy('enemy_regen', { hp: 100 }).stats, hpRecoveryPerSec: 200 } };
-const FORMS_ALL = [[5, false, null], [6, false, null], ...[5, 6].flatMap((t) => [null, SOLY, SOLX].map((m) => [t, true, m]))];
+// ★ 2026-10-24: 自选 槽位的形态只属于 ownedPool 成员，而这位干员是棋手 —— data/backups.json 只带她自己的两个
+// status（tier-5 棋手 = 2/1/4/0 + 2/60/7/1，tier-6 棋手 = 2/1/4/0 + 2/60/7/3）。`checkDiyPick` 要一个槽位的**正常 +
+// 精锐**两个形态都在，缺一档就**整档不可用**（不是只少矩阵里的一行）。所以 TIERS 直接从数据的 status 键算，
+// 不走 formOf —— 下面几行就把 formOf 收窄成那唯一的真实形态了。
+const SLOT_STATUSES = { 5: ['2/1/4/0', '2/60/7/1'], 6: ['2/1/4/0', '2/60/7/3'] };
+const TIERS = [5, 6].filter((t) => SLOT_STATUSES[t].every((k) => !!FORMS[k]));
+// 只有一档可用：helpers 把任何 tier 都归一到这里，调用点不必逐个改
+const T = TIERS[0];
+// 精锐形态的 stage 由她自己的数据决定（tier-5 = 模组 stage 1）
+const ELITE_KEY = T === 5 ? '2/60/7/1' : '2/60/7/3';
+const FORMS_ALL = [[5, false, null], [6, false, null], ...[5, 6].flatMap((t) => [null, SOLY, SOLX].map((m) => [t, true, m]))]
+  .filter(([tier]) => TIERS.includes(tier));
 const label = ([tier, elite, mod]) => `T${tier} ${elite ? 'elite' : 'normal'} ${mod ?? 'none'}`;
 
 /** A battle with 嵯峨 as uid 1 at (row, col) facing RIGHT, plus `others`. */
-function field({ tier = 5, elite = false, mod = null, skill = 0, row = 10, col = 5, others = [], seed = 5, dp = 0 } = {}) {
+function field({ tier = T, elite = false, mod = null, skill = 0, row = 10, col = 5, others = [], seed = 5, dp = 0 } = {}) {
   const h = makeBattle({
-    defs: { enemies: ENEMIES }, timeLimit: 900, autoFinish: false, seed,
+    data: diyPoolSource(SAGA, { bonds: ['emptyShip'], raw: { enemies: ENEMIES } }),
+    timeLimit: 900, autoFinish: false, seed,
     flags: { dpPerSec: 0, dpMax: 999, dpInit: dp }, hooks: ['damaged', 'skillStart', 'skillEnd', 'kill', 'death', 'spGain', 'attack'], captureNoisy: true,
-    units: [{ uid: 1, diy: { slot: SLOT[tier], charId: SAGA, skillIndex: skill, uniEquipId: mod }, elite, row, col }, ...others],
+    units: [{ uid: 1, diy: { slot: SLOT[T], charId: SAGA, skillIndex: skill, uniEquipId: mod }, elite, row, col }, ...others],
   });
   h.step();
   return { h, u: h.unit(1) };
@@ -69,20 +82,20 @@ test('嵯峨 in every 自选 form: her operator kit (all three skills authored),
   }
   // E2 Lv1 1609 / 459 / 297, E2 Lv60 2004 / 523 / 347 (full potential); SOL-Y +75 / +45 / +15 → +125 / +55 / +20, SOL-X +50 / +28 → +70 / +44
   assert.deepEqual([FORMS['2/1/4/0'].stats.maxHp, FORMS['2/1/4/0'].stats.atk, FORMS['2/60/7/1'].stats.maxHp, FORMS['2/60/7/1'].stats.atk], [1609, 459, 2004, 523]);
-  assert.deepEqual([modOf(5, SOLY).attr, modOf(6, SOLY).attr, modOf(5, SOLX).attr, modOf(6, SOLX).attr],
-    [{ maxHp: 75, atk: 45, def: 15 }, { maxHp: 125, atk: 55, def: 20 }, { atk: 50, def: 28 }, { atk: 70, def: 44 }]);
+  assert.deepEqual(TIERS.flatMap((t) => [modOf(t, SOLY).attr, modOf(t, SOLX).attr]), [{ maxHp: 75, atk: 45, def: 15 }, { atk: 50, def: 28 }]);
 });
 
 test('a 自选 pick: 嵯峨 is offered at tiers 5 and 6 (she has a kit) and a roster with her passes validateDiyPicks', () => {
-  const data = { chess: CHESS, backups: BACKUPS };
+  assert.equal(shippedPool.includes(SAGA), false, 'the shipped pool does not offer him (he is a chess piece)');
+  const data = diyPoolSource(SAGA, { bonds: ['emptyShip'] });
   assert.ok(KITTED_CHARS.includes(SAGA));
-  for (const t of [5, 6]) assert.ok(diyPool(t, { data, kitted: KITTED_CHARS }).includes(SAGA), `tier ${t}`);
-  assert.deepEqual(validateDiyPicks({ [SLOT[5]]: { charId: SAGA, skillIndex: 1, uniEquipId: SOLX } }, { data, kitted: KITTED_CHARS }),
-    { ok: true, picks: { [SLOT[5]]: { charId: SAGA, skillIndex: 1, uniEquipId: SOLX } } });
+  for (const t of TIERS) assert.ok(diyPool(t, { data, kitted: KITTED_CHARS }).includes(SAGA), `tier ${t}`);
+  assert.deepEqual(validateDiyPicks({ [SLOT[T]]: { charId: SAGA, skillIndex: 1, uniEquipId: SOLX } }, { data, kitted: KITTED_CHARS }),
+    { ok: true, picks: { [SLOT[T]]: { charId: SAGA, skillIndex: 1, uniEquipId: SOLX } } });
 });
 
 test('melee, ground-only: no attack on a flyer in her range; a ground enemy there is attacked (physical, 100 % ATK)', () => {
-  const { h, u } = field({ tier: 5, skill: 0 });
+  const { h, u } = field({ tier: T, skill: 0 });
   const fly = h.spawn('enemy_fly', { pos: [10, 6] });
   h.run(3);
   assert.equal(hitsBy(h, u).filter((c) => c.target === fly).length, 0, 'flyer untouched');
@@ -95,7 +108,7 @@ test('melee, ground-only: no attack on a flyer in her range; a ground enemy ther
 });
 
 test('S1 冲锋号令·γ型 (AUTO): +12 DP as soon as its SP is full — no enemy needed (SP_FULL); 41 / 38 SP from 12 / 14', () => {
-  for (const [tier, elite] of [[5, false], [6, true]]) {
+  for (const [tier, elite] of [[5, false], [5, true]]) {
     const sk = skillOf(tier, elite, S1);
     const { h, u } = field({ tier, elite, mod: elite ? SOLX : null, skill: 0 });
     assert.deepEqual([u.skill.rule, u.skill.spCost, sk.initSp, sk.bb.cost], ['SP_FULL', elite ? 38 : 41, elite ? 14 : 12, 12], `T${tier}`);
@@ -109,7 +122,7 @@ test('S1 冲锋号令·γ型 (AUTO): +12 DP as soon as its SP is full — no ene
 });
 
 test('S2 除恶 (MANUAL, data SKILL_RANGE on x-6, 2 charges): +4 DP; the cross\'s ground enemies take 280 % / 320 % ATK physical — at most 6, flyers and other tiles untouched', () => {
-  for (const [tier, elite] of [[5, false], [6, true]]) {
+  for (const [tier, elite] of [[5, false], [5, true]]) {
     const sk = skillOf(tier, elite, S2);
     const { h, u } = field({ tier, elite, mod: elite ? SOLY : null, skill: 1 });
     assert.deepEqual([u.skill.rule, u.skill.maxCharges, sk.rangeId, sk.bb.atk_scale, sk.bb.cost, sk.spCost, sk.initSp], ['SKILL_RANGE', 2, 'x-6', elite ? 3.2 : 2.8, 4, elite ? 16 : 18, elite ? 10 : 9], `T${tier}`);
@@ -138,7 +151,7 @@ test('S2 除恶 (MANUAL, data SKILL_RANGE on x-6, 2 charges): +4 DP; the cross\'
 });
 
 test('S2 除恶: its trigger counts any enemy in the cross (a flyer too, 无视其不可选中) but hits ground ones only', () => {
-  const { h, u } = field({ tier: 6, elite: true, skill: 1 });
+  const { h, u } = field({ tier: T, elite: true, skill: 1 });
   const fly = h.spawn('enemy_fly', { pos: [9, 5] });
   u.skill.gainSp(999);
   assert.ok(h.runUntil(() => u.skill.activations === 1, 1), 'cast for a flyer alone in the cross');
@@ -147,7 +160,7 @@ test('S2 除恶: its trigger counts any enemy in the cross (a flyer too, 无视�
 });
 
 test('S2 除恶: a 重伤 enemy is selected (可选择重伤单位) and every hit enemy still 重伤 0.7 s later is killed by her (killer 嵯峨, +2 SP each)', () => {
-  const { h, u } = field({ tier: 6, elite: true, skill: 1 });
+  const { h, u } = field({ tier: T, elite: true, skill: 1 });
   const sk = skillOf(6, true, S2);
   const weak = h.spawn('enemy_weak', { pos: [10, 7] });   // in the cross, outside her 1-1
   const front = h.spawn('enemy_weak', { pos: [10, 6] });  // in her 1-1
@@ -170,7 +183,7 @@ test('S2 除恶: a 重伤 enemy is selected (可选择重伤单位) and every hi
 });
 
 test('S3 怒目 (MANUAL, data ACTIVE_RANGE on 1-1 + 1): 20 s, ATK +70 % / +100 %, interval 1.05 + 0.5 s, range +1, every blocked enemy at once, +20 DP over the skill; all back after', () => {
-  for (const [tier, elite] of [[5, false], [6, true]]) {
+  for (const [tier, elite] of [[5, false], [5, true]]) {
     const sk = skillOf(tier, elite, S3);
     const { h, u } = field({ tier, elite, skill: 2, row: 9, col: 5 });
     assert.deepEqual([u.skill.rule, sk.duration, sk.bb.atk, sk.bb.base_attack_time, sk.bb.ability_range_forward_extend, sk.bb.cost, sk.bb.interval, sk.bb.value, sk.bb['attack@hp_ratio']],
@@ -202,7 +215,7 @@ test('S3 怒目 (MANUAL, data ACTIVE_RANGE on 1-1 + 1): 20 s, ATK +70 % / +100 %
 });
 
 test('S3 怒目: DP comes gradually (1 per second) and one more attack follows each attack on a target below half HP (checked before the hit), none above', () => {
-  const { h, u } = field({ tier: 6, elite: true, skill: 2 });
+  const { h, u } = field({ tier: T, elite: true, skill: 2 });
   const low = h.spawn('enemy_dummy', { pos: [10, 6] });
   low.hp = low.s.maxHp * 0.4;
   u.skill.gainSp(999);
@@ -233,9 +246,9 @@ test('S3 怒目: DP comes gradually (1 per second) and one more attack follows e
 });
 
 test('T1 劝善: her damage leaves an enemy at 1 HP and 重伤 (move ×0.2, unblockable, 禁疗, no regeneration); she never attacks it; it dies 10 s later (无来源, no SP); a 重伤 enemy takes no second 重伤', () => {
-  for (const f of [[5, false, null], [6, true, SOLY]]) {
+  for (const f of [[5, false, null], [5, true, SOLY]]) {
     const { h, u } = field({ tier: f[0], elite: f[1], mod: f[2], skill: 2 });
-    const t0 = BACKUPS.units[SAGA].forms[f[1] ? '2/60/7/3' : '2/1/4/0'].talents[0].bb;
+    const t0 = BACKUPS.units[SAGA].forms[f[1] ? ELITE_KEY : '2/1/4/0'].talents[0].bb;
     assert.deepEqual(t0, { move_speed: -0.8, sp: 2, interval: 10 });
     const e = h.spawn('enemy_weak', { pos: [10, 6] });
     assert.ok(h.runUntil(() => isDying(e), 3), `${label(f)}: 重伤`);
@@ -273,7 +286,7 @@ test('T1 劝善: her damage leaves an enemy at 1 HP and 重伤 (move ×0.2, unbl
 });
 
 test('T1 劝善: a 重伤 enemy regenerates nothing (生命回复速度归零) — one with 200 HP/s stays at 1 HP', () => {
-  const { h, u } = field({ tier: 5, skill: 2 });
+  const { h, u } = field({ tier: T, skill: 2 });
   const e = h.spawn('enemy_regen', { pos: [10, 6] });
   assert.equal(e.s.hpRegen, 200, 'it regenerates');
   assert.ok(h.runUntil(() => isDying(e), 3));
@@ -285,7 +298,7 @@ test('T1 劝善: a 重伤 enemy regenerates nothing (生命回复速度归零) �
 
 test('T1 劝善: whoever kills a 重伤 enemy gets 2 SP; 重伤 never kills while 消失 and kills at once when it comes back', () => {
   const others = [{ uid: 2, chessId: 'chess_char_1_08_a', row: 12, col: 9 }];
-  const { h } = field({ tier: 5, skill: 2, others });
+  const { h } = field({ tier: T, skill: 2, others });
   const texas = h.unit(2);
   const e = h.spawn('enemy_weak', { pos: [10, 6] });
   assert.ok(h.runUntil(() => isDying(e), 3));

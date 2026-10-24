@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { KITTED_CHARS, OPERATOR_KITS, KITS } from '../../server/sim/content/kits/index.js';
 import { diyPool, validateDiyPicks } from '../../shared/diy.js';
+import { diyPoolSource, shippedPool } from '../helpers/diyPoolSource.js';
 
 const load = (f) => JSON.parse(readFileSync(new URL(`../../data/${f}.json`, import.meta.url), 'utf8'));
 const CHESS = load('chess');
@@ -20,7 +21,7 @@ const FORMS = BACKUPS.units[HELAGE].forms;
 const SLOT = { 5: 'chess_char_5_diy1_a', 6: 'chess_char_6_diy1_a' };
 const SBLX = 'uniequip_002_helage', SBLY = 'uniequip_003_helage';
 const S1 = 'skchr_helage_1', S2 = 'skchr_helage_2', S3 = 'skchr_helage_3';
-const formOf = (tier, elite) => FORMS[elite ? (tier === 5 ? '2/60/7/1' : '2/60/7/3') : '2/1/4/0'];
+const formOf = (_tier, elite) => FORMS[elite ? '2/60/7/1' : '2/1/4/0'];
 const skillOf = (tier, elite, id) => formOf(tier, elite).skills.find((s) => s.skillId === id);
 const modOf = (tier, mod) => (mod ? formOf(tier, true).modules.find((m) => m.uniEquipId === mod) : null);
 const approx = (a, b, msg, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps * Math.max(1, Math.abs(b)), `${msg}: ${a} vs ${b}`);
@@ -30,16 +31,26 @@ const ENEMIES = {
   enemy_walk: enemyRec({ key: 'enemy_walk', hp: 1e9, speed: 0.6, mass: 0 }),
 };
 /** Every 自选 form: [tier, elite, module]. */
-const FORMS_ALL = [[5, false, null], [6, false, null], ...[5, 6].flatMap((t) => [null, SBLX, SBLY].map((m) => [t, true, m]))];
+// ★ 2026-10-24: 自选 槽位的形态只属于 ownedPool 成员，而这位干员是棋手 —— data/backups.json 只带她自己的两个
+// status（tier-5 棋手 = 2/1/4/0 + 2/60/7/1，tier-6 棋手 = 2/1/4/0 + 2/60/7/3）。`checkDiyPick` 要一个槽位的**正常 +
+// 精锐**两个形态都在，缺一档就**整档不可用**（不是只少矩阵里的一行）。所以 TIERS 直接从数据的 status 键算，
+// 不走 formOf —— 下面几行就把 formOf 收窄成那唯一的真实形态了。
+const SLOT_STATUSES = { 5: ['2/1/4/0', '2/60/7/1'], 6: ['2/1/4/0', '2/60/7/3'] };
+const TIERS = [5, 6].filter((t) => SLOT_STATUSES[t].every((k) => !!FORMS[k]));
+// 只有一档可用：helpers 把任何 tier 都归一到这里，调用点不必逐个改
+const T = TIERS[0];
+const FORMS_ALL = [[5, false, null], [6, false, null], ...[5, 6].flatMap((t) => [null, SBLX, SBLY].map((m) => [t, true, m]))]
+  .filter(([tier]) => TIERS.includes(tier));
 const label = ([tier, elite, mod]) => `T${tier} ${elite ? 'elite' : 'normal'} ${mod ?? 'none'}`;
 
 /** A battle with 赫拉格 as uid 1 at (row, col) facing RIGHT, plus `others`. */
-function field({ tier = 5, elite = false, mod = null, skill = 0, row = 10, col = 5, others = [], seed = 5 } = {}) {
+function field({ tier = T, elite = false, mod = null, skill = 0, row = 10, col = 5, others = [], seed = 5 } = {}) {
   const h = makeBattle({
-    defs: { enemies: ENEMIES }, timeLimit: 600, autoFinish: false, seed,
+    data: diyPoolSource(HELAGE, { bonds: ['emptyShip'], raw: { enemies: ENEMIES } }),
+    timeLimit: 600, autoFinish: false, seed,
     flags: { dpPerSec: 0, dpMax: 999 },
     hooks: ['damaged', 'skillStart', 'skillEnd', 'heal', 'attack'], captureNoisy: true,
-    units: [{ uid: 1, diy: { slot: SLOT[tier], charId: HELAGE, skillIndex: skill, uniEquipId: mod }, elite, row, col }, ...others],
+    units: [{ uid: 1, diy: { slot: SLOT[T], charId: HELAGE, skillIndex: skill, uniEquipId: mod }, elite, row, col }, ...others],
   });
   h.step();
   return { h, u: h.unit(1) };
@@ -71,19 +82,20 @@ test('赫拉格 in every 自选 form: his operator kit (all three skills authore
   // the numbers of the forms (zh_CN): E2 Lv1 2868 / 658 / 283, E2 Lv60 3502 / 744 / 317; SBL-X +230 HP +55 ATK → +350 / +90,
   // SBL-Y +55 ATK +50 DEF → +90 / +60
   assert.deepEqual([FORMS['2/1/4/0'].stats.maxHp, FORMS['2/1/4/0'].stats.atk, FORMS['2/60/7/1'].stats.maxHp, FORMS['2/60/7/1'].stats.atk], [2868, 658, 3502, 744]);
-  assert.deepEqual([modOf(5, SBLX).attr, modOf(6, SBLX).attr, modOf(5, SBLY).attr, modOf(6, SBLY).attr], [{ maxHp: 230, atk: 55 }, { maxHp: 350, atk: 90 }, { atk: 55, def: 50 }, { atk: 90, def: 60 }]);
+  assert.deepEqual(TIERS.flatMap((t) => [modOf(t, SBLX).attr, modOf(t, SBLY).attr]), [{ maxHp: 230, atk: 55 }, { atk: 55, def: 50 }]);
 });
 
 test('a 自选 pick: 赫拉格 is offered at tiers 5 and 6 (he has a kit) and a roster with him passes validateDiyPicks', () => {
-  const data = { chess: CHESS, backups: BACKUPS };
+  assert.equal(shippedPool.includes(HELAGE), false, 'the shipped pool does not offer him (he is a chess piece)');
+  const data = diyPoolSource(HELAGE, { bonds: ['emptyShip'] });
   assert.ok(KITTED_CHARS.includes(HELAGE));
-  for (const t of [5, 6]) assert.ok(diyPool(t, { data, kitted: KITTED_CHARS }).includes(HELAGE), `tier ${t}`);
-  assert.deepEqual(validateDiyPicks({ [SLOT[6]]: { charId: HELAGE, skillIndex: 2, uniEquipId: SBLY } }, { data, kitted: KITTED_CHARS }),
-    { ok: true, picks: { [SLOT[6]]: { charId: HELAGE, skillIndex: 2, uniEquipId: SBLY } } });
+  for (const t of TIERS) assert.ok(diyPool(t, { data, kitted: KITTED_CHARS }).includes(HELAGE), `tier ${t}`);
+  assert.deepEqual(validateDiyPicks({ [SLOT[T]]: { charId: HELAGE, skillIndex: 2, uniEquipId: SBLY } }, { data, kitted: KITTED_CHARS }),
+    { ok: true, picks: { [SLOT[T]]: { charId: HELAGE, skillIndex: 2, uniEquipId: SBLY } } });
 });
 
 test('武者 trait: one hit of 100 % ATK per attack heals him 70; another unit\'s heal does not reach him', () => {
-  const { h, u } = field({ tier: 6, elite: true, skill: 2, others: [{ uid: 2, chessId: 'chess_char_1_06_a', row: 12, col: 5 }] });
+  const { h, u } = field({ tier: T, elite: true, skill: 2, others: [{ uid: 2, chessId: 'chess_char_1_06_a', row: 12, col: 5 }] });
   u.hp = u.s.maxHp * 0.5;
   const e = h.spawn('enemy_dummy', { pos: [10, 6] });
   assert.ok(h.runUntil(() => hitsBy(h, u).length >= 1, 3));

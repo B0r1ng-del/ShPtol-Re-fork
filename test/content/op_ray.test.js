@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { KITTED_CHARS, OPERATOR_KITS, KITS } from '../../server/sim/content/kits/index.js';
 import { diyPool, validateDiyPicks } from '../../shared/diy.js';
+import { diyPoolSource, shippedPool } from '../helpers/diyPoolSource.js';
 import { SANDBEAST, SPECIAL_TAG } from '../../server/sim/content/kits/ops/op-ray.js';
 import { PUSH_TILES } from '../../server/sim/constants.js';
 
@@ -46,7 +47,8 @@ function field({ tier = 5, elite = false, mod = null, skill = 0, row = 10, col =
   const op = { uid: 1, diy: { slot: SLOT[tier], charId: RAY, skillIndex: skill, uniEquipId: mod }, elite, row, col };
   const piece = beast ? [{ uid: 2, kind: 'token', tokenId: SANDBEAST, ownerUid: 1, row: beast[0], col: beast[1] }] : [];
   const h = makeBattle({
-    defs: { enemies: ENEMIES }, timeLimit: 900, autoFinish: false, seed,
+    data: diyPoolSource(RAY, { bonds: ['emptyShip'], raw: { enemies: ENEMIES } }),
+    timeLimit: 900, autoFinish: false, seed,
     flags: { dpPerSec: 0, dpMax: 999, ...flags }, hooks: ['damaged', 'skillStart', 'skillEnd', 'statusApplied', 'death', 'deploy', 'attack', 'kill'], captureNoisy: true,
     units: beastFirst ? [...piece, op, ...others] : [op, ...piece, ...others],
   });
@@ -87,7 +89,8 @@ test('莱伊 in every 自选 form: her kit (all three skills authored), the form
   assert.deepEqual(formOf(6, true).skills.map((s) => s.trigger.rule), ['DEFAULT', 'DEFAULT', 'ACTIVE_RANGE']);
   assert.deepEqual([modOf(5, HX).attr, modOf(6, HX).attr, modOf(5, HY).attr, modOf(6, HY).attr],
     [{ maxHp: 150, atk: 50, def: 15 }, { maxHp: 200, atk: 70, def: 25 }, { maxHp: 100, atk: 60, aspd: 5 }, { maxHp: 200, atk: 75, aspd: 7 }]);
-  const data = { chess: CHESS, backups: BACKUPS };
+  assert.equal(shippedPool.includes(RAY), false, 'the shipped pool does not offer him (he is a chess piece)');
+  const data = diyPoolSource(RAY, { bonds: ['emptyShip'] });
   assert.ok(KITTED_CHARS.includes(RAY) && [5, 6].every((t) => diyPool(t, { data, kitted: KITTED_CHARS }).includes(RAY)));
   assert.equal(validateDiyPicks({ [SLOT[5]]: { charId: RAY, skillIndex: 1, uniEquipId: HX } }, { data, kitted: KITTED_CHARS }).ok, true);
 });

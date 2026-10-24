@@ -11,6 +11,7 @@ import { readFileSync } from 'node:fs';
 import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { KITTED_CHARS, OPERATOR_KITS, KITS } from '../../server/sim/content/kits/index.js';
 import { diyPool, validateDiyPicks } from '../../shared/diy.js';
+import { diyPoolSource, shippedPool } from '../helpers/diyPoolSource.js';
 
 const load = (f) => JSON.parse(readFileSync(new URL(`../../data/${f}.json`, import.meta.url), 'utf8'));
 const CHESS = load('chess');
@@ -20,7 +21,7 @@ const FORMS = BACKUPS.units[VEEN].forms;
 const SLOT = { 5: 'chess_char_5_diy1_a', 6: 'chess_char_6_diy1_a' };
 const MSCY = 'uniequip_002_veen';
 const S1 = 'skchr_veen_1', S2 = 'skchr_veen_2', S3 = 'skchr_veen_3';
-const formOf = (tier, elite) => FORMS[elite ? (tier === 5 ? '2/60/7/1' : '2/60/7/3') : '2/1/4/0'];
+const formOf = (_tier, elite) => FORMS[elite ? '2/60/7/1' : '2/1/4/0'];
 const skillOf = (tier, elite, id) => formOf(tier, elite).skills.find((s) => s.skillId === id);
 const modOf = (tier, mod) => (mod ? formOf(tier, true).modules.find((m) => m.uniEquipId === mod) : null);
 const talentOf = (tier, elite, mod, i) => {
@@ -30,14 +31,24 @@ const talentOf = (tier, elite, mod, i) => {
 const approx = (a, b, msg, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps * Math.max(1, Math.abs(b)), `${msg}: ${a} vs ${b}`);
 const dummy = (key, o = {}) => enemyRec({ key, hp: 1e9, speed: 0, mass: 0, ...o });
 const ENEMIES = { enemy_dummy: dummy('enemy_dummy'), enemy_fly: dummy('enemy_fly', { motion: 'FLY' }) };
-const FORMS_ALL = [[5, false, null], [6, false, null], ...[5, 6].flatMap((t) => [null, MSCY].map((m) => [t, true, m]))];
+// ★ 2026-10-24: 自选 槽位的形态只属于 ownedPool 成员，而这位干员是棋手 —— data/backups.json 只带她自己的两个
+// status（tier-5 棋手 = 2/1/4/0 + 2/60/7/1，tier-6 棋手 = 2/1/4/0 + 2/60/7/3）。`checkDiyPick` 要一个槽位的**正常 +
+// 精锐**两个形态都在，缺一档就**整档不可用**（不是只少矩阵里的一行）。所以 TIERS 直接从数据的 status 键算，
+// 不走 formOf —— 下面几行就把 formOf 收窄成那唯一的真实形态了。
+const SLOT_STATUSES = { 5: ['2/1/4/0', '2/60/7/1'], 6: ['2/1/4/0', '2/60/7/3'] };
+const TIERS = [5, 6].filter((t) => SLOT_STATUSES[t].every((k) => !!FORMS[k]));
+// 只有一档可用：helpers 把任何 tier 都归一到这里，调用点不必逐个改
+const T = TIERS[0];
+const FORMS_ALL = [[5, false, null], [6, false, null], ...[5, 6].flatMap((t) => [null, MSCY].map((m) => [t, true, m]))]
+  .filter(([tier]) => TIERS.includes(tier));
 const label = ([tier, elite, mod]) => `T${tier} ${elite ? 'elite' : 'normal'} ${mod ?? 'none'}`;
 
-function field({ tier = 5, elite = false, mod = null, skill = 0, row = 10, col = 5, others = [], seed = 5 } = {}) {
+function field({ tier = T, elite = false, mod = null, skill = 0, row = 10, col = 5, others = [], seed = 5 } = {}) {
   const h = makeBattle({
-    defs: { enemies: ENEMIES }, timeLimit: 900, autoFinish: false, seed,
+    data: diyPoolSource(VEEN, { bonds: ['emptyShip'], raw: { enemies: ENEMIES } }),
+    timeLimit: 900, autoFinish: false, seed,
     flags: { dpPerSec: 0 }, hooks: ['damaged', 'skillStart', 'skillEnd', 'attack', 'ammoUsed'], captureNoisy: true,
-    units: [{ uid: 1, diy: { slot: SLOT[tier], charId: VEEN, skillIndex: skill, uniEquipId: mod }, elite, row, col }, ...others],
+    units: [{ uid: 1, diy: { slot: SLOT[T], charId: VEEN, skillIndex: skill, uniEquipId: mod }, elite, row, col }, ...others],
   });
   h.step();
   return { h, u: h.unit(1) };
@@ -71,15 +82,16 @@ test('维伊 in every 自选 form: her operator kit (all three skills authored),
     }
   }
   assert.deepEqual([FORMS['2/1/4/0'].stats.atk, FORMS['2/60/7/1'].stats.atk, FORMS['2/60/7/1'].trait.bb], [1142, 1320, { times: 9, merge_cnt: 3 }]);
-  assert.deepEqual([modOf(5, MSCY).attr, modOf(6, MSCY).attr], [{ maxHp: 80, atk: 85 }, { maxHp: 190, atk: 120 }]);
+  assert.deepEqual(TIERS.flatMap((t) => [modOf(t, MSCY).attr]), [{ maxHp: 80, atk: 85 }]);
 });
 
 test('a 自选 pick: 维伊 is offered at tiers 5 and 6 (she has a kit) and a roster with her passes validateDiyPicks', () => {
-  const data = { chess: CHESS, backups: BACKUPS };
+  assert.equal(shippedPool.includes(VEEN), false, 'the shipped pool does not offer him (he is a chess piece)');
+  const data = diyPoolSource(VEEN, { bonds: ['emptyShip'] });
   assert.ok(KITTED_CHARS.includes(VEEN));
-  for (const t of [5, 6]) assert.ok(diyPool(t, { data, kitted: KITTED_CHARS }).includes(VEEN), `tier ${t}`);
-  assert.deepEqual(validateDiyPicks({ [SLOT[6]]: { charId: VEEN, skillIndex: 1, uniEquipId: MSCY } }, { data, kitted: KITTED_CHARS }),
-    { ok: true, picks: { [SLOT[6]]: { charId: VEEN, skillIndex: 1, uniEquipId: MSCY } } });
+  for (const t of TIERS) assert.ok(diyPool(t, { data, kitted: KITTED_CHARS }).includes(VEEN), `tier ${t}`);
+  assert.deepEqual(validateDiyPicks({ [SLOT[T]]: { charId: VEEN, skillIndex: 1, uniEquipId: MSCY } }, { data, kitted: KITTED_CHARS }),
+    { ok: true, picks: { [SLOT[T]]: { charId: VEEN, skillIndex: 1, uniEquipId: MSCY } } });
 });
 
 test('trait + T1: with no target her attack check stores one energy (an attack action: the interval restarts — PRTS 分支特性信息), 3 merge into a 转置能量, at most 3 of those (then she stops); ATK +12 % while she holds one, ASPD +15 while she holds none; MSC-Y: ASPD +30 while she holds any energy', () => {
@@ -110,7 +122,7 @@ test('trait + T1: with no target her attack check stores one energy (an attack a
 });
 
 test('the volley: 转置能量 first (300 % ATK each), the main attack (100 %), then the stored energies (100 %) — one target, all landing together, each with the ATK it left with (+12 % while a 转置能量 was held)', () => {
-  for (const [tier, elite] of [[5, false], [6, true]]) {
+  for (const [tier, elite] of [[5, false], [5, true]]) {
     const { h, u } = field({ tier, elite, skill: 1 });
     u.skill.sp = 0;
     storeUp(h, u, 1, 2);
@@ -131,10 +143,10 @@ test('the volley: 转置能量 first (300 % ATK each), the main attack (100 %), 
 });
 
 test('T2 战争技艺: each hit adds a stack (a 转置能量 3) of 90 arts / s for 5 s, at most 3 (MSC-Y stage 3: 120 / s, at most 4); she never targets a marked enemy — with only marked ones in range she stores energy', () => {
-  for (const f of [[5, false, null], [5, true, MSCY], [6, true, MSCY]]) {
+  for (const f of [[T, false, null], [T, true, MSCY]]) {
     const [tier, elite, mod] = f;
     const t1 = talentOf(tier, elite, mod, 1);
-    const s3m = elite && mod === MSCY && tier === 6;
+    const s3m = elite && mod === MSCY && T === 6;   // MSC-Y 的 stage 3 只在 tier-6 槽位上存在
     assert.deepEqual(t1, s3m ? { 'attack@duration': 5, 'attack@value': 120, 'attack@max_stack_cnt': 4 } : { 'attack@duration': 5, 'attack@value': 90, 'attack@max_stack_cnt': 3 }, label(f));
     const { h, u } = field({ tier, elite, mod, skill: 0 });
     u.skill.sp = 0;
@@ -163,7 +175,8 @@ test('T2 战争技艺: each hit adds a stack (a 转置能量 3) of 90 arts / s f
     done(h);
   }
   // a 转置能量 gives 3 stacks; the cap
-  for (const [tier, mod, cap] of [[6, null, 3], [6, MSCY, 4]]) {
+  for (const [tier, mod] of [[T, null], [T, MSCY]]) {
+    const cap = talentOf(T, true, mod, 1)['attack@max_stack_cnt'];
     const { h, u } = field({ tier, elite: true, mod, skill: 0 });
     u.skill.sp = 0;
     storeUp(h, u, 2, 0);
@@ -178,7 +191,7 @@ test('T2 战争技艺: each hit adds a stack (a 转置能量 3) of 90 arts / s f
 });
 
 test('S1 “自呼号生发” (AUTO): ASPD +60 / +75 for 18 s, cast as soon as its SP is full (31 / 29 from 7 / 9) — no enemy needed', () => {
-  for (const [tier, elite] of [[5, false], [6, true]]) {
+  for (const [tier, elite] of [[5, false], [5, true]]) {
     const sk = skillOf(tier, elite, S1);
     const { h, u } = field({ tier, elite, skill: 0 });
     assert.deepEqual([u.skill.rule, u.skill.spCost, sk.initSp, sk.duration, sk.bb.attack_speed], ['SP_FULL', elite ? 29 : 31, elite ? 9 : 7, 18, elite ? 75 : 60], `T${tier}`);
@@ -193,7 +206,7 @@ test('S1 “自呼号生发” (AUTO): ASPD +60 / +75 for 18 s, cast as soon as 
 });
 
 test('S2 “以鲜血洗去” (MANUAL, data DEFAULT): 28 s, attack interval 3.0 − 0.5 s; each released shot +9 % / +11 % ATK and +6 / +7 ASPD (a 转置能量 3 stacks), at most 8 / 9 — later shots of a volley carry the stacks of the earlier ones', () => {
-  for (const [tier, elite] of [[5, false], [6, true]]) {
+  for (const [tier, elite] of [[5, false], [5, true]]) {
     const sk = skillOf(tier, elite, S2);
     const b = sk.bb;
     const per = b['attack@veen_s_2_buff[stack].atk'], perAs = b['attack@veen_s_2_buff[stack].attack_speed'], max = b['attack@veen_s_2_buff[stack].max_stack_cnt'];
@@ -227,7 +240,7 @@ test('S2 “以鲜血洗去” (MANUAL, data DEFAULT): 28 s, attack interval 3.0
 });
 
 test('S3 “用赤铁铭记” (MANUAL, data DEFAULT): 18 / 21 bullets, ASPD +110 / +140; an attack spends 1 bullet per stored energy and 3 per 转置能量 (none without), its stored shots deal nothing and its main hit bounces that many times — every 0.5 s within 1.7 tiles, a new enemy first — for 130 % / 140 % of the cached ATK, each with a 战争技艺 stack', () => {
-  for (const [tier, elite] of [[5, false], [6, true]]) {
+  for (const [tier, elite] of [[5, false], [5, true]]) {
     const sk = skillOf(tier, elite, S3);
     const b = sk.bb;
     assert.deepEqual([b['attack@trigger_time'], b.attack_speed, b['attack@bounce_atk_scale'], b['attack@base_atk_scale']], [elite ? 21 : 18, elite ? 140 : 110, elite ? 1.4 : 1.3, 1], `T${tier}`);
