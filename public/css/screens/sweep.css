@@ -13,13 +13,13 @@
 /* Content must be visible even with a paused animation timeline (§35.113). Include the Modal veil: its shared
    opacity fade would hide all descendants. Only the decorative mist animates; data/selection updates never fade. */
 .modal.sw-veil { animation: none; }
-.modal__box.sw, .modal__box.sw-codex { position: fixed; inset: 0; width: auto; max-height: none; border: 0; box-shadow: none; animation: none; }
-.modal__box.sw::after, .modal__box.sw-codex::after, .sw > .modal__stripe, .sw-codex > .modal__stripe { display: none; }
-.sw > .modal__body, .sw-codex > .modal__body {
+.modal__box.swp, .modal__box.sw-codex { position: fixed; inset: 0; width: auto; max-height: none; border: 0; box-shadow: none; animation: none; }
+.modal__box.swp::after, .modal__box.sw-codex::after, .swp > .modal__stripe, .sw-codex > .modal__stripe { display: none; }
+.swp > .modal__body, .sw-codex > .modal__body {
   position: relative; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
   padding: var(--sa-t, 0px) var(--sa-r, 0px) var(--sa-b, 0px) var(--sa-l, 0px); color: #f1f4f3; overscroll-behavior: contain;
 }
-.sw { --sw-ink: #161b1a; --sw-tile: #262c2b; --sw-tile-2: #1a1f1e; --sw-panel: rgba(20, 25, 24, .8); background: #9aa3a2; }
+.swp { --sw-ink: #161b1a; --sw-tile: #262c2b; --sw-tile-2: #1a1f1e; --sw-panel: rgba(20, 25, 24, .8); background: #9aa3a2; }
 .sw__bg { position: absolute; inset: 0; pointer-events: none; overflow: hidden;
   background:
     radial-gradient(90% 70% at 72% 8%, rgba(255, 255, 255, .62), transparent 62%),

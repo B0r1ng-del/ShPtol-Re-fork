@@ -1986,6 +1986,10 @@ function MatchScreen() {
               setSel(null);
               setBondOpen(null);
             }}><${Icon} name="signal" /></button>` : null}
+          ${/* ★ fork 的面板挂载点（需求方 2026-10-17）：面板与按钮共享 `.gm__tools` 这个祖先 —— 上游 v0.3.2 把
+               这一行丢了，只剩 `.gm__corner` 那一份，于是面板的定位锚点（`.combat-metrics` 的 `top: calc(100% + …)`
+               相对顶栏底边往下弹）失去它的容器。测试逐字比对这一行。 */ ''}
+          ${showMetrics && metricsOpen ? html`<${CombatMetricsPanel} myId=${myId} onClose=${() => setMetricsOpen(false)} />` : null}
         </div>`}
         held=${hudIn === 'wait'} />
 

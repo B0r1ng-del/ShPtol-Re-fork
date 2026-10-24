@@ -30,8 +30,14 @@ const METRICS_CSS = GAME_CSS;
 const mod = (rel) => import(pathToFileURL(path.join(ROOT, rel)).href);
 
 test('1: 作战统计 button rides in the top bar row, and its panel hangs BELOW that row', async () => {
-  // the button is rendered inside `.gm__tools` (the same `.gm__gear` square as ⚙ / 📖 / ⛶), not in `.gm__corner`
-  const tools = GAME.slice(GAME.indexOf('class="gm__tools"'), GAME.indexOf('room=${modRoom} />'));
+  // the button is rendered inside `.gm__tools` (the same `.gm__gear` square as ⚙ / 📖 / ⛶), not in `.gm__corner`.
+  // ★ 锚点用 `held=` —— TopBar 那一行的**收尾参数**（进场动画的权威开关）。不要用 `room=${modRoom} />`：那一行
+  // 在 `room=${modRoom}` 之后还有 `tools=` 与 `held=`，那个 ` />` 已经不存在；`indexOf` 返回 -1 会让 slice 切到
+  // 文件末尾，断言于是失去约束力（这条曾经就是这样空转的：一直绿着，但什么都没测）。
+  const toolsOpen = GAME.indexOf('class="gm__tools"');
+  const toolsClose = GAME.indexOf('held=${hudIn === \'wait\'}', toolsOpen);
+  assert.ok(toolsOpen > 0 && toolsClose > toolsOpen, 'the tool row sits above the TopBar\'s closing `held=`');
+  const tools = GAME.slice(toolsOpen, toolsClose);
   assert.match(tools, /gm__gear gm__metrics/, 'the metrics button is a .gm__gear in the tool row');
   assert.ok(tools.includes('<${CombatMetricsPanel}'), 'and its panel is mounted with it, so the two share an ancestor');
   const corner = GAME.slice(GAME.indexOf('class="gm__corner"'), GAME.indexOf('chatOn && !chatOpen'));

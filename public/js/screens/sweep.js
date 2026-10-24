@@ -441,7 +441,10 @@ export function SweepReport({ onClose }) {
 
   // the codex is the report's sibling, not its child: the report's body lifts its children over the backdrop
   // (position: relative), which would pull a nested Modal out of its fixed layer
-  return html`<${Modal} open=${true} onClose=${onClose} class="sw" veilClass="sw-veil" closeOnBackdrop=${false}>
+  // ★ 容器类必须是 `swp`，**不能**是 `sw`：`components.css` 的 `.sw` 是 fork 的 44×24 开关按钮（PR #23），
+  // 报告容器叫 `sw` 会被压成 44×24、flex:1 的正文整块塌陷（顶栏画得出来，下面什么都没有）。`.sw-*` / `.sw__*`
+  // 子元素保持原名（不冲突），只有容器要换。上游 v0.3.2 用 -X theirs 把这里改回了旧写法。
+  return html`<${Modal} open=${true} onClose=${onClose} class="swp" veilClass="sw-veil" closeOnBackdrop=${false}>
     <div class="sw__bg" aria-hidden="true"><i class="sw__mist"></i><i class="sw__lines"></i></div>
     <header class="sw-top">
       <div class="sw-top__left">
