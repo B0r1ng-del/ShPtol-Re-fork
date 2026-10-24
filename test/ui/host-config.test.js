@@ -184,11 +184,15 @@ test('room.js sends room.setHostConfig { key, on } and opens the dialog from the
   // LATER THE SAME DAY (owner): only the 对局选项 half (col 'rule') stays here — the 内容包 switches left for the lobby's
   // own 「Mod 菜单」 dialog (screens/mods.js), so this panel filters them out and its badge counts only what it shows.
   assert.match(SRC, /const modRows = \(modPanel\(room, me\.playerId\) \|\| \[\]\)\.filter\(\(r\) => MOD_RULE_ROWS\.some\(\(k\) => k\.key === r\.key\)\)/, 'the Mod rows come from the panel, minus the 内容包 half');
-  assert.match(SRC, /<[$]\{HostConfigButton\} rows=[$]\{cfgRows\}/, 'the entry button is in the ready bar');
+  // 需求方 2026-10-24 (图五→图七): 房间配置 moved from the ready bar's standalone button into the ⚙ popover of the
+  // bottom pill, so the entry is the gear and the body is the shared RoomConfigBody (one implementation, two callers).
+  assert.match(SRC, /function RoomConfigBody\(/, 'the panel body is its own component');
+  assert.match(SRC, /data-testid="hostcfg-open"/, 'the ⚙ carries the entry testid the e2e opens it by');
+  assert.match(SRC, /<[$]\{RoomConfigBody\} rows=[$]\{cfgRows\}/, 'the ⚙ popover renders the shared body');
   assert.match(SRC, /const \[cfgOpen, setCfgOpen\] = useState\(false\)/);
   assert.match(SRC, /const cfgRows = hostConfigPanel\(room, me\.playerId\)/);
   assert.match(SRC, /<[$]\{Modal\} open=[$]\{open\}/, 'the dialog uses the shared Modal');
-  assert.match(SRC, /data-testid="hostcfg-open"/);
+  assert.match(SRC, /<[$]\{RoomConfigBody\} rows=[$]\{rows\}/, 'the dialog renders the same body');
   // 2026-10-13 (图二): the row is the shared <SwitchRow/> — the name on the left, the pill switch on the right, and the
   // explanation BEHIND the ⓘ (hover on a desktop / long press on a phone, ui/components.js + the Tooltip), not printed
   // under the switch. The owner's report: 「原样式通过点击功能标题来启用/禁用，开关状态不明显」.

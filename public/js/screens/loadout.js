@@ -660,19 +660,17 @@ function DetailImpl({ m, chess, golden, entries, ops = {}, onChange, onOps, onRe
 
 function Filters({ m, filters, onFilters, bonds }) {
   const set = (patch) => onFilters({ ...filters, ...patch });
-  // 需求方 2026-10-24: 职业筛选原本独占第二行、搜索框独占第一行 —— 合成一行：左侧职业、右侧搜索。
-  // 阶级 chips 已删（deck 自己按阶位分组、底栏能跳），盟约下拉与「仅看已调整」留在下一行。
+  // 需求方 2026-10-24 (图二): 职业 chips 一行；盟约下拉 + 「仅看已调整」 + 搜索 **同一行并行** —— 搜索在最右，
+  // 前面两个筛选与它一条水平线（原来它们独占第二行、搜索独占第一行，中间空一大截）。阶级 chips 已删。
   return html`<div class="lo-filters">
-    <div class="lo-frow lo-frow--top">
+    <div class="lo-frow">
       <div class="lo-chips lo-chips--prof" role="group" aria-label=${t('职业')}>
         ${PROF_ORDER.map((p) => html`<button key=${p} type="button" class=${cx('lo-chip', 'lo-chip--prof', filters.prof === p && 'is-on')}
           aria-pressed=${filters.prof === p ? 'true' : 'false'} title=${t(PROF_NAME[p])} onClick=${() => set({ prof: filters.prof === p ? null : p })}>
           <${Img} src=${profGlyphUrl(m, p)} class="lo-chip__icon lo-profglyph" fallback=${html`<span>${t(PROF_NAME[p])[0]}</span>`} /><span class="lo-chip__lbl">${t(PROF_NAME[p])}</span></button>`)}
       </div>
-      <${TextField} size="sm" icon="search" value=${filters.query} placeholder=${t('搜索干员 / 职业 / 盟约')} class="lo-search"
-        onInput=${(v) => set({ query: String(v).slice(0, 24) })} />
     </div>
-    <div class="lo-frow">
+    <div class="lo-frow lo-frow--top">
       <label class="lo-select">
         <span class="lo-select__k">${t('盟约')}</span>
         <select value=${filters.bond || ''} onChange=${(e) => set({ bond: e.currentTarget.value || null })} aria-label=${t('按盟约筛选')}>
@@ -682,6 +680,8 @@ function Filters({ m, filters, onFilters, bonds }) {
       </label>
       <button type="button" class=${cx('lo-toggle', filters.changedOnly && 'is-on')} aria-pressed=${filters.changedOnly ? 'true' : 'false'}
         onClick=${() => set({ changedOnly: !filters.changedOnly })}><i class="lo-toggle__box"><${Icon} name="check" /></i>${t('仅看已调整')}</button>
+      <${TextField} size="sm" icon="search" value=${filters.query} placeholder=${t('搜索干员 / 职业 / 盟约')} class="lo-search"
+        onInput=${(v) => set({ query: String(v).slice(0, 24) })} />
     </div>
   </div>`;
 }
@@ -824,7 +824,9 @@ function LoadoutScreen({ st }) {
     const ok = await confirmDialog({ title: t('全部持有'), text: t('将 {nNotOwned} 名未持有的干员恢复为持有（由本人上场）？', { nNotOwned }), okText: t('全部持有') });
     if (ok) setNotOwned([]);
   };
-  const pick = (id) => { loadoutStore.set({ sel: id }); setNarrowDetail(true); };
+  // 需求方 2026-10-24: 再次点按**同一个**干员收起右侧详情（选择切回空）—— 桌面与手机一致；
+  // 点另一个干员仍然是切换。
+  const pick = (id) => { loadoutStore.set({ sel: loadoutStore.get().sel === id ? null : id }); setNarrowDetail(true); };
   // a row's quick choice (PR #301): the same setChoice / setEntries path; the row becomes the selection, a phone stays on the list
   const quickChange = (id, patch) => {
     const recs = recordsOf(id, getChess);

@@ -117,7 +117,11 @@
 .lo-chip:hover .lo-profglyph { opacity: 1; }
 .lo-chip.is-on .lo-profglyph { filter: none; mix-blend-mode: multiply; opacity: 1; }
 .lo-chip__lbl { font-size: max(.14rem, 10px); }
-.lo-search { flex: 1 1 2.6rem; min-width: 2rem; max-width: 4.2rem; margin-left: auto; }
+.lo-search { flex: 0 0 auto; width: min(4.2rem, 34vw); min-width: 2rem; margin-left: auto; }
+/* 需求方 2026-10-24 (图二): 盟约 + 仅看已调整 + 搜索 同一条水平线，搜索贴右 —— 这一行不再换行把搜索挤到上面。 */
+.lo-frow--top { flex-wrap: nowrap; }
+.lo-frow--top .lo-select, .lo-frow--top .lo-toggle { flex: none; }
+@media (max-width: 900px) { .lo-frow--top { flex-wrap: wrap; } .lo-search { width: 100%; max-width: none; margin-left: 0; } }
 
 .lo-select { display: inline-flex; align-items: center; gap: .06rem; height: max(.4rem, 24px); padding-left: .1rem; border: 1px solid var(--line); background: rgba(0, 0, 0, .35); }
 .lo-select__k { font-size: max(.13rem, 10px); color: var(--text-dim); letter-spacing: .06em; }

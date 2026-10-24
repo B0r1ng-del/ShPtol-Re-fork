@@ -367,18 +367,33 @@ function HostConfigDialog({ rows, enemyRows, modRows, open, busy, onClose, onTog
   return html`<${Modal} open=${open} onClose=${onClose} tone="mint" width="min(9rem, 96vw)"
       title=${t('房间配置')} micro="HOST CONFIG"
       actions=${html`<${Button} variant="secondary" onClick=${onClose}>${t('完成')}<//>`}>
-    <div class="hostcfg">
-      ${rows.some((r) => !r.editable) ? html`<p class="hostcfg__note">${t('由创建者设置：只有房主可以修改这些选项。')}</p>` : null}
-      ${switchRows.length
-        ? html`<${MatchOptionSection} rows=${switchRows} busy=${busy} onMod=${onMod} onToggle=${onToggle} />`
-        : null}
-      ${/* 需求方 2026-10-17: the four sliders go LAST — every option above them is a switch, and a slider is a different
-           kind of control, so it reads as the dialog's tail rather than interrupting the switches. */
-        enemyRows && enemyRows.length
-        ? html`<${EnemyBuffSection} enemyRows=${enemyRows} onEnemy=${onEnemy} />`
-        : null}
-    </div>
+    <${RoomConfigBody} rows=${rows} enemyRows=${enemyRows} modRows=${modRows} busy=${busy} onToggle=${onToggle} onEnemy=${onEnemy} onMod=${onMod} />
   <//>`;
+}
+
+/**
+ * 房间配置的内容本体 — 开关两列 + 四个敌人强化滑块。**一处实现，两处调用**：齿轮弹出层（`.rs-opts`，图五/图七 需求方
+ * 2026-10-24 把房间配置搬进右侧小齿轮）与 {@link HostConfigDialog} 对话框共用，避免两份逻辑漂移。
+ */
+function RoomConfigBody({ rows, enemyRows, modRows, busy, onToggle, onEnemy, onMod }) {
+  if (!rows || !rows.length) return null;
+  // 图一 (2026-10-17): ONE list of switches for the whole dialog — the Mod rules first, then the host options — so
+  // {@link MatchOptionSection} can split it into two aligned columns.
+  const switchRows = [
+    ...(modRows || []).map((r) => ({ ...r, testid: `hostcfg-mod-${r.key}`, onChange: (v) => r.editable && onMod(r.key, v) })),
+    ...(rows || []).map((r) => ({ ...r, testid: `hostcfg-${r.key}`, onChange: (v) => r.editable && onToggle(r.key, v) })),
+  ];
+  return html`<div class="hostcfg">
+    ${rows.some((r) => !r.editable) ? html`<p class="hostcfg__note">${t('由创建者设置：只有房主可以修改这些选项。')}</p>` : null}
+    ${switchRows.length
+      ? html`<${MatchOptionSection} rows=${switchRows} busy=${busy} onMod=${onMod} onToggle=${onToggle} />`
+      : null}
+    ${/* 需求方 2026-10-17: the four sliders go LAST — every option above them is a switch, and a slider is a different
+         kind of control, so it reads as the dialog's tail rather than interrupting the switches. */
+      enemyRows && enemyRows.length
+      ? html`<${EnemyBuffSection} enemyRows=${enemyRows} onEnemy=${onEnemy} />`
+      : null}
+  </div>`;
 }
 
 /**
@@ -691,8 +706,11 @@ export function RoomScreen() {
         : html`<span class="t-lo">${t('准备就绪后，创建者即可开始模拟')}</span>`;
 
   // 上游结构（图六~图九）：rs__bg / rs-top / rs-seats / rs-foot。★ 这次是**整段替换渲染函数**，不是补样式。
+  // ★ `seats--ultimate` 只能挂在**座位区**上：它是一条 `display: grid` 规则，挂到最外层 `.screen` 上会盖住
+  //   `.screen` 的 `display:flex; flex-direction:column`，整页被拆成 6 列网格 —— 扩展模拟房间「全部 UI 乱套」
+  //   就是这个。之前静态测试只查字符串在不在源码里，没查它挂在谁身上，所以没拦住。
   const modeName = ultimate ? t('扩展模拟') : coop ? t('同盟模拟') : t('独立模拟');
-  return html`<div class=${`screen room-screen rs${coop ? '' : ' rs--solo'}${room.mode === 'ultimate' ? ' seats--ultimate' : ''}${facts.seats.length > 4 && room.mode !== 'ultimate' ? ' rs--big' : ''}`}
+  return html`<div class=${`screen room-screen rs${coop ? '' : ' rs--solo'}${facts.seats.length > 4 && room.mode !== 'ultimate' ? ' rs--big' : ''}`}
       style=${`--d-color:${DIFFICULTY_COLORS[room.difficulty]}; --n:${facts.seats.length}`}>
     <div class="rs__bg" aria-hidden="true"></div>
     <header class="rs-top">
@@ -724,7 +742,7 @@ export function RoomScreen() {
       </div>
     </header>
 
-    <main class="rs-seats" tabIndex="0" aria-label=${t('同盟成员，左右滑动查看')}>
+    <main class=${`rs-seats${ultimate ? ' seats--ultimate' : ''}`} tabIndex="0" aria-label=${t('同盟成员，左右滑动查看')}>
       ${facts.seats.map((s, i) => html`<${SeatCard} key=${s ? `p${s.playerId}` : `e${i}`} seat=${s} index=${i} room=${room} facts=${facts}
         myId=${me.playerId} busy=${busy} onAddBot=${addBot} onRemoveBot=${removeBot} onKick=${kick}
         onInvite=${() => copyInvite('link')} portraits=${portraits} onPickCard=${() => setPicking(true)} />`)}
@@ -747,7 +765,9 @@ export function RoomScreen() {
 
     <footer class="rs-foot room-bar">
       <div class="rs-foot__left">
-        <${HostConfigButton} rows=${cfgRows} enemyRows=${enemyRows} modRows=${modRows} busy=${busy} onClick=${() => setCfgOpen(true)} />
+        ${null /* 需求方 2026-10-24 (图五→图七): 房间配置 moved INTO the ⚙ popover of the bottom pill — the standalone
+             左下角「房间配置」按钮 (and its hostcfg-open dialog) is gone. The dialog below stays for the plugin/test
+             code paths that still open it by state. */}
       </div>
       <div class="rs-foot__center">
         <p class="rs-hint room-bar__status">
@@ -755,14 +775,14 @@ export function RoomScreen() {
           ${statusLine}
         </p>
         <div class="rs-pill">
-          <button type="button" class="rs-pill__diff" disabled=${!facts.isHost || !!busy} onClick=${() => setOpts((v) => !v)}
-            title=${facts.isHost ? t('更改模拟难度') : t('由创建者选择')}><${DifficultyIcon} difficulty=${room.difficulty} />${t(DIFFICULTY_NAMES[room.difficulty])}</button>
           <button type="button" class=${`rs-pill__gear${opts ? ' is-on' : ''}`} onClick=${() => setOpts((v) => !v)}
-            title=${t('同盟设置')} aria-label=${t('同盟设置')} aria-expanded=${opts ? 'true' : 'false'}>
+            data-testid="hostcfg-open"
+            title=${t('房间配置')} aria-label=${t('房间配置')} aria-expanded=${opts ? 'true' : 'false'}>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.3 2h3.4l.5 2.6 1.9.8 2.2-1.5 2.4 2.4-1.5 2.2.8 1.9 2.6.5v3.4l-2.6.5-.8 1.9 1.5 2.2-2.4 2.4-2.2-1.5-1.9.8-.5 2.6h-3.4l-.5-2.6-1.9-.8-2.2 1.5-2.4-2.4 1.5-2.2-.8-1.9L2 13.7v-3.4l2.6-.5.8-1.9-1.5-2.2 2.4-2.4 2.2 1.5 1.9-.8zM12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z" fill-rule="evenodd" /></svg>
           </button>
-          ${opts ? html`<div class="rs-opts" role="dialog" aria-label=${t('同盟设置')}><h4>${t('同盟设置')}</h4>
-            <${DifficultyPicker} room=${room} isHost=${facts.isHost} busy=${busy} onPick=${setDifficulty} />
+          ${opts ? html`<div class="rs-opts" role="dialog" aria-label=${t('房间配置')}><h4>${t('房间配置')}</h4>
+            <${RoomConfigBody} rows=${cfgRows} enemyRows=${enemyRows} modRows=${modRows} busy=${busy}
+              onToggle=${setHostConfig} onEnemy=${setEnemyBuff} onMod=${setMods} />
           </div>` : null}
         </div>
       </div>

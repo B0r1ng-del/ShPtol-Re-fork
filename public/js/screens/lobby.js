@@ -592,8 +592,8 @@ export function LobbyScreen() {
         ${/* Mod 菜单 (fork, 需求方 2026-10-16): the 内容包 switches' own dialog, beside 干员调配 as asked. The five
              game-rule switches are NOT here — they live in 房主配置 → 对局选项. */
           html`<${ModMenuButton} class="lobby-modmenu" />`}
-        <${Button} variant="secondary" size="sm" icon="book" class="lobby-sweep" onClick=${() => setSweepOpen(true)}
-          title=${t('S.W.E.E.P.报告：盟约、策略与敌方资料')}>S.W.E.E.P.<//>
+        ${null /* S.W.E.E.P. 入口 removed (需求方 2026-10-24, 图一红框: 顶栏那个「📖 S.W.E.E.P.」不要). The report stays
+             reachable from the hub's right column below (`.hub-plate--sweep`), so nothing is lost. */}
         ${null /* 干员调配 has exactly ONE home in the new UI: the hub's right-column entry plate (`.hub-plate--loadout`
              below). The top bar used to carry a second copy — that is the duplicate the owner reported on 2026-10-24. */}
         <button type="button" class="me-chip me-chip--btn stats-entry" onClick=${openStats} title=${t('统计数据')} aria-label=${t('统计数据')}>

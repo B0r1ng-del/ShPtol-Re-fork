@@ -1152,9 +1152,13 @@ describe('screen helpers', () => {
     assert.match(seats.body, /grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\)/, 'six equal columns, one row');
     assert.match(seats.body, /grid-template-rows:\s*minmax\(0,\s*1fr\)/, 'a single row');
 
-    // the room screen must actually apply it, and only for the fork's third mode
+    // the room screen must actually apply it, and only for the fork's third mode — AND it must sit on the SEATS
+    // container, never on the screen's root: `.seats--ultimate` is a `display: grid` rule, so on the root it would
+    // override `.screen`'s `display: flex; flex-direction: column` and turn the whole room into a 6-column grid
+    // (the 「扩展模拟房间全部 UI 乱套」 report). Checking that the string merely exists somewhere was not enough.
     const src = readFileSync(path.join(PUBLIC, 'js/screens/room.js'), 'utf8');
-    assert.match(src, /room\.mode === 'ultimate' \? ' seats--ultimate' : ''/, 'the ultimate room carries the class');
+    assert.match(src, /<main class=\$\{`rs-seats\$\{ultimate \? ' seats--ultimate' : ''\}`\}/, 'the ultimate class rides the seats container');
+    assert.ok(!/screen room-screen rs[^`]*seats--ultimate/.test(src), 'the ultimate grid class is NOT on the screen root');
   });
 
   test('room: normalizeSeats / roomFacts / inviteLink', async () => {
