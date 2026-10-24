@@ -34,6 +34,7 @@ import { NoticesButton } from '../ui/notices.js';
 // 大厅背景与音乐 (from the old UI PR #643's keep list): the generated scenes / one's own picture, and the lobby BGM.
 import { useHubBackdrop, HubBackdrop, HubRadar, backdropTheme, BackdropSettings, BackdropGlyph } from '../ui/hubBackdrop.js';
 import { Emblem } from './title.js';
+import { AchievementEntry, AchievementPanel } from '../ui/achievements.js';
 import { LobbyMusicButton } from '../ui/lobbyMusic.js';
 // 选择模拟协议 (from the old UI PR #643's keep list): the full-screen page a mode opens — the difficulty's isometric
 // scene at the left, the difficulty cards down the right.
@@ -432,6 +433,8 @@ export function LobbyScreen() {
   const [bgOpen, setBgOpen] = useState(false);
   // 密钥加入 opens as a dialog over the hub (the new UI has no room for the join panel on the stage)
   const [joinOpen, setJoinOpen] = useState(false);
+  // 成就统计 panel (the trimmed local build)
+  const [achOpen, setAchOpen] = useState(false);
   useEffect(() => {
     if (studioHref) return undefined;
     let alive = true;
@@ -573,6 +576,7 @@ export function LobbyScreen() {
       </div>
 
       <aside class="hub-side">
+        <${AchievementEntry} onOpen=${() => setAchOpen(true)} />
         <${HubTile} icon="key" label=${t('密钥加入')} en="JOIN WITH KEY" onClick=${() => setJoinOpen(true)} />
         <${TipsPanel} />
       </aside>
@@ -614,5 +618,7 @@ export function LobbyScreen() {
       onDifficulty=${(d) => { if (protoOpen !== 'ultimate') pickDifficulty(d); }}
       onClose=${() => setProtoOpen(null)} online=${online} busy=${busy} testMode=${testMode} asTest=${asTest}
       onTestMode=${setAsTest} onCreate=${(asT) => create(asT)} />` : null}
+    ${achOpen ? html`<${Modal} open=${true} title=${t('成就统计')} micro="ACHIEVEMENTS" width="min(30rem, calc(100vw - 2rem))"
+      onClose=${() => setAchOpen(false)}><${AchievementPanel} me=${me} onClose=${() => setAchOpen(false)} /><//>` : null}
   </div>`;
 }
