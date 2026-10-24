@@ -1,404 +1,60 @@
 /* ==========================================================================================
-   screens/room.css — room/waiting screen: invite key, 4 seat cards, bottom action bar.
+   screens/room.css — 准备房间 (js/screens/room.js).
+   ★ 2026-10-24: 整段换成上游 v024 的结构（`rs__bg` / `rs-top` / `rs-seats` / `rseat` / `rs-foot`）。
+   以前是「补样式不改 DOM」，样式齐了界面还是旧的；这次是整段替换渲染函数 + 整段替换样式。
+   保留的 fork 自有件：specbar（观战席）、solo-brief、dpick（难度按钮）、hostcfg / ebuff / mods--hostcfg
+   （房间配置对话框）、cardpick（名片干员）、trusted-banner（受信任插件）。
    ========================================================================================== */
 
 .room-screen .topbar { height: 1.36rem; }
 .room-ping { display: flex; flex-direction: column; align-items: flex-start; gap: .04rem; }
 
-/* ---- invite key ---------------------------------------------------------------------------------------- */
-.invite {
-  --bk-c: var(--mint-500);
-  display: grid;
-  grid-template-columns: auto auto;
-  column-gap: .2rem;
-  row-gap: .06rem;
-  align-items: center;
-  padding: .1rem .16rem .12rem;
-  background: rgba(0, 0, 0, .38);
-  border: 1px solid var(--line);
-}
-.invite__label { grid-column: 1 / -1; display: flex; align-items: center; gap: .07rem; font-size: calc(.14 * var(--t)); color: var(--text-lo); }
-.invite__label .icon { width: .16rem; height: .16rem; color: var(--mint-500); }
-.invite__code { display: flex; gap: .06rem; }
-.invite__code span {
-  display: grid;
-  place-items: center;
-  width: .46rem;
-  height: .58rem;
-  background: linear-gradient(180deg, rgba(78, 216, 175, .1), rgba(78, 216, 175, .02));
-  border-bottom: 2px solid var(--mint-600);
-  color: var(--mint-400);
-  font-size: calc(.44 * var(--t));
-  font-weight: 700;
-  line-height: 1;
-  text-shadow: 0 0 .16rem rgba(23, 249, 183, .45);
-}
-.invite__btns { display: flex; flex-direction: column; gap: .06rem; }
-.solo-note { display: flex; flex-direction: column; align-items: flex-end; gap: .03rem; font-size: calc(.16 * var(--t)); color: var(--text-lo); }
-
-/* ---- seats ------------------------------------------------------------------------------------------------ */
-.seats {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 3.8rem));
-  grid-template-rows: minmax(0, 6rem);
-  justify-content: center;
-  align-content: center;
-  gap: .3rem;
-  padding: .3rem .6rem .24rem;
-}
-.seats--solo { grid-template-columns: 3.8rem minmax(0, 6.4rem); }
-/* 终极模拟 (six seats): six EQUAL 竖向 positions — one row of six equal columns, so every 席位 keeps its portrait
-   shape (avatar over name over ready state) at the same width and height. The 同盟模拟 grid keeps four slots on one
-   row and leaves a half-empty second row for seats 5–6, which gave the last two positions a different width. */
-.seats--ultimate { grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); }
-
-.seat {
-  --bk-c: var(--line-3);
-  --bk-l: .18rem;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: .07rem;
-  height: 100%;
-  min-height: 0;
-  padding: .16rem .2rem .18rem;
+/* ---- the room (上游 lobby.css 的同名段) ---------------------------------------------------- */
+.rs { background: #0a0b0b; color: #eef0ef; }
+.rs__bg { position: absolute; inset: 0; pointer-events: none;
   background:
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, .014) 0 1px, transparent 1px 3px),
-    linear-gradient(180deg, rgba(29, 35, 32, .95), rgba(11, 14, 13, .97));
-  border: 1px solid var(--line);
-  box-shadow: 0 .14rem .34rem rgba(0, 0, 0, .4);
-  transition: border-color var(--t-med), box-shadow var(--t-med);
-  animation: seat-in var(--t-slow) var(--ease-out) backwards;
-  animation-delay: calc(var(--seat-i, 0) * 60ms);
-}
-@keyframes seat-in { from { opacity: 0; transform: translateY(.18rem); } }
-.seat::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: 3px;
-  background: var(--line-2);
-  transition: background var(--t-med), box-shadow var(--t-med);
-}
-.seat__head { align-self: stretch; display: flex; align-items: center; gap: .1rem; }
-.seat__no { font-size: calc(.22 * var(--t)); font-weight: 700; color: var(--text-md); padding-left: .08rem; border-left: 3px solid var(--line-3); line-height: 1.1; }
-.seat__host {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: .04rem;
-  padding: .02rem .09rem;
-  background: var(--gold);
-  color: #1d1400;
-  font-size: calc(.13 * var(--t));
-  font-weight: 700;
-}
-.seat__host .icon { width: .15rem; height: .15rem; }
-.seat__art {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  align-self: stretch;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: .08rem;
-  margin: .06rem 0 .04rem;
-  overflow: hidden;
+    radial-gradient(60% 50% at 30% 40%, rgba(78, 216, 175, .07), transparent 70%);
   background:
-    radial-gradient(circle at 50% 42%, rgba(78, 216, 175, .08), transparent 62%),
-    linear-gradient(rgba(78, 216, 175, .04) 1px, transparent 1px) 0 0 / .3rem .3rem,
-    linear-gradient(90deg, rgba(78, 216, 175, .04) 1px, transparent 1px) 0 0 / .3rem .3rem,
-    #0b0e0d;
-  border: 1px solid rgba(255, 255, 255, .04);
-}
-.seat__stripes {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: .14rem;
-  background: repeating-linear-gradient(-45deg, rgba(255, 255, 255, .06) 0 .05rem, transparent .05rem .1rem);
-}
-.seat__art .avatar { --av: 2.1rem; }
-.seat__bot-label {
-  display: flex;
-  align-items: center;
-  gap: .05rem;
-  padding: .02rem .1rem;
-  background: rgba(159, 212, 255, .1);
-  border: 1px solid rgba(159, 212, 255, .35);
-  color: var(--ice);
-  font-size: calc(.14 * var(--t));
-  font-weight: 700;
-}
-.seat__bot-label .icon { width: .16rem; height: .16rem; }
-.seat__who { display: flex; align-items: center; gap: .08rem; max-width: 100%; }
-.seat__name { font-size: calc(.26 * var(--t)); font-weight: 700; max-width: 3rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.seat__you { flex: none; padding: .01rem .07rem; background: var(--mint-500); color: var(--text-on-mint); font-size: calc(.13 * var(--t)); font-weight: 700; }
-.seat__foot {
-  align-self: stretch;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: .1rem;
-  min-height: .46rem;
-  margin-top: .06rem;
-  padding-top: .1rem;
-  border-top: 1px solid var(--line);
-}
-.seat__foot .tt-anchor { position: absolute; right: .14rem; bottom: .14rem; }
-.seat__state { display: flex; align-items: center; gap: .06rem; font-size: calc(.18 * var(--t)); font-weight: 700; letter-spacing: .06em; }
-.seat__state .icon { width: .22rem; height: .22rem; }
-.seat__state--ready { color: var(--mint-400); }
-.seat__state--waiting { color: var(--text-lo); }
-.seat__state--offline { color: var(--orange-hi); }
-.seat__state--host { color: var(--gold-2); }
-/* a room with gameplay plugins (DESIGN §32.6): whether the seat's page has loaded and checked the room's content */
-.seat__content { display: block; padding: 0 .12rem; font-size: calc(.13 * var(--t)); color: var(--text-lo); letter-spacing: .04em; }
-.seat__content.is-ready { color: var(--mint-400); }
-.seat__content.is-failed { color: var(--orange-hi); }
-.room-mode { margin-left: .1rem; padding: 0 .08rem; border: 1px solid rgba(255, 106, 61, .6); color: #ff8a5c; font-size: calc(.16 * var(--t)); vertical-align: middle; }
+    radial-gradient(60% 50% at 30% 40%, color-mix(in srgb, var(--mint-500) 7%, transparent), transparent 70%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .02) 0 1px, transparent 1px 4px),
+    linear-gradient(rgba(255, 255, 255, .025) 1px, transparent 1px) 0 0 / 1.1rem 1.1rem,
+    linear-gradient(90deg, rgba(255, 255, 255, .025) 1px, transparent 1px) 0 0 / 1.1rem 1.1rem,
+    radial-gradient(120% 90% at 50% 30%, #161818, #070808); }
+.rs > :where(:not(.rs__bg, .modal)) { position: relative; }
+.rs-top { flex: none; display: flex; align-items: flex-start; justify-content: space-between; gap: .2rem; padding: .16rem .3rem 0 .22rem; z-index: 3; }
+.rs-top__left { display: flex; align-items: center; gap: .16rem; min-width: 0; }
+.rs-top__right { display: flex; align-items: center; gap: .14rem; }
+.rs-exit { display: grid; place-items: center; width: max(.6rem, 36px); height: max(.6rem, 36px); padding: 0; color: #1b1e1d; cursor: pointer;
+  background: linear-gradient(180deg, #e3e7e5, #b7bfbc); border: 0; border-radius: .06rem; box-shadow: 0 .03rem .1rem rgba(0, 0, 0, .5); }
+.rs-exit:hover { filter: brightness(1.08); }
+.rs-exit .icon { width: 60%; height: 60%; }
+.rs-clock { display: flex; flex-direction: column; gap: .02rem; min-width: 0; }
+.rs-clock > b { display: inline-flex; align-items: center; gap: .1rem; font-size: max(.2rem, 13px); font-weight: 700; white-space: nowrap; }
+.rs-clock__sep { width: 1px; height: .9em; background: rgba(255, 255, 255, .3); }
+.rs-ping { margin: 0 2px; }
+.rs-tools { display: flex; gap: .08rem; margin-left: .1rem; }
+.rs-key { display: flex; align-items: center; gap: .14rem; height: max(.56rem, 34px); padding: 0 .06rem 0 .2rem; background: rgba(28, 30, 30, .9); border: 1px solid rgba(255, 255, 255, .1); border-radius: .06rem; }
+.rs-key__k { font-size: max(.17rem, 11px); color: #b7bdbb; padding-right: .14rem; border-right: 1px solid rgba(255, 255, 255, .25); }
+.rs-key__code { font-size: max(.28rem, 16px); letter-spacing: .06em; color: #f2f4f3; }
+.rs-key__copy { height: 78%; padding: 0 .26rem; font: inherit; font-size: max(.2rem, 12px); font-weight: 800; color: #1b1e1d; background: linear-gradient(180deg, #e9edeb, #c3cac7);
+  border: 0; border-radius: .05rem; cursor: pointer; }
+.rs-key__copy:hover { filter: brightness(1.06); }
+.rs-key__copy, .rs-key__code { white-space: nowrap; }
+.rs-key__link { display: grid; place-items: center; width: max(.44rem, 28px); height: 78%; padding: 0; color: #c9cecc; background: rgba(255, 255, 255, .06);
+  border: 1px solid rgba(255, 255, 255, .15); border-radius: .05rem; cursor: pointer; }
+.rs-key__link .icon { width: 60%; height: 60%; }
+.rs-key--solo { gap: .1rem; padding-right: .2rem; font-size: max(.16rem, 11px); color: #b7bdbb; }
 
-.seat.is-ready { --bk-c: var(--mint-500); border-color: var(--mint-800); }
-.seat.is-ready::before { background: var(--mint-500); box-shadow: 0 0 .12rem rgba(23, 249, 183, .6); }
-.seat.is-host .seat__no { border-left-color: var(--gold); }
-.seat.is-me { box-shadow: 0 0 0 1px rgba(78, 216, 175, .28), 0 0 .44rem rgba(23, 249, 183, .12), 0 .14rem .34rem rgba(0, 0, 0, .4); }
-.seat.is-me .seat__no { color: var(--mint-400); }
-.seat.is-offline::before { background: var(--orange); }
-.seat.is-bot .seat__art { background:
-    radial-gradient(circle at 50% 42%, rgba(159, 212, 255, .08), transparent 62%),
-    linear-gradient(rgba(159, 212, 255, .04) 1px, transparent 1px) 0 0 / .3rem .3rem,
-    linear-gradient(90deg, rgba(159, 212, 255, .04) 1px, transparent 1px) 0 0 / .3rem .3rem,
-    #0b0e10; }
-
-.seat--empty { background: rgba(10, 13, 12, .5); border-style: dashed; border-color: var(--line-2); box-shadow: none; }
-.seat--empty .seat__art { background: transparent; border: 0; }
-.seat__radar {
-  width: 1.3rem;
-  height: 1.3rem;
-  border-radius: 50%;
-  background:
-    repeating-radial-gradient(circle, transparent 0 .2rem, rgba(78, 216, 175, .14) .2rem .21rem),
-    /* same geometry as .title-bg__sweep: bright edge at 100% (== 0deg) so it leads the clockwise
-       rotation and the glow trails behind; see the comment in screens/title.css. */
-    conic-gradient(from 0deg, transparent 0 75%, rgba(23, 249, 183, .2) 100%);
-  -webkit-mask-image: radial-gradient(circle, #000 60%, transparent 71%);
-  mask-image: radial-gradient(circle, #000 60%, transparent 71%);
-  animation: radar-sweep 4s linear infinite;
-}
-@keyframes radar-sweep { to { transform: rotate(360deg); } }
-.seat__wait { font-size: calc(.2 * var(--t)); color: var(--text-lo); letter-spacing: .08em; }
-.seat--empty .seat__foot { border-top-style: dashed; }
-
-.solo-brief {
-  --bk-c: var(--mint-500);
-  align-self: stretch;
-  display: flex;
-  flex-direction: column;
-  gap: .14rem;
-  height: 100%;
-  padding: .34rem .4rem;
-  background:
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, .014) 0 1px, transparent 1px 3px),
-    linear-gradient(180deg, rgba(24, 29, 27, .92), rgba(11, 14, 13, .95));
-  border: 1px solid var(--line);
-  animation: seat-in var(--t-slow) 80ms var(--ease-out) backwards;
-}
-.solo-brief h2 { font-size: calc(.36 * var(--t)); font-weight: 900; letter-spacing: .06em; }
-.solo-brief p { font-size: calc(.18 * var(--t)); color: var(--text-md); }
-.solo-brief ul { margin: .06rem 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: .08rem; font-size: calc(.16 * var(--t)); color: var(--text-lo); }
-.solo-brief li::before { content: ''; display: inline-block; width: .06rem; height: .06rem; margin: 0 .12rem .02rem 0; background: var(--mint-600); transform: rotate(45deg); vertical-align: middle; }
-.solo-brief b { color: var(--text-hi); }
-
-/* ---- spectator seats (观战席, community report #26) -------------------------------------------------------------- */
-.specbar {
-  flex: none;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: .14rem;
-  padding: 0 .6rem .16rem;
-  font-size: calc(.15 * var(--t));
-  color: var(--text-lo);
-}
-.specbar__label { display: flex; align-items: baseline; gap: .06rem; font-weight: 700; color: var(--text-md); }
-.specbar__label .icon { width: .18rem; height: .18rem; align-self: center; color: var(--mint-500); }
-.specbar__label b { color: var(--mint-400); }
-.specbar__who {
-  display: inline-flex;
-  align-items: center;
-  gap: .06rem;
-  min-height: .36rem;
-  padding: 0 .14rem;
-  border: 1px solid var(--line-2);
-  background: rgba(0, 0, 0, .32);
-  color: var(--text-hi);
-}
-.specbar__who.is-me { border-color: var(--mint-600); }
-.specbar__who.is-offline { color: var(--text-dim); }
-.specbar__who > .icon { width: .16rem; height: .16rem; }
-
-/* ---- bottom bar ----------------------------------------------------------------------------------------- */
-.room-bar {
-  position: relative;
-  flex: none;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  gap: .3rem;
-  height: 1.5rem;
-  padding: 0 .6rem;
-  background: linear-gradient(0deg, rgba(7, 9, 8, .96), rgba(10, 13, 12, .7));
-  border-top: 1px solid var(--line);
-}
-.room-bar::before {
-  content: '';
-  position: absolute;
-  left: .6rem;
-  right: .6rem;
-  top: -1px;
-  height: 1px;
-  background: linear-gradient(90deg, var(--mint-700), transparent 30%, transparent 70%, var(--mint-700));
-}
-.room-bar__left { display: flex; align-items: center; gap: .22rem; min-width: 0; }
-.room-bar__label { display: flex; flex-direction: column; font-size: calc(.17 * var(--t)); font-weight: 700; color: var(--text-md); line-height: 1.35; }
-.room-bar__center { display: flex; flex-direction: column; align-items: center; gap: .06rem; }
-.room-bar__right { justify-self: end; display: flex; align-items: center; gap: .16rem; }
-.room-bar__status { font-size: calc(.15 * var(--t)); }
-.room-bar__status .icon { width: .18rem; height: .18rem; margin-right: .05rem; vertical-align: -.03rem; }
-
-.dpick { display: flex; border: 1px solid var(--line-2); background: rgba(0, 0, 0, .3); }
-.dpick__opt {
-  --d-color: var(--amber);
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: .06rem;
-  height: .54rem;
-  padding: 0 .2rem;
-  border: 0;
-  border-right: 1px solid var(--line);
-  background: transparent;
-  color: var(--text-lo);
-  font-size: calc(.18 * var(--t));
-  font-weight: 700;
-  letter-spacing: .08em;
-  transition: color var(--t-fast), background-color var(--t-med), box-shadow var(--t-med);
-}
-.dpick__opt:last-child { border-right: 0; }
-.dpick__opt .icon { width: .2rem; height: .2rem; color: var(--d-color); opacity: .55; transition: opacity var(--t-fast); }
-.dpick__opt:hover:not(:disabled) { color: var(--text-hi); background: rgba(255, 255, 255, .03); }
-.dpick__opt:hover:not(:disabled) .icon { opacity: 1; }
-.dpick__opt:disabled { cursor: default; }
-.dpick__opt.is-active {
-  color: var(--d-color);
-  background: transparent; background: color-mix(in srgb, var(--d-color) 17%, transparent);
-  box-shadow: inset 0 -3px 0 var(--d-color);
-}
-.dpick__opt.is-active .icon { opacity: 1; filter: drop-shadow(0 0 5px var(--d-color)); }
-.dpick--ro { border: 0; background: none; gap: .18rem; align-items: center; font-size: calc(.14 * var(--t)); }
-/* 房主配置 (room.setHostConfig): the room options inside a dialog opened from the ready bar (the 干员调配 button's pattern).
-   One <SwitchRow/> per option — the name on the left, the pill switch on the right, the explanation behind the ⓘ after
-   the name (components.css `.swrow` / `.sw`; the shared shape, 图二 2026-10-13). The host edits them; everybody else
-   reads the same values (the dialog says 「由创建者设置」, and the switches render disabled). Neither the button nor the
-   dialog renders in a single-seat room. */
-.room-bar__opts { display: flex; flex-direction: column; align-items: flex-start; gap: .08rem; min-width: 0; }
-.hostcfg-entry { flex: none; }
-.hostcfg { display: flex; flex-direction: column; gap: .12rem; }
-.hostcfg__note { margin: 0; font-size: calc(.14 * var(--t)); line-height: 1.5; color: var(--line-3); }
-
-/* 房主配置「对局选项」 (room.setEnemyBuff, HOST_ENEMY_KEYS; 需求方 2026-10-15): four enemy-buff sliders under the switch
-   rows, in the same dialog. A separated block with its own header, a one-line rule above the sliders and the total's
-   warning line below them (the owner's screenshot). Each slider reuses 设置's `.set-row` / `.set-range` grid from
-   screens/game.css (loaded globally), so it looks and drags the same; only the block frame and the header are here. */
-.ebuff { display: flex; flex-direction: column; gap: .1rem; padding-top: .14rem; border-top: 1px solid var(--line-1); }
-/* 需求方 2026-10-17 (图三): the block opens the dialog now, so its top separator (the line that used to divide it from the
-   switch rows above it) would draw a stray rule under the title. `.hostcfg`'s own gap still separates it from the rows. */
-.hostcfg > .ebuff:first-child { padding-top: 0; border-top: 0; }
-.ebuff__head { display: flex; align-items: center; gap: .08rem; }
-.ebuff__title { display: flex; align-items: center; gap: .06rem; font-size: calc(.18 * var(--t)); color: var(--orange-hi); }
-.ebuff__title .icon { width: .2rem; height: .2rem; color: var(--orange-hi); }
-.ebuff__hint { margin: 0; font-size: calc(.14 * var(--t)); line-height: 1.5; color: var(--line-3); }
-.ebuff__rows { display: flex; flex-direction: column; gap: .1rem; }
-/* the label column is narrower than 设置's (「怪物魔抗」 is four characters, not a sentence) so the slider gets the room */
-.ebuff__row { grid-template-columns: minmax(0, 1.5rem) minmax(0, 1fr) auto; }
-.ebuff__row .set-row__label { font-size: calc(.16 * var(--t)); }
-.ebuff__warn { margin: 0; font-size: calc(.15 * var(--t)); line-height: 1.5; color: var(--orange-hi); }
-
-/* 房主配置「Mod 开关」 (room.setMods, MOD_KEYS; 需求方 2026-10-16 把大厅 Mod 子菜单整块搬进房主配置): the same two-column
-   rows the submenu used (`.mods__rows` / `.mods__col`, screens/lobby.css — the switch ROWS keep that file's grid), under
-   this dialog's own header and separated like 对局选项. Only the block frame, the header and the note live here.
-
-   图一 (2026-10-17, 需求方 「将可开关的功能分成两列；如果可以，再按字数长短排列整齐」): the dialog now has ONE list of
-   switches — the Mod rules AND the 房主配置 options (room.js `HostConfigDialog`) — so the submenu's own TWO-column grid
-   comes back with no override: `splitByLength` deals the rows long-label-first, and both columns hold switches, so they
-   line up with each other by construction. (The one-column override of 2026-10-17 existed for the order where only the
-   rule half came here and every switch had to line up with `.hostcfg__rows`; that block is gone.)
-
-   窄屏 (phones): `screens/lobby.css` already collapses `.mods__rows` to one column under its media query. */
-.mods--hostcfg { display: flex; flex-direction: column; gap: .12rem; margin-top: .14rem; padding-top: .14rem; border-top: 1px solid var(--line-1); }
-.mods--hostcfg .mods__col { gap: .18rem; }
-.mods__head { display: flex; align-items: center; gap: .08rem; }
-.mods__note { margin: 0; font-size: calc(.14 * var(--t)); line-height: 1.5; color: var(--line-3); }
-
-.ready-count[hidden] { display: none; }
-.ready-count { display: flex; align-items: baseline; gap: .06rem; font-size: calc(.16 * var(--t)); }
-.ready-count b { font-size: calc(.36 * var(--t)); line-height: 1; color: var(--mint-400); text-shadow: 0 0 .14rem rgba(23, 249, 183, .45); }
-.ready-count .t-dim { font-size: calc(.22 * var(--t)); }
-.ready-count__icons { display: flex; gap: .02rem; margin-left: .12rem; align-self: center; }
-.ready-count__icons .icon { width: .28rem; height: .28rem; color: var(--line-3); transition: color var(--t-med); }
-.ready-count__icons .icon.is-on { color: var(--mint-400); filter: drop-shadow(0 0 4px var(--mint-glow)); }
-
-.room-bar .btn--xl { min-width: 3.2rem; letter-spacing: .2em; }
-
-.trusted-banner { position: fixed; top: 0; left: 0; right: 0; z-index: 90; padding: 5px 16px; background: #9b202b; color: #fff; display: flex; justify-content: space-between; gap: 12px; }
-.trusted-banner button { color: inherit; text-decoration: underline; }
-.trusted-hash { overflow-wrap: anywhere; font-family: monospace; }
-
-/* ---- 名片干员 picker (from the old UI PR #643's keep list) ---------------------------------------- */
-.cardpick .modal__body, .cardpick { --cp-size: max(.86rem, 52px); }
-.cardpick__bar { display: flex; flex-wrap: wrap; align-items: center; gap: .1rem; margin-bottom: .12rem; }
-.cardpick__search { flex: 1 1 2.4rem; display: flex; align-items: center; gap: .06rem; height: max(.5rem, 30px); padding: 0 .1rem; background: rgba(0, 0, 0, .4); border: 1px solid var(--line-2); }
-.cardpick__search .icon { width: 1.1em; height: 1.1em; color: var(--text-lo); }
-.cardpick__search input { flex: 1 1 auto; min-width: 0; font: inherit; color: var(--text-hi); background: none; border: 0; outline: none; }
-.cardpick__stars { display: inline-flex; border: 1px solid var(--line-2); }
-.cardpick__stars button { height: max(.48rem, 28px); padding: 0 .14rem; font: inherit; font-size: max(calc(.16 * var(--t)), 11px); color: var(--text-md); background: none; border: 0; cursor: pointer; }
-.cardpick__stars button.is-on { color: #08221b; background: var(--mint-500); }
-.cardpick__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--cp-size), 1fr)); gap: .08rem; max-height: min(52vh, 5.4rem); overflow-y: auto; padding: 2px; scrollbar-width: thin; }
-.cardpick__op { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 3px; font: inherit; color: var(--text-md);
-  background: rgba(255, 255, 255, .03); border: 1px solid var(--line); cursor: pointer; }
-.cardpick__op:hover { border-color: var(--line-3); color: var(--text-hi); }
-.cardpick__op.is-on { border-color: var(--mint-400); box-shadow: 0 0 0 1px var(--mint-400); color: var(--text-hi); }
-.cardpick__img { display: grid; place-items: center; width: 100%; aspect-ratio: 1; overflow: hidden; background: linear-gradient(180deg, #d7dcda, #a9b1ae); }
-.cardpick__img img { width: 100%; height: 100%; object-fit: cover; }
-.cardpick__op--auto .cardpick__img { background: #1d2120; color: var(--mint-400); }
-.cardpick__op--auto .cardpick__img .icon { width: 45%; height: 45%; }
-.cardpick__name { width: 100%; font-size: max(calc(.13 * var(--t)), 10px); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cardpick__star { position: absolute; right: 3px; top: 3px; padding: 0 3px; font-size: max(calc(.11 * var(--t)), 8px); font-weight: 800; color: #111; background: #e8e8e8; }
-.cardpick__star.r6 { background: #ffcf5a; } .cardpick__star.r5 { background: #f2e06b; }
-.cardpick__note { display: flex; align-items: center; gap: .06rem; margin: .12rem 0 0; font-size: max(calc(.15 * var(--t)), 10px); color: var(--text-lo); }
-.cardpick__note .icon { flex: none; width: 1.1em; height: 1.1em; }
-/* the seat card's art is clickable for its owner (the pick lives in screens/room.js) */
-.seat__art.is-pickable { cursor: pointer; }
-.seat__art.is-pickable:hover .avatar { border-color: var(--mint-500); }
-
-/* ==========================================================================================
-   房间座位卡 (from the old UI PR #643's keep list): 竖版全高立绘卡 — 顶部编号条、立绘铺满、
-   底部名牌。账号/服主徽章等服务器专用件未移植（本 fork 没有那套账号体系）。
-   ========================================================================================== */
 .rs-seats { flex: 1 1 auto; min-height: 0; display: flex; align-items: stretch; justify-content: center; gap: max(.3rem, 2.2vw); padding: .3rem .4rem .1rem;
-  overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; touch-action: pan-x; overscroll-behavior-x: contain; scroll-padding-inline: .4rem; }
+.rs-seats:focus-visible { outline: 1px solid var(--mint-400); outline-offset: -2px; }
 .rs--big .rs-seats { justify-content: flex-start; gap: .16rem; }
+/* 终极模拟 (six 席位): one row of six EQUAL 竖向 columns — the fork's own third mode, so its seats keep one width each
+   (a flex row of six would shrink them differently at every viewport). */
+.seats--ultimate { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); align-items: stretch; overflow-x: auto; }
 .rseat { --w: min(18vw, 3.4rem, calc((100vw - 1.6rem) / var(--n, 4) - .3rem)); position: relative; flex: none; width: var(--w); display: flex; flex-direction: column;
   animation: sw-in 260ms var(--ease-out) backwards; animation-delay: calc(var(--i) * 60ms); }
+.rs-seats.seats--ultimate .rseat { width: auto; }
 .rs--big .rseat { --w: max(1.7rem, 120px); }
 .rs--solo .rseat { --w: min(2.7rem, 34vw); }
 .rseat__clip { position: absolute; left: 50%; top: -.14rem; width: .16rem; height: .2rem; transform: translateX(-50%); background: #3a3e3d; border: 2px solid #1a1c1c; z-index: 2; }
@@ -436,7 +92,6 @@
   min-height: max(.76rem, 46px); margin-top: .08rem; padding: .06rem .1rem; background: linear-gradient(90deg, #232626, #161818); border: 1px solid rgba(255, 255, 255, .1); }
 .rseat.is-ready .rseat__plate { border-color: rgba(79, 232, 192, .55); }
 .rseat.is-me .rseat__plate { background: linear-gradient(90deg, #26302d, #161a19); }
-.rseat__plate .avatar { grid-row: 1 / 3; }
 .rseat__who { display: flex; align-items: center; gap: .06rem; min-width: 0; font-size: max(.18rem, 12px); }
 .rseat__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rseat__doc { font-size: max(.11rem, 8px); letter-spacing: .1em; color: #7f8583; }
@@ -453,7 +108,6 @@
 .rseat__invite small { font-size: max(.15rem, 10px); color: #8d9391; text-align: center; }
 .rseat__invite:hover .rseat__plus::before, .rseat__invite:hover .rseat__plus::after { background: #5df0c6; }
 .rseat__wait { display: flex; flex-direction: column; align-items: center; gap: .1rem; color: #b7bdbb; }
-.rseat__wait svg { width: max(.7rem, 36px); height: auto; fill: none; stroke: currentColor; stroke-width: 3; }
 .rseat__wait small { padding: .02rem .08rem; font-family: var(--font-display); font-size: max(.1rem, 7px); letter-spacing: .1em; background: rgba(255, 255, 255, .08); }
 .rseat--empty.is-searching .rseat__wait { animation: mf-blip 1.6s ease-in-out infinite; }
 .rseat__noinfo { position: absolute; right: .12rem; bottom: .3rem; font-family: var(--font-display); font-size: max(.12rem, 8px); letter-spacing: .1em; color: rgba(255, 255, 255, .15); }
@@ -465,19 +119,216 @@
   cursor: pointer; opacity: .75; transition: opacity var(--t-fast); }
 .rseat__pick .icon { width: 1.1em; height: 1.1em; }
 .rseat__art:hover .rseat__pick, .rseat__pick:focus-visible { opacity: 1; border-color: #5df0c6; }
+@media (max-width: 900px) { .rseat__pick span { display: none; } }
 
-/* the parts the fork adds to the seat card (not in #643: 同意标记 / 插件内容状态 / 「你」标签 / 空位雷达) */
-.rseat__radar { position: absolute; width: max(1.6rem, 84px); height: max(1.6rem, 84px); border: 1px solid rgba(79, 232, 192, .22); border-radius: 50%;
-  background: conic-gradient(from 0deg, transparent 0 78%, rgba(79, 232, 192, .18) 92%, transparent 100%); animation: rseat-sweep 3.6s linear infinite; }
-@keyframes rseat-sweep { to { transform: rotate(1turn); } }
-@media (prefers-reduced-motion: reduce) { .rseat__radar { animation: none; } }
+.rs-foot { flex: none; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: end; gap: .2rem; padding: .1rem .3rem .2rem .22rem; z-index: 2; }
+.rs-foot__left { min-width: 0; }
+.rs-loadout.hub-plate { width: auto !important; height: max(.56rem, 34px) !important; min-width: 0; padding: 0 .2rem 0 .14rem !important; }
+.rs-loadout.hub-plate .lo-entry__icon, .rs-loadout.hub-plate > .btn__icon { width: max(.36rem, 22px) !important; height: max(.36rem, 22px) !important; padding: .04rem; }
+.rs-loadout.hub-plate .btn__label { font-size: max(.18rem, 12px); }
+.rs-ready { display: inline-flex; align-items: center; gap: 2px; margin-right: .14rem; font-size: max(.16rem, 11px); color: #9aa19e; vertical-align: middle; }
+.rs-ready .icon { width: max(.2rem, 13px); height: max(.2rem, 13px); color: #4b504e; }
+.rs-ready .icon.is-on { color: #4fe8c0; }
+.rs-ready b { margin-left: .06rem; color: #eef0ef; }
+.rs-foot__center { display: flex; flex-direction: column; align-items: center; gap: .08rem; }
+.rs-hint { margin: 0; font-size: max(.18rem, 12px); color: #d6dad8; text-align: center; }
+.rs-hint .icon { width: 1.1em; height: 1.1em; margin-right: 4px; vertical-align: -2px; }
+.rs-pill { position: relative; display: inline-flex; align-items: center; gap: .14rem; height: max(.68rem, 40px); padding: 0 .08rem 0 .24rem;
+  background: rgba(14, 15, 15, .92); border: 1px solid rgba(255, 255, 255, .14); border-radius: 999px; box-shadow: 0 .04rem .16rem rgba(0, 0, 0, .5); }
+.rs-pill__diff { display: inline-flex; align-items: center; gap: .08rem; height: 78%; padding: 0 .2rem; font: inherit; font-size: max(.2rem, 13px); font-weight: 800;
+  color: var(--d-color); background: #151616; background: color-mix(in srgb, var(--d-color) 22%, #151616); border: 0; border-radius: 999px; cursor: pointer; white-space: nowrap; }
+.rs-pill__diff .icon { width: 1.2em; height: 1.2em; }
+.rs-pill__diff:disabled { cursor: default; }
+.rs-pill__diff:hover:not(:disabled) { filter: brightness(1.2); }
+.rs-pill__gear { display: grid; place-items: center; width: max(.52rem, 32px); height: max(.52rem, 32px); padding: 0; color: #1b1e1d; background: linear-gradient(180deg, #e9edeb, #c3cac7);
+  border: 2px solid #0e0f0f; border-radius: 50%; cursor: pointer; }
+.rs-pill__gear svg { width: 62%; height: 62%; fill: currentColor; }
+.rs-pill__gear.is-on, .rs-pill__gear:hover { background: #fff; }
+.rs-opts { position: absolute; left: 50%; bottom: calc(100% + .14rem); z-index: 10; transform: translateX(-50%); width: min(5.2rem, 92vw); display: flex; flex-direction: column; gap: .12rem;
+  padding: .16rem .2rem; background: linear-gradient(180deg, #202323, #141616); border: 1px solid rgba(255, 255, 255, .16); box-shadow: 0 .1rem .4rem rgba(0, 0, 0, .7);
+  animation: sw-in 140ms var(--ease-out) backwards; max-height: min(7rem, 80svh); overflow-y: auto; overscroll-behavior: contain; }
+.rs-opts h4 { display: flex; align-items: baseline; justify-content: space-between; margin: 0; font-size: max(.2rem, 13px); }
+.rs-opts .dpick { flex-wrap: wrap; border: 0; background: none; }
+.rs-foot__right { display: flex; align-items: center; justify-content: flex-end; gap: .14rem; }
+.rs-go.proto-start { width: min(4.6rem, 40vw); }
+.rs-go__box { display: grid; place-items: center; flex: none; width: max(.5rem, 28px); height: max(.5rem, 28px); border: 3px solid currentColor; border-radius: 6px; }
+.rs-go__box .icon { width: 80%; height: 80%; }
+.rs-go.is-ready { background: linear-gradient(180deg, #7ff3d4, #4fe0bf); }
+
+@media (max-height: 520px) {
+  .rs-top { padding-top: 6px; }
+  .rs-seats { padding-top: 14px; gap: 12px; }
+  .rseat__plate { min-height: 36px; margin-top: 4px; }
+  .rseat__doc { display: none; }
+  .rs-foot { padding-bottom: 8px; gap: 8px; }
+  .rs-go.proto-start { height: 46px; }
+  .rs-go .proto-start__mark { display: none; }
+  .rs-loadout.hub-plate { min-width: 0; }
+  .rs-loadout .btn__label { display: none; }
+}
+@media (max-width: 900px) {
+  .rs-foot { grid-template-columns: auto minmax(0, 1fr); }
+  .rs-foot__center { grid-column: 1 / -1; grid-row: 1; }
+  .rs-tools { display: none; }
+  .rs-key__k { display: none; }
+}
+@media (max-aspect-ratio: 1/1) {
+  .rs-seats { justify-content: flex-start; }
+  .rseat { --w: max(1.8rem, 42vw); }
+  .seats--ultimate { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rseat, .rseat__wait { animation: none !important; }
+}
+
+/* 兼容类名：e2e 与既有测试按这几个旧名字找元素（`.topbar__left` / `.room-bar` / `.room-bar__right` /
+   `.room-bar__status` / `.seat__name`），新结构把它们挂在对应元素上，不给旧布局留任何样式。 */
+.rs-top__left.topbar__left { justify-self: auto; gap: .16rem; }
+.rs-foot.room-bar { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: end; gap: .2rem;
+  height: auto; padding: .1rem .3rem .2rem .22rem; background: none; border-top: 0; }
+.rs-foot.room-bar::before { content: none; }
+.rs-hint.room-bar__status { font-size: max(.18rem, 12px); }
+.rs-hint.room-bar__status .icon { width: 1.1em; height: 1.1em; margin-right: 4px; vertical-align: -2px; }
+
+/* 观战席 (观战席, community report #26) -------------------------------------------------------------- */
+.specbar {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: .14rem;
+  padding: 0 .6rem .16rem;
+  font-size: calc(.15 * var(--t));
+  color: var(--text-lo);
+}
+.specbar__label { display: flex; align-items: baseline; gap: .06rem; font-weight: 700; color: var(--text-md); }
+.specbar__label .icon { width: .18rem; height: .18rem; align-self: center; color: var(--mint-500); }
+.specbar__label b { color: var(--mint-400); }
+.specbar__who {
+  display: inline-flex;
+  align-items: center;
+  gap: .06rem;
+  min-height: .36rem;
+  padding: 0 .14rem;
+  border: 1px solid var(--line-2);
+  background: rgba(0, 0, 0, .32);
+  color: var(--text-hi);
+}
+.specbar__who.is-me { border-color: var(--mint-600); }
+.specbar__who.is-offline { color: var(--text-dim); }
+.specbar__who > .icon { width: .16rem; height: .16rem; }
+.seat__you { flex: none; padding: .01rem .07rem; background: var(--mint-500); color: var(--text-on-mint); font-size: calc(.13 * var(--t)); font-weight: 700; }
+
+/* ---- 独立模拟的简报 ------------------------------------------------------------------------------------ */
+.solo-brief {
+  --bk-c: var(--mint-500);
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: .14rem;
+  height: 100%;
+  padding: .34rem .4rem;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, .014) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, rgba(24, 29, 27, .92), rgba(11, 14, 13, .95));
+  border: 1px solid var(--line);
+}
+.solo-brief h2 { font-size: calc(.36 * var(--t)); font-weight: 900; letter-spacing: .06em; }
+.solo-brief p { font-size: calc(.18 * var(--t)); color: var(--text-md); }
+.solo-brief ul { margin: .06rem 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: .08rem; font-size: calc(.16 * var(--t)); color: var(--text-lo); }
+.solo-brief li::before { content: ''; display: inline-block; width: .06rem; height: .06rem; margin: 0 .12rem .02rem 0; background: var(--mint-600); transform: rotate(45deg); vertical-align: middle; }
+.solo-brief b { color: var(--text-hi); }
+
+/* ---- 难度按钮（⚙ 面板与 选择模拟协议 共用）---------------------------------------------------------- */
+.dpick { display: flex; border: 1px solid var(--line-2); background: rgba(0, 0, 0, .3); }
+.dpick__opt {
+  --d-color: var(--amber);
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: .06rem;
+  height: .54rem;
+  padding: 0 .2rem;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  color: var(--text-lo);
+  font-size: calc(.18 * var(--t));
+  font-weight: 700;
+  letter-spacing: .08em;
+  transition: color var(--t-fast), background-color var(--t-med), box-shadow var(--t-med);
+}
+.dpick__opt:last-child { border-right: 0; }
+.dpick__opt .icon { width: .2rem; height: .2rem; color: var(--d-color); opacity: .55; transition: opacity var(--t-fast); }
+.dpick__opt:hover:not(:disabled) { color: var(--text-hi); background: rgba(255, 255, 255, .03); }
+.dpick__opt:hover:not(:disabled) .icon { opacity: 1; }
+.dpick__opt:disabled { cursor: default; }
+.dpick__opt.is-active {
+  color: var(--d-color);
+  background: transparent; background: color-mix(in srgb, var(--d-color) 17%, transparent);
+  box-shadow: inset 0 -3px 0 var(--d-color);
+}
+.dpick__opt.is-active .icon { opacity: 1; filter: drop-shadow(0 0 5px var(--d-color)); }
+.dpick--ro { border: 0; background: none; gap: .18rem; align-items: center; font-size: calc(.14 * var(--t)); }
+.room-bar__opts { display: flex; flex-direction: column; align-items: flex-start; gap: .08rem; min-width: 0; }
+
+/* ---- 房间配置对话框 (hostcfg-entry / ebuff / mods--hostcfg) ------------------------------------------ */
+.hostcfg-entry { flex: none; }
+.hostcfg { display: flex; flex-direction: column; gap: .12rem; }
+.hostcfg__note { margin: 0; font-size: calc(.14 * var(--t)); line-height: 1.5; color: var(--line-3); }
+.ebuff { display: flex; flex-direction: column; gap: .1rem; padding-top: .14rem; border-top: 1px solid var(--line-1); }
+.hostcfg > .ebuff:first-child { padding-top: 0; border-top: 0; }
+.ebuff__head { display: flex; align-items: center; gap: .08rem; }
+.ebuff__title { display: flex; align-items: center; gap: .06rem; font-size: calc(.18 * var(--t)); color: var(--orange-hi); }
+.ebuff__title .icon { width: .2rem; height: .2rem; color: var(--orange-hi); }
+.ebuff__hint { margin: 0; font-size: calc(.14 * var(--t)); line-height: 1.5; color: var(--line-3); }
+.ebuff__rows { display: flex; flex-direction: column; gap: .1rem; }
+.ebuff__row { grid-template-columns: minmax(0, 1.5rem) minmax(0, 1fr) auto; }
+.ebuff__row .set-row__label { font-size: calc(.16 * var(--t)); }
+.ebuff__warn { margin: 0; font-size: calc(.15 * var(--t)); line-height: 1.5; color: var(--orange-hi); }
+.mods--hostcfg { display: flex; flex-direction: column; gap: .12rem; margin-top: .14rem; padding-top: .14rem; border-top: 1px solid var(--line-1); }
+.mods--hostcfg .mods__col { gap: .18rem; }
+.mods__head { display: flex; align-items: center; gap: .08rem; }
+.mods__note { margin: 0; font-size: calc(.14 * var(--t)); line-height: 1.5; color: var(--line-3); }
+
+.trusted-banner { position: fixed; top: 0; left: 0; right: 0; z-index: 90; padding: 5px 16px; background: #9b202b; color: #fff; display: flex; justify-content: space-between; gap: 12px; }
+.trusted-banner button { color: inherit; text-decoration: underline; }
+.trusted-hash { overflow-wrap: anywhere; font-family: monospace; }
+
+/* ---- 名片干员 picker (from the old UI PR #643's keep list) ---------------------------------------- */
+.cardpick .modal__body, .cardpick { --cp-size: max(.86rem, 52px); }
+.cardpick__bar { display: flex; flex-wrap: wrap; align-items: center; gap: .1rem; margin-bottom: .12rem; }
+.cardpick__search { flex: 1 1 2.4rem; display: flex; align-items: center; gap: .06rem; height: max(.5rem, 30px); padding: 0 .1rem; background: rgba(0, 0, 0, .4); border: 1px solid var(--line-2); }
+.cardpick__search .icon { width: 1.1em; height: 1.1em; color: var(--text-lo); }
+.cardpick__search input { flex: 1 1 auto; min-width: 0; font: inherit; color: var(--text-hi); background: none; border: 0; outline: none; }
+.cardpick__stars { display: inline-flex; border: 1px solid var(--line-2); }
+.cardpick__stars button { height: max(.48rem, 28px); padding: 0 .14rem; font: inherit; font-size: max(calc(.16 * var(--t)), 11px); color: var(--text-md); background: none; border: 0; cursor: pointer; }
+.cardpick__stars button.is-on { color: #08221b; background: var(--mint-500); }
+.cardpick__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--cp-size), 1fr)); gap: .08rem; max-height: min(52vh, 5.4rem); overflow-y: auto; padding: 2px; scrollbar-width: thin; }
+.cardpick__op { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 3px; font: inherit; color: var(--text-md);
+  background: rgba(255, 255, 255, .03); border: 1px solid var(--line); cursor: pointer; }
+.cardpick__op:hover { border-color: var(--line-3); color: var(--text-hi); }
+.cardpick__op.is-on { border-color: var(--mint-400); box-shadow: 0 0 0 1px var(--mint-400); color: var(--text-hi); }
+.cardpick__img { display: grid; place-items: center; width: 100%; aspect-ratio: 1; overflow: hidden; background: linear-gradient(180deg, #d7dcda, #a9b1ae); }
+.cardpick__img img { width: 100%; height: 100%; object-fit: cover; }
+.cardpick__op--auto .cardpick__img { background: #1d2120; color: var(--mint-400); }
+.cardpick__op--auto .cardpick__img .icon { width: 45%; height: 45%; }
+.cardpick__name { width: 100%; font-size: max(calc(.13 * var(--t)), 10px); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cardpick__star { position: absolute; right: 3px; top: 3px; padding: 0 3px; font-size: max(calc(.11 * var(--t)), 8px); font-weight: 800; color: #111; background: #e8e8e8; }
+.cardpick__star.r6 { background: #ffcf5a; } .cardpick__star.r5 { background: #f2e06b; }
+.cardpick__note { display: flex; align-items: center; gap: .06rem; margin: .12rem 0 0; font-size: max(calc(.15 * var(--t)), 10px); color: var(--text-lo); }
+.cardpick__note .icon { flex: none; width: 1.1em; height: 1.1em; }
+
+/* the parts the fork adds to the seat card (not in the upstream: 同意标记 / 插件内容状态 / 「你」标签) */
 .rseat__consent { position: absolute; left: .08rem; top: .3rem; z-index: 3; padding: 0 .1rem; font-size: max(calc(.12 * var(--t)), 9px); color: #08221b; background: var(--mint-400); border-radius: 3px; }
 .rseat__content { position: absolute; left: .08rem; right: .08rem; bottom: .08rem; z-index: 2; padding: 0 .1rem; font-size: max(calc(.12 * var(--t)), 9px); text-align: center; border-radius: 3px; background: rgba(0, 0, 0, .6); }
 .rseat__content.is-ready { color: var(--mint-400); } .rseat__content.is-failed { color: var(--red-premium); }
 .rseat__you { padding: 0 .1rem; font-size: max(calc(.12 * var(--t)), 9px); color: #08221b; background: var(--mint-400); border-radius: 3px; }
-
-/* 空位卡的「添加机器人」按钮：上游用行内样式写的，这里收成规则（图六） */
 .rseat__addbot { width: 100%; min-height: max(.5rem, 30px); padding: .08rem .14rem; font: inherit; font-size: max(calc(.15 * var(--t)), 10px);
   color: #4fe8c0; background: #102d26; border: 1px solid #397e6b; cursor: pointer; transition: background var(--t-fast), border-color var(--t-fast); }
 .rseat__addbot:hover:not(:disabled) { background: #164036; border-color: #4fe8c0; }
 .rseat__addbot:disabled { opacity: .5; cursor: default; }
+
+/* 对齐到房间那套包 (W-D) 的提示条 */
+.roomalign { display: flex; flex-direction: column; align-items: center; gap: .08rem; padding: .08rem .6rem .16rem; font-size: calc(.15 * var(--t)); color: var(--text-lo); }

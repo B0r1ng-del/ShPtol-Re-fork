@@ -2726,5 +2726,15 @@
   "· 快速突袭": " · Blitz",
   "· 持久鏖战": " · Endurance",
   "本局遭遇敌方": "Enemies this match",
-  "第 {n} 回合 · 最终攻势": "Round {n} · Final assault"
+  "第 {n} 回合 · 最终攻势": "Round {n} · Final assault",
+  "邀请在线好友，或复制同盟密钥": "Invite a friend online, or copy the alliance key",
+  "邀请": "Invite",
+  "添加机器人": "Add AI",
+  "失去信号": "Signal lost",
+  "同盟已等待": "Alliance waiting",
+  "复制邀请链接": "Copy invite link",
+  "同盟成员，左右滑动查看": "Alliance members — swipe to see more",
+  "更改模拟难度": "Change the simulation difficulty",
+  "同盟设置": "Alliance settings",
+  "再次点击取消就绪": "Click again to cancel ready"
 }
