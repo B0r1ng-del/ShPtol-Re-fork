@@ -193,6 +193,11 @@ export function FacingWheel({ view, row, col, grid, radius = null, name = '', on
   const g = useTileScreen(view, row, col);
   const [dir, setDir] = useState(null);
   const [drag, setDrag] = useState(null); // { id } while a pointer is down
+  // 拖动起点与摇杆 (上游 deploy-feel-20261012): a press OUTSIDE the diamond swipes from where it started, so the dead
+  // zone shrinks to 0.6× and the stick follows the finger; a press inside it keeps the centre as the origin. 本地原先
+  // 只有后者，所以「按在轮盘外再拖」这个手感完全没有 —— 需求方 2026-10-24 说的「轮盘一样的拉动操作」就是它。
+  const [knob, setKnob] = useState(null); // stick offset [x, y] in viewBox units while pressed
+  const originRef = useRef(null);
   const live = useRef({});
   const s = g && g.s > 0 ? g.s : 64;
   const half = s * 1.5;              // half-diagonal: ~3 tiles across
@@ -212,7 +217,13 @@ export function FacingWheel({ view, row, col, grid, radius = null, name = '', on
   const choose = (clientX, clientY) => {
     const L = live.current;
     if (!L.g) return null;
-    const d = dirFromDelta(clientX - L.g.x, clientY - L.g.y, L.dead);
+    const o = originRef.current;
+    const dx = clientX - (o ? o.x : L.g.x), dy = clientY - (o ? o.y : L.g.y);
+    // 从轮盘外按下时，死区按 0.6 倍算（上游 deploy-feel-20261012）：否则从远处开始拖，要拖很久才脱离死区。
+    const d = o ? dirFromDelta(clientX - o.x, clientY - o.y, L.dead * 0.6) : dirFromDelta(clientX - L.g.x, clientY - L.g.y, L.dead);
+    // 摇杆视觉：位移换算到 viewBox 单位，并夹在最大值内，手指拖出轮盘也不会飘走
+    { const u = 110 / (L.half || 1); let kx = dx * u, ky = dy * u; const m = Math.hypot(kx, ky);
+      if (m > 76) { kx *= 76 / m; ky *= 76 / m; } setKnob([kx, ky]); }
     setDir(d);
     return d;
   };
@@ -226,7 +237,9 @@ export function FacingWheel({ view, row, col, grid, radius = null, name = '', on
     if (e.button != null && e.button !== 0) { e.preventDefault(); return; }
     if (e.target && e.target.closest && e.target.closest('.fwheel__cancel')) return;
     e.preventDefault();
-    if (!inside(e.clientX, e.clientY)) { onCancel(); return; }
+    // ★ 上游行为：在轮盘外按下**不取消**，而是以按下点为起点开始「拉动」（originRef），
+    //   所以从任意位置都能一路拖过来选朝向。本地原先直接 onCancel，那个手感完全没有（需求方 2026-10-24）。
+    originRef.current = inside(e.clientX, e.clientY) ? null : { x: e.clientX, y: e.clientY };
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignore */ }
     setDrag({ id: e.pointerId });
     choose(e.clientX, e.clientY);
@@ -239,9 +252,10 @@ export function FacingWheel({ view, row, col, grid, radius = null, name = '', on
     if (!drag || e.pointerId !== drag.id) return;
     setDrag(null);
     const d = choose(e.clientX, e.clientY);
+    originRef.current = null; setKnob(null);
     if (d) onCommit(boardDir(d, live.current.mirror)); else onCancel();
   };
-  const onPointerCancel = () => { setDrag(null); setDir(null); };
+  const onPointerCancel = () => { originRef.current = null; setKnob(null); setDrag(null); setDir(null); };
 
   // keyboard: arrows preview, Enter commits, Esc cancels (capture: the game's own shortcuts must not see them). Enter
   // follows the focus (gameLogic facingEnter, GitHub #394): on ✕ it cancels, on any other button (Tab reaches the HUD
@@ -285,6 +299,9 @@ export function FacingWheel({ view, row, col, grid, radius = null, name = '', on
         <path class=${cx('fwheel__quad', dir === 'LEFT' && 'is-on')} d="M-100 0 L-50 -50 L0 0 L-50 50 Z" />
         <path class="fwheel__inner" d=${`M0 ${-DEAD_ZONE_TILES / 1.5 * 100} L${DEAD_ZONE_TILES / 1.5 * 100} 0 L0 ${DEAD_ZONE_TILES / 1.5 * 100} L${-DEAD_ZONE_TILES / 1.5 * 100} 0 Z`} />
         ${DIRS.map((d) => html`<${Chevron} key=${d} dir=${d} on=${dir === d} />`)}
+        ${/* 摇杆 (上游 deploy-feel-20261012): 按下后跟手的圆点 + 连到中心的杆，拖出轮盘时夹在边界内。 */
+          knob ? html`<line class="fwheel__stick" x1="0" y1="0" x2=${knob[0]} y2=${knob[1]} />` : null}
+        <circle class=${cx('fwheel__knob', dir && 'is-on')} cx=${knob ? knob[0] : 0} cy=${knob ? knob[1] : 0} r="17" />
       </svg>
       <button type="button" class="fwheel__cancel" onPointerDown=${(e) => e.stopPropagation()}
         onClick=${(e) => { e.stopPropagation(); onCancel(); }} aria-label=${t('点击取消')}>

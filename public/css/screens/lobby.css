@@ -414,7 +414,7 @@
 .proto {
   position: fixed; inset: 0; z-index: 54; display: flex; flex-direction: column;
   padding: var(--sa-t, 0px) var(--sa-r, 0px) var(--sa-b, 0px) var(--sa-l, 0px);
-  color: #eef0ef; background: #0b0c0c; overscroll-behavior: contain; animation: sw-in 200ms var(--ease-out) backwards;
+  color: #eef0ef; background: #0b0c0c; overscroll-behavior: contain; animation: tr-veil 150ms linear backwards;
 }
 .proto__bg { position: absolute; inset: 0; pointer-events: none; transition: background 400ms;
   /* the plain gradients first: a browser without color-mix() keeps them and drops the two tinted layers below
@@ -1263,3 +1263,59 @@ button.ally-card:disabled { filter: grayscale(.7) brightness(.7); cursor: defaul
 .ally-key__spec .icon { width: 1.1em; height: 1.1em; }
 .ally-recent { display: flex; flex-wrap: wrap; justify-content: center; gap: .06rem; margin: -.04rem .2rem .1rem; }
 
+
+/* ==========================================================================================
+   页面转场动画 (需求方 2026-10-24:「从主页-同盟模拟-创建同盟-选择难度都会有一个过渡动画，但我的版本没有」)
+   上游的 tr-* 一整套：遮罩从透明升起、内容分段入场（标题右滑 / 场景缩放 / 难度卡依次 / 底部按钮上升）、
+   离场时内容淡出再让黑色抬走。★ 本地此前一条 tr- 规则都没有 —— 所以整个应用的页面切换都是硬切。
+   ========================================================================================== */
+:root { --tr-ease: cubic-bezier(.16, .84, .3, 1); }
+@keyframes tr-fade { from { opacity: 0; } }
+@keyframes tr-out { to { opacity: 0; } }
+@keyframes tr-veil { from { background-color: transparent; } }
+@keyframes tr-lift { to { background-color: transparent; } }
+@keyframes tr-right { from { opacity: 0; transform: translateX(.36rem); } }
+@keyframes tr-left { from { opacity: 0; transform: translateX(-.36rem); } }
+@keyframes tr-rise { from { opacity: 0; transform: translateY(.22rem); } }
+@keyframes tr-zoom { from { opacity: 0; transform: scale(1.04); } }
+@keyframes tr-pop { from { opacity: 0; transform: scale(.4); } }
+@keyframes tr-card { from { opacity: 0; transform: translateY(.16rem) scale(1.03); filter: brightness(1.9) saturate(.3); } 55% { filter: none; } }
+@keyframes tr-diamond { 0% { opacity: 0; transform: translateX(-50%) rotate(45deg) scale(.5); } 30%, 72% { opacity: 1; transform: translateX(-50%) rotate(45deg) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) rotate(45deg) scale(1.1); } }
+@keyframes tr-draw { to { stroke-dashoffset: 0; } }
+
+/* ---- full-screen overlays over the hub ---- */
+.sw { background-color: #080909; } /* the black it comes up from (the misty field is .sw__bg) */
+.proto, .sw { animation: tr-veil 150ms linear backwards; }
+.proto.is-chained { animation: none; }
+.proto__bg, .sw__bg { animation: tr-fade 340ms ease-out 140ms backwards; }
+.proto-top, .sw-top { animation: tr-fade 260ms ease-out 170ms backwards; }
+.proto-title, .sw-tabs { animation: tr-right 400ms var(--tr-ease) 200ms backwards; }
+.proto-stage, .ally-stage { animation: tr-zoom 480ms var(--tr-ease) 190ms backwards; }
+.proto-list .pcard { animation: tr-right 400ms var(--tr-ease) backwards; animation-delay: calc(240ms + var(--n, 0) * 60ms); }
+.proto-list .pcard:nth-child(2) { --n: 1; } .proto-list .pcard:nth-child(3) { --n: 2; } .proto-list .pcard:nth-child(4) { --n: 3; } .proto-list .pcard:nth-child(5) { --n: 4; }
+.proto-foot { animation: tr-rise 400ms var(--tr-ease) 440ms backwards; }
+.ally-card--create { animation: tr-right 420ms var(--tr-ease) 240ms backwards; }
+.ally-links { animation: tr-right 420ms var(--tr-ease) 310ms backwards; }
+.ally-card--join { animation: tr-right 420ms var(--tr-ease) 380ms backwards; }
+.ally-guide { animation: tr-rise 380ms var(--tr-ease) 450ms backwards; }
+.sw-left { animation: tr-left 440ms var(--tr-ease) 230ms backwards; }
+.sw-right { animation: tr-right 440ms var(--tr-ease) 280ms backwards; }
+.sw-right > * { animation: tr-fade 260ms ease-out backwards; } /* a tab's tiles come up when it is opened */
+/* the diamond at the bottom while it loads */
+.proto::after, .sw::after { content: ''; position: absolute; left: 50%; bottom: max(.5rem, 24px); z-index: 9; width: max(.3rem, 16px); height: max(.3rem, 16px);
+  border: 2px solid rgba(223, 230, 226, .55); box-shadow: inset 0 0 0 3px #0a0b0b, inset 0 0 0 5px rgba(223, 230, 226, .3); pointer-events: none; opacity: 0;
+  animation: tr-diamond 720ms ease-out 60ms both; }
+.proto.is-chained::after { animation-delay: 0ms; }
+/* leaving: the content fades, then the black lifts off the hub (LEAVE_MS 300 = 130 + 170) */
+.proto.is-leaving, .sw.is-leaving { pointer-events: none; animation: tr-lift 170ms linear 130ms forwards; }
+.proto.is-leaving > *, .sw.is-leaving > * { animation: tr-out 140ms ease-in forwards; }
+.proto.is-leaving::after, .sw.is-leaving::after { display: none; }
+
+/* 正在加入同盟… */
+.tr-join { position: absolute; left: 0; right: 0; bottom: 0; z-index: 8; display: flex; align-items: center; gap: .1rem; padding: 0 max(.24rem, 12px) max(.05rem, 3px);
+  font-size: max(.19rem, 12px); font-weight: 700; letter-spacing: .04em; color: #5df0c6; text-shadow: 0 0 .12rem rgba(93, 240, 198, .45); pointer-events: none;
+  animation: tr-fade 200ms ease-out backwards; }
+.tr-join::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; transform-origin: left;
+  background: linear-gradient(90deg, rgba(93, 240, 198, .2), #5df0c6 40%, #c9fff0 50%, #5df0c6 60%, rgba(93, 240, 198, .2)); box-shadow: 0 0 10px #5df0c6;
+  animation: tr-run 1.4s var(--tr-ease) both; }
