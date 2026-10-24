@@ -1105,3 +1105,35 @@
 @media (prefers-reduced-motion: reduce) {
   .downm__face.is-out, .downm__title { animation: none; }
 }
+
+/* ---- 局内顶栏的框架三件套 (需求方 2026-10-24, 图一红框) --------------------------------------------
+   Upstream wraps the top bar's middle in a band: a framed button () on each side, a plus
+   between them, and  holding 回合 | 胶囊 | 生命塔 inside the two halves. The fork flattened all
+   of that into one row, which is why its top bar looks scattered next to the upstream screenshots. */
+.gtop__frame { position: relative; display: flex; align-items: center; justify-content: center; height: .64rem; padding: 0 .17rem; }
+.gtop__frame::before, .gtop__frame::after { content: ''; position: absolute; top: 0; bottom: 0; width: .12rem; border: 2px solid rgba(200, 206, 208, .42); pointer-events: none; }
+.gtop__frame::before { left: 0; border-right: 0; }
+.gtop__frame::after { right: 0; border-left: 0; }
+.gtop__plus { flex: none; width: .2rem; height: .2rem; margin: 0 .05rem; opacity: .45;
+  background: linear-gradient(#c8cecf, #c8cecf) center / 100% 1px no-repeat, linear-gradient(#c8cecf, #c8cecf) center / 1px 100% no-repeat; }
+.gtop__band { position: relative; display: grid; grid-template-columns: minmax(2.3rem, auto) auto minmax(2.3rem, auto); align-items: center;
+  filter: drop-shadow(0 .04rem .1rem rgba(0, 0, 0, .45)); }
+.gm__hud .gtop__band::before, .gm__hud .gtop__band::after { content: 'STRONGHOLD TERMINAL SERVICE'; position: absolute; top: -.16rem; font-family: var(--font-num);
+  font-size: .085rem; font-weight: 700; line-height: 1; letter-spacing: .14em; color: rgba(225, 232, 232, .28); white-space: nowrap; pointer-events: none; }
+.gtop__band::before { left: .24rem; }
+.gtop__band::after { right: .24rem; }
+.gtop__half { position: relative; display: flex; align-items: center; justify-content: center; height: .42rem; padding: 0 .3rem; }
+.gtop__half::before, .gtop__half::after { content: ''; position: absolute; pointer-events: none; }
+.gtop__half::before { inset: 0; background: rgba(176, 184, 186, .45); }
+.gtop__half::after { inset: 1px; background: linear-gradient(180deg, rgba(14, 18, 18, .86), rgba(9, 12, 12, .8));
+  box-shadow: inset 0 0 0 .06rem rgba(12, 15, 15, 0), inset 0 0 0 calc(.06rem + 1px) rgba(255, 255, 255, .06); }
+.gtop__half--l::before, .gtop__half--l::after { clip-path: polygon(.1rem 0, 100% 0, 100% 100%, .1rem 100%, 0 calc(100% - .1rem), 0 .1rem); }
+.gtop__half--r::before, .gtop__half--r::after { clip-path: polygon(0 0, calc(100% - .1rem) 0, 100% .1rem, 100% calc(100% - .1rem), calc(100% - .1rem) 100%, 0 100%); }
+.gtop__half > * { position: relative; z-index: 1; }
+.gtop__half--l { margin-right: -.06rem; }
+.gtop__half--r { margin-left: -.06rem; }
+.gtop__half .roundbox { gap: .12rem; }
+.gtop__half .roundbox__label { font-size: .2rem; color: #d8dcdc; letter-spacing: .1em; }
+.gtop__half .roundbox__num { min-width: .48rem; height: .34rem; padding: 0 .07rem; font-size: .28rem; background: #cfd3d3; color: #121516; border-radius: .03rem; clip-path: none; }
+.gtop__half .lp--lg { font-size: .32rem; gap: .03rem; }
+.gtop__half .lp--lg:not(.lp--danger):not(.lp--team) .lp__val { color: #eef2f2; }
