@@ -143,9 +143,12 @@ describe('mod identity: entering a modded room needs the client to confirm the c
     //   * `room.join`  —— 只有 `modDigest`（加入者说出它以为在加入哪一份内容集）。本 fork 没有上游的
     //                    `modIds`（房间声明集合那一层）与 `consent`（W7 的同意表态），所以这里也不该出现它们。
     //   * `room.create` —— `mods`（Mod 开关对象，本 fork 原有）+ `modDigest`（新开的内容集摘要）。
-    //   * `room.create` —— `mods`（Mod 开关对象）+ `modDigest`（内容集摘要）+ `test`（DESIGN §34.8 测试房，只许显式 true）。
+    //   * `room.create` —— `mods`（Mod 开关对象）+ `modDigest`（内容集摘要）+ `test`（DESIGN §34.8 测试房，只许显式 true）
+    //                    + v0.3.2 上游带进来的三格：`difficulty`（创建时直接定难度）、`version`（官方版本房 §35.23）、
+    //                    `soloUnlimited`（不限时 §35.23.10）—— 三格在 `server/lobby.js` 的 `create()` 里都**真读了**
+    //                    （不是只放开协议的摆设），所以它们是本合并版的真实形状，断言跟到六项。
     assert.deepEqual(C2S['room.join'].$optional, ['modDigest', 'testAck']);
-    assert.deepEqual(C2S['room.create'].$optional, ['mods', 'modDigest', 'test']);
+    assert.deepEqual(C2S['room.create'].$optional, ['mods', 'modDigest', 'test', 'difficulty', 'version', 'soloUnlimited']);
     // `mods` 与 `modDigest` 是**两格不同语义**的字段，同时出现也合法（开关 + 内容集）。
     assert.equal(validateC2S({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', mods: { noBondBan: true }, modDigest: digest }), null);
   });

@@ -196,6 +196,24 @@ function onWelcome(msg) {
   });
   welcomeAt = Date.now();
 
+  // 内容集摘要（DESIGN §34.2/§34.4）：`welcome.mods` 是「这个进程跑哪份包集合」。记下来，`room.create` /
+  // `room.join` 才能带上 `modDigest` —— 装了包的服务器上，不带摘要的客户端会被 `checkModDigest` 拒在门外。
+  // 换了一份集合时它会清空房主的包选择（那些 id 属于已经不在的目录）。
+  roomMods.setWelcomeMods(msg);
+
+  // Mod resource assets (DESIGN §34.30): a pack declaring `assets` puts `modAssets` in `welcome` — register the engine's
+  // own worker for them. No declaration, yet a worker controls this page (an earlier deployment had one): the valve
+  // releases it, or this page keeps being served from a cache this server no longer fills. Both imports are dynamic, so
+  // a clean install fetches neither.
+  if (Array.isArray(msg && msg.modAssets) && msg.modAssets.length) {
+    import('./resources/host.js').then((m) => m.installModAssets(msg.modAssets), (err) => console.warn('[mod-assets] host did not load', err));
+  } else if (navigator.serviceWorker?.controller) {
+    import('./resources/release.js').then((m) => m.releaseResourceWorker(), (err) => console.warn('[mod-assets] valve did not load', err));
+  }
+  // Packs' client halves (DESIGN §34.3): the same `welcome` frame carries the list, and it is the only channel — a
+  // second one could disagree with what the server says it loaded.
+  if (Array.isArray(msg && msg.modPanels) && msg.modPanels.length) modPanels.apply(msg.modPanels);
+
   if (msg.takeoverFrom === prevId && prevId != null) {
     toast(t('你已接管AI席位，资金、阵容与席位已保留'), 'info');
   } else if (prevId != null && prevId !== msg.playerId) {
