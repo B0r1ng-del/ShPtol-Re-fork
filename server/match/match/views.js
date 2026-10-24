@@ -154,6 +154,9 @@ export class MatchViews {
         // renderer reads the skin off the unit rather than off the local player. Omitted when empty, which is the normal
         // case: the appearance comes from a cosmetic plugin each player switches on for themself, so most have none.
         ...(Object.keys(ps.skins).length ? { skins: ps.skins } : {}),
+        // 名片干员 (ui/seatArt.js): PUBLIC like the skins — this is how a teammate sees your seat card. Omitted when
+        // unset, which is the normal case (the card then falls back to one chosen by the player id).
+        ...(ps.card ? { card: ps.card } : {}),
         // the LP this round's own battle will cost at settlement so far (COMBAT / 联防 only, omitted when 0)
         ...this._pendingLpView(ps),
       })),

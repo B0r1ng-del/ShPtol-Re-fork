@@ -392,6 +392,9 @@ export class Room {
           // 皮肤 / 头像 (DESIGN §35.35): only when this player set something — the key is absent otherwise, so the
           // seat bytes of a room where nobody changed anything stay exactly as they were
           ...(s.appearance ? { appearance: s.appearance } : {}),
+          // 名片干员 (ui/seatArt.js): only when this player picked one — the key is absent otherwise, so a room where
+          // nobody changed anything keeps its seat bytes identical
+          ...(s.card ? { card: s.card } : {}),
           // a room with gameplay plugins (header "Gameplay plugins"): has this player's page loaded and checked its content?
           ...(this.modded && !s.isBot ? { content: s.content || 'loading' } : {}) }
         : null)),
@@ -776,6 +779,7 @@ export class Lobby {
       case 'room.mods': return this.setRoomMods(session, msg);
       case 'room.appearance': return this.appearance(session, msg);
       case 'room.skins': return this.skins(session, msg);
+      case 'room.card': return this.card(session, msg);
       case 'room.spectate': return this.spectate(session, msg);
       case 'room.removeSpectator': return this.removeSpectator(session, msg);
       case 'room.setPlugins': return this.setPlugins(session, msg);
@@ -1621,6 +1625,29 @@ export class Lobby {
     if (!room || !room.match || !seat) return OK;
     if (typeof room.match.setSkins !== 'function') return fail(ERR.ROOM_STARTED, 'stored for the next match');
     return matchAnswer(this.callMatch(room, 'setSkins', session.playerId, kept));
+  }
+
+  /**
+   * room.card (ui/seatArt.js): the operator this doctor shows on the room's seat card — one charId, or '' for 默认
+   * (the seat card then picks one by the player id, the same on every client).
+   *
+   * Cosmetic and public, so like room.skins it has no phase gate: it changes what a teammate sees on your seat card, not
+   * what any unit does. The id is checked against this room's operators; an unknown one is refused and the stored pick
+   * is left alone.
+   */
+  card(session, { charId }) {
+    const room = this.roomOf(session);
+    const seat = room ? room.seatOf(session.playerId) : null;
+    const kept = charId === '' ? '' : charId;
+    if (kept && !operatorCharIds(this.dataFor(room)).has(kept)) return fail(ERR.BAD_MSG, 'unknown operator');
+    session.card = kept;
+    if (!room || !seat) return OK;
+    seat.card = kept;
+    // the seat card is drawn from room.state: broadcast so the other doctors see it at once (the room.appearance path)
+    this.broadcastState(room);
+    if (!room.match) return OK;
+    if (typeof room.match.setCard !== 'function') return fail(ERR.ROOM_STARTED, 'stored for the next match');
+    return matchAnswer(this.callMatch(room, 'setCard', session.playerId, kept));
   }
 
   /** The game data of a room's content (header "Gameplay plugins"): its content set's, else the server's. @param {Room | null} room */

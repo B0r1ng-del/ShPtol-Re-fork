@@ -628,6 +628,10 @@ export const C2S = {
   // 干员皮肤 (docs/SKINS.md): the appearances the player wears, keyed by operator charId; PUBLIC, so it is accepted in
   // any room phase (the loadout locks at INFO_CHECK because it changes what a unit does; a skin changes only the model)
   'room.skins': { skins: isSkinSelection },
+  // 名片干员 (ui/seatArt.js): the operator a doctor shows on the room's seat card. One charId, or '' to clear the pick
+  // (the seat then falls back to one chosen by the player id). PUBLIC and cosmetic, so it is accepted in any phase — the
+  // same reasoning as room.skins. Omitted from room.state / m.public when unset, so an unchanged room's bytes stay put.
+  'room.card': { charId: (v) => v === '' || isCharId(v) },
   // operator ownership (干员持有, 0.2.0 补位): stored per session / seat; a match takes the list its seat had when it
   // started (an out-of-match setting — during a match it is stored for the next one: ROOM_STARTED)
   'room.ownership': { notOwned: isNotOwnedList },
