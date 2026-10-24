@@ -1,4 +1,9 @@
 // Healing, regeneration and overheal shields. Independent of the damage pipeline.
+//
+// ★ fork 接入点（2026-10-25）：收治资格还要过 content/portRules.js 的 canReceiveHeal —— 八 卡兹戴尔 的亡魂自成
+// 一个治疗组、六.F 梅尔水獭的 noOperatorHeal owner 链。上游 v0.3.2 没有内容包的概念，这两条是本 fork 加的；
+// 两个内容包都关时它的最后一行与下面的内联判据完全等价，行为逐字节不变。
+import { canReceiveHeal } from '../content/portRules.js';
 
 /**
  * Heal pipeline. Returns the HP actually restored. `noHeal` stops heals from others (`self` heals pass); `healFree` (禁疗,
@@ -15,6 +20,10 @@
  */
 export function heal(battle, source, target, amount, opts = {}) {
   if (!target || !target.alive || target.removed || !target.deployed || target.bossPool) return 0;
+  // ★ fork 的两条附加收治规则（八 卡兹戴尔 亡魂自成一治疗组、六.F 梅尔水獭的 noOperatorHeal owner 链）：
+  // 上游 v0.3.2 的 heal() 把基础判据内联在这里，但它没有内容包的概念，所以这两条必须由 portRules 补。
+  // 干净安装（两个内容包都关）时 canReceiveHeal 的最后一行与下面那行完全等价，行为逐字节不变。
+  if (!canReceiveHeal(source, target, opts)) return 0;
   const restore = opts.mode === 'restore';
   const self = source === target || !!opts.self;
   const through = !!(source && source.profile && typeof source.profile.healThrough === 'function' && source.profile.healThrough(source, target));

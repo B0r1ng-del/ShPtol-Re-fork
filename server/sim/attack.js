@@ -4,6 +4,8 @@ import { resolveDamage } from './attack/hit.js';
 import { loseHp } from './attack/health.js';
 import { mitigate } from './attack/calculation.js';
 import { heal as applyHeal } from './attack/heal.js';
+// ★ fork：众魂大炮的命中资格（八 卡兹戴尔）。上游 v0.3.2 没有内容包概念，判定在 content/portRules.js。
+import { kazdelCannonImmune } from './content/portRules.js';
 import { healElement as recoverElement } from './attack/element.js';
 
 // Public helpers for content and engine callers; implementation paths stay private.
@@ -36,6 +38,9 @@ function context(request, type = 'phys') {
  */
 export function dealDamage(battle, request) {
   if (request.type != null && !['phys', 'arts', 'true', 'elemental'].includes(request.type)) throw new TypeError('Use an HP damage type; gauges use dealElementDamage');
+  // ★ fork 的众魂大炮命中资格（八 卡兹戴尔）：大炮绝不伤别的玩家的友军、也绝不伤亡魂；没有来源信息时**拒绝**这次
+  // 命中，而不是把它变成全队友伤。上游 v0.3.2 没有内容包的概念，这条由 content/portRules.js 接上。
+  if (kazdelCannonImmune(battle, request.source, request.target, request)) return 0;
   return resolveDamage(battle, context(request));
 }
 

@@ -30,7 +30,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
 
 /** The three min-3 莱茵生命 operators, used to activate a stackable 盟约 on the board. */
-const MEMBERS = ['chess_rhine_astgenne_a', 'chess_rhine_dorothy_a', 'chess_rhine_mayer_a'];
+const MEMBERS = ['chess_rhine_astgenne_a', 'chess_rhine_ifrit_a', 'chess_rhine_mayer_a'];
 
 /** A 2-human 同盟模拟 match sitting in round 1's PREP. `mods` turns content packs on for the bond tests. */
 function prepMatch(mods = undefined) {
