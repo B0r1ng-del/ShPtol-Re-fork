@@ -320,8 +320,8 @@ function Filters({ m, filters, onFilters, bonds, onDeck = null }) {
 // tests draw them).
 
 const VIEW_PREF = 'loadout.view';
-/** The stored view: 'list' (the aligned rows, the default) or 'deck' (the cards). */
-export const loadoutViewPref = () => (loadPref(VIEW_PREF, 'list') === 'deck' ? 'deck' : 'list');
+/** The stored view: 'deck' (the cards, the default) or 'list' (the aligned rows). */
+export const loadoutViewPref = () => (loadPref(VIEW_PREF, 'deck') === 'list' ? 'list' : 'deck');
 const DECK_TIERS = [1, 2, 3, 4, 5, 6];
 
 /** 潜能 as six pips (the card's star row). */
