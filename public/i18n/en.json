@@ -2739,5 +2739,6 @@
   "再次点击取消就绪": "Click again to cancel ready",
   "我": "Me",
   "查看「{name}」": "View {name}",
-  "已选定策略": "Strategy selected"
+  "已选定策略": "Strategy selected",
+  "已通过模拟{n}次": "Cleared {n} times"
 }

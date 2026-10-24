@@ -25,6 +25,7 @@ import { StepHeader, ExitModal } from '../ui/matchChrome.js';
 import { MatchInfoDialog, matchInfoModel } from '../ui/matchInfo.js';
 import { actions, act } from '../ui/gameActions.js';
 import { normalizeDraft, sortedPlayers } from '../ui/gameLogic.js';
+import { aggregateStats, loadStats } from '../ui/stats.js';
 import { useStore } from '../store.js';
 import { data } from '../data.js';
 import { audio } from '../audio.js';
@@ -35,6 +36,17 @@ import { modeOffBonds, bandOffBonds, bandOffLine } from '../ui/gameLogic.js';
 import { t, tParts, tName } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
+
+/**
+ * 已通过模拟 N 次 (上游 dband__medal): 本机战绩里这个策略赢过几次 —— bandId → wins。本地没有账号体系，读的是
+ * ui/stats.js 的本地记录（localStorage），与 设置 → 统计 页同一份数据；读不到就当作 0。
+ */
+export function clearedByBand() {
+  try {
+    const bands = aggregateStats(loadStats().records).bands || {};
+    return Object.fromEntries(Object.entries(bands).map(([id, b]) => [id, b.wins | 0]).filter(([, n]) => n > 0));
+  } catch { return {}; }
+}
 
 /** 本局禁用 on a strategy card whose bonds `names` the mode switches off (bandOffBonds); nothing otherwise. */
 export function BandOffTag({ names = [] }) {
@@ -271,6 +283,8 @@ export function BandDraftScreen() {
   const turnSecs = clock ? secondsLeft(clock.deadline) : null;
   const turnLen = Number(pub?.draft?.turnSeconds) > 0 ? Math.round(pub.draft.turnSeconds) : null;
   // 本局信息: the briefing's blocks (built only while the dialog is open) and the draft's state under it
+  // 已通过模拟 N 次 (上游 dband__medal / draft-detail__medal): 本机战绩里每个策略赢过几次，只读一次
+  const cleared = useMemo(clearedByBand, []);
   const info = infoOpen ? matchInfoModel(pub, { bonds: gd.list('bonds'), chess: gd.chess, mode, priv, diyData: { chess: data.get('chess'), backups: data.get('backups') } }) : null;
   const infoStatus = infoOpen ? draftInfoStatus({ myPick, pickName: myPick ? gd.band(myPick)?.name : null, myTurn, turnName, secs: turnSecs,
     waiting: !solo && !draft.done }) : null;
@@ -337,6 +351,7 @@ export function BandDraftScreen() {
               <span class="dband__frame"><${BandIcon} bandId=${b.bandId} size="lg" /></span>
               <span class="dband__name">${b.name}</span>
               <span class="dband__lp num"><i></i>${b.totalHp}</span>
+              ${cleared[b.bandId] ? html`<span class="dband__medal" title=${t('已通过模拟{n}次', { n: cleared[b.bandId] })}><${Icon} name="rook" /></span>` : null}
               <${BandOffTag} names=${offNames} />
               ${who.length ? html`<span class="dband__who">${who.slice(0, 4).map((p) => html`<${PlayerAvatar} key=${p.playerId} player=${p} size="sm" />`)}</span>` : null}
               ${isTaken ? html`<span class="dband__taken">${t('队友已选')}</span>` : null}
@@ -347,6 +362,7 @@ export function BandDraftScreen() {
         ${view === 'detail' && band ? html`<aside class="draft-detail">
           <div class="draft-detail__body">
             <div class="draft-detail__art"><${BandIcon} bandId=${band.bandId} size="xl" /></div>
+            ${cleared[band.bandId] ? html`<span class="draft-detail__medal">${t('已通过模拟{n}次', { n: cleared[band.bandId] })}</span>` : null}
             <div class="draft-detail__hp">${t('初始生命值')}<b class="num">${band.totalHp ?? '--'}</b></div>
             <span class="draft-tag">STRATEGY</span>
             <h2 class="draft-detail__name">${band.name}</h2>
