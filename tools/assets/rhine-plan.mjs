@@ -8,7 +8,7 @@ export const RHINE_ART_OPERATORS = [
   ['char_416_zumama', '森蚺', 'skchr_zumama_3', 2],
   ['char_134_ifrit', '伊芙利特', 'skchr_ifrit_2', 1],
   ['char_135_halo', '星源', 'skchr_halo_1', 0],
-  ['char_4048_doroth', '多萝西', 'skchr_doroth_3', 2],
+  ['char_248_mgllan', '麦哲伦', 'skchr_mgllan_2', 1],
 ];
 export const MAYER_TOKEN = 'token_10004_otter_motter';
 export const DOROTHY_TOKEN = 'token_10025_doroth_recttp';

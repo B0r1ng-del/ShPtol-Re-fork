@@ -79,7 +79,9 @@ describe('assetUrls', () => {
         assert.equal(chessPortraitUrl(m, c), m.chars[portraitId.slice(0, -2)].portrait, c.chessId);
       }
     }
-    assert.equal(official, 258);
+    // Upstream's roster is 258; the fork's content packs only ADD records, so this loop must cover at least that
+    // many (the per-record asserts above are the real check — a hardcoded total drifts with every pack).
+    assert.ok(official >= 258, `covered ${official}`);
   });
   test('bonds, bands, items, enemies, tokens, factions, titles, effects', () => {
     for (const id of Object.keys(load('bonds.json'))) assert.ok(bondIconUrl(m, id), id);
