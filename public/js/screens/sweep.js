@@ -13,7 +13,7 @@
 // codex first, then the report; the focus returns to the lobby's button). The tab is remembered (sp.pref).
 // Styles: css/screens/sweep.css (sw-*).
 
-import { useMemo, useState } from '../../vendor/hooks.module.js';
+import { useEffect, useMemo, useReducer, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, Modal, roman } from '../ui/components.js';
 import { Img, RichText, GIcon } from '../ui/gameComponents.js';
 import { bondIconUrl, bandIconUrl, enemyIconUrl, factionIconUrl, chessAvatarUrl } from '../ui/assetUrls.js';
@@ -395,6 +395,18 @@ function handbookPage() {
 export function SweepReport({ onClose }) {
   const ready = useData('bonds', 'bands', 'bosses', 'factions', 'enemies', 'chess', 'assets');
   useData('local');
+  // ★ 内容包开关 (owner 2026-10-24: 「开启 mod 盟约后，Sweep 里预览不到」): `data.list` caches per `packsSig`, and switching
+  // a pack on rebuilds those arrays — but `useData` only re-renders on the FILE name, which does not move. Subscribing to
+  // the signature is what carries the rebuilt list into this screen. (The same trap loadout.js fixed for its roster.)
+  const [, bumpPacks] = useReducer((n) => n + 1, 0);
+  useEffect(() => {
+    let last = data.packsSig();
+    const unsub = data.subscribe(() => {
+      const sig = data.packsSig();
+      if (sig !== last) { last = sig; bumpPacks(); }
+    });
+    return unsub;
+  }, []);
   const m = data.get('assets');
   const notOwned = useStore((s) => s.notOwned, Object.is, loadoutStore);
   const [tab, setTabState] = useState(() => { const v = loadPref(TAB_PREF, 'bonds'); return TABS.some((x) => x.id === v) ? v : 'bonds'; });

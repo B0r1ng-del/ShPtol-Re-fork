@@ -24,15 +24,17 @@ test('两个视图都在，且选择记在本机', () => {
   const src = read('public/js/screens/loadout.js');
   assert.match(src, /const VIEW_PREF = 'loadout\.view'/);
   assert.match(src, /export const loadoutViewPref = \(\) => \(loadPref\(VIEW_PREF, 'deck'\) === 'list' \? 'list' : 'deck'\)/);
-  // 两个分支都渲染：deck 走 DeckView，list 走 RosterRow
-  // the deck branch now holds two tabs: 干员 (DeckView) and 道具 (ItemCodex), plus the bottom bar
-  assert.match(src, /view === 'deck' \? html`\$\{deckTab === 'items'/);
+  // the deck branch holds two tabs: 干员 (DeckView) and 道具 (ItemCodex), and the bottom bar sits OUTSIDE `.lo-list`
+  assert.match(src, /view === 'deck'\s*\n\s*\? \(deckTab === 'items'/);
   assert.match(src, /<\\?\$\{DeckView\}/);
   assert.match(src, /<\\?\$\{ItemCodex\}/, '道具 tab');
   assert.match(src, /<\\?\$\{DeckBar\}/, '底部阶位栏');
   assert.match(src, /<\\?\$\{RosterRow\}/);
-  // 切换时写回偏好
-  assert.match(src, /const setView = \(v\) => \{ setViewState\(v\); savePref\(VIEW_PREF, v\); \}/);
+  // ★ 需求方 2026-10-24: the 卡片 / 列表 toggle is gone — the deck is the only view offered
+  assert.doesNotMatch(src, /class="lo-viewtoggle"/, '列表切换按钮已删除');
+  // the bottom bar must be a SIBLING of `.lo-list` (which scrolls), or it hides below the fold
+  const listClose = src.indexOf('</div>\n        ${null /* The bottom bar sits OUTSIDE');
+  assert.ok(listClose > 0, '底栏在 .lo-list 之外');
 });
 
 test('卡片按 tier 分组，组头是罗马数字 + 数量', () => {
@@ -116,4 +118,16 @@ test('★ 卡片视图不碰服务端：没有新协议消息，也不发请求'
   const deck = src.slice(i, src.indexOf('// ---- detail', i));
   assert.doesNotMatch(deck, /net\.request|msgType|'room\./, '卡片视图只是另一种画法，不新增消息');
   assert.doesNotMatch(deck, /fetch\(/, '不发请求');
+});
+
+test('★ 底部阶位栏：点了真的滚到那个阶位（不是只改状态）', () => {
+  const src = read('public/js/screens/loadout.js');
+  // DeckBar 的 onJump 走 jumpTier（写入 { tier, seq }），DeckView 用 jumpTo 触发滚动
+  assert.match(src, /const jumpTier = \(tier\) => \{ setDeckTier\(tier\); setJumpTo\(\(j\) => \(\{ tier, seq: \(j\?\.seq \|\| 0\) \+ 1 \}\)\); \}/);
+  assert.match(src, /onJump=\$\{jumpTier\}/, '底栏接的是 jumpTier 而不是裸 setState');
+  assert.match(src, /jumpTo=\$\{jumpTo\}/, 'DeckView 收到 jumpTo');
+  const i = src.indexOf('function DeckView(');
+  const body = src.slice(i, src.indexOf('function DiyDeckCard(', i) > 0 ? src.indexOf('function DiyDeckCard(', i) : i + 4000);
+  assert.match(body, /el\.scrollTo\(\{ left: sec\.offsetLeft/, '真的滚动容器的 scrollLeft');
+  assert.match(body, /data-tier="\$\{jumpTo\.tier\}"/, '按阶位找 section');
 });

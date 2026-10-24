@@ -321,7 +321,7 @@ function HubTile({ icon, label, en, onClick, children }) {
 
 /** One of the hub's four mode entries along the bottom. */
 function HubEntry({ card, onSelect }) {
-  const tone = card.id === 'firepower' ? 'gold' : card.id === 'coop' ? 'bright' : undefined;
+  const tone = card.id === 'firepower' ? 'gold' : card.id === 'coop' ? 'bright' : card.id === 'ultimate' ? 'red' : undefined;
   return html`<button type="button" class=${`hub-entry${tone ? ` hub-entry--${tone}` : ''}`} onClick=${() => onSelect(card.id)}>
     <span class="hub-entry__icon"><${Icon} name=${card.icon} /></span>
     <span class="hub-entry__en">${card.en}</span>
@@ -405,7 +405,10 @@ function ProtocolSelect({ card, roomMode, difficulty, onDifficulty, onClose, onl
       </section>
       <section class="proto-side">
         <div class="proto-list" role="radiogroup" aria-label=${t('模拟难度')}>
-          ${DIFFICULTIES.map((d) => html`<${ProtoCard} key=${d} roomMode=${roomMode} difficulty=${d} selected=${difficulty === d} onSelect=${onDifficulty} />`)}
+          ${/* 扩展模拟 is fixed to AC-4 (the server forces it): offering the other three cards let the page show a difficulty
+               the room could never have — the owner's report of 2026-10-24. One card, not a disabled list of four. */
+            (roomMode === 'ultimate' ? [ULTIMATE_DIFFICULTY] : DIFFICULTIES)
+              .map((d) => html`<${ProtoCard} key=${d} roomMode=${roomMode} difficulty=${d} selected=${difficulty === d} onSelect=${onDifficulty} />`)}
         </div>
         <div class="proto-foot">
           ${roomMode === 'solo' ? html`<div class="proto-opts">
@@ -555,8 +558,8 @@ export function LobbyScreen() {
           html`<${ModMenuButton} class="lobby-modmenu" />`}
         <${Button} variant="secondary" size="sm" icon="book" class="lobby-sweep" onClick=${() => setSweepOpen(true)}
           title=${t('S.W.E.E.P.报告：盟约、策略与敌方资料')}>S.W.E.E.P.<//>
-        ${null /* 干员调配：上游 0.3.1 的顶栏只此一个。合并时 fork 那一份重复插了一次（图二），2026-10-24 去掉 */}
-        <${LoadoutButton} from="lobby" size="sm" class="lobby-loadout" label=${t('干员调配')} />
+        ${null /* 干员调配 has exactly ONE home in the new UI: the hub's right-column entry plate (`.hub-plate--loadout`
+             below). The top bar used to carry a second copy — that is the duplicate the owner reported on 2026-10-24. */}
         <button type="button" class="me-chip me-chip--btn stats-entry" onClick=${openStats} title=${t('统计数据')} aria-label=${t('统计数据')}>
           <${AvatarFrame} size="sm" name=${me.name} seat=${0} self=${true} />
           <span class="me-chip__text">
