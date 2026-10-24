@@ -138,7 +138,6 @@ export function backdropTheme(bg) {
   return s === 'photo' ? 'custom' : s === 'blank' ? 'night' : s;
 }
 
-// ---- the generated skyline (viewBox 1600×600, ground at the bottom) -------------------------------------------------
 function rng(seed) {
   let s = seed >>> 0;
   return () => ((s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 2 ** 32);

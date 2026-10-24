@@ -32,7 +32,8 @@ import { getConfig, getMode, getStage, useData } from '../data.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
 import { NoticesButton } from '../ui/notices.js';
 // 大厅背景与音乐 (from the old UI PR #643's keep list): the generated scenes / one's own picture, and the lobby BGM.
-import { useHubBackdrop, HubBackdrop, backdropTheme, BackdropSettings, BackdropGlyph } from '../ui/hubBackdrop.js';
+import { useHubBackdrop, HubBackdrop, HubRadar, backdropTheme, BackdropSettings, BackdropGlyph } from '../ui/hubBackdrop.js';
+import { Emblem } from './title.js';
 import { LobbyMusicButton } from '../ui/lobbyMusic.js';
 // 选择模拟协议 (from the old UI PR #643's keep list): the full-screen page a mode opens — the difficulty's isometric
 // scene at the left, the difficulty cards down the right.
@@ -308,9 +309,36 @@ function ModeCard({ card, selected, onSelect }) {
   </button>`;
 }
 
+/** One tile of the hub's left column (密钥加入 …): icon, name, English line. */
+function HubTile({ icon, label, en, onClick, children }) {
+  return html`<button type="button" class="hub-tile" onClick=${onClick}>
+    <span class="hub-tile__icon"><${Icon} name=${icon} /></span>
+    <span class="hub-tile__text"><span class="hub-tile__label">${label}</span><span class="hub-tile__en">${en}</span></span>
+    ${children}
+  </button>`;
+}
+
+/** One of the hub's four mode entries along the bottom. */
+function HubEntry({ card, onSelect }) {
+  const tone = card.id === 'firepower' ? 'gold' : card.id === 'coop' ? 'bright' : undefined;
+  return html`<button type="button" class=${`hub-entry${tone ? ` hub-entry--${tone}` : ''}`} onClick=${() => onSelect(card.id)}>
+    <span class="hub-entry__icon"><${Icon} name=${card.icon} /></span>
+    <span class="hub-entry__en">${card.en}</span>
+    <span class="hub-entry__name">${t(card.name)}${card.badge ? html`<span class="mode-beta">${card.badge}</span>` : null}</span>
+    <span class="hub-entry__corner" aria-hidden="true"></span>
+  </button>`;
+}
+
+/** The S.W.E.E.P. report entry on the hub's right column (the fork's own screen). */
+function SweepPlate({ onClick }) {
+  return html`<button type="button" class="hub-plate hub-plate--sweep" onClick=${onClick}>
+    <span class="hub-plate__icon"><${Icon} name="book" /></span>
+    <span class="hub-plate__text"><span class="hub-plate__name">S.W.E.E.P.<span class="hub-plate__en">REPORT</span></span></span>
+  </button>`;
+}
+
 /** The hand-drawn ring of the 已选定 stamp (two loose strokes). */
-function StampRing() {
-  return html`<svg class="pcard__ring" viewBox="0 0 120 100" aria-hidden="true" focusable="false">
+function StampRing() {  return html`<svg class="pcard__ring" viewBox="0 0 120 100" aria-hidden="true" focusable="false">
     <path pathLength="1" d="M18 62C6 34 34 8 70 10c34 2 48 30 38 54-10 24-46 32-72 22C20 80 10 66 16 50" />
     <path pathLength="1" d="M30 20c22-14 62-12 78 10 12 18 4 44-16 54" />
   </svg>`;
@@ -402,6 +430,8 @@ export function LobbyScreen() {
   // blur / overlay / motion settings — a localStorage pref, the picture itself in IndexedDB (never uploaded).
   const bg = useHubBackdrop();
   const [bgOpen, setBgOpen] = useState(false);
+  // 密钥加入 opens as a dialog over the hub (the new UI has no room for the join panel on the stage)
+  const [joinOpen, setJoinOpen] = useState(false);
   useEffect(() => {
     if (studioHref) return undefined;
     let alive = true;
@@ -535,45 +565,47 @@ export function LobbyScreen() {
       </div>
     </header>
 
-    <div class="lobby-body screen__scroll">
-      <section class="lobby-left">
-        <div class="section-label"><span class="section-label__idx num">01</span>${t('模拟方式')}<${MicroLabel}>MODE<//></div>
-        <div class="mode-cards">
-          ${MODE_CARDS.map((c) => html`<${ModeCard} key=${c.id} card=${c} selected=${roomMode === c.id} onSelect=${openProto} />`)}
-        </div>
+    <main class="hub-stage">
+      <div class="hub-center">
+        <div class="hub-center__mark"><${HubRadar} bg=${bg} /><${Emblem} /></div>
+        <div class="hub-center__en">STRONGHOLD PROTOCOL <b>ALLIANCE</b></div>
+        <h1 class="hub-center__title">${t('卫戍协议：盟约')}</h1>
+      </div>
 
-        <div class="section-label"><span class="section-label__idx num">03</span>${t('加入同盟')}<${MicroLabel}>JOIN WITH ALLIANCE KEY<//></div>
-        <${Panel} class="join-panel" tone="amber">
-          <div class="join-row">
-            <${TextField} size="code" icon="key" value=${code} placeholder=${t('输入同盟密钥 / 粘贴邀请链接')}
-              transform=${normalizeCode} onInput=${(v) => setCode(normalizeCode(v))} onEnter=${() => join()} />
-            <${Button} variant="amber" size="lg" icon="users" loading=${busy === 'join'} disabled=${!codeOk || !online} onClick=${() => join()}>${t('加入同盟')}<//>
-            <${Tooltip} text=${t('以观战者身份进入：不占博士席位，只能观看（每个同盟最多 {MAX_SPECTATORS} 名，模拟进行中也可进入）', { MAX_SPECTATORS })}>
-              <${Button} variant="secondary" size="lg" icon="eye" class="join-spectate" loading=${busy === 'spectate'} disabled=${!codeOk || !online} onClick=${spectate}>${t('观战')}<//>
-            <//>
-          </div>
-          <div class="join-foot">
-            ${recent.length ? html`<span class="t-lo">${t('最近的同盟')}</span>
-              ${recent.map((c) => html`<button key=${c} type="button" class="code-chip num" title=${t('填入密钥（不会直接加入）')}
-                onClick=${() => setCode(c)}>${c}${Array.isArray(marks) && marks.includes(c) ? html` <${TestMark} />` : null}</button>`)}`
-              : html`<span class="t-dim">${t('向同伴索取 {ROOM_CODE_LEN} 位同盟密钥，或直接打开邀请链接', { ROOM_CODE_LEN })}</span>`}
-          </div>
-        <//>
+      <aside class="hub-side">
+        <${HubTile} icon="key" label=${t('密钥加入')} en="JOIN WITH KEY" onClick=${() => setJoinOpen(true)} />
         <${TipsPanel} />
-      </section>
+      </aside>
 
-      <section class="lobby-right">
-        ${/* 选择模拟协议 (owner 2026-10-24): the difficulty and 开始模拟 moved to their own page (ui/protocolScene.js's
-             screen, `ProtocolSelect` below), opened by picking a MODE on the left. The hub keeps only a pointer to it —
-             the fork used to put the difficulty cards and the create button here, which is the flow the new UI replaced. */
-          html`<div class="section-label"><span class="section-label__idx num">02</span>${t('选择模拟协议')}<${MicroLabel}>SELECT PROTOCOL<//></div>
-        <div class="lobby-protohint">
-          <p>${t('在左侧选择一种模拟方式，然后在新页面选择难度并开始模拟。')}</p>
-          <${Button} variant="secondary" size="md" iconRight="chevrons" disabled=${!online}
-            onClick=${() => openProto(roomMode)}>${t('选择难度')}<//>
-        </div>`}
+      <aside class="hub-right">
+        <${SweepPlate} onClick=${() => setSweepOpen(true)} />
+        <${LoadoutButton} from="lobby" size="lg" class="hub-plate hub-plate--loadout" label=${t('干员调配')} />
+      </aside>
+
+      <section class="hub-entries" aria-label=${t('模拟方式')}>
+        <div class="hub-entries__row">
+          ${MODE_CARDS.map((c) => html`<${HubEntry} key=${c.id} card=${c} onSelect=${openProto} />`)}
+        </div>
       </section>
-    </div>
+    </main>
+
+    <${Modal} open=${joinOpen} title=${t('密钥加入')} micro="JOIN WITH KEY" width="min(22rem, calc(100vw - 2rem))"
+      onClose=${() => setJoinOpen(false)}>
+      <div class="join-row">
+        <${TextField} size="code" icon="key" value=${code} placeholder=${t('输入同盟密钥 / 粘贴邀请链接')}
+          transform=${normalizeCode} onInput=${(v) => setCode(normalizeCode(v))} onEnter=${() => join()} />
+        <${Button} variant="amber" size="lg" icon="users" loading=${busy === 'join'} disabled=${!codeOk || !online} onClick=${() => join()}>${t('加入同盟')}<//>
+        <${Tooltip} text=${t('以观战者身份进入：不占博士席位，只能观看（每个同盟最多 {MAX_SPECTATORS} 名，模拟进行中也可进入）', { MAX_SPECTATORS })}>
+          <${Button} variant="secondary" size="lg" icon="eye" class="join-spectate" loading=${busy === 'spectate'} disabled=${!codeOk || !online} onClick=${spectate}>${t('观战')}<//>
+        <//>
+      </div>
+      <div class="join-foot">
+        ${recent.length ? html`<span class="t-lo">${t('最近的同盟')}</span>
+          ${recent.map((c) => html`<button key=${c} type="button" class="code-chip num" title=${t('填入密钥（不会直接加入）')}
+            onClick=${() => setCode(c)}>${c}${Array.isArray(marks) && marks.includes(c) ? html` <${TestMark} />` : null}</button>`)}`
+          : html`<span class="t-dim">${t('向同伴索取 {ROOM_CODE_LEN} 位同盟密钥，或直接打开邀请链接', { ROOM_CODE_LEN })}</span>`}
+      </div>
+    <//>
     ${sweepOpen ? html`<${SweepReport} onClose=${() => setSweepOpen(false)} />` : null}
     ${bgOpen ? html`<${Modal} open=${true} title=${t('大厅背景')} micro="LOBBY BACKDROP" width="min(24rem, calc(100vw - 2rem))"
       onClose=${() => setBgOpen(false)}><${BackdropSettings} bg=${bg} /><//>` : null}

@@ -52,7 +52,9 @@ test('名片干员: the pick is per device, the fallback is one operator per pla
   assert.doesNotMatch(art, /Math\.random/);
   const room = read('public/js/screens/room.js');
   assert.match(room, /import \{ CARD_PREF, cardOperators, seatPortrait \} from '\.\.\/ui\/seatArt\.js'/);
-  assert.match(room, /<\\?\$\{AvatarFrame\} size="xl"[^>]*src=\$\{cardSrc\}/, 'the seat card shows the portrait');
+  // the seat card shows it as a full-bleed portrait (the new UI's 竖版立绘卡: an <img>, not the old AvatarFrame)
+  assert.match(room, /cardSrc \? html`<img src=\$\{cardSrc\}/, 'the seat card shows the portrait');
+  assert.match(room, /const cardSrc = seat\.isBot \|\| !portraits \? null : seatPortrait\(seat, portraits\)/);
   assert.match(room, /export const CARD_SYNC = Object\.hasOwn\(C2S, 'room\.card'\)/, 'the pick syncs only when the server knows it');
 });
 
