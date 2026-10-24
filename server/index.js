@@ -231,6 +231,9 @@ export async function startServer(opts = {}) {
   const survivors = new Set(pruned.packs.map((p) => p.id));
   const metaModules = workshopMeta.modules.filter((m) => survivors.has(m.id));
   const serverModulesLive = serverModules.modules.filter((m) => survivors.has(m.pack));
+  // ★ fork 的服务端模块挂载面（`server.modules[*].uses`）：`boot` / `shutdown` / `healthz` / `route` / `matchClass`。
+  // `-X theirs` 删了这两行定义，下面 `modMount.boot(...)` / `modMount.shutdown()` 的引用还在。
+  const modMount = mountServerModules(serverModulesLive, { log });
   const workshopLoaded = { ...loadedForPayloads, packs: pruned.packs, errors: pruned.errors };
   // ★ 数据叠加层在这之后才加载，而且喂给它的是**裁剪之后**那一份包（`packs: pruned.packs`）。`loadData` 从前自己
   // 又调一次 `loadWorkshop`，于是刚被裁掉的包的数据照样并进游戏数据 —— 那道闸门对它等于不存在。

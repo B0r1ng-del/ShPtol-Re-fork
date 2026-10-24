@@ -1795,51 +1795,21 @@ export function installOwnerSummons(battle, owner) {
     if (skillSummons.length) {
       battle.on('skillStart', (ctx) => {
         if (ctx.unit !== owner) return;
-        if (engineDefault) { ensureReinforcement(battle, owner, tac); return; }
-        // a hand-authored kit summons its own 援军 unless one stands: bring the player's board piece in first
-        const piece = battle.allyUnits.find((t) => t.kind === 'token' && t.defId === tac && t.ownerUnit === owner && t.uid != null && !t.mem.isClone);
-        if (piece && ctx.initial && !piece.alive && !piece.removed && piece.deploySeq === 0) battle.redeploy(piece, { free: true });
-        if (piece && piece.alive) owner.trait.reinforcement = piece;
-      }, { owner, priority: 50 });
-    }
-
-    // generic-kit fallbacks (a hand-authored kit for the summoner replaces them); skill summons also run when only the
-    // selected skill falls back to the generic spec (a non-default skill the kit has no `skills` entry for)
-    const kitGeneric = !!owner.kit?.generic;
-    if (kitGeneric || owner.kit?.skillSource === 'generic') {
-      const skillSummons = toks.filter((t) => SKILL_SUMMONS[t] && tokenSources(battle, t, owner).includes('skill'));
-      if (skillSummons.length) {
-        battle.on('skillStart', (ctx) => {
-          if (ctx.unit !== owner) return;
-          for (const t of skillSummons) {
-            // a hand piece (医疗探机 / 诅咒娃娃) deploys where the player placed it — nowhere when not placed
-            if (battle.data.rawToken?.(t)?.placeable === true) { releaseSkillSummon(battle, owner, t); continue; }
-            for (let i = 0; i < (SKILL_SUMMON_PER_CAST[t] ?? 1); i++) if (!summonToken(battle, owner, t, SKILL_SUMMONS[t])) break;
-          }
-        }, { owner });
-      }
-    }
-    if (!kitGeneric) continue;
-    // 夕: chess_char_5_12, or on another version's build by charId (上半 gives chess_char_5_12 to 林) and an official
-    // chess only (a plugin chess_x_ record keeps its own kit's behaviour)
-    const isDusk = isVersionData() ? owner.def?.charId === DUSK_CHAR && isOfficialId('chess', base) : base === 'chess_char_5_12';
-    if (toks.includes(TOKEN_IDS.duskDragon) && isDusk) {
-      const life = num(owner.def?.talents?.find((t) => t.tokenKey === TOKEN_IDS.duskDragon)?.bb?.['attack@tokenduration'], 0);
-      battle.on('deploy', (ctx) => { if (ctx.unit === owner) owner.mem.duskPending = true; }, { owner });
-      battle.on('attack', (ctx) => {
-        if (ctx.attacker !== owner || !owner.mem.duskPending) return;
-        const t = (ctx.targets || []).find((x) => x && x.side === 'enemy');
-        if (!t) return;
-        owner.mem.duskPending = false;
-        const tile = findSummonTile(battle, owner, 'near', { melee: true, at: { x: t.x, y: t.y } });
-        if (!tile) return;
-        const d = battle.spawnToken(owner, TOKEN_IDS.duskDragon, tile[0], tile[1], life > 0 ? { duration: life } : {});
-        if (d) battle.fx('duskDragon', { x: d.x, y: d.y, id: d.id });
+        for (const t of skillSummons) {
+          // a hand piece (医疗探机 / 诅咒娃娃) deploys where the player placed it — nowhere when not placed
+          if (battle.data.rawToken?.(t)?.placeable === true) { releaseSkillSummon(battle, owner, t); continue; }
+          for (let i = 0; i < (SKILL_SUMMON_PER_CAST[t] ?? 1); i++) if (!summonToken(battle, owner, t, SKILL_SUMMONS[t])) break;
+        }
       }, { owner });
     }
   }
+  // 上游 v0.3.2 把这段写在一个 `for (const owner of battle.allyUnits)` 里，所以它是 `continue`；本 fork 早一步
+  // 把它重构成了独立的 `installOwnerSummons()`（循环在 `install()` 那一层），这里必须是 `return`。
   if (!kitGeneric) return;
-  if (toks.includes(TOKEN_IDS.duskDragon) && base === 'chess_char_5_12') {
+  // 夕: chess_char_5_12, or on another version's build by charId (上半 gives chess_char_5_12 to 林) and an official
+  // chess only (a plugin chess_x_ record keeps its own kit's behaviour)
+  const isDusk = isVersionData() ? owner.def?.charId === DUSK_CHAR && isOfficialId('chess', base) : base === 'chess_char_5_12';
+  if (toks.includes(TOKEN_IDS.duskDragon) && isDusk) {
     const life = num(owner.def?.talents?.find((t) => t.tokenKey === TOKEN_IDS.duskDragon)?.bb?.['attack@tokenduration'], 0);
     battle.on('deploy', (ctx) => { if (ctx.unit === owner) owner.mem.duskPending = true; }, { owner });
     battle.on('attack', (ctx) => {

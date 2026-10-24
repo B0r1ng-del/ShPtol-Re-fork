@@ -176,7 +176,12 @@ const CS_FILE = /^\/cs\/([0-9a-f]{16})\/([A-Za-z0-9._\/-]{1,200})$/;
  */
 export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = path.join(ROOT, 'server', 'sim'), packsDir = path.join(ROOT, 'packs'),
   pluginsDir = path.join(path.dirname(path.resolve(packsDir)), 'plugins'), packs = null, content = null, log = noopLog,
-  assetIndex = null, views = null, visual = null, contents = null, versions = null }) {
+  assetIndex = null, views = null, visual = null, contents = null, versions = null,
+  // ★ 以下这些是本 fork 的工坊（mod 层）参数，上游 v0.3.2 没有。`-X theirs` 只留下了上游的签名，函数体里的
+  // workshop 分支却还在 ⇒ 11 个 `no-undef`。参数必须两边**合并**，不是二选一。
+  workshopJson = null, workshopAssets = null,
+  workshopKitFiles = null, workshopKitDirs = null, workshopPanelFiles = null, workshopBattleFiles = null,
+  workshopResourceFiles = null, workshopI18n = null, resourcePolicy = 'serve', workshopRoutes = null, modRoutes = null }) {
   const registry = packs || createPluginRegistry({ publicDir, dataDir, packsDir, pluginsDir }, { log: /** @type {any} */ (log) });
   const sets = visual || (typeof registry.pluginFile === 'function' ? createVisualSets({ registry, log }) : null);
   let vanilla = content;

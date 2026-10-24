@@ -6,6 +6,8 @@
 import { COLD_FREEZE_DURATION, LEVITATE_HALF_WEIGHT, RESIST_DEFAULT } from '../constants.js';
 import { makeBuff, STATUS, RESIST_STATUSES } from '../buffs.js';
 import { palsyBuff } from '../attack.js';
+// ★ fork：亡魂归属（八 卡兹戴尔）。上游 v0.3.2 删了 damage.js，该函数已迁到 content/portRules.js。
+import { soulOrigin } from '../content/portRules.js';
 import { evadesGround } from '../targeting.js';
 import { stampFear } from '../fear.js';
 import { captureKazdelCallback } from '../kazdelOrigin.js';

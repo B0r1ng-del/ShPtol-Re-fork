@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { cultivationCharIds } from '../../shared/protocol.js';
 import {
   parseStoredOps, toStored, opsOf, setOps, resetOps, sanitizeOps, exportPayload, parseImport, changedCount,
-  rosterOf, filterRoster,
+  rosterOf, filterRoster, maxAllOps, maxAllOpsCount,
 } from '../../public/js/ui/loadoutModel.js';
 import { POTENTIAL_MAX, POTENTIAL_DEFAULT, CULTIVATE_MAX, CULTIVATE_DEFAULT } from '../../shared/potential.js';
 import { installLoadoutSync, SYNC_DEBOUNCE_MS, applyLoadoutEntries, loadoutStore, setEntries, setOpsMap } from '../../public/js/ui/loadoutSync.js';

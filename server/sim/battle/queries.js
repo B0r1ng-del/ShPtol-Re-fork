@@ -7,7 +7,7 @@ import { ROWS, COLS, ENEMY_COLLIDER_RADIUS } from '../constants.js';
 import { absoluteRangeKeys, canTargetEnemy, extendedGrid, enemyStealthed } from '../targeting.js';
 import { bodyKeys, bodyInKeys, bodyInRadius, bodyInRange } from '../body.js';
 import { roundHalfEven } from '../detmath.js';
-import { canReceiveHeal } from '../damage.js';
+import { canReceiveHeal } from '../content/portRules.js';
 
 export class BattleQueries {
   /**

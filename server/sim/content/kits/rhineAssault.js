@@ -3,7 +3,7 @@
 // Mechanics: https://prts.wiki/w/森蚺 and https://prts.wiki/w/伊芙利特 .
 import { num, talentBb, traitBb, moduleBb, skillBbOf, up, toggleBuff, giveSp, batMod } from './shared/tier1.js';
 import { bodyInKeys, bodyDist } from '../../body.js';
-import { hasHp } from '../../damage.js';
+import { hasHp } from '../../attack.js';
 import { canTargetEnemy } from '../../targeting.js';
 
 const E1 = 'skchr_zumama_1', E2 = 'skchr_zumama_2', E3 = 'skchr_zumama_3';

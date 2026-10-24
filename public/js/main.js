@@ -75,6 +75,9 @@ import { recordError, installTrafficMeter } from './diag.js';
 import { installContent, installContentSet } from './content.js';
 import { cosmetics } from './cosmetics.js';
 import { sanitizeVersions, roomVersion, isDefaultVersion, matchFrameVersion } from './versions.js';
+// ★ fork：在线聊天的历史上限（m.chat 只留最近 CHAT_KEEP 行）与 mod 面板注册表。
+import { CHAT_KEEP } from '../../shared/constants.js';
+import { createPanelRegistry } from './ui/extensions.js';
 
 const RESTORE_GRACE_MS = 1500;
 const JOIN_DELAY_MS = 350;

@@ -25,7 +25,7 @@
 // 机制细节（高台溅射 x-5、锤击帧、扩散）与 [ASSUMED] 项的完整推导见 op-headb2.js 头注，此处不重复。
 
 import { num, talentBb, traitBb, skillRec, up, giveSp } from '../shared/tier1.js';
-import { hasHp } from '../../../damage.js';
+import { hasHp } from '../../../attack.js';
 import { COLS } from '../../../constants.js';
 import { sortEnemyTargets } from '../../../targeting.js';
 

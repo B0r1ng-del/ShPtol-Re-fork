@@ -5,7 +5,7 @@ import { energyPulseRange, researchContainsTile } from '../../../shared/rhineRan
 import { frontOf } from '../dir.js';
 import { bodyDist, bodyInKeys } from '../body.js';
 import { absoluteRangeKeys, canTargetEnemy } from '../targeting.js';
-import { canReceiveHeal } from '../damage.js';
+import { canReceiveHeal } from './portRules.js';
 import { TICK } from '../constants.js';
 import { memberOf, rhineEquipmentAttack } from './items/battle.js';
 import { gainLayers, garrisonRecord } from './support/index.js';

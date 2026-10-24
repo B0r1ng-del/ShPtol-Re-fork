@@ -22,6 +22,10 @@ import { createStore, useStore } from '../store.js';
 import { data, useData, artUrls, nextArtUrl } from '../data.js';
 import { t, N_ } from '../../../shared/i18n.js';
 import { DEFAULT_VERSION, shownVersion, versionLabel } from '../versions.js';
+// ★ fork 的收藏品（六.E）图鉴面板：`-X theirs` 删了这 3 行 import，引用还在。
+import { RELICS } from '../../../shared/relics.js';
+import { RelicList } from './relicPanel.js';
+import { installRelicJournal, relicJournalStore } from './relicJournal.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 

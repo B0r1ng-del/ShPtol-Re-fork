@@ -31,7 +31,7 @@
 import { num, talentBb, traitBb, skillRec, up } from '../shared/tier1.js';
 import { COLS } from '../../../constants.js';
 import { bodyInKeys } from '../../../body.js';
-import { hasHp } from '../../../damage.js';
+import { hasHp } from '../../../attack.js';
 
 const S1 = 'skchr_botany_1';
 const S2 = 'skchr_botany_2';

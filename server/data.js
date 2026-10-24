@@ -23,6 +23,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { forgetOfficialBounds, rememberOfficialBounds } from '../shared/plugins/officialBounds.js';
 import { DEFAULT_VERSION, versionById } from '../shared/versions.js';
+// ★ fork 的工坊（mod 层）装载：`-X theirs` 删了这两行 import，函数体里的引用还在（4 个 no-undef）。
+import { loadWorkshop, WORKSHOP_DIR } from './workshop.js';
+import { applyWorkshop, workshopSummary } from '../shared/workshop.js';
 
 /** Repository root (…/Stronghold-Protocol). */
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');

@@ -229,8 +229,8 @@
 
 import { aiTakeover, resetAiTakeover, reconcileAiTakeover } from './aiTakeover.js';
 import { randomBytes, randomInt } from 'node:crypto';
-import { DIFFICULTIES, ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor } from '../shared/constants.js';
-import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks, charPotentialChanges, checkSkinSelection, operatorCharIds } from '../shared/protocol.js';
+import { DIFFICULTIES, ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor, HOST_CONFIG_KEYS, HOST_CONFIG_SOLO_KEYS, HOST_ENEMY_KEYS, HOST_ENEMY_MAX_STEPS, MOD_KEYS, roomSeatCap } from '../shared/constants.js';
+import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks, charPotentialChanges, checkSkinSelection, operatorCharIds, PACK_MSG_LIMITS } from '../shared/protocol.js';
 import { encode, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
 import { Match as DefaultMatch } from './match/Match.js';
@@ -553,7 +553,10 @@ export class Lobby {
    *   the other versions (server/match/host/index.js, kind 'version')
    */
   constructor({ registry, log = noopLog, MatchClass = DefaultMatch, getData = defaultGetData, now = Date.now, seedFn, content = null, plugins = null, hosts = null,
-    versions = null, versionHosts = null, simPool = null, options = {} }) {
+    versions = null, versionHosts = null, simPool = null, options = {},
+    // ★ fork 的工坊投影（`workshop`：`{ mods, panels, assets, kits … }` 的服务端形状）与内容集摘要（`modDigest`）。
+    // 上游 v0.3.2 的签名里没有这两个，`-X theirs` 用了上游签名而构造函数体还在读它们 ⇒ no-undef。
+    workshop = null, modDigest = null }) {
     this.registry = registry;
     /** the vanilla content set every room plays (header "Content identity"), or null */
     this.vanilla = content && isContentHash(content.cs) ? Object.freeze({ cs: content.cs, vanilla: true, plugins: Object.freeze([]) }) : null;
@@ -1004,7 +1007,7 @@ export class Lobby {
   // room.* handlers
   // ---------------------------------------------------------------------------------------------------
 
-  create(session, { mode, difficulty: asked, test, version: askedVersion, soloUnlimited } = {}) {
+  create(session, { mode, difficulty: asked, test, version: askedVersion, soloUnlimited, mods, modDigest } = {}) {
     // A test room exists only when the process switch allowed it. The check runs before the room is built.
     if (test === true && this.testEnabled !== true) return fail(ERR.TEST_DISABLED);
     // the official version (header "Official versions"): left out, the server's default
@@ -2079,7 +2082,6 @@ export class Lobby {
     if (!kept) return fail(ERR.BAD_MSG, 'bad skin selection');
     session.skins = kept;
     if (!room) return OK;
-    const seat = room.seatOf(session.playerId);
     if (seat) {
       const changed = !sameSkins(seat.skins, kept);
       seat.skins = kept;

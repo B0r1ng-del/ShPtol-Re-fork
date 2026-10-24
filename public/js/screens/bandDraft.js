@@ -42,7 +42,6 @@ import { MatchInfoDialog, matchInfoModel } from '../ui/matchInfo.js';
 import { MatchEnemies } from '../ui/matchEnemies.js';
 import { actions, act } from '../ui/gameActions.js';
 import { normalizeDraft, sortedPlayers } from '../ui/gameLogic.js';
-import { aggregateStats, loadStats } from '../ui/stats.js';
 import { useStore } from '../store.js';
 import { data } from '../data.js';
 import { audio } from '../audio.js';
@@ -54,7 +53,7 @@ import { CARD_KEY, cardStore, cardOperators, cardContext, seatOperator, seatCard
 import { skinsStore, SKINS_KEY } from '../ui/skins.js';
 import { settingsStore } from '../ui/settingsStore.js';
 import { chessPortraitUrl, uiUrl } from '../ui/assetUrls.js';
-import { aggregateStats, peekStatsRecords, strategyBadgeIds, trophyMedalOf } from '../ui/stats.js';
+import { aggregateStats, loadStats, peekStatsRecords, strategyBadgeIds, trophyMedalOf } from '../ui/stats.js';
 import { modeOffBonds, bandOffBonds, bandOffLine } from '../ui/gameLogic.js';
 import { t, tParts, tName } from '../../../shared/i18n.js';
 
@@ -278,14 +277,13 @@ export function BandDraftScreen({ held = null } = {}) {
   const roomSeats = useStore((s) => s.room?.seats);
   const gd = useGameData();
   const [sel, setSel] = useState(null);
+  // 上游（图七）：详情面板只在点过一张立绘（或看过别人的选）之后才滑出来，之前整墙铺满 —— `open` 就是这一层
   const [open, setOpen] = useState(false);   // the detail pane: only once a portrait (or a row's pick) is tapped
   const [peek, setPeek] = useState(null);    // a teammate's / my own pick opened from its row (read-only)
   const [busy, setBusy] = useState(null);
   const [exit, setExit] = useState(false);
   const [skipped, setSkipped] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
-  // 上游（图七）：详情面板只在点过一张立绘（或看过别人的选）之后才滑出来，之前整墙铺满 —— `open` 就是这一层
-  const [open, setOpen] = useState(false);
 
   const mode = gd.config?.modes?.[pub?.modeId];
   const offBonds = modeOffBonds(mode); // the bonds this mode never activates (标准: 10 of 23)
@@ -299,6 +297,8 @@ export function BandDraftScreen({ held = null } = {}) {
   const skipsLeft = draft.skipsLeft.has(myId) ? draft.skipsLeft.get(myId) : (skipped ? 0 : 1);
   // the last doctor still to pick cannot skip (no one to pass the turn to)
   const canSkip = !solo && myTurn && skipsLeft > 0 && draft.order.filter((pid) => !draft.picks.has(pid)).length > 1;
+  // 多策略模式（房主配置 multiAlliance）：同一份策略可以被多人各选一次
+  const multiPicks = pub?.hostConfig?.multiAlliance === true;
   const taken = solo ? new Map() : teammateBands(draft.picks, myId, multiPicks);
   const pickers = new Map(); // bandId → players
   for (const [pid, bid] of draft.picks) {
@@ -374,9 +374,7 @@ export function BandDraftScreen({ held = null } = {}) {
   const donePicking = !!myPick;
   const allPicked = !!draft.done || (draft.order.length > 0 && draft.order.every((pid) => draft.picks.has(pid)));
   // 决策顺序：单人是「只有我」，同盟是抽签顺序
-  const rows = solo ? players.filter((p) => p.playerId === myId) : draft.order.map((pid) => players.find((p) => p.playerId === pid)).filter(Boolean);
-  const pickTile = (id) => { setSel(id); setOpen(true); audio.sfx('tab', { volume: 0.5 }); };
-  const peekBand = (id) => { setSel(id); setOpen(true); audio.sfx('tab', { volume: 0.5 }); };
+  const rows = solo ? players.filter((p) => p.playerId === myId) : draft.order.map((pid) => players.find((x) => x.playerId === pid)).filter(Boolean);
   useTicker(clock ? 250 : 0);
   const turnSecs = clock ? secondsLeft(clock.deadline) : null;
   const turnLen = Number(pub?.draft?.turnSeconds) > 0 ? Math.round(pub.draft.turnSeconds) : null;
@@ -418,10 +416,8 @@ export function BandDraftScreen({ held = null } = {}) {
   }, [gd.ready, local]);
 
   // what the right side shows: 已选定策略 after my pick, else the detail pane once opened, else only the wall
-  const allPicked = !!draft.done || (draft.order.length > 0 && draft.order.every((pid) => draft.picks.has(pid)));
   const view = peek ? 'detail' : inOrder && myPick ? 'done' : open && band ? 'detail' : 'grid';
   const shownBand = peek ? gd.band(peek) : band;
-  const rows = solo ? players.filter((p) => p.playerId === myId) : draft.order.map((pid) => players.find((p) => p.playerId === pid)).filter(Boolean);
 
   const head = allPicked ? html`<div class="dturn is-done"><span class="dturn__txt"><b>${t('策略选择完成')}</b><span>${t('正在进入模拟…')}</span></span><${Icon} name="hourglass" class="dturn__glass" /></div>`
     : myTurn ? html`<div class="dturn is-turn">

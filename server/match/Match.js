@@ -337,7 +337,12 @@ export class Match {
     this._offerResume = null;
     /** window sequence (diagnostics and messages) */
     this.offerSeq = 0;
-    this.gd = new GameData(this.data, this.modeId);
+    // ★ fork 的工坊行为声明（`shared/behaviour.js`）：两个来源，`opts.behaviour` 优先，否则由包声明合成。
+    // `-X theirs` 用了上游的 `new GameData(data, modeId)` 两参调用，却留着下面 `behaviourDecl` 的引用。
+    const behaviourDecl = Array.isArray(opts.behaviour)
+      ? opts.behaviour
+      : mergeBehaviourDecls(opts.mods && Array.isArray(opts.mods.packs) ? opts.mods.packs : []).decl;
+    this.gd = new GameData(this.data, this.modeId, opts.mods, opts.enemyBuff, behaviourDecl);
     if (!this.difficulty) this.difficulty = this.gd.difficulty;
     this.isSolo = this.mode === 'solo' || this.gd.isSolo;
     /** 「AI 队友最后选择」 (opts.aiPicksLast, GitHub #338): humans draft before AI seats (MatchPhases.humansFirst) */

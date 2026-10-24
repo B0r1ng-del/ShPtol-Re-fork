@@ -47,6 +47,11 @@ import {
   isMember, bondActive, isGroundOp, frontTile, alliesAround, passiveBuff, fxOn, battleStore, contentInfo, itemsOf, directMods, bodyInRadius,
 } from '../support/index.js';
 import { mitigate, hasHp, periodicDamage, isHpLoss, damageAttackType } from '../../attack.js';
+// ★ fork 三个内容包的常量：`-X theirs` 删了这 4 行 import，函数体里的引用却还在（18 个 no-undef）。
+import { RHINE_BOND, RHINE_EQUIPMENT } from '../../../../shared/rhineResearch.js';
+import { KAZDEL_BOND, KAZDEL_EQUIPMENT } from '../../../../shared/kazdel.js';
+import { REM_BOND, REM_EQUIPMENT } from '../../../../shared/rem.js';
+import { isRemMobile } from '../../remMobile.js';
 import { hypot } from '../../detmath.js';
 
 // =====================================================================================================================

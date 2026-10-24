@@ -43,6 +43,8 @@ import { straightClear } from './grid.js';
 import { moveFeared, endFear } from './fear.js';
 import { hypot, powi } from './detmath.js';
 import { PLUGIN_TIMES_MAX } from '../../shared/plugins/limits.js';
+// ★ fork：治疗资格判据（亡魂自成一治疗组 + noOperatorHeal 的 owner 链）。上游 v0.3.2 删了 damage.js。
+import { canReceiveHeal } from './content/portRules.js';
 
 // ---------------------------------------------------------------------------------------------------------------
 // profiles

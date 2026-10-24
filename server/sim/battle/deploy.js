@@ -6,7 +6,7 @@
 import { COLS } from '../constants.js';
 import { unitInfo } from '../snapshot.js';
 import { fin } from './util.js';
-import { kazdelCannonImmune } from '../damage.js';
+import { kazdelCannonImmune } from '../content/portRules.js';
 import { kazdelCannonOwner } from '../kazdelOrigin.js';
 import { isRemMobile } from '../remMobile.js';
 

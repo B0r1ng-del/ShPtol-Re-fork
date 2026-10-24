@@ -91,9 +91,13 @@ import { skillAttackMode } from './skillAttack.js';
 import { MANIFOLD, isManifold, manifoldCopyForm, manifoldAttackForm } from './manifold.js';
 import { COLORS, TIER_COLORS, ENEMY_FRAME, UNIT, PROJ, statusIconKey, statusIconSuppressed } from './style.js';
 import { drawCrate, rowDepthKey, ROW_KEY, deviceBoxOf, DEVICE_BOX } from './tiles.js';
+// ★ fork 的包声明形态表（六 内容包）：`-X theirs` 删了这一行 import，`formTableOf` 里还在用。
+import { formsFor } from '../../../shared/packForms.js';
 import { startAtkInterval, nextAtkInterval, clampAtkInterval } from './attackRate.js';
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+/** ★ fork 的卡兹戴尔亡魂外观（半透明暗红）：上游 v0.3.2 没有这个概念，定义随合并丢失。 */
+export const KAZDEL_SOUL_LOOK = Object.freeze({ tint: 0x742a3e, alpha: .58, roles: Object.freeze({}) });
 const DIRS = ['UP', 'RIGHT', 'DOWN', 'LEFT'];
 /** Deploy direction of an ally from a UnitInfo / piece: `dir` (any case), else the legacy `facing` sign. */
 export function unitDir(info) {

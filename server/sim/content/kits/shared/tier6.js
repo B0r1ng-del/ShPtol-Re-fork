@@ -114,6 +114,8 @@ import { textCount, textFinite } from '../../../../../shared/plugins/textNumber.
 import { absoluteRangeKeys } from '../../../targeting.js';
 import { COLS, ROWS, PULL_STOP_RADIUS } from '../../../constants.js';
 import { hasHp } from '../../../attack.js';
+// ★ fork：原生干员身份判据（`-X theirs` 删了这一行 import，`opsOf` 里还在用）。
+import { nativeOperator } from './nativeIdentity.js';
 import { hypot } from '../../../detmath.js';
 
 // ------------------------------------------------------------------------------------------------------------------

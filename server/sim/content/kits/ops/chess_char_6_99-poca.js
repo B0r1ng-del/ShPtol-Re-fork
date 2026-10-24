@@ -25,7 +25,7 @@
 //     实现为 0.5s 周期重读（层数在战斗中增长），directMods atkPct（与盟约/天赋的攻击力百分比加算）。
 
 import { num, talentBb, moduleBb, moduleOn, traitBb, skillRec, statBuff, onHitBy, enemiesInGrid, up } from '../shared/tier1.js';
-import { hasHp } from '../../../damage.js';
+import { hasHp } from '../../../attack.js';
 import { hypot } from '../../../detmath.js';
 
 const S1 = 'skcom_atk_up[3]';

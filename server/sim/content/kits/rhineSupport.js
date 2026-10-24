@@ -3,7 +3,7 @@ import { hypot } from '../../detmath.js';
 // PRTS: https://prts.wiki/w/梅尔 · https://prts.wiki/w/乌啾
 import { num, talentBb, skillRec, freeTileAround, enemiesInGrid, alliesInGridOf, up } from './shared/tier1.js';
 import { RHINE_BALANCE as B } from '../../../../shared/rhineResearch.js';
-import { canReceiveHeal } from '../../damage.js';
+import { canReceiveHeal } from '../portRules.js';
 
 export const OTTER = 'token_10004_otter_motter';
 const MAYER_S1 = 'skchr_otter_1', MAYER_S2 = 'skchr_otter_2';

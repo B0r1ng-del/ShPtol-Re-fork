@@ -56,6 +56,8 @@ import { ScreenFitSection } from './screenFit.js';
 import { askPersistStorage, importSupport, storagePersisted } from '../assetCache.js';
 import { assetImport, pruneImportedAssets } from '../assetPack.js';
 import { cosmetics } from '../cosmetics.js';
+// ★ fork 的彩蛋球开关（`ui/cheats.js`）：`-X theirs` 删了这一行 import，两处引用还在。
+import { setCheatBall, useCheatBall } from './cheats.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 

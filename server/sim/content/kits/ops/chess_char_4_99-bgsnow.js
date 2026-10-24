@@ -13,7 +13,7 @@ import { num, up, traitBb, skillRec, batMod } from '../shared/tier1.js';
 import { absoluteRangeKeys } from '../../../targeting.js';
 import { bodyKeys, bodyInKeys } from '../../../body.js';
 import { toLocal } from '../../../dir.js';
-import { hasHp } from '../../../damage.js';
+import { hasHp } from '../../../attack.js';
 import { COLS } from '../../../constants.js';
 import { startCountdown } from '../../tokens.js';
 

@@ -37,7 +37,7 @@
 import { TestMark } from '../ui/testConsole.js';
 import { ResumeMatchButton } from '../ui/resumeMatch.js';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, MAX_SPECTATORS, modeIdFor, ERR } from '../../../shared/constants.js';
+import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, MAX_SPECTATORS, modeIdFor, ERR, ULTIMATE_SEATS } from '../../../shared/constants.js';
 import { html, confirmDialog, Button, Icon, MicroLabel, Modal, PingPill, Spinner, DifficultyIcon, TextField } from '../ui/components.js';
 import { Sprite, Img } from '../ui/gameComponents.js';
 import { uiUrl } from '../ui/assetUrls.js';
@@ -291,6 +291,14 @@ export async function joinKnown(type, key) {
   }
 }
 
+
+const FALLBACK_TIPS = [
+  N_('联合模拟在选择策略时可以进行一次跳过'),
+  N_('调度中心即使冻结，依然可以主动刷新'),
+  N_('两件同名装备可以合成一件更强力的装备'),
+  N_('只有达成完美作战的队友可以进行联防'),
+];
+const TIP_ROTATE_MS = 5000; // matchingTipRotateInterval
 
 /** Rotating tactical tips (config.json `tips`, weighted list of { tip, weight }). */
 function TipsPanel() {

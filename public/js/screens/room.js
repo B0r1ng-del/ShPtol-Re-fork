@@ -48,10 +48,15 @@
 // Texts go through t() (docs/I18N.md).
 
 import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
-import { DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SEATS, MAX_SPECTATORS } from '../../../shared/constants.js';
+import { DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SEATS, MAX_SPECTATORS, HOST_CONFIG_DEFAULTS, HOST_ENEMY_MAX_STEPS, HOST_ENEMY_STEP_PCT, MOD_DEFAULTS, normalizeEnemyBuff, roomSeatCap } from '../../../shared/constants.js';
+// ★ fork 的工坊 / 房主配置 / 终极模拟导入：`-X theirs` 用了上游那份 import 表，函数体里的 fork 分支却还在
+// （`N_` 20 处、`roomMods`、`MOD_RULE_ROWS`、`isAlignBlocked`、`roomSeatCap` …）。两边合并，不是二选一。
+import { MOD_ROWS, MOD_RULE_ROWS, rememberMods, splitByLength, modPanel } from '../ui/mods.js';
+import { isAlignBlocked } from '../mods/align.js';
+import * as roomMods from '../roomMods.js';
 import {
   html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyIcon, Tooltip, Spinner, confirmDialog, doctorNo, Modal,
-  TextField,
+  TextField, SwitchRow,
 } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { TestMark } from '../ui/testConsole.js';
@@ -74,7 +79,8 @@ import { skinsStore, SKINS_KEY, ownerSkin } from '../ui/skins.js';
 import { settingsStore } from '../ui/settingsStore.js';
 import { difficultyInfo, ProtocolSelect } from './lobby.js';
 import { useRise } from '../ui/transitions.js';
-import { t, tc } from '../../../shared/i18n.js';
+import { t, tc, N_ } from '../../../shared/i18n.js';
+import { C2S } from '../../../shared/protocol.js';
 
 /**
  * Seats padded to the room's capacity (ultimate 6, co-op 4, solo 1), each null or a seat record.
@@ -189,6 +195,30 @@ export function hostConfigOption(room, myId, key) {
   const rows = hostConfigPanel(room, myId);
   return rows ? rows.find((r) => r.key === key) || null : null;
 }
+
+/** The 「AI 队友最后选择」 room option (co-op): on/off plus whether this player may change it. null for solo. */
+export function aiLastOption(room, myId) {
+  if (!room || room.mode === 'solo') return null;
+  return { on: room.aiPicksLast === true, editable: room.hostId != null && room.hostId === myId };
+}
+
+/** The 「AI 队友最后选择」 switch (co-op): the host toggles it, everybody else sees its state. */
+function AiLastToggle({ option, busy, onToggle }) {
+  if (!option) return null;
+  return html`<div class="ailast">
+    <${Tooltip} text=${t('策略与机变轮选时，所有博士先于 AI 队友选择')}>
+      <button type="button" role="switch" aria-checked=${option.on ? 'true' : 'false'}
+          class=${`dpick__opt ailast__opt${option.on ? ' is-active' : ''}`} disabled=${!option.editable || !!busy}
+          onClick=${() => option.editable && onToggle(!option.on)}>
+        <${Icon} name="check" class=${option.on ? 'is-on' : ''} />${t('AI 队友最后选择')}
+      </button>
+    <//>
+    ${option.editable ? null : html`<span class="t-dim">${t('由创建者设置')}</span>`}
+  </div>`;
+}
+
+/** The server takes room.card once its protocol knows it; before that the pick stays on this device. */
+export const CARD_SYNC = Object.hasOwn(C2S, 'room.card');
 
 /** Spectator handover is available only in original default-version co-op rooms, with a host opt-in. */
 export function aiTakeoverOption(room, myId) {
@@ -495,6 +525,52 @@ function RoomConfigBody({ rows, enemyRows, modRows, busy, onToggle, onEnemy, onM
   </div>`;
 }
 
+/**
+ * 对局选项 / Mod 规则的一整列开关（两列排版）。`RoomConfigBody` 的唯一调用者。
+ */
+function MatchOptionSection({ rows, busy, onMod, onToggle }) {
+  const switchRows = rows || [];
+  const tipOf = (r) => t(r.tip);
+  return html`<div class="ebuff">
+    <div class="ebuff__head">
+      <span class="ebuff__title"><${Icon} name="sliders" />${t('对局选项')}</span>
+      <${MicroLabel}>MATCH OPTIONS<//>
+    </div>
+    ${switchRows.length ? html`<div class="mods mods--hostcfg">
+      <p class="mods__note">${t('以下规则默认全部关闭（原版规则）；开启后会改变本局的玩法，对其他玩家同样生效。')}</p>
+      <div class="mods__rows">
+        ${splitByLength(switchRows).map((col) => html`<div class="mods__col">
+          ${col.map((r) => html`<${SwitchRow} key=${r.key}
+            label=${t(r.label)} tip=${tipOf(r)} on=${r.on}
+            disabled=${!r.editable || !!busy}
+            testid=${r.testid} infoTestid=${`${r.testid}-info`}
+            onChange=${(v) => r.editable && r.onChange(v)} />`)}
+        </div>`)}
+      </div>
+    </div>` : null}
+  </div>`;
+}
+
+/** 四个敌人强化滑块（每格 +10%，最高 +100%）。 */
+function EnemyBuffSection({ enemyRows, onEnemy }) {
+  const total = enemyBuffTotal(enemyRows);
+  return html`<div class="ebuff">
+    <div class="ebuff__rows">
+      ${enemyRows.map((r) => html`<label class="set-row ebuff__row" key=${r.key}>
+        <span class="set-row__label"><${Icon} name=${r.icon} />${t(r.label)}</span>
+        <input class="set-range" type="range" min="0" max=${HOST_ENEMY_MAX_STEPS} step="1"
+          value=${r.steps} style=${`--pct:${(r.steps / HOST_ENEMY_MAX_STEPS) * 100}%`}
+          disabled=${!r.editable}
+          data-testid=${`ebuff-${r.key}`} aria-label=${t(r.label)}
+          onInput=${(e) => r.editable && onEnemy(r.key, Number(e.currentTarget.value))} />
+        <span class="set-row__val num">+${r.steps * HOST_ENEMY_STEP_PCT}%</span>
+      </label>`)}
+    </div>
+    <p class="ebuff__hint">${t('每格 +10%，最高 +100% · 加强本局全部敌人（含首领与联防）')}</p>
+    ${total > 0 ? html`<p class="ebuff__warn">${t('本局敌人已获得强化（合计 {n}%），请谨慎调整', { n: total })}</p>` : null}
+  </div>`;
+}
+
 function AiTakeoverToggle({ option, busy, onToggle }) {
   if (!option) return null;
   return html`<div class="ailast">
@@ -594,11 +670,9 @@ export function RoomScreen() {
   useEffect(() => { const id = setInterval(() => tick((x) => x + 1), 1000); return () => clearInterval(id); }, []);
   // 对齐到房间那套包 (W-D)：`RoomModsPanel` 把结论交回这里，`alignBlocked` 是唯一的门（准备就绪与开始模拟都读它）
   const [align, setAlign] = useState(null);
-  // 名片干员: the pick is a localStorage pref; 默认 ('' ) means 「按博士编号自动分配」
+  // 名片干员: 上游把它搬进了 store（`cardStore`，CARD_KEY），由下面的 `useStore` 读 —— 本 fork 早先那套
+  // `useState` + CARD_PREF 的写法已随 v0.3.2 同步并入 store 一处（并存会重复声明 `myCard` / `picking`）。
   useData('chess', 'assets');
-  const [myCard, setMyCard] = useState(() => { const v = loadPref(CARD_PREF, ''); return typeof v === 'string' ? v : ''; });
-  const [picking, setPicking] = useState(false);
-  const pickCard = (charId) => { setMyCard(charId); savePref(CARD_PREF, charId); setPicking(false); };
   const alive = useRef(true);
   const inFlight = useRef(false); // synchronous guard against double clicks (state updates are async)
   useEffect(() => () => { alive.current = false; }, []);
@@ -620,7 +694,6 @@ export function RoomScreen() {
   // the ⚙ menu
   const [protoOpen, setProtoOpen] = useState(false);
   const [protoPick, setProtoPick] = useState(null);
-  const [opts, setOpts] = useState(false);
   // the host's change of difficulty, told to the others (see the header); never on entering a room or switching rooms
   const seenDiff = useRef(room ? `${room.code}|${room.difficulty}` : '');
   useEffect(() => {
@@ -660,7 +733,7 @@ export function RoomScreen() {
   const myReady = !!facts.mine?.ready;
   const info = difficultyInfo(room.mode, room.difficulty);
   // 名片干员: the pickable operators, the default pool (5★/6★ by charId, the same order on every client), one's pick
-  const cardList = useMemo(() => cardOperators(data.list('chess')), [data.get('chess')]);
+  // (`cardList` 已在上面按同一份 data 算过 —— 合并 v0.3.2 时这里重复声明了一次)
   const portraits = useMemo(() => ({
     pool: cardList.filter((c) => (c.rarity ?? 0) >= 5).sort((a, b) => (a.charId < b.charId ? -1 : 1)),
     byChar: new Map(cardList.map((c) => [c.charId, c])), m: data.get('assets'), myId: me.playerId, myCard,

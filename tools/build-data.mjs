@@ -255,6 +255,10 @@ async function loadContext() {
   // an older table into the shape this build reads (tools/versions/adapters.mjs); never for the default version
   if (!IS_DEFAULT) applyAdapters(act, PROFILE.adapters);
 
+  // ★ fork 二.3 东国 / 乌萨斯：把 13 名干员的棋手记录注入 `act`，必须跑在任何 builder 之前。
+  // `-X theirs` 删了这一行调用（import 还在），而 `return` 里仍写着 `dongUrsus: injectedDongUrsus`。
+  const injectedDongUrsus = injectDongUrsusPack({ act, ac });
+
   // Note: summons/traps live in character_table (token_table.json only lists 4 unrelated traps).
 
   const enemyDb = new Map();
