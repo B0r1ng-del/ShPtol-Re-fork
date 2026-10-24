@@ -1707,18 +1707,23 @@ function MatchScreen() {
     return priv?.loadout ?? null; // own pieces, shop / reward / bond-member cards
   })();
   /**
-   * 整备阶段改技能（三.2，需求方 2026-10-23）：详情卡的技能格改成**可点的多选一**，点一下就换这名干员下一场战斗用的
-   * 技能。四个条件同时成立才出现：
-   *   ① 这一局的 `prepLoadout` 档是 `prep`（服务端才收休整期的 `room.loadout`）；
-   *   ② 现在是休整期且这张卡是**我自己棋盘上**的干员（`resolved.piece`，不是商店 / 手牌 / 队友的）；
-   *   ③ 这个座位还没准备（准备了就锁死，与服务端「未准备才收」同一条判据）；
+   * 休整期 / 确认本局信息 改技能（三.2，需求方 2026-10-23）：详情卡的技能格改成**可点的多选一**，点一下就换这名干员
+   * 下一场战斗用的技能。以下条件同时成立才出现：
+   *   ① 这一局的 `prepLoadout` 档是 `prep`（服务端才收 `room.loadout`）；
+   *   ② 相位是 **INFO_CHECK 或 PREP** —— 与 `server/match/match.js` 的 `setLoadout` 契约、`loadoutSync` 的
+   *      `LOADOUT_CLIENT_PHASES.prep` 三处一致。**COMBAT 不在此列**：服务端在那里一律 `WRONG_PHASE`
+   *      （2026-10-24 需求方确认按方案 A：战斗中改技能需要新协议，本轮不做）；
+   *   ③ 这张卡**落到我自己棋盘上的那块 piece**（`resolved.piece` + `detailLoadout === priv.loadout`）——
+   *      商店 / 手牌 / 队友的干员不给改。★ 注意 `detailTarget.kind` 有三种入口：点棋盘干员是 `'unit'`，
+   *      商店 / 手牌 / 盟约弹窗是 `'chess'`，拖拽态是 `'piece'`，三种都要认（早期只认 `'chess'`，于是局内一次都没出现）；
    *   ④ 技能不止一个。
    * 提交走既有的 `room.loadout`（`loadoutSync.sendMatchLoadout`），**不新增协议消息**；模组不在这一格（需求方：只改技能）。
    * ★ 局内改的**只影响这一局**（需求方 2026-10-24: 「不影响局外的干员调配」）：`sendMatchLoadout` 只发服务端，
    *   不写 pref、不动 `loadoutStore` —— 局外 干员调配 原样保留，下一局开局仍按局外配置重发。
    */
   const skillPicker = (() => {
-    // 需求方 2026-10-24: 局内改技能不再限于休整期 —— 战斗中也能换（服务端只落进「下一次战斗」，不改已打出的伤害）。
+    // 休整期 / 确认本局信息 改技能（需求方 2026-10-23 原需求；2026-10-24 确认按 **方案 A**：只在服务端收的相位开放，
+    // 战斗内部允许改 —— 那需要新协议，见下）。
     // ★ 为什么前几轮「始终没做出来」的**真根因**：旧条件写的是 `detailTarget.kind !== 'chess'` ⇒ 直接把这个功能
     //   整个排除了。局内点自己棋盘上的干员，`detailTarget.kind` 是 **'unit'**（game.js setDetail({kind:'unit'})），
     //   只有商店 / 手牌 / 盟约弹窗里的卡片才是 `'chess'`。所以条件永远不成立，技能选择器一次都没渲染过。
@@ -1728,6 +1733,10 @@ function MatchScreen() {
     //   `WRONG_PHASE`（server/match/match.js:79-83 的契约）。所以这里**不能**放开到 COMBAT —— 那会发出注定被拒的请求
     //   （上一轮就是这么错的）。战斗内改技能需要服务端新能力，见 sendMatchLoadout 的注释与 docs。
     if (phase !== PHASE.PREP && phase !== PHASE.INFO_CHECK) return null;
+    // ★ 服务端在 PREP 还有第二道闸：**这个座位已经按了准备就锁死**（`platform.js:138`
+    //   `if (prep && ps.ready) return fail(WRONG_PHASE, 'loadout locked … readied up')`）。客户端必须跟着挡，
+    //   否则按钮亮着、点了必被拒。INFO_CHECK 没有这条（那时还没人准备）。
+    if (phase === PHASE.PREP && priv.ready) return null;
     if (!resolved || resolved.type !== 'chess' || !resolved.piece) return null;
     if (detailTarget?.kind !== 'unit' && detailTarget?.kind !== 'chess' && detailTarget?.kind !== 'piece') return null;
     // 必须读的是**我自己**的 loadout（`detailLoadout` 对队友的单位返回 unitLoadout ⇒ 不是同一个对象引用），

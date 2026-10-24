@@ -194,4 +194,7 @@ test('整备期改技能：局内点棋盘干员（detailTarget.kind === unit）
   assert.match(body, /detailLoadout !== priv\.loadout/, '必须只在读自己的 loadout 时可改');
   // 相位：服务端 setLoadout 只收 INFO_CHECK（prepLoadout=prep 再放 PREP），**COMBAT 一律 WRONG_PHASE**
   assert.equal(/phase !== PHASE\.COMBAT/.test(body), false, '不得在 COMBAT 出技能选择器（服务端会拒）');
+  // 服务端在 PREP 还有第二道闸「这个座位已按准备就锁死」（platform.js:138），客户端必须跟着挡，
+  // 否则按钮亮着、点了必被拒。
+  assert.match(body, /phase === PHASE\.PREP && priv\.ready/, '准备后必须收起技能选择器（与 platform.js:138 同一条判据）');
 });
