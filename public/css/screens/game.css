@@ -131,14 +131,14 @@
 .spec__name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: calc(.19 * var(--t)); color: var(--text-hi); }
 .spec__hint { margin: .04rem 0 0; font-size: calc(.15 * var(--t)); line-height: 1.45; }
 .gtop__exit { box-shadow: 0 .06rem .2rem rgba(0, 0, 0, .5); }
+/* 上游的 .gtop__center 是**没有背景**的：整条顶栏的底由 `gtop__half` 的分段绘制提供（见文件末尾的框架段）。
+   本地曾在这里挂了一层 0.92 透明度的深色渐变 + 边框 + 阴影，于是多出一块「不该存在的底」，
+   段与段之间还看得出接缝（需求方 2026-10-24 的图五）。 */
 .gtop__center {
   --bk-c: var(--mint-700);
-  display: flex; align-items: center; gap: .18rem;
-  height: .78rem; padding: 0 .24rem 0 .14rem; margin-top: .02rem;
-  background: linear-gradient(180deg, rgba(10, 14, 12, .92), rgba(10, 14, 12, .78));
-  border: 1px solid var(--line);
-  box-shadow: 0 .08rem .28rem rgba(0, 0, 0, .45);
   position: relative;
+  display: flex; align-items: center;
+  margin-top: .02rem;
 }
 /* the two official 🔍 buttons (ui/hud.js CheckBtn): btn_check_player (mint, left) and btn_check_enemy (amber, right);
    sprites are 35×29 (plain) / 61×29 (with chevrons) → .555rem / .967rem × .46rem */
@@ -1137,3 +1137,8 @@
 .gtop__half .roundbox__num { min-width: .48rem; height: .34rem; padding: 0 .07rem; font-size: .28rem; background: #cfd3d3; color: #121516; border-radius: .03rem; clip-path: none; }
 .gtop__half .lp--lg { font-size: .32rem; gap: .03rem; }
 .gtop__half .lp--lg:not(.lp--danger):not(.lp--team) .lp__val { color: #eef2f2; }
+
+/* 局内顶栏入场：从上方落下（上游 gtop-drop，需求方 2026-10-24:「入场前也有一个过渡动画」） */
+.gtop__center { animation: gtop-drop 420ms var(--ease-out) both; }
+@keyframes gtop-drop { from { transform: translateY(-.5rem); opacity: 0; } }
+.gtop__half .roundbox__num, .gtop__cap .capsule__kills b { display: inline-block; animation: capfx-flip 260ms var(--ease-out) both; }

@@ -476,8 +476,13 @@ function ProtocolSelect({ card, roomMode, difficulty, onDifficulty, onClose, onl
             <label class="proto-private" title=${t('不记录成绩，只用于试验阵容与模组')}>
               <input type="checkbox" checked=${testMode} onChange=${(e) => onTestMode(e.currentTarget.checked)} /><span>${t('测试')}</span></label>
           </div>` : null}
-          <${Button} variant="primary" size="lg" icon="play" loading=${busy === 'create'} disabled=${!online}
-            onClick=${() => onCreate(asTest)} class="proto-start">${label}<//>
+          ${/* 上游的 proto-start 不是普通 Button：它自带卫戍徽记 + 斜纹装饰（图一右下角那个），
+               用 <Button> 加同名 class 只能拿到部分样式，所以这里照上游结构写。 */
+            html`<button type="button" class="proto-start" disabled=${!online || busy === 'create'} onClick=${() => onCreate(asTest)}>
+              <span class="proto-start__mark" aria-hidden="true"><span class="proto-start__rook"><i>[</i><${Icon} name="rook" /><i>]</i></span><small>STRONGHOLD<br />PROTOCOL</small></span>
+              <span class="proto-start__label">${busy === 'create' ? html`<${Spinner} size="sm" />` : null}${label}</span>
+              <span class="proto-start__deco" aria-hidden="true"></span>
+            </button>`}
         </div>
       </section>
     </div>
