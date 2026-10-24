@@ -20,6 +20,7 @@ import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.
 import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SPECTATORS, HOST_CONFIG_DEFAULTS, HOST_ENEMY_MAX_STEPS, HOST_ENEMY_STEP_PCT, MOD_DEFAULTS, normalizeEnemyBuff, roomSeatCap } from '../../../shared/constants.js';
 import { MOD_ROWS, MOD_RULE_ROWS, rememberMods, splitByLength } from '../ui/mods.js';
 import { isAlignBlocked } from '../mods/align.js';
+import * as roomMods from '../roomMods.js';
 import {
   html, Button, Icon, MicroLabel, PingPill, DifficultyTag, DifficultyIcon, Tooltip, confirmDialog, doctorNo, Modal, Spinner, SwitchRow,
 } from '../ui/components.js';
@@ -657,9 +658,10 @@ export function RoomScreen() {
     rememberMods({ ...room.mods, [key]: on });
     return run(`mod${key}`, () => net.request('room.setMods', { key, on }));
   };
-  // spectator seats: the host frees one; a spectator takes a free player seat with room.join of this room
+  // spectator seats: the host frees one; a spectator takes a free player seat with room.join of this room.
+  // `buildJoinPayload` 带上内容集摘要 —— 观战席不需要它，但从观战转为入座走的是同一条 `room.join`，装了包的服务器会拒。
   const removeSpectator = (playerId) => run(`rs${playerId}`, () => net.request('room.removeSpectator', { playerId }));
-  const sit = () => run('sit', () => net.request('room.join', { code: room.code, ...(room.test ? { testAck: true } : {}) }));
+  const sit = () => run('sit', () => net.request('room.join', { ...roomMods.buildJoinPayload(room.code), ...(room.test ? { testAck: true } : {}) }));
   const leave = async () => {
     if (inFlight.current) return;
     const othersHere = facts.humans.some((s) => s.playerId !== me.playerId);

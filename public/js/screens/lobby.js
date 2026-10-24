@@ -26,6 +26,7 @@ import { PwaInstallButton } from '../ui/device.js';
 import { LoadoutButton } from './loadout.js';
 import { ModMenuButton } from './mods.js';
 import { modsOn } from '../ui/mods.js';
+import * as roomMods from '../roomMods.js';
 import { net, identity } from '../net.js';
 import { store, useStore, shallowEqual, loadPref, savePref } from '../store.js';
 import { getConfig, getMode, getStage, useData } from '../data.js';
@@ -250,13 +251,16 @@ export function rememberRoom(code, test = false) {
 }
 
 export async function joinKnown(type, key) {
-  try { return await net.request(type, { code: key }); } catch (err) {
+  // 带上内容集摘要（装了包的服务器上不带它会被闸门拒在门外）。`room.spectate` 不收摘要 —— 它是另一个座位类型，
+  // 服务器只为它判进程集合；所以只有 `room.join` 走 `buildJoinPayload`。
+  const fields = (extra = {}) => (type === 'room.join' ? { ...roomMods.buildJoinPayload(key), ...extra } : { code: key, ...extra });
+  try { return await net.request(type, fields()); } catch (err) {
     if (err?.code !== ERR.TEST_CONFIRM) throw err;
     const text = type === 'room.spectate'
       ? t('这是测试房间，不计入任何记录。确认观战？')
       : t('这是测试房间，不计入任何记录。确认加入？');
     if (await confirmDialog({ title: t('测试'), text })) {
-      return net.request(type, { code: key, testAck: true });
+      return net.request(type, fields({ testAck: true }));
     }
   }
 }
@@ -527,8 +531,10 @@ export function LobbyScreen() {
   // 2026-10-16), so the room is created with them ALL OFF and the host sets them in the room (room.setMods). This
   // device's last-used switches still ride along as the starting point, so a host who set them in a previous room does
   // not have to set them again; `modsOn()` is that remembered preference.
+  // `buildCreatePayload` 补上 `modDigest`（装了包的服务器上不带它会被 `checkModDigest` 拒在门外）与房主挑的
+  // `modIds`；纯安装上它返回 `{ mode, difficulty }`，这一条消息与从前逐字节相同。
   const create = (asT = asTest) => run('create', () => net.request('room.create', {
-    mode: roomMode, difficulty: effDifficulty, mods: modsOn(), ...(testMode && asT ? { test: true } : {}),
+    ...roomMods.buildCreatePayload(roomMode, effDifficulty), mods: modsOn(), ...(testMode && asT ? { test: true } : {}),
   }));
   const join = (c = code) => {
     // `onClick=${join}` hands the click EVENT as the first argument, and a default parameter only applies to

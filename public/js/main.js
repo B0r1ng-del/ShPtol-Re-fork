@@ -43,6 +43,7 @@ import { net, identity, NetError } from './net.js';
 import { store, useStore, emptyMatch, selectRoute, sessionResetNotice, isSpectating, entryGateBlocked } from './store.js';
 import { data } from './data.js';
 import { modsOn } from './ui/mods.js';
+import * as roomMods from './roomMods.js';
 import { GAME_FILES } from './ui/gameComponents.js';
 import { TitleScreen, sanitizeName } from './screens/title.js';
 import { LobbyScreen, rememberRoom, parseRoomParam, joinKnown } from './screens/lobby.js';
@@ -181,6 +182,11 @@ function onWelcome(msg) {
     testMode: msg.testMode === true,
   });
   welcomeAt = Date.now();
+
+  // 内容集摘要（DESIGN §34.2/§34.4）：`welcome.mods` 是「这个进程跑哪份包集合」。记下来，`room.create` /
+  // `room.join` 才能带上 `modDigest` —— 装了包的服务器上，不带摘要的客户端会被 `checkModDigest` 拒在门外。
+  // 换了一份集合时它会清空房主的包选择（那些 id 属于已经不在的目录）。
+  roomMods.setWelcomeMods(msg);
 
   // Mod resource assets (DESIGN §34.30): a pack declaring `assets` puts `modAssets` in `welcome` — register the engine's
   // own worker for them. No declaration, yet a worker controls this page (an earlier deployment had one): the valve
