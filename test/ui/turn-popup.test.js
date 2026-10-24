@@ -25,7 +25,10 @@ test('the official effectChoose sprites, all in the asset list; no drawn stand-i
 
 test('screens/game.js: the disc on the shared draft\'s own turn, with the 轮到你 sound, once the art is in, never with reduced motion', () => {
   const g = read('public/js/screens/game.js');
-  assert.match(g, /const spMine = !!sp && !solo && sp\.turnPid === myId && !sp\.pickOf\.has\(myId\);/);
+  // The gate is the upstream one plus the fork's two extra "still to act" cases: a PARALLEL draft (everyone acts at once,
+  // fork 二.4) and the 随机分配 vote (a player who already voted is done). Both narrow `spMine`, neither drops the disc.
+  assert.match(g, /const spMine = !!sp && !solo && \(sp\.parallel \|\| sp\.turnPid === myId\) && !sp\.pickOf\.has\(myId\)/);
+  assert.match(g, /!\s*\(sp\.randomVotes \|\| \[\]\)\.includes\(myId\)/, 'a player who already voted has no disc');
   assert.match(g, /useEffect\(\(\) => \{ preloadTurnPopupArt\(\); \}, \[\]\);/);
   assert.match(g, /if \(!spMine\) return;\n\s+audio\.sfx\('yourTurn'\);\n\s+if \(turnPopupArtReady\(\) && !reducedMotion\(\)\) setTurnPop\(\(n\) => n \+ 1\);/);
   assert.match(g, /<\$\{TurnPopup\} key=\$\{turnPop\} onDone=\$\{\(\) => setTurnPop\(0\)\} \/>/);
