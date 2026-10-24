@@ -91,13 +91,16 @@ function expectedPairings() {
 }
 
 describe('§21.26 1 — 变形同构体: the pairing list (gameLogic morphPairings)', () => {
-  test('from the data: 15 bonds in bonds.json order, 19 items, the same giveBondId the server counts with', () => {
-    // The official talent lists 14 pairings; 六.F 莱茵生命 (tools/rhine-data.mjs) adds 莱茵实验终端 → 莱茵生命,
-    // the same `giveBondId` the server counts with (test/match/morph-bonds.test.js).
+  test('from the data: every item-given bond in bonds.json order, the same giveBondId the server counts with', () => {
+    // The official talent lists 14 pairings; content packs add more (六.F 莱茵生命 via tools/rhine-data.mjs, later ones
+    // too) — the same `giveBondId` the server counts with (test/match/morph-bonds.test.js).
+    // 需求方 2026-10-24: 这里原来把条数写死成 15（官方 14 + 莱茵 1）。内容包后来又有增补（现在是 18 条），写死的
+    // 数字只会不断漂，而且它失败时看不出「是不是真的漏了配对」。改为钉住**真正的关系**：
+    // 配对表与 expectedPairings（从数据里算出来的）一一对应，至少覆盖官方 14 条 —— 下面的逐条比对才是主断言。
     const rows = morphPairings(ITEMS, BONDS);
     const want = expectedPairings();
-    assert.equal(rows.length, 15);
-    assert.equal(want.size, 15);
+    assert.equal(rows.length, want.size, 'every bond that some item gives has exactly one row');
+    assert.ok(rows.length >= 14, 'at least the official 14 pairings');
     assert.deepEqual(rows.map((r) => r.bondId), BONDS.map((b) => b.bondId).filter((id) => want.has(id)), 'bonds.json order');
     for (const r of rows) {
       assert.equal(r.name, bonds[r.bondId].name);
@@ -106,7 +109,12 @@ describe('§21.26 1 — 变形同构体: the pairing list (gameLogic morphPairin
       assert.equal(r.off, false);
       assert.equal(r.worn, false);
     }
-    assert.equal(rows.reduce((n, r) => n + r.items.length, 0), 19, '18 official bond items plus the Rhine terminal');
+    // 需求方 2026-10-24: 这里原来写死 19（18 官方 + 莱茵终端）。内容包后来又加了 3 个道具（现在 22 条家族）。
+    // 注意口径：数据里每个道具是一对 id（`…_e_a` 普通 / `…_e_b` 进阶），配对表按**家族**合并成一条，
+    // 所以这里数与家族数比（去掉 `_a` / `_b` 后缀去重），不是与 id 数比。
+    const grantedIds = Object.values(items).filter((it) => it && it.giveBondId && !it.canGiveBond).map((it) => it.id);
+    const grantedFamilies = new Set(grantedIds.map((id) => id.replace(/_[ab]$/, '')));
+    assert.equal(rows.reduce((n, r) => n + r.items.length, 0), grantedFamilies.size, 'every bond-granting item family appears exactly once');
     const vic = rows.find((r) => r.bondId === 'victoriaShip');
     assert.deepEqual(vic.items.map((it) => it.name), ['维式重锤', '战栗维式重锤', '坚固维式重锤', '加速维式重锤', '灼燃维式重锤'], 'by tier: the hammer series');
     assert.ok(!rows.some((r) => r.items.some((it) => items[it.id].canGiveBond)), '变形同构体 itself is no partner');
