@@ -229,7 +229,7 @@
 
 import { aiTakeover, resetAiTakeover, reconcileAiTakeover } from './aiTakeover.js';
 import { randomBytes, randomInt } from 'node:crypto';
-import { DIFFICULTIES, ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor, HOST_CONFIG_KEYS, HOST_CONFIG_SOLO_KEYS, HOST_CONFIG_DEFAULTS, HOST_ENEMY_KEYS, HOST_ENEMY_DEFAULTS, HOST_ENEMY_MAX_STEPS, MOD_KEYS, MOD_DEFAULTS, roomSeatCap } from '../shared/constants.js';
+import { DIFFICULTIES, ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor, HOST_CONFIG_KEYS, HOST_CONFIG_SOLO_KEYS, HOST_CONFIG_DEFAULTS, HOST_ENEMY_KEYS, HOST_ENEMY_DEFAULTS, HOST_ENEMY_MAX_STEPS, MOD_KEYS, MOD_DEFAULTS, normalizeMods, roomSeatCap } from '../shared/constants.js';
 import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks, charPotentialChanges, checkSkinSelection, operatorCharIds, PACK_MSG_LIMITS } from '../shared/protocol.js';
 import { encode, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
@@ -918,6 +918,9 @@ export class Lobby {
       case 'room.setDifficulty': return this.setDifficulty(session, msg);
       case 'room.setAiPicksLast': return this.setAiPicksLast(session, msg);
       case 'room.setSoloUnlimited': return this.setSoloUnlimited(session, msg);
+      case 'room.setHostConfig': return this.setHostConfig(session, msg);
+      case 'room.setEnemyBuff': return this.setEnemyBuff(session, msg);
+      case 'room.setMods': return this.setMods(session, msg);
       case 'room.setAiTakeover': return this.setAiTakeover(session, msg);
       case 'room.aiRequest':
       case 'room.aiVote': return aiTakeover(this, session, msg);
@@ -1085,6 +1088,9 @@ export class Lobby {
     if (mode === 'solo' && soloUnlimited === true && this.versionSoloTimed(version)) room.soloUnlimited = true;
     room.content = initial;
     if (initial !== this.baseContent(version)) this.holdContent(initial);
+    // Mod 开关 (room.create.mods, MOD_KEYS): the creator's switches, normalised — a missing / malformed value is the
+    // official default, and the room keeps them for every match it runs (the protocol already refused an unknown key).
+    room.mods = normalizeMods(mods);
     room.ownerKey = key;
     room.seats[0] = this.humanSeat(0, session, room);
     room.hostId = session.playerId;
@@ -2289,6 +2295,12 @@ export class Lobby {
     let versions = null;
     try { versions = this.versions?.welcome?.() || null; } catch (e) { this.log.error('[lobby] the versions list failed', e); }
     if (versions) info.versions = versions;
+    // fork: 内容集身份 / 工坊面板与素材 / 主题 / 传输层生效值
+    if (this.modSet) info.mods = this.modSet;
+    if (panels.length) info.modPanels = panels;
+    if (assets.length) info.modAssets = assets;
+    if (theme && theme.vars && Object.keys(theme.vars).length) info.modTheme = theme;
+    if (transport) info.transport = transport;
     // Omitted when the switch is off, so a welcome from a normal server stays identical.
     if (this.testEnabled === true) info.testMode = true;
     return info;

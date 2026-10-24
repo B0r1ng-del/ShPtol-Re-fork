@@ -673,7 +673,22 @@
 .ailast__opt .icon { opacity: .25; }
 .ailast__opt .icon.is-on { opacity: 1; }
 
-
+/* ---- 房间配置 popover (hostcfg / ebuff / mods--hostcfg) ----------------------------------------------- */
+.hostcfg { display: flex; flex-direction: column; gap: .12rem; }
+.hostcfg__note { margin: 0; font-size: calc(.14 * var(--t)); line-height: 1.5; color: var(--line-3); }
+.ebuff { display: flex; flex-direction: column; gap: .1rem; padding-top: .14rem; border-top: 1px solid var(--line-1); }
+.hostcfg > .ebuff:first-child { padding-top: 0; border-top: 0; }
+.ebuff__head { display: flex; align-items: center; gap: .08rem; }
+.ebuff__title { display: flex; align-items: center; gap: .06rem; font-size: calc(.18 * var(--t)); color: var(--orange-hi); }
+.ebuff__title .icon { width: .2rem; height: .2rem; color: var(--orange-hi); }
+.ebuff__hint { margin: 0; font-size: calc(.14 * var(--t)); line-height: 1.5; color: var(--line-3); }
+.ebuff__rows { display: flex; flex-direction: column; gap: .1rem; }
+.ebuff__row { grid-template-columns: minmax(0, 1.5rem) minmax(0, 1fr) auto; }
+.ebuff__row .set-row__label { font-size: calc(.16 * var(--t)); }
+.ebuff__warn { margin: 0; font-size: calc(.15 * var(--t)); line-height: 1.5; color: var(--orange-hi); }
+.mods--hostcfg { display: flex; flex-direction: column; gap: .12rem; margin-top: .14rem; padding-top: .14rem; border-top: 1px solid var(--line-1); }
+.mods--hostcfg .mods__col { gap: .18rem; }
+.mods__note { margin: 0; font-size: calc(.14 * var(--t)); line-height: 1.5; color: var(--line-3); }
 
 .trusted-banner { position: fixed; top: 0; left: 0; right: 0; z-index: 90; padding: 5px 16px; background: #9b202b; color: #fff; display: flex; justify-content: space-between; gap: 12px; }
 .trusted-banner button { color: inherit; text-decoration: underline; }

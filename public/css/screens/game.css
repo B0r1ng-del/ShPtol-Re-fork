@@ -477,8 +477,12 @@
 .readybtn.is-busy { opacity: .7; }
 
 /* ---- bond strip ---------------------------------------------------------------------------------------- */
-.gm__bonds { position: absolute; left: 1.56rem; top: 1.36rem; right: 5.2rem; pointer-events: none;
-  display: flex; align-items: flex-start; gap: max(.1rem, calc(8px * var(--sp-ui, 1))); }
+/* ★ fork 的「盟约条真居中」（2026-10-17 需求方）：上游 v0.3.2 是左对齐 + --sp-ui 缩放，本 fork 改成
+   left/right 都是 0 + justify-content: center，**只用 flex 居中，绝不用 transform** —— transform 会让这条
+   成为 position:fixed 的 tooltip 层的包含块，提示框会跟着跑到屏幕外。 */
+.gm__bonds { position: absolute; left: 0; top: 1.36rem; right: 0; pointer-events: none;
+  display: flex; align-items: flex-start; justify-content: center; gap: max(.1rem, 8px); }
+.gm__bond-box { position: relative; display: flex; align-items: flex-start; min-width: 0; }
 /* Only the bond discs (and the +N chip) take the pointer: the strip's box spans the width under the top bar, where the
    top board row's units stand (row 12 at 16:9 / 21:9 / 720p / phones, the boss field's row 5 in a boss prep) — it used
    to swallow the taps and drags on them (review of user playtest #2 item 8: every own unit reachable). */
@@ -656,9 +660,11 @@
    that row instead of above the bottom-left corner — `.gtop` is the nearest positioned ancestor, so `top: 100%` is the
    top bar's bottom edge. `--combat-available-height` (ui/combatMetrics.js, from combatMetricsLayout) caps it to the
    space actually left between that edge and the viewport's bottom, so a short window still shows the ranking. */
+/* ★ fork（需求方 2026-10-17）：按钮搬到顶栏的 `.gm__tools` 之后，面板要**从那一行的底边往下弹**。
+   上游 v0.3.2 还是「挂在左下角上方」（bottom: 100%），那是按钮还在 `.gm__corner` 时的锚法。 */
 .combat-metrics {
   --bk-c: var(--mint-500);
-  position: absolute; left: 0; bottom: calc(100% + max(.1rem, calc(8px * var(--sp-ui, 1)))); z-index: 12;
+  position: absolute; left: .26rem; top: calc(100% + max(.1rem, 8px)); z-index: 12;
   width: min(max(5.2rem, 32px, calc(340px * var(--sp-ui, 1))), calc(100vw - var(--sa-l, 0px) - var(--sa-r, 0px) - .48rem));
   max-height: min(max(6.6rem, calc(280px * var(--sp-ui, 1))), calc(100vh - var(--combat-corner-height, 110px) - max(.9rem, calc(48px * var(--sp-ui, 1))) - .34rem - var(--sa-t, 0px) - var(--sa-b, 0px)));
   max-height: min(max(6.6rem, calc(280px * var(--sp-ui, 1))), calc(100dvh - var(--combat-corner-height, 110px) - max(.9rem, calc(48px * var(--sp-ui, 1))) - .34rem - var(--sa-t, 0px) - var(--sa-b, 0px)));

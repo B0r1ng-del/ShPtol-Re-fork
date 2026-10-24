@@ -581,8 +581,15 @@ export const C2S = {
   // soloUnlimited: the timed-solo opt-out 「不限时」 (DESIGN §35.23.10). Optional, and only the literal boolean —
   // the server applies `true` solely to a solo room of a version whose solo is timed, and ignores it otherwise, so a
   // default create stays the message it was.
-  'room.create': { mode: (v) => v === 'solo' || v === 'coop', difficulty: (v) => DIFFICULTIES.includes(v), test: (v) => v === true, version: isVersionId, soloUnlimited: isBool, $optional: ['test', 'difficulty', 'version', 'soloUnlimited'] },
-  'room.join': { $optional: ['testAck'], testAck: (v) => v === true, code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v) },
+  // mode: upstream's two modes. 终极模拟 (the fork's `ultimate` room, ROOM_MODES) is NOT restored here: server/lobby.js
+  // create() dropped the fork's `mode === 'ultimate' ? ULTIMATE_DIFFICULTY` line, so a room accepted as ultimate would
+  // silently run whatever difficulty the client sent. Refusing the mode outright beats a silently wrong room.
+  // mods: the creator's gameplay switches (shared/constants.js MOD_KEYS) — the per-device 模式界面 preference carried into
+  // the room; a key outside MOD_KEYS is BAD_MSG rather than a silent drop (a version mismatch, not a typo).
+  // modDigest: the 工坊 content-set digest — a DIFFERENT thing from `mods` on purpose (upstream calls the digest `mods`,
+  // which this fork already uses for the switches; one name with two meanings was measured to return `bad field mods`).
+  'room.create': { mode: (v) => v === 'solo' || v === 'coop', difficulty: (v) => DIFFICULTIES.includes(v), mods: isMods, modDigest: isModDigest, test: (v) => v === true, version: isVersionId, soloUnlimited: isBool, $optional: ['mods', 'modDigest', 'test', 'difficulty', 'version', 'soloUnlimited'] },
+  'room.join': { $optional: ['modDigest', 'testAck'], testAck: (v) => v === true, modDigest: isModDigest, code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v) },
   'room.leave': {},
   'room.ready': { ready: isBool },
   'room.setDifficulty': { difficulty: (v) => DIFFICULTIES.includes(v) },
@@ -592,6 +599,24 @@ export const C2S = {
   // 「不限时」 (DESIGN §35.23.10; host, before the match, a solo room of a version whose solo is timed): the match's
   // preparation and 机变 stay untimed (Match opts.soloUnlimited). Off by default; room.state omits the key unless it is on.
   'room.setSoloUnlimited': { on: isBool },
+  // 房主配置 (host, before the match): one HOST_CONFIG_KEYS entry at a time; the room keeps the value across its matches
+  // and the next match reads it. An unknown key is BAD_MSG (the key list is normative in shared/constants.js).
+  'room.setHostConfig': { key: (v) => HOST_CONFIG_KEYS.includes(v), on: isBool },
+  // 房主配置「对局选项」(host, before the match): one HOST_ENEMY_KEYS slider at a time, `steps` an integer count of 10 %
+  // steps (HOST_ENEMY_MAX_STEPS = 10, i.e. +100 %). An unknown key or an out-of-range count is BAD_MSG, so a client
+  // cannot ask for a buff the panel cannot show.
+  'room.setEnemyBuff': { key: (v) => HOST_ENEMY_KEYS.includes(v), steps: (v) => isInt(v, 0, HOST_ENEMY_MAX_STEPS) },
+  // Mod 开关 (host, before the match): one MOD_KEYS switch at a time, host-only like the rest of 房主配置. The room keeps
+  // the value across its matches and the next match reads it (server/lobby.js setMods / room.state.mods). An unknown key
+  // is BAD_MSG — the key list is normative in shared/constants.js MOD_KEYS.
+  'room.setMods': { key: (v) => MOD_KEYS.includes(v), on: isBool },
+  // 面板可发起的两条展示类消息 (DESIGN §34.34 `PANEL_SEND_TYPES`, the closed enum lives in public/js/ui/extensions.js):
+  //   * `room.mods` —— the host swaps the pack set this room loads (the loading surface, not the result; the server has
+  //     three more gates: not the host / already started / any human ready ⇒ MOD_SET_LOCKED);
+  //   * `room.appearance` —— only the skin and avatar others see.
+  // Display only; adding one means the whitelist, this shape and a test all at once (deliberate friction).
+  'room.mods': { modIds: isModIds },
+  'room.appearance': { picks: isAppearancePicks, avatar: isAppearanceAvatar, $optional: ['picks', 'avatar'], $atLeastOne: ['picks', 'avatar'] },
 
   // Remake-only spectator handover: host opt-in before play, default off (§35.100).
   'room.setAiTakeover': { on: isBool },

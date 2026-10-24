@@ -229,6 +229,24 @@ export const KIT_CHAR_IDS = Object.freeze({
   chess_char_2_17_a: 'char_4207_branch', // 折桠
   chess_char_2_18_a: 'char_431_ashlok', // 灰毫
   chess_char_2_19_a: 'char_4151_tinman', // 锡人
+  // ★ 本 fork 自己的 tier kit（内容包 / 二.3 东国乌萨斯）：上游 v0.3.2 的这张表没有它们，
+  // 于是 officialKitKey 对这些 chess 返回 chess id 本身，而 versions-keying 断言必须解析到它自己的 charId。
+  // 每个 kit 文件第一行注释写着同一个 charId；这里按 data/chess.json 的 charId 逐条核对过。
+  chess_char_2_98_a: 'char_4223_botany', // 春榆
+  chess_char_3_96_a: 'char_4199_makiri', // 松桐
+  chess_char_3_97_a: 'char_118_yuki', // 白雪
+  chess_char_3_98_a: 'char_194_leto', // 烈夏
+  chess_char_3_99_a: 'char_289_gyuki', // 鬼姐
+  chess_char_4_98_a: 'char_188_helage', // 赫拉格
+  chess_char_4_99_a: 'char_4055_bgsnow', // 鸿雪
+  chess_char_5_97_a: 'char_362_saga', // 嵯峨
+  chess_char_5_98_a: 'char_4224_turdus', // 乌鸫
+  chess_char_5_99_a: 'char_4226_veen', // 维伊
+  chess_char_6_97_a: 'char_1029_yato2', // 麒麟R夜刀
+  chess_char_6_98_a: 'char_1051_headb2', // 怒潮凛冬
+  chess_char_6_99_a: 'char_197_poca', // 早露
+  chess_char_5_makoto_a: 'char_4217_makoto', // 真琴
+  chess_char_6_oblvns_a: 'char_4182_oblvns', // 奥布利斯
   // tier 3
   chess_char_3_01_a: 'char_103_angel', // 能天使
   chess_char_3_02_a: 'char_294_ayer', // 断崖

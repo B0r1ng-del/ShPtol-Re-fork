@@ -231,9 +231,6 @@ export async function startServer(opts = {}) {
   const survivors = new Set(pruned.packs.map((p) => p.id));
   const metaModules = workshopMeta.modules.filter((m) => survivors.has(m.id));
   const serverModulesLive = serverModules.modules.filter((m) => survivors.has(m.pack));
-  // ★ fork 的服务端模块挂载面（`server.modules[*].uses`）：`boot` / `shutdown` / `healthz` / `route` / `matchClass`。
-  // `-X theirs` 删了这两行定义，下面 `modMount.boot(...)` / `modMount.shutdown()` 的引用还在。
-  const modMount = mountServerModules(serverModulesLive, { log });
   const workshopLoaded = { ...loadedForPayloads, packs: pruned.packs, errors: pruned.errors };
   // ★ 数据叠加层在这之后才加载，而且喂给它的是**裁剪之后**那一份包（`packs: pruned.packs`）。`loadData` 从前自己
   // 又调一次 `loadWorkshop`，于是刚被裁掉的包的数据照样并进游戏数据 —— 那道闸门对它等于不存在。
@@ -256,7 +253,184 @@ export async function startServer(opts = {}) {
     : null;
   log.info(`[versions] enabled: ${versions.ids.map((id) => `${id} (${t(/** @type {any} */ (versionById(id)).label)}${id === versions.defaultId ? ', default' : ''})`).join(', ')}`);
   const simPool = createRoomWorkerPool({ data });
-  const { registry, lobby, network } = createSessionStack(opts, { data, log, content, plugins: roomSets, hosts, versions, versionHosts, simPool });
+  // 作者自备 CDN 的语音素材（`pack.json.voices` 的 `{ url, sha256, file }` 条目，DESIGN §34.33）：在**合并语音表
+  // 之前**把字节取到本地缓存并按作者声明的 sha256 核对。一条外部 CDN 不该让服务器起不来，所以失败只影响那一条
+  // 素材：取不到的从语音表里摘掉（宁可回落到默认配音，也不要留一条永远 404 的静音台词）。
+  const voiceCdn = await materializeVoiceCdn(workshopLoaded.packs, { stateRoot, log });
+  const voiceLoaded = voiceCdn.failed.size ? { ...workshopLoaded, packs: dropFailedVoiceCdnFiles(workshopLoaded.packs, voiceCdn.failed) } : workshopLoaded;
+  const workshopJson = buildWorkshopDataFiles(data, voiceLoaded);
+  // 公告 / 鸣谢的合并体（DESIGN §34.15）：引擎那一半**从更新记录生成**（单一事实源，不手写第二份），包那一半按
+  // 包 id 追加。它走**既有的**合并数据通道送出（`/data/notices.json`，map 的键是 `notices`），所以既没有新路由、
+  // 也没有新的静态路径。
+  const notices = workshopNotices(workshopLoaded, { changelogPath: path.join(ROOT, 'CHANGELOG.md'), log });
+  workshopJson.set('notices', Buffer.from(JSON.stringify(notices.body), 'utf8'));
+  // 行为层的**两个键空间**（docs/WORKSHOP.md §4.7）：一个 `kits/<id>.js` 的 id 要么是**干员键**（`kitOf`），
+  // 要么是**召唤物键**（token 记录的 id）。两边都要被告知，装载器才判得出「这条 kit 到底给谁」—— 只给 chess 表
+  // 的话，一个包的召唤物 kit 会被当成未知目标丢掉（而那正是「包能做数据、做不了行为」这个缺口）。
+  const workshopKits = await loadWorkshopKits(workshopLoaded, {
+    log,
+    knownIds: new Set([
+      ...Object.keys(data.chess || {}),
+      ...((workshopLoaded.packs || []).flatMap((p) => Object.keys(p.operators || {}))),
+    ]),
+    knownTokenIds: new Set(Object.keys(data.tokens || {})),
+  });
+  // a pack's OWN art (`<pack>/assets/**`, served read-only under WORKSHOP_ASSET_PREFIX) — the one path the client must
+  // be able to fetch for ported content to render at all.
+  const workshopAssets = workshopAssetsFor(workshopLoaded, workshopDir);
+  // 包声明的只读路由（`pack.json.routes`）：绝对路径 → 包内 `.json`，带声明的 `Cache-Control`。
+  // `mount` 让「核心先吃」这条判据读到**真正的**核心挂载目录：与 `createStaticHandler` 那份同一组目录
+  // （`coreMounts` 是它们共同的来源），所以一条声明会不会顶掉引擎自己的文件，判的就是引擎自己读的那个文件。
+  const workshopRoutes = workshopRoutesFor(workshopLoaded, workshopDir, {
+    log,
+    mount: coreMounts({ publicDir, dataDir, sharedDir, simDir }),
+  }).routes;
+  // C 层注册点（`pack.json.client.panels`）：面板清单（随 `welcome` 推到客户端）与这些模块的服务表。没有包声明
+  // `client` 时两者都是空的，`welcome` 不多一个字段、`/workshop-panels/` 不服务任何东西。
+  const workshopPanels = loadWorkshopPanels(workshopLoaded, { log });
+  const workshopPanelFiles = workshopPanelFilesFor(workshopPanels.panels, workshopDir);
+  const workshopKitFiles = workshopKitFilesFor(workshopKits.modules, workshopDir);
+  const workshopKitDirs = workshopKitDirsFor(workshopLoaded);
+  const workshopBattleFiles = workshopBattleFilesFor(battlePack.modules, workshopDir);
+  // 包写的主题变量（`pack.json.client.theme.vars`）：合并成**一份** `{ vars }`，随 `welcome` 送到客户端。没有包
+  // 声明主题时是 `null` ⇒ `welcome` 里没有这个字段、页面不多一条自定义属性（与 `modPanels` 同一条不变量）。
+  const workshopTheme = workshopThemeFor(workshopLoaded, { log });
+  // 资源容器与清单（`pack.json.assets`）：两个注册 URL → 包内的那两个文件。容器的 sha256 是装载期已经校验过的
+  // 那个，服务时只进 HTTP 头、不重算。没有包声明 `assets` 时这张表是空的，`/workshop-resources/` 一个字节都不服务。
+  const workshopResourceFiles = workshopResourceFilesFor(workshopLoaded.packs, workshopDir, {
+    digests: new Map((workshopLoaded.packs || []).filter((p) => p && p.assetsDigest).map((p) => [p.id, p.assetsDigest])),
+  });
+  // 声明清单（`welcome.modAssets`）：容器/清单的注册 URL、装载期核对过的容器摘要、以及两个归一化后的策略值。
+  // 没有包声明 `assets` 时它是**空数组** ⇒ `welcome` 里没有这个字段、客户端不 import 资源流程、不注册 SW。
+  const workshopModAssets = workshopModAssetsFrom(workshopResourceFiles, workshopLoaded.packs);
+  // 包给**已有语种**补的词条（`pack.json.i18n`）：`/i18n/<code>.json` 的合并体。没有包声明 `i18n` 时这是一张空表
+  // ⇒ 请求落到普通静态路径，`public/i18n/*.json` 逐字节照旧送出。
+  const workshopI18n = buildWorkshopI18nFiles(workshopLoaded, { log });
+  // `serverPolicy` 只有 `cache-only` 一种取值会改变行为，而它**只在包显式声明时**生效（缺省 `serve` = 今天逐字节
+  // 不变）。策略覆盖的是 `/assets/` 与 `/fonts/` 这两棵**全服务器共用**的树，所以是进程级的：一个包声明它，就是
+  // 全服务器都不再服务那两棵树 —— 这件事必须在启动日志里说出来。
+  const resourcePolicy = resourceServerPolicy(
+    new Map((workshopLoaded.packs || []).filter((p) => p && p.assets).map((p) => [p.id, p.assets.serverPolicy])),
+    { log },
+  );
+  // 声明式传输配置（`pack.json.server.transport`）：与 `resourcePolicy` 逐字同一条先例 —— 读声明、收敛成**一个
+  // 进程级**的值（`perMessageDeflate` 是 `WebSocketServer` 的构造选项，不是某个房间的属性）、启动日志点名生效值。
+  const wsTransport = transportPolicy(
+    new Map((workshopLoaded.packs || []).filter((p) => p && p.server && p.server.transport).map((p) => [p.id, p.server.transport])),
+    { log },
+  );
+  // 按房间物化（W-B）：房间声明的集合要真的决定这一局跑什么。只在**装了包**时建它 —— 干净安装既不需要官方那一份
+  // 的第二次读取，也没有任何集合会比「进程级那一份」更小。
+  const roomAssets = (workshopLoaded.packs || []).length
+    ? createRoomAssets({
+      official: loadData(dataDir, { log, workshopDir: null }),
+      processData: data,
+      packs: workshopLoaded.packs,
+      kits: workshopKits.kits,
+      kitOwners: workshopKits.owners,
+      tokenKits: workshopKits.tokenKits,
+      tokenKitOwners: workshopKits.tokenOwners,
+      modules: workshopKits.modules,
+      log,
+    })
+    : null;
+  // The mod set (DESIGN §34.2): one identity per pack, one digest for the whole set. It travels in `welcome`, in
+  // `/healthz` (lobby.stats) and in every BattleSpec, so the three can never disagree about what is running.
+  // 口径声明（`variants`）与行为开关声明（`behaviour`）**走同一个投影点**：漏掉 `behaviour` = 服务端装载器读到了
+  // 声明、`Match` 却读到 `undefined` ⇒ 开关**静默不生效**（`test/packBehaviour.test.js` 对下面这一行有源码级断言）。
+  // 与 `voiceCdn` / `skins` 同一条纪律：**只在包真的声明过时才存在这个键**，没声明的包这一份与从前逐字节相同。
+  const workshopMods = (workshopLoaded.packs || []).map((p) => ({
+    id: p.id, hash: p.hash, layer: p.layer, combat: p.combat, api: p.api,
+    ...(Array.isArray(p.variants) && p.variants.length ? { variants: p.variants } : {}),
+    ...(Array.isArray(p.behaviour) && p.behaviour.length ? { behaviour: p.behaviour } : {}),
+  }));
+  // 行为声明的合成只在一个地方（`shared/behaviour.js` 的 `mergeBehaviourDecls`，包 id 字典序小的赢）：`Match` 与
+  // `Lobby` 都从这份 `workshop.mods` 读 —— 两处各合一次就会有两份可能分叉的判决。
+  // 服务端模块的挂载面（`server.modules[*].uses`）：`boot` / `shutdown` / `healthz` / `route` / `matchClass`。
+  // 没有包声明时 `matchWrappers` 是空数组、`modRoutes` 是空 Map ⇒ `MatchClass` 就是原来那一个（连字段都不多传），
+  // `createStaticHandler` 那一段整块跳过（干净安装逐字节不变）。
+  const modMount = mountServerModules(serverModulesLive, { log });
+  const modRoutes = modMount.routes();
+  // 包声明服务端模块时，它可以给对局套一层 `MatchClass` 包装器（`uses: ['matchClass']`）：按**包 id** 次序层层套上
+  // （`mountServerModules` 已经排过序），任何一层抛异常或返回非函数都只记日志并跳过那一层 —— 一个包不该让服务器起不来。
+  // 没有包声明时 `MatchClass` 就是原来那一个（连字段都不多传）。
+  //
+  // ★ 基底必须落到 `DefaultMatch`：`opts.MatchClass` 缺省是 `undefined`，而包装器的契约是「给一个基类、还一个子类」
+  // （`class extends Base`）。拿 `undefined` 当基底会建出一个继承 `undefined` 的类，`Lobby` 一 `new` 就炸 —— 或者更
+  // 糟：包装器内部直接抛错被 catch 掉，于是**钩子静默不存在**（`test/packMatchMsg.test.js` 的六条全红就是这么来的）。
+  let MatchClass = opts.MatchClass || DefaultMatch;
+  if (modMount.matchClassWrappers().length) {
+    let base = MatchClass;
+    for (const w of modMount.matchClassWrappers()) {
+      try {
+        const next = w.fn(base);
+        if (typeof next !== 'function') {
+          log.warn(`[workshop] ${w.pack}/${w.id}: matchClass(...) returned ${typeof next}, not a class — that layer is skipped`);
+          continue;
+        }
+        // 「声明了 channels 却没有接收方法」是这一层最讨厌的形态（装了但没反应），所以点名一次 —— 但**不拒绝**：
+        // 方法可以挂在实例上（构造器里），静态看不出来，拒绝会误伤合法写法。
+        const declaredChannels = (serverModulesLive.find((m) => m.pack === w.pack && m.id === w.id) || {}).channels || [];
+        if (declaredChannels.length && typeof next.prototype?.handlePackMsg !== 'function') {
+          log.warn(`[workshop] ${w.pack}/${w.id}: declares server channels (${declaredChannels.join(', ')}) but its MatchClass layer has no handlePackMsg method — those messages will only be relayed`);
+        }
+        base = next;
+      } catch (e) {
+        log.warn(`[workshop] ${w.pack}/${w.id}: matchClass(...) threw (${e && e.message ? e.message : e}) — that layer is skipped`);
+      }
+    }
+    MatchClass = base;
+  }
+  // 包通道的**投递面**（`server.modules[].channels`）：`<包 id>` → 这个包的服务端模块声明过的接收通道集合。与 Lobby
+  // 的 `packChannels`（面板清单推出来的「客户端能说什么」）成对：那张表决定消息**收不收**，这张决定消息送不送进
+  // **这一局**。没有包声明 `channels` 时是空表 ⇒ `pack.msg` 的投递路径与从前**逐字节相同**。
+  const serverChannelMap = new Map(serverModulesLive.filter((m) => Array.isArray(m.channels) && m.channels.length).map((m) => [m.pack, new Set(m.channels)]));
+  // preDispatch 钩子总线（`server.preDispatch`）：没有包声明时是 `null` ⇒ Network 拿不到 `preDispatch` /
+  // `onConnection`，连接建立与消息分发两条路都不多一次调用。
+  //
+  // ★ 次序：`createModDispatch` 需要一个 `send(conn, msg)` —— 那必须是框架自己的发送助手（`network.reply`，带背压
+  // 守卫），而不是包自己写 socket（那是第二条写路径）。所以 `createSessionStack` 先建出 network，dispatch 再把
+  // 两个钩子**装回** network.opts。`Network` 在构造时就抓住了 options 对象，所以这是同一份对象上的两个字段。
+  // ★ 两个位置别弄错：`createSessionStack(opts, { … })` 的签名是
+  // `(opts, { data, log, content, plugins, hosts, workshop })` —— `MatchClass` 属于 `opts`（`opts.MatchClass`），
+  // 而**整份 workshop 投影**是第二个参数上的 `workshop`。放错位置不会报错，只会让 Lobby 收到 `null`
+  // （`this.workshop` 为空 ⇒ `welcome` 没有 `mods` 字段、行为声明全走官方档），那正是最坏的静默失效。
+  const { registry, lobby, network } = createSessionStack(
+    { ...opts, ...(modMount.matchClassWrappers().length ? { MatchClass } : {}) },
+    {
+      data, log, content, plugins: roomSets, hosts, versions, versionHosts, simPool,
+      workshop: {
+        kits: workshopKits.kits, tokenKits: workshopKits.tokenKits, modules: workshopKits.modules,
+        kitOwners: workshopKits.owners, tokenKitOwners: workshopKits.tokenOwners, kitBudgets: workshopKits.budgets,
+        mods: workshopMods, hooks: workshopHooks.hooks, panels: workshopPanels.panels, assets: workshopModAssets,
+        theme: workshopTheme.theme, meta: metaModules, roomAssets, battle: battlePack.modules,
+        battleInstallers: battlePack.installers, roomHooks: roomPack.installers, transport: wsTransport.transport,
+        serverChannels: serverChannelMap,
+      },
+    },
+  );
+  // ★ 落点说明：`Network` 构造时把 options 拷进 `this.opts`（net.js `{ ...NET_DEFAULTS, ...options }`），所以钩子必须
+  // 写进 `network.opts` —— 写进传进去的那个对象不会有任何效果（那是拷贝的来源，不是拷贝本身）。
+  const dispatch = createModDispatch({
+    hooks: workshopHooks.hooks,
+    send: (conn, msg) => network.reply(conn, msg),
+    log,
+  });
+  if (dispatch) {
+    network.opts.preDispatch = dispatch.preDispatch;
+    network.opts.onConnection = dispatch.onConnection;
+  }
+  // mod 目录路由（W-C，DESIGN §34.2 裁决 B）：客户端本地缓存的比对基准。**目录只在进程启动时建一次**（包集在装载
+  // 时就固定了），所以 `serveMods` 每个请求只做两次查表。没有包时是 `null` ⇒ 路由根本不挂，两条 `/mods/` 路径
+  // 落到静态（与从前逐字节相同：那时也没有这两条路径）。
+  const modsCatalog = workshopLoaded
+    ? { serve: serveMods, routes: createModsRoute(workshopLoaded, buildModCatalog(workshopLoaded)) }
+    : null;
+  const serveStatic = createStaticHandler({
+    publicDir, dataDir, sharedDir, simDir, packsDir, pluginsDir, packs, content, log, assetIndex, views, visual, contents, versions,
+    workshopJson, workshopAssets, workshopKitFiles, workshopKitDirs, workshopPanelFiles, workshopBattleFiles,
+    workshopResourceFiles, workshopI18n, resourcePolicy, workshopRoutes, modRoutes,
+  });
   // Main-thread event-loop delay sampling (server/health/eventLoop.js): opt-in with SP_LOOP_SAMPLE=1, no worker pool involved, and a
   // LOCAL log line per window (`[loop] p50=… p95=… p99=… max=… cpu=… mem=… rooms=… humans=… phase=…`) — deliberately not
   // part of /healthz. This is what tells an operator whether a stall is the rehearsal / battle slice or something else.
@@ -275,7 +449,6 @@ export async function startServer(opts = {}) {
         phase: [...phases].sort().join('+') || 'idle', rehearsals };
     },
   });
-  const serveStatic = createStaticHandler({ publicDir, dataDir, sharedDir, simDir, packsDir, pluginsDir, packs, content, log, assetIndex, views, visual, contents, versions });
   // the plugin studio (DESIGN §32.9): its page and API for this machine and the local network; it watches plugins/ only
   // once it is used (hot reload), and rooms whose host is the author or alone follow a plugin's changes by themselves
   const studio = opts.studio === false ? null : createStudio({ publicDir, pluginsDir, dataDir, registry: packs, lobby, sessions: registry, log, fetch: opts.fetch });
@@ -287,7 +460,7 @@ export async function startServer(opts = {}) {
   buildTag(ROOT, { servedVersionDirs: versions.servedDirs() });
 
   const traffic = createTrafficCounter();
-  const server = http.createServer(createRequestHandler({ serveStatic, csp: process.env.SP_CSP === 'off' ? null : siteCsp(publicDir), health: { startedAt, network, registry, lobby, content, traffic, assetIndex, views, trusted:trustedRuntime?.health, versions, versionHosts }, log, trustProxy: network.opts.trustProxy, studio, trustedRuntime }));
+  const server = http.createServer(createRequestHandler({ serveStatic, csp: process.env.SP_CSP === 'off' ? null : siteCsp(publicDir), health: { startedAt, network, registry, lobby, modHealth: () => modMount.healthz(), content, traffic, assetIndex, views, trusted:trustedRuntime?.health, versions, versionHosts }, log, trustProxy: network.opts.trustProxy, studio, trustedRuntime, modsCatalog }));
   server.on('clientError', answerClientError);
   const wss = attachWebSocket(server, { network, log, lanes: opts.wsLanes, traffic });
 

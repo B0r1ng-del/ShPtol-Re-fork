@@ -217,7 +217,8 @@ test('room.js sends room.setHostConfig { key, on } and opens the dialog from the
     assert.ok(EN[zh].length > 0 && !/[一-鿿]/.test(EN[zh]), `English for ${zh}`);
   }
   // the removed standalone switch and the old rectangular option left no dead style behind
-  assert.ok(!/\.ailast/.test(CSS), 'no stale .ailast rules');
+  // (`.ailast` is NOT dead: upstream v0.3.2's own 同盟设置 popover still draws its AI switches with it, so the fork's
+  // host-config panel is not what that rule belongs to any more — the assertion that pinned its removal was stale)
   assert.ok(!/\.hostcfg__opt/.test(CSS), 'the rectangular option style is gone (the pill switch replaced it)');
   assert.match(CSS, /\.hostcfg__note \{/, 'the read-only note keeps its style');
 });

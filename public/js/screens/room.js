@@ -614,7 +614,7 @@ function AiTakeoverToggle({ option, busy, onToggle }) {
  * ⚙ of the bottom pill (co-op): 同盟设置 — the 模拟难度 (opens 选择模拟协议: the host's 确认, the others' read-only view)
  * and the 「AI 队友最后选择」 switch. Closes on a click outside it or Esc.
  */
-function RoomOptions({ option, takeoverOption, onAiTakeover, soloOption = null, room, isHost, busy, onAiLast, onSoloUnlimited, onDifficulty, onClose, version = null }) {
+function RoomOptions({ option, takeoverOption, onAiTakeover, soloOption = null, room, isHost, busy, onAiLast, onSoloUnlimited, onDifficulty, onClose, version = null, panel = null }) {
   const info = difficultyInfo(room.mode, room.difficulty);
   const title = soloOption ? t('模拟设置') : t('同盟设置');
   useEffect(() => {
@@ -648,7 +648,10 @@ function RoomOptions({ option, takeoverOption, onAiTakeover, soloOption = null, 
     <${AiTakeoverToggle} option=${takeoverOption} busy=${busy} onToggle=${onAiTakeover} />
     ${soloOption
       ? html`<${SoloUnlimitedToggle} option=${soloOption} busy=${busy} onToggle=${onSoloUnlimited} />`
-      : html`<${AiLastToggle} option=${option} busy=${busy} onToggle=${onAiLast} />`}
+      // 房主配置 panel already carries the 「AI 队友最后选择」 row (hostcfg-aiPicksLast), so the loose switch would be the
+      // same option twice — one of them is enough
+      : panel ? null : html`<${AiLastToggle} option=${option} busy=${busy} onToggle=${onAiLast} />`}
+    ${panel}
   </div>`;
 }
 
@@ -684,7 +687,8 @@ export function RoomScreen() {
   const me = useStore((s) => s.me, shallowEqual);
   const conn = useStore((s) => s.connection, shallowEqual);
   const [busy, setBusy] = useState(null);
-  // 房主配置 opens as a dialog over the room (the 干员调配 button's pattern), not as a band under the seats
+  // 房主配置: its body rides in the ⚙ popover (`RoomOptions` panel slot); the dialog form stays for the code paths that
+  // open it by state.
   const [cfgOpen, setCfgOpen] = useState(false);
   // ⚙ of the bottom pill: the 房间配置 popover (upstream rs-opts), and the difficulty button's own 更改模拟难度 popover
   const [opts, setOpts] = useState(false);
@@ -810,6 +814,27 @@ export function RoomScreen() {
   const setDifficulty = (difficulty) => run('diff', () => net.request('room.setDifficulty', { difficulty }));
   const setAiTakeover = (on) => run('aihandover', () => net.request('room.setAiTakeover', { on }));
   const setAiLast = (on) => run('ailast', () => net.request('room.setAiPicksLast', { on }));
+  // 房主配置 (room.setHostConfig): one option at a time, the key naming which (shared/constants.js HOST_CONFIG_KEYS).
+  // 「AI 队友最后选择」 is one of the rows and goes through the same message; room.setAiPicksLast (GitHub #338) stays
+  // valid on the server for older clients.
+  const setHostConfig = (key, on) => run(`hcfg${key}`, () => net.request('room.setHostConfig', { key, on }));
+  // 对局选项 (room.setEnemyBuff): one slider at a time, `steps` the 10 % step count the slider now sits at.
+  //
+  // NOT through `run()`: a slider is a CONTINUOUS control (a drag emits an input event per step) and `run()` is built for
+  // one-shot buttons — its `inFlight` guard would drop every step after the first and its `busy` state would disable all
+  // four sliders (and every switch row) for the length of each round trip. The message is idempotent and the server keeps
+  // last-write-wins, so firing each step and letting the state broadcast settle the UI is correct; a failure still toasts.
+  const setEnemyBuff = (key, steps) => {
+    if (!online) { toast(t('连接中断，请稍候重试'), 'warn'); return; }
+    net.request('room.setEnemyBuff', { key, steps }).catch(toastError);
+  };
+  // Mod 开关 (room.setMods): one switch at a time, the key naming which (shared/constants.js MOD_KEYS). The switches are
+  // room options now, so this mirrors setHostConfig; the local preference is written too, so the next room this device
+  // creates starts from the switches its host last used.
+  const setMods = (key, on) => {
+    rememberMods({ ...room.mods, [key]: on });
+    return run(`mod${key}`, () => net.request('room.setMods', { key, on }));
+  };
   // the room is the authority; the lobby card reads the same pref the next time this browser creates a solo room
   const setSoloUnlimited = async (on) => {
     const sent = await run('solofree', () => net.request('room.setSoloUnlimited', { on }));
@@ -997,10 +1022,15 @@ export function RoomScreen() {
             title=${facts.isHost ? t('更改模拟难度') : t('由创建者选择')}><${DifficultyIcon} difficulty=${room.difficulty} />${DIFFICULTY_NAMES[room.difficulty] ? t(DIFFICULTY_NAMES[room.difficulty]) : ''}<span class="num rs-pill__code">${info.code}</span></button>
           ${versionCtl ? html`<${Tooltip} text=${versionCtl.why} class="rs-pill__version"><button type="button" class=${`rs-pill__ver${versionCtl.editable ? '' : ' is-ro'}`} data-testid="room-version"
             disabled=${versionCtl.disabled} onClick=${versionCtl.onOpen} aria-label=${t('游戏版本：{name}', { name: versionLabel(curVersion) })}><${Icon} name="book" /><span class="rs-pill__vername">${versionLabel(curVersion)}</span></button><//>` : null}
-          ${aiLast || soloOpt ? html`<button type="button" class=${`rs-pill__gear${opts ? ' is-on' : ''}`} onClick=${() => setOpts((v) => !v)} title=${aiLast ? t('同盟设置') : t('模拟设置')} aria-label=${aiLast ? t('同盟设置') : t('模拟设置')}
+          ${/* 房间配置 (房主配置, the fork's panel): its entry is this ⚙, and its body rides in the 同盟设置 popover below —
+               one gear, both panels (上游 v0.3.2 filled the same popover with the difficulty / version / AI switches). */ null}
+          ${aiLast || soloOpt ? html`<button type="button" class=${`rs-pill__gear${opts ? ' is-on' : ''}`} data-testid="hostcfg-open"
+            onClick=${() => setOpts((v) => !v)} title=${aiLast ? t('同盟设置') : t('模拟设置')} aria-label=${aiLast ? t('同盟设置') : t('模拟设置')}
             aria-expanded=${opts ? 'true' : 'false'}><${GearGlyph} /></button>` : null}
           ${opts && (aiLast || soloOpt) ? html`<${RoomOptions} takeoverOption=${aiTakeoverOption(room, me.playerId)} onAiTakeover=${setAiTakeover} option=${aiLast} soloOption=${soloOpt} room=${room} isHost=${facts.isHost} busy=${busy} onAiLast=${setAiLast}
-            onSoloUnlimited=${setSoloUnlimited} onDifficulty=${openProto} onClose=${() => setOpts(false)} version=${versionCtl} />` : null}
+            onSoloUnlimited=${setSoloUnlimited} onDifficulty=${openProto} onClose=${() => setOpts(false)} version=${versionCtl}
+            panel=${cfgRows && cfgRows.length ? html`<${RoomConfigBody} rows=${cfgRows} enemyRows=${enemyRows} modRows=${modRows} busy=${busy}
+              onToggle=${setHostConfig} onEnemy=${setEnemyBuff} onMod=${setMods} />` : null} />` : null}
         </div>
       </div>
       <div class="room-bar__right rs-foot__right">
@@ -1026,6 +1056,8 @@ export function RoomScreen() {
       serverDefault=${serverDefault} roomMode=${room.mode} editable=${versionEditable && !versionWhy} busy=${busy === 'version'}
       note=${versionEditable ? versionWhy || (facts.humans.length > 1 ? t('其他博士同意后才会切换；切换后需要重新准备。') : null) : t('由创建者发起')}
       onPick=${proposeVersion} onClose=${() => setVersionOpen(false)} />` : null}
+    <${HostConfigDialog} rows=${cfgRows} enemyRows=${enemyRows} modRows=${modRows} open=${cfgOpen} busy=${busy}
+      onClose=${() => setCfgOpen(false)} onToggle=${setHostConfig} onEnemy=${setEnemyBuff} onMod=${setMods} />
   </div>`;
 }
 
