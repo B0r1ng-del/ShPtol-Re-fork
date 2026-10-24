@@ -1911,7 +1911,10 @@ function MatchScreen() {
 
       <div class="ui-slot gm__ui-slot" data-ui-slot="hud.right" aria-label=${t('界面插件')} dangerouslySetInnerHTML=${{ __html: '' }}></div>
 
-      <div class="gm__corner">
+      <div class=${`gm__corner${chatOn && !chatOpen ? ' is-chat-folded' : ''}`}>
+        ${/* ★ `.is-chat-folded`（chat.css:112-119）把这一行整体抬高，给**收起的**聊天窗腾出位置 —— 那条 CSS 早就在，
+             但 screens/game.js 从来没挂过这个类，于是样式一直是死的：收起的聊天窗会压在表情键/调配键上面。
+             这一格与下面 corner 轮盘的条件（`!chatOn || !chatOpen`）**必须同步**：只有「窗口开着且收起」才需要让位。 */ null}
         ${showMetrics && metricsOpen ? html`<${CombatMetricsPanel} myId=${myId} onClose=${() => setMetricsOpen(false)} />` : null}
         ${/* 交流键 (fork 2026-10-17): with 在线聊天 off there is no chat window, so this corner copy is the wheel's ONLY home
              — it must render unconditionally then; with the window on it moves into the window (see the ChatWindow below). */

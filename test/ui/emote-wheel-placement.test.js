@@ -20,9 +20,11 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const SRC = readFileSync(path.join(ROOT, 'public/js/screens/game.js'), 'utf8');
 
 /** The corner block: from its `<div class=…gm__corner…>` to the line that closes it (the first `</div>` after the
- *  EmoteWheel it wraps — the block's own comments may mention tags, so a plain indexOf is not enough). */
+ *  EmoteWheel it wraps — the block's own comments may mention tags, so a plain indexOf is not enough).
+ *  ★ 2026-10-24: the element is written as a plain `class="gm__corner"` — this used to look for the template form
+ *  `class=${`gm__corner…`}`, which the screen no longer uses, so all four cases failed on the lookup itself. */
 function cornerBlock() {
-  const start = SRC.indexOf("class=${`gm__corner");
+  const start = SRC.indexOf("gm__corner${");
   assert.ok(start >= 0, 'the corner block exists in screens/game.js');
   const wheel = SRC.indexOf('EmoteWheel', start);
   assert.ok(wheel > start, 'the corner block renders an EmoteWheel');
@@ -43,7 +45,9 @@ test('在线聊天关掉时，「交流」表情键仍然渲染在左下角（�
 
 test('观战席永远拿不到表情键（官方规则）', () => {
   const corner = cornerBlock();
-  assert.match(corner, /!spectator\s*&&/, 'the corner wheel is guarded by !spectator');
+  // 两种写法都表达「观战者没有表情键」：`!spectator && …` 或三元 `spectator ? null : …`。
+  // 屏幕当前用的是后者（同一行里还带着「聊天窗开着就把轮盘挪进窗口」那半个条件），所以两种都接受。
+  assert.match(corner, /!spectator\s*&&|spectator \? null :/, 'the corner wheel is guarded by !spectator');
   assert.match(SRC, /emote=\$\{spectator \? null :/, 'the chat window\'s own copy is guarded too');
 });
 

@@ -143,7 +143,10 @@ test('7: 房间配置 (was 房主配置), 在线聊天 on by default', async () 
   assert.equal(HOST_CONFIG_DEFAULTS.onlineChat, true, 'the owner turned the default on (2026-10-17)');
   const room = read('public/js/screens/room.js');
   assert.match(room, /title=\$\{t\('房间配置'\)\} micro="HOST CONFIG"/);
-  assert.match(room, /title=\$\{t\('房间配置 · 只有房主可以修改'\)\}/);
+  // 需求方 2026-10-24 (图五→图七): 房间配置搬进底栏小齿轮、左下角那个按钮（HostConfigButton）已删，所以里层
+  // 入口的 title 不再是「房间配置 · 只有房主可以修改」—— 齿轮自己的 title/aria 就是「房间配置」。
+  // 这里改为钉住「齿轮带 hostcfg-open 这个 testid」，那才是 e2e 与玩家真正点的那一格。
+  assert.match(room, /data-testid="hostcfg-open"/);
   assert.ok(!room.includes("t('房主配置')"), 'no panel label still says 房主配置');
   // the row's own `on` mirrors the constant, so an absent hostConfig still shows it on
   assert.match(room, /\{ key: 'onlineChat', label: N_\('在线聊天'\)[\s\S]{0,200}?on: true, solo: true \}/);
