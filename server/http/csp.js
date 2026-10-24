@@ -1,12 +1,8 @@
 // Site policy (DESIGN §32.11). Hash only import maps, never arbitrary inline script. Worker/UI policies are independent.
 // worker-src 'self' is the asset service worker at /sw.js. blob: stays for workers the page already creates
 // (the simulation worker). Do not add a remote worker origin. SIM_WORKER_CSP is that worker's own policy and
-// must not gain the asset worker.
-//
-// media-src 'self' blob: is the lobby's own music track and video backdrop (ui/lobbyMusic.js, ui/hubBackdrop.js):
-// both are decoded from a Blob this page created, so the source is a blob: URL — without media-src those requests fall
-// back to default-src 'self' and are blocked, which is the CSP clash the maintainer named when #643 was split.
-// No remote origin is allowed: the file never leaves the device.
+// must not gain the asset worker. media-src blob: is the player's own lobby video and the length check of the own lobby
+// music (ui/lobbyMedia.js: files of this browser read through an object URL); no remote media origin.
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';

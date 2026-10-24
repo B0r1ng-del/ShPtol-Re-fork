@@ -70,6 +70,8 @@ const isMap = (v, max, key, val) => {
 };
 const isList = (v, max, item) => Array.isArray(v) && v.length <= max && v.every(item);
 const isScalar = (v) => isStr(v, 64) || isNum(v) || isBool(v);
+/** An official version id (shared/versions.js: the activity id, `@<sub-version>` for a sub-version) — structural only; the lobby answers VERSION_UNKNOWN for one this server does not enable (DESIGN §35.23). */
+export const isVersionId = (v) => typeof v === 'string' && v.length <= 40 && /^[a-z0-9]{1,32}(?:@[A-Za-z0-9_]{1,16})?$/.test(v);
 
 /**
  * 包命名空间消息的**边界**（工坊 mod 层移植, 2026-10-16, DESIGN §34）：一条 `pack.msg` 的限制。
@@ -565,53 +567,36 @@ const target = (v) => {
 /** @type {Record<string, Record<string, (v:any)=>boolean> & { $optional?: string[] }>} */
 export const C2S = {
   // session & lobby
+  // `delta`: the client speaks the state-delta transport (shared/stateDelta.js) and wants m.public / m.private as
+  // `m.state` frames. Omitted by every client that cannot decode them — those keep receiving the plain frames, and a
+  // server that does not know the field ignores it (it is only read after a full validateC2S pass).
   hello: { name: (v) => isStr(v, NAME_MAX_LEN) && v.trim().length > 0, token: (v) => v == null || isStr(v, 64), version: (v) => v == null || isInt(v, 0, 1e6),
-    noReplace: isBool, claimAt: (v) => isNum(v, 0, Number.MAX_SAFE_INTEGER), $optional: ['token', 'version', 'noReplace', 'claimAt'] },
+    noReplace: isBool, claimAt: (v) => isNum(v, 0, Number.MAX_SAFE_INTEGER), delta: (v) => v == null || isInt(v, 0, 1e6),
+    $optional: ['token', 'version', 'noReplace', 'claimAt', 'delta'] },
   ping: { c: (v) => typeof v === 'number' && Number.isFinite(v) },
-  // Mod 开关 (模式界面, beside 干员调配): the per-device gameplay switches the creator carries into the room it makes.
-  // Optional — a client that sends none creates the room with every switch off (the official mode). The room keeps
-  // them across its matches like the mode and the difficulty, and the match reads them when it starts (Match.mods).
-  //
-  // ★ `modDigest` 与 `mods` 是**两个不同的东西**，刻意不同名（业主裁决 2026-10-17）：
-  //   * `mods`       —— 本 fork 的 **Mod 开关对象**（`MOD_KEYS` → boolean），描述「这一局开哪几格玩法」；
-  //   * `modDigest`  —— 工坊 **内容集摘要**（`shared/modIdentity.js modDigest`，16–64 位十六进制），描述「这一局跑
-  //                     的是哪一份包集合」。客户端拿到 `welcome.mods.packs` 之后自己重算一次，再把这个值回话。
-  // 上游把摘要叫 `mods`，那在本 fork 里**已经被占用**（同一个字段名两种语义 ⇒ `validateC2S` 回 `bad field mods`，
-  // 实测过）。所以新开一格，而不是改 `mods` 的语义 —— 后者会让每一个已经发 `mods` 的客户端静默改变含义。
-  'room.create': {
-    mode: (v) => ROOM_MODES.includes(v), difficulty: (v) => DIFFICULTIES.includes(v), mods: isMods,
-    modDigest: isModDigest,
-    // 测试模式 (DESIGN §34.8): 只能显式写 ； 与缺省都表示「不是测试房」。
-    test: (v) => v === true,
-    $optional: ['mods', 'modDigest', 'test'],
-  },
-  'room.join': { code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v), modDigest: isModDigest,
-    // 入座确认 (DESIGN §34.8): 只能显式 ，与 room.spectate 同形。
-    testAck: (v) => v === true, $optional: ['modDigest', 'testAck'] },
+  // test: only the literal true (DESIGN §34.8). Omit it for a normal room — `false` is a bad field, so a
+  // string cannot sneak in as "not a test". The server still refuses it unless SP_TEST_MODE is on.
+  // difficulty: may be left out — the room starts at the server's default (server/lobby.js DEFAULT_DIFFICULTY) and the
+  // host changes it in the room (room.setDifficulty), as in the event's 联合模拟; a value given must be a difficulty.
+  // soloUnlimited: the timed-solo opt-out 「不限时」 (DESIGN §35.23.10). Optional, and only the literal boolean —
+  // the server applies `true` solely to a solo room of a version whose solo is timed, and ignores it otherwise, so a
+  // default create stays the message it was.
+  'room.create': { mode: (v) => v === 'solo' || v === 'coop', difficulty: (v) => DIFFICULTIES.includes(v), test: (v) => v === true, version: isVersionId, soloUnlimited: isBool, $optional: ['test', 'difficulty', 'version', 'soloUnlimited'] },
+  'room.join': { $optional: ['testAck'], testAck: (v) => v === true, code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v) },
   'room.leave': {},
   'room.ready': { ready: isBool },
   'room.setDifficulty': { difficulty: (v) => DIFFICULTIES.includes(v) },
   // the co-op room option 「AI 队友最后选择」 (GitHub #338; host, before the match): the strategy and 机变 drafts order every
   // human seat before every AI seat (server/match/match/phases.js humansFirst); room.state.aiPicksLast
   'room.setAiPicksLast': { on: isBool },
-  // 房主配置 (host, before the match): one HOST_CONFIG_KEYS entry at a time. The room keeps the value across its matches
-  // and the next match reads it; an unknown key is BAD_MSG (the key list is normative in shared/constants.js)
-  'room.setHostConfig': { key: (v) => HOST_CONFIG_KEYS.includes(v), on: isBool },
-  // 房主配置「对局选项」(host, before the match): one HOST_ENEMY_KEYS slider at a time, `steps` an integer count of 10 %
-  // steps (shared/constants.js HOST_ENEMY_MAX_STEPS = 10, i.e. +100 %). An unknown key is BAD_MSG — the key list is
-  // normative — and so is an out-of-range step count, so a client cannot ask for a buff the panel cannot show.
-  'room.setEnemyBuff': { key: (v) => HOST_ENEMY_KEYS.includes(v), steps: (v) => isInt(v, 0, HOST_ENEMY_MAX_STEPS) },
-  // Mod 开关 (host, before the match): one MOD_KEYS switch at a time, host-only like the rest of 房主配置. The room keeps
-  // the value across its matches and the next match reads it (server/lobby.js setMods / room.state.mods). An unknown key
-  // is BAD_MSG — the key list is normative in shared/constants.js MOD_KEYS.
-  'room.setMods': { key: (v) => MOD_KEYS.includes(v), on: isBool },
-  // 面板可发起的两条展示类消息（DESIGN §34.34 `PANEL_SEND_TYPES`，闭枚举在 public/js/ui/extensions.js）：
-  //   * `room.mods` —— 房主改本房间装载的工坊包集合（改的是装载面，不是战果；服务端另有三道闸门：非房主 / 已开局 /
-  //     任一真人 ready ⇒ MOD_SET_LOCKED）；
-  //   * `room.appearance` —— 只改别人看到的皮肤与头像。
-  // 两条都只改展示，加一条要同时改白名单表、这里的形状与一条测试（有意的摩擦）。
-  'room.mods': { modIds: isModIds },
-  'room.appearance': { picks: isAppearancePicks, avatar: isAppearanceAvatar, $optional: ['picks', 'avatar'], $atLeastOne: ['picks', 'avatar'] },
+  // 「不限时」 (DESIGN §35.23.10; host, before the match, a solo room of a version whose solo is timed): the match's
+  // preparation and 机变 stay untimed (Match opts.soloUnlimited). Off by default; room.state omits the key unless it is on.
+  'room.setSoloUnlimited': { on: isBool },
+
+  // Remake-only spectator handover: host opt-in before play, default off (§35.100).
+  'room.setAiTakeover': { on: isBool },
+  'room.aiRequest': { botId: isId },
+  'room.aiVote': { voteId: (v) => typeof v === 'string' && v.length <= 16, approve: isBool },
   'room.addBot': {},
   // seat indexes are validated against the widest room (终极模拟, ULTIMATE_SEATS); the lobby refuses a seat its own room
   // does not have (server/lobby.js removeBot/kick read room.seats[seat])
@@ -622,15 +607,19 @@ export const C2S = {
   'room.start': {},
   'room.rerollSetup': { setupRevision: (v) => isInt(v, 0, 2 ** 31) },
   'room.cancelReroll': { voteId: (v) => isInt(v, 1, 2 ** 31) },
+  // official versions (DESIGN §35.23, M1; before the match): the host proposes the room's version; the seated humans vote
+  // like 重刷 (unanimous, a decline cancels, a lone human switches at once); room.state.version / versionVote
+  'room.proposeVersion': { version: isVersionId },
+  'room.versionVote': { voteId: (v) => isInt(v, 1, 2 ** 31), agree: isBool },
+  'room.cancelVersionVote': { voteId: (v) => isInt(v, 1, 2 ** 31) },
   // operator loadout (DESIGN §16): stored per session/seat; accepted until the match leaves INFO_CHECK — `ops` (0.2.2):
   // the per-operator 潜能 / 练度 (absent = none set: every operator at 潜能 6, 精英2 Lv.60)
   'room.loadout': { entries: isLoadoutEntries, ops: isLoadoutOps, $optional: ['ops'] },
   // 干员皮肤 (docs/SKINS.md): the appearances the player wears, keyed by operator charId; PUBLIC, so it is accepted in
   // any room phase (the loadout locks at INFO_CHECK because it changes what a unit does; a skin changes only the model)
   'room.skins': { skins: isSkinSelection },
-  // 名片干员 (ui/seatArt.js): the operator a doctor shows on the room's seat card. One charId, or '' to clear the pick
-  // (the seat then falls back to one chosen by the player id). PUBLIC and cosmetic, so it is accepted in any phase — the
-  // same reasoning as room.skins. Omitted from room.state / m.public when unset, so an unchanged room's bytes stay put.
+  // 名片干员 (PR #643 split 6): the operator whose portrait fills the player's seat card in the waiting room — an
+  // operator charId ('' for none; the server keeps only a visible charId of the room's chess.json); cosmetic, any room phase
   'room.card': { charId: (v) => v === '' || isCharId(v) },
   // operator ownership (干员持有, 0.2.0 补位): stored per session / seat; a match takes the list its seat had when it
   // started (an out-of-match setting — during a match it is stored for the next one: ROOM_STARTED)
@@ -764,37 +753,11 @@ export const C2S = {
     taskId: isId, choice: (v) => v === undefined || isInt(v, 0, 7), error: (v) => v === undefined || v === true,
     $optional: ['choice', 'error'],
   },
-
-  // 资源包准入（工坊 mod 层移植, DESIGN §34.13）。这三个类型属于**钩子总线**：唯一的消费者是包声明的
-  // `server.preDispatch` 钩子（server/net.js onFrame，过了 validateC2S 之后、ping/hello 之前）。它们必须在这里，
-  // 否则消息在 C2S 自有属性白名单就被当非法类型拒掉，连钩子都到不了；而钩子在 ping/hello **之前**被调用，
-  // 是因为服务端的挑战是连接建立时发出去的，客户端的证明往往在 `hello` 之前到达（放到会话检查之后就只会被回
-  // `hello required`）。形状在这里判死，钩子因此可以直接信任字段。
-  //
-  // 形状跟客户端的证明算法（public/js/resources/bundle.js prove()）：nonce 是服务端 24 随机字节的十六进制
-  // （48 位），version 是资源清单版本（12 位十六进制），proofs 是 3 条完整 SHA-256（64 位十六进制）。
-  // **没有钩子的服务器**上它们仍然是合法协议类型，会照常落到大厅 —— 大厅对没有处理的类型回 `BAD_MSG`，
-  // 不会静默吞掉。
-  'resource.challenge.request': {},
-  'resource.reset': {},
-  'resource.proof': {
-    nonce: (v) => typeof v === 'string' && /^[0-9a-f]{48}$/.test(v),
-    version: (v) => typeof v === 'string' && /^[0-9a-f]{12}$/.test(v),
-    proofs: (v) => Array.isArray(v) && v.length === 3
-      && v.every((p) => typeof p === 'string' && /^[0-9a-f]{64}$/.test(p)),
-  },
-
-  // 包命名空间消息（docs/WORKSHOP.md §1.9.6）。插件包要的聊天 / 皮肤这类通道，引擎里**没有**，而引擎也不该替它
-  // 发明语义。所以引擎只做一件事：把一条**不透明**载荷从发送者送到同一个房间里、装了同一个包、且声明过这个通道
-  // 的客户端。**类型名由引擎定**（`pack.msg`），**通道名由包定**（作者的 `client.panels[].messages` 里只写后半段，
-  // 线上的 `<包id>.<名字>` 由引擎拼）—— 于是「包能定义新协议类型」这件事没有发生，`b.*` 那条边界一个字没动。
-  'pack.msg': {
-    pack: isModId,
-    channel: (v) => typeof v === 'string' && /^[a-z][a-z0-9_-]{0,63}$/.test(v),
-    // 载荷**有界**：一条消息不该能把房间的内存吃掉。形状之外引擎一概不解释（`data` 的语义属于包自己）。
-    data: (v) => v === undefined || jsonBytes(v) <= PACK_MSG_LIMITS.bytes,
-    $optional: ['data'],
-  },
+  // State-delta transport (shared/stateDelta.js): the client asks for one full frame after it missed one. The server
+  // answers with a full frame on each state channel it speaks (m.public / m.private), which is what restores the
+  // baseline; it is rate-limited like the other resend-heavy intents (server/net.js HEAVY_TYPES, and the lobby's
+  // resyncMinGapMs). An old client never sends it and keeps receiving the frames it always got.
+  'state.resync': {},
 };
 
 // Server → client message types (documentation + client dispatch table keys).
@@ -843,12 +806,20 @@ export function validateC2S(msg) {
   return null;
 }
 
-// Event tuple kinds inside `b.ev` (DESIGN §8.2). 'cast' ['cast', id, slot, dur?] is display only: an enemy uses the skill
-// of that slot of its data record's skills[] (server/sim/content/enemies/helpers.js castSlot; the client's skill clip
-// and official skill effects — render/app.js).
+// Event tuple kinds inside `b.ev` (DESIGN §8.2). 'cast' ['cast', id, slot, dur?, clip?] is display only: an enemy uses the
+// skill of that slot of its data record's skills[] (server/sim/content/enemies/helpers.js castSlot; the client's skill
+// clip and official skill effects — render/app.js); `clip` (s) when it is an attack-class skill cast in the attack's
+// turn: the clip played in place of the attack, 0 = the attack clip (DESIGN §35.57).
 export const EV = Object.freeze({
   SPAWN: 'spawn', ATK: 'atk', DMG: 'dmg', HEAL: 'heal', SKILL: 'skill', ENGAGE: 'engage', DIE: 'die', LEAK: 'leak',
   STATUS: 'status', FX: 'fx', LAYER: 'layer', BOUNTY: 'bounty', DEPLOY: 'deploy', CAST: 'cast',
+  // ['rate', id, seconds] - the unit's OWN attack interval (`u.s.interval`, buffs and skills included) changed. Sent
+  // once per change: the FIRST value travels in the spawn UnitInfo (`atkInterval`) and is not repeated, and a change is
+  // never swallowed by that seed; an event's value outranks the spawn-time UnitInfo for the rest of the battle (ordinary
+  // snapshots do not refresh it). Display
+  // only: the renderer paces the attack clip over it (render/attackRate.js) instead of waiting to measure two attacks,
+  // which is what made the first swing of a skill / buff change slow-motion for a while.
+  RATE: 'rate',
 });
 
 /**

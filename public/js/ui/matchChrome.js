@@ -121,32 +121,31 @@ export function AwayOverlay({ onBack = () => {} }) {
 }
 
 /**
- * Pre-game step header.
- *
- * `status` 与 `extra` 是上游同名组件的两个插槽（上游 matchChrome 的 `status`/`extra`）：`status` 放在**中间栏下方**，
- * 用来显示这一步的实时状态（选择策略页的 `dturn`「请选择策略 / X 正在选择策略… / 策略选择完成」就是它）；
- * `extra` 放在**右侧工具区**，放这一步自己的小按钮。两个都可省。
+ * Pre-game step header (PR #643, the event's pre-game, video 6:29–7:51): exit over the ping | the difficulty, with
+ * `extra` beside it in one capsule (the draft's 本局信息) | "1/2 确认本局信息" ……… `status` (the draft's turn: 请选择策略 /
+ * X 正在选择策略… / 策略选择完成) | 玩法说明 and the countdown.
  * @param {{ step: number, of: number, title: string, micro: string, pub: any, total?: number|null, onExit: Function,
- *   status?: any, extra?: any }} props
+ *   extra?: any, status?: any }} props
  */
-export function StepHeader({ step, of, title, micro, pub, total, onExit, status = null, extra = null }) {
+export function StepHeader({ step, of, title, micro, pub, total, onExit, extra = null, status = null }) {
   const conn = useStore((s) => s.connection, shallowEqual);
   return html`<header class="stephead">
     <div class="stephead__left">
-      <${Button} variant="danger" size="lg" square=${true} icon="exit" onClick=${onExit} aria-label=${t('离开')} title=${t('离开')} />
-      <div class="stephead__meta">
+      <div class="stephead__exit">
+        <${Button} variant="danger" size="lg" square=${true} icon="exit" onClick=${onExit} aria-label=${t('离开')} title=${t('离开')} />
         <${PingPill} ms=${conn.ping} online=${conn.status === 'online'} />
+      </div>
+      <div class=${`stephead__mode${extra ? ' has-extra' : ''}`}>
         ${pub?.difficulty ? html`<${DifficultyTag} difficulty=${pub.difficulty} />` : null}
         ${pub?.test ? html`<${TestMark} />` : null}
+        ${extra}
       </div>
-    </div>
-    <div class="stephead__center">
-      <${MicroLabel} tone="mint">${micro}</${MicroLabel}>
-      <h1 class="stephead__title"><b class="num">${step}</b><span class="num stephead__of">/${of}</span>${title}</h1>
-      ${status}
+      <i class="stephead__sep" aria-hidden="true"></i>
+      <h1 class="stephead__title"><b class="num">${step}</b><span class="num stephead__of">/${of}</span><span class="stephead__name">${title}</span></h1>
+      <${MicroLabel} tone="mint" class="stephead__micro">${micro}</${MicroLabel}>
     </div>
     <div class="stephead__right">
-      ${extra}
+      ${status ? html`<div class="stephead__status">${status}</div><i class="stephead__sep" aria-hidden="true"></i>` : null}
       <${GuideButton} class="stephead__guide" variant="secondary" />
       <${Countdown} deadline=${pub?.deadline} total=${total ?? undefined} size="md" />
     </div>

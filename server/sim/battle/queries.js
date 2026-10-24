@@ -161,9 +161,9 @@ export class BattleQueries {
   }
 
   /**
-   * Allies (not devices) within tiles `keys`, sorted by HP ratio (lowest first) that need healing. The shared recipient
-   * rule decides who may be healed at all (`canReceiveHeal`: 禁疗, and 八 卡兹戴尔's 亡魂 healing group) — the same rule
-   * the heal pipeline and the chain selector use, so a selector can never offer a target the pipeline would refuse.
+   * Allies (not devices) within tiles `keys`, sorted by HP ratio (lowest first) that need healing. A `noHeal` (禁疗) ally
+   * is left out unless the healer's profile heals it through its 禁疗 (`healThrough(healer, ally)`: 凯尔希's Mon3tr —
+   * attack/heal.js heal).
    */
   injuredAlliesInKeys(keys, healer, includeElement = false) {
     const out = [];

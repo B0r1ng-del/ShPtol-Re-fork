@@ -1,170 +1,128 @@
-// `room.card`（名片干员）：房间座位卡上**这名博士展示的干员立绘**。
-//
-// 与 `room.skins` / `room.appearance` 同一类：纯外观、**公开**（队友看得见）、比赛中也接受。
-// 但它比皮肤更小 —— 只有一个 charId，`''` 表示「默认」（座位卡按博士编号哈希挑一个，每个客户端算出同一个）。
-//
-// 这里钉四件事：
-//   1. 形状：一个 charId 或 `''`，别的一律 BAD_MSG；
-//   2. 跨客户端可见（变更即广播到 `room.state` 的 seat，以及 `m.public` 的 player）；
-//   3. 未知干员被拒，且**不改动已有选择**；
-//   4. 没选过的座位**不带这个键** —— 房间字节不因这个功能而变。
-//
-// Run: node --test test/lobby-card.test.js
-import { test, describe, before, after } from 'node:test';
+// test/lobby-card.test.js — room.card (名片干员, PR #643 split 6) end to end over WebSocket: the wire check, the
+// whitelist (only a visible charId of chess.json — not a hidden preset, a stand-in body or a 自选-only operator), storage
+// on the session (it follows the player into the next room) and the seat, room.state seats[].card for every member (human seats with a
+// card only), '' clearing it, and no phase gate (cosmetic: a running match is neither asked nor refused).
+import { describe, test, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+
 import { startServer } from '../server/index.js';
-import { C2S, validateC2S } from '../shared/protocol.js';
+import { StubMatch } from '../server/match/StubMatch.js';
 import { TestClient } from './helpers/wsClient.js';
+import { ERR } from '../shared/constants.js';
+import { getData } from '../server/data.js';
+import { cardOperators } from '../public/js/ui/seatArt.js';
 
-// ---------------------------------------------------------------------------------------------------
-// 一、形状（纯函数，不起服务器）
-// ---------------------------------------------------------------------------------------------------
+const OPERATOR = 'char_498_inside';   // 隐现 (chess.json)
+const OTHER = 'char_1012_skadi2';     // 浊心斯卡蒂 (chess.json)
+const STAND_IN = 'char_600_cpione';   // a 补位 body (backups.units), no chess record
+const DIY_ONLY = 'char_003_kalts';    // a 自选 operator (backups.diy.ownedPool), no chess record
+const HIDDEN = 'char_616_pithst';     // a hidden preset (chess.json visible: false), not in the picker
 
-describe('room.card：形状判据', () => {
-  test('接受：一个 charId，或空串（默认）', () => {
-    assert.equal(validateC2S({ t: 'room.card', charId: 'char_498_inside' }), null);
-    assert.equal(validateC2S({ t: 'room.card', charId: '' }), null, '空串 = 清掉选择，回落到按编号自动分配');
+function clientPool(getUrl) {
+  const open = new Set();
+  return {
+    async player(name, token) {
+      const c = await TestClient.connect(getUrl());
+      open.add(c);
+      const w = await c.hello(name, token);
+      c.id = w.playerId;
+      c.token = w.token;
+      return c;
+    },
+    async closeAll() {
+      await Promise.all([...open].map((c) => c.terminate().catch(() => {})));
+      open.clear();
+    },
+  };
+}
+const quietLog = () => ({ info() {}, warn() {}, debug() {}, error() {} });
+const ok = async (c, msg) => { const r = await c.request(msg); assert.equal(r.t, 'ok', `${msg.t}: ${JSON.stringify(r)}`); return r; };
+const err = async (c, msg, code) => { const r = await c.request(msg); assert.equal(r.t, 'error', JSON.stringify(r)); assert.equal(r.code, code, JSON.stringify(r)); return r; };
+async function createRoom(c, mode = 'coop') {
+  await ok(c, { t: 'room.create', mode, difficulty: 'FUNNY' });
+  return c.waitFor('room.state', (s) => s.hostId === c.id && s.mode === mode);
+}
+const seatOf = (state, id) => state.seats.find((s) => s && s.playerId === id);
+
+describe('room.card (lobby, stub match)', () => {
+  let srv;
+  let pool;
+  before(async () => {
+    // a burst large enough for the test that walks the whole picker list
+    srv = await startServer({ port: 0, host: '127.0.0.1', log: quietLog(), MatchClass: StubMatch, heavyBurst: 400, heavyPerSec: 4, rateBurst: 400 });
+    pool = clientPool(() => `ws://127.0.0.1:${srv.port}/ws`);
   });
+  afterEach(async () => { await pool.closeAll(); });
+  after(async () => { await srv?.close(); });
 
-  test('拒绝：缺字段 / 非字符串 / 不像 charId / 太长的 id', () => {
-    for (const bad of [
-      { t: 'room.card' },
-      { t: 'room.card', charId: 7 },
-      { t: 'room.card', charId: null },
-      { t: 'room.card', charId: 'chess_1_01' },
-      { t: 'room.card', charId: 'nope' },
-      { t: 'room.card', charId: `char_1_${'x'.repeat(200)}` },
-    ]) {
-      assert.ok(validateC2S(bad), `${JSON.stringify(bad)} 应当被拒`);
+  test('the wire check: a charId or "" passes; a chess id, a number, junk or a missing field is BAD_MSG', async () => {
+    const c = await pool.player('Wire');
+    await ok(c, { t: 'room.card', charId: OPERATOR });
+    await ok(c, { t: 'room.card', charId: '' });
+    for (const charId of ['chess_char_1_01_a', 7, null, 'char_498 inside', `char_1_${'x'.repeat(70)}`]) {
+      await err(c, { t: 'room.card', charId }, ERR.BAD_MSG);
     }
+    await err(c, { t: 'room.card' }, ERR.BAD_MSG);
   });
 
-  test('进了 C2S 表（不是走 default 分支）', () => {
-    assert.ok(Object.hasOwn(C2S, 'room.card'));
-  });
-});
-
-// ---------------------------------------------------------------------------------------------------
-// 二、真服务器端到端（两个真人同房：名片必须跨客户端可见，这是它存在的理由）
-// ---------------------------------------------------------------------------------------------------
-
-let srv;
-const open = new Set();
-
-const player = async (name) => {
-  const c = await TestClient.connect(`${srv.url.replace(/^http/, 'ws')}/ws`);
-  open.add(c);
-  const w = await c.hello(name);
-  c.id = w.playerId;
-  c.token = w.token;
-  c.roomState = null;
-  return c;
-};
-
-const refresh = async (c, ms = 2000) => {
-  let latest = null;
-  for (;;) {
-    try { latest = await c.waitFor('room.state', () => true, 0); } catch { break; }
-  }
-  if (latest) c.roomState = latest;
-  if (latest) return latest;
-  c.roomState = await c.waitFor('room.state', () => true, ms);
-  return c.roomState;
-};
-
-const until = async (viewer, pred, ms = 2000) => {
-  const end = Date.now() + ms;
-  for (;;) {
-    try { await refresh(viewer, Math.max(0, Math.min(150, end - Date.now()))); } catch { /* 超时 */ }
-    if (pred(viewer.roomState)) return true;
-    if (Date.now() >= end) return false;
-  }
-};
-
-const pair = async () => {
-  const host = await player('房主');
-  const created = host.waitFor('room.state', (s) => s.hostId === host.id && s.code);
-  assert.equal((await host.request({ t: 'room.create', mode: 'coop', difficulty: 'NORMAL' })).t, 'ok');
-  host.roomState = await created;
-
-  const guest = await player('客人');
-  const joined = guest.waitFor('room.state', (s) => s.code === host.roomState.code && s.seats.some((x) => x && x.playerId === guest.id));
-  assert.equal((await guest.request({ t: 'room.join', code: host.roomState.code })).t, 'ok');
-  guest.roomState = await joined;
-  host.roomState = await host.waitFor('room.state', (s) => s.seats.filter(Boolean).length === 2);
-  return { host, guest };
-};
-
-const seatOf = (viewer, ownerId) => (viewer.roomState?.seats || []).find((s) => s && s.playerId === ownerId);
-
-before(async () => { srv = await startServer({ port: 0, host: '127.0.0.1', quiet: true }); });
-after(async () => {
-  await Promise.all([...open].map((c) => c.terminate().catch(() => {})));
-  open.clear();
-  await srv?.close();
-});
-
-describe('room.card：真服务器端到端', () => {
-  test('选定后**同房的人都看得到**，且没选的座位不带这个键', async () => {
-    const { host, guest } = await pair();
-    assert.equal((host.roomState.seats || []).every((s) => !s || s.card === undefined), true,
-      '没选时座位不带 card 键 —— 房间字节不因这个功能而变');
-
-    // 一个这台服务器真认识的干员（data/chess.json 里真实存在的 charId）
-    const pick = 'char_498_inside';
-    assert.equal((await host.request({ t: 'room.card', charId: pick })).t, 'ok', '已知干员必须被接受');
-    assert.ok(await until(guest, () => seatOf(guest, host.id)?.card), '客人等到了房主的名片干员');
-    assert.equal(seatOf(guest, host.id).card, pick);
-    assert.equal(seatOf(host, guest.id).card, undefined, '客人没选 ⇒ 他那一席不带这个键');
+  test('only a visible operator of chess.json: a hidden preset, a stand-in body, a 自选-only operator or an unknown id is refused, the stored card stays', async () => {
+    const host = await pool.player('Host');
+    await createRoom(host);
+    await ok(host, { t: 'room.card', charId: OPERATOR });
+    await host.waitFor('room.state', (s) => seatOf(s, host.id)?.card === OPERATOR);
+    for (const charId of [HIDDEN, STAND_IN, DIY_ONLY, 'char_999_nobody']) {
+      const r = await err(host, { t: 'room.card', charId }, ERR.BAD_MSG);
+      assert.match(JSON.stringify(r), /unknown operator/);
+    }
+    // a later room.state still carries the card the refused ones did not replace
+    await ok(host, { t: 'room.addBot' });
+    const st = await host.waitFor('room.state', (s) => s.seats.some((x) => x && x.isBot));
+    assert.equal(seatOf(st, host.id).card, OPERATOR);
   });
 
-  test('清掉选择（空串）后座位重新不带这个键', async () => {
-    const { host, guest } = await pair();
-    const pick = 'char_498_inside';
-    assert.equal((await host.request({ t: 'room.card', charId: pick })).t, 'ok');
-    assert.ok(await until(guest, () => seatOf(guest, host.id)?.card === pick));
-
-    assert.equal((await host.request({ t: 'room.card', charId: '' })).t, 'ok');
-    assert.ok(await until(guest, () => seatOf(guest, host.id)?.card === undefined), '清掉后键消失，不是空串');
+  test('the server takes every operator the client picker lists (ui/seatArt.js cardOperators), in a room too', async () => {
+    const list = cardOperators(Object.values(getData().chess)).map((c) => c.charId);
+    assert.ok(list.length > 100);
+    const c = await pool.player('All');
+    await createRoom(c, 'solo');
+    for (const charId of list) await ok(c, { t: 'room.card', charId });
   });
 
-  test('未知干员被拒，且**不改动已有选择**', async () => {
-    const { host, guest } = await pair();
-    const pick = 'char_498_inside';
-    assert.equal((await host.request({ t: 'room.card', charId: pick })).t, 'ok');
-    assert.ok(await until(guest, () => seatOf(guest, host.id)?.card === pick));
-
-    const bad = await host.request({ t: 'room.card', charId: 'char_999_ghost' });
-    assert.equal(bad.t, 'error');
-    assert.equal(bad.code, 'BAD_MSG');
-    assert.equal(seatOf(guest, host.id).card, pick, '一个坏消息不该把已经选好的清掉');
+  test('every member sees it as room.state seats[].card; "" clears it; bots and card-less seats carry no key', async () => {
+    const host = await pool.player('Host');
+    const guest = await pool.player('Guest');
+    const st0 = await createRoom(host);
+    assert.ok(!('card' in seatOf(st0, host.id)), 'a room without cards sends what it sent before');
+    await ok(guest, { t: 'room.join', code: st0.code });
+    await guest.waitFor('room.state', (s) => !!seatOf(s, guest.id));
+    await ok(host, { t: 'room.card', charId: OPERATOR });
+    const seen = await guest.waitFor('room.state', (s) => seatOf(s, host.id)?.card === OPERATOR);
+    assert.ok(!('card' in seatOf(seen, guest.id)), 'the guest picked none');
+    await ok(host, { t: 'room.addBot' });
+    const withBot = await guest.waitFor('room.state', (s) => s.seats.some((x) => x && x.isBot));
+    assert.ok(withBot.seats.filter((x) => x && x.isBot).every((b) => !('card' in b)));
+    await ok(host, { t: 'room.card', charId: '' });
+    const cleared = await guest.waitFor('room.state', (s) => !!seatOf(s, host.id) && !('card' in seatOf(s, host.id)));
+    assert.equal(cleared.code, st0.code);
   });
 
-  test('不在房间里发 ⇒ 不崩（不是 INTERNAL）', async () => {
-    const c = await player('路人');
-    const r = await c.request({ t: 'room.card', charId: 'char_498_inside' });
-    assert.notEqual(r.code, 'INTERNAL', `不该是内部错误：${JSON.stringify(r)}`);
-  });
-});
-
-// ---------------------------------------------------------------------------------------------------
-// 三、与 room.skins 同口径（读源码钉住设计）
-// ---------------------------------------------------------------------------------------------------
-
-describe('room.card：与 room.skins 同口径', () => {
-  test('比赛中也接受：处理器里没有 ROOM_STARTED 闸门（只有 match 不支持时才回那句话）', () => {
-    const src = readFileSync(new URL('../server/lobby.js', import.meta.url), 'utf8');
-    const i = src.indexOf('card(session, { charId })');
-    assert.ok(i > 0, '处理器在');
-    const body = src.slice(i, i + 900);
-    assert.ok(!/if \(room\.match\) return fail\(ERR\.ROOM_STARTED/.test(body), '名片不因对局进行中而被拒 —— 它只改显示');
-    assert.match(body, /seat\.card = kept/, '存到座位上');
+  test('the card follows the player: picked outside a room it is on the seat of the next room', async () => {
+    const c = await pool.player('Early');
+    await ok(c, { t: 'room.card', charId: OTHER });
+    const st = await createRoom(c);
+    assert.equal(seatOf(st, c.id).card, OTHER);
+    await ok(c, { t: 'room.leave' });
+    const again = await createRoom(c, 'solo');
+    assert.equal(seatOf(again, c.id).card, OTHER);
   });
 
-  test('客户端按「服务器认不认这条消息」决定是否同步（CARD_SYNC）', () => {
-    const room = readFileSync(new URL('../public/js/screens/room.js', import.meta.url), 'utf8');
-    assert.match(room, /export const CARD_SYNC = Object\.hasOwn\(C2S, 'room\.card'\)/);
-    assert.match(room, /net\.request\('room\.card', \{ charId: myCard \|\| '' \}\)/);
+  test('cosmetic, no phase gate: accepted while the match runs and shown in room.state', async () => {
+    const host = await pool.player('Solo');
+    await createRoom(host, 'solo');
+    await ok(host, { t: 'room.start' });
+    await host.waitFor('m.public', (p) => p.phase === 'INFO_CHECK');
+    await ok(host, { t: 'room.card', charId: OPERATOR });
+    const st = await host.waitFor('room.state', (s) => seatOf(s, host.id)?.card === OPERATOR);
+    assert.equal(st.inMatch, true);
   });
 });

@@ -4,15 +4,16 @@
 // registers exactly the kit of the stand-in character whose charId has that code name (data/backups.json `units`); a
 // 自选 file `op-<codename>.js` registers exactly the kit of the owned-6★ pick with that code name (data/backups.json
 // `diy.ownedPool`) and writes every skill of the operator under `skills`; the registry is the tier groups in order, then
-// the stand-ins, then the 自选 operators, and content/index.js serves that object; KITTED_CHARS = the 预备干员 + every
-// registered stand-in / operator charId; no kit file imports a Node-only or server-only module or reads the clock /
-// Math.random (the sim is deterministic and also runs in the browser, /sim/).
+// the stand-ins, then the 自选 operators, then the version charId kits (`ver-<codename>.js`, one key) and the borrowed
+// 自选 file `ver-diy.js` (the 24 DIY_BORROW_CHARS); content/index.js serves that object; KITTED_CHARS = the 预备干员 +
+// every registered stand-in / operator charId + the borrowed 自选 charIds; no kit file imports a Node-only or
+// server-only module or reads the clock / Math.random (the sim is deterministic and also runs in the browser, /sim/).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { KIT_FILES, TIER_KITS, KITS, STANDIN_KIT_FILES, STANDIN_KITS, OPERATOR_KIT_FILES, OPERATOR_KITS, GENERIC_KIT_CHARS, KITTED_CHARS } from '../../server/sim/content/kits/index.js';
+import { KIT_FILES, TIER_KITS, KITS, STANDIN_KIT_FILES, STANDIN_KITS, OPERATOR_KIT_FILES, OPERATOR_KITS, GENERIC_KIT_CHARS, KITTED_CHARS, VERSION_KIT_FILES, VERSION_KITS, DIY_BORROW_KIT_FILES, DIY_BORROW_KITS, DIY_BORROW_CHARS } from '../../server/sim/content/kits/index.js';
 import { KITS as CONTENT_KITS } from '../../server/sim/content/index.js';
 import { diyRecord } from '../../shared/diy.js';
 import { normalizeChess } from '../../server/sim/simdata.js';
@@ -24,7 +25,7 @@ const BACKUPS = JSON.parse(readFileSync(join(ROOT, 'data/backups.json'), 'utf8')
 const jsIn = (dir) => readdirSync(join(KIT_DIR, dir)).filter((f) => f.endsWith('.js')).sort();
 
 test('kits/index.js lists every kit file of kits/ops/ exactly once, and only those', () => {
-  const listed = [...KIT_FILES.flat(), ...STANDIN_KIT_FILES, ...OPERATOR_KIT_FILES];
+  const listed = [...KIT_FILES.flat(), ...STANDIN_KIT_FILES, ...OPERATOR_KIT_FILES, ...VERSION_KIT_FILES, ...DIY_BORROW_KIT_FILES];
   assert.equal(new Set(listed).size, listed.length, 'a file listed twice');
   // The expansions' own chess keep their own registries, loaded by content/index.js rather than kits/index.js:
   // 六.F 莱茵生命 (kits/rhine.js), 八 卡兹戴尔 (kits/kazdel.js) and 九 雷姆必拓 (kits/rem.js). Their `ops/chess_<pack>_*`
@@ -71,7 +72,7 @@ test('a 自选 kit file op-<codename>.js registers the kit of that owned-6★ pi
       }
     }
   }
-  assert.deepEqual([...KITTED_CHARS].sort(), [...new Set([...GENERIC_KIT_CHARS, ...Object.keys(STANDIN_KITS), ...Object.keys(OPERATOR_KITS)])].sort());
+  assert.deepEqual([...KITTED_CHARS].sort(), [...new Set([...GENERIC_KIT_CHARS, ...Object.keys(STANDIN_KITS), ...Object.keys(OPERATOR_KITS), ...DIY_BORROW_CHARS])].sort());
 });
 
 test('a kit file <chessId>-<codename>.js registers the kit of <chessId>_a (codename: its charId without char_<n>_)', async () => {
@@ -89,17 +90,38 @@ test('a kit file <chessId>-<codename>.js registers the kit of <chessId>_a (coden
   }
 });
 
-test('the upstream registry keeps one key per file; content/index.js spreads the ported expansion over it', () => {
-  assert.deepEqual(Object.keys(KITS), [...TIER_KITS.flatMap((t) => Object.keys(t)), ...Object.keys(STANDIN_KITS), ...Object.keys(OPERATOR_KITS)]);
-  assert.equal(Object.keys(KITS).length, KIT_FILES.flat().length + STANDIN_KIT_FILES.length + OPERATOR_KIT_FILES.length, 'one key per file, none twice');
-  // content/index.js serves the upstream registry with the ported packRhine builders SPREAD FIRST (六.F,
-  // tools/rhine-data.mjs): every upstream key keeps its own builder — a 自选 body still runs its own kit by charId —
-  // and the expansion only adds keys no upstream registry names (`chess_rhine_*_a`).
-  for (const [key, builder] of Object.entries(KITS)) assert.equal(CONTENT_KITS[key], builder, `${key}: upstream kit preserved`);
-  for (const key of Object.keys(CONTENT_KITS).filter((id) => id.startsWith('chess_rhine_'))) {
-    assert.equal(typeof CONTENT_KITS[key], 'function', `${key}: extension builder`);
-    assert.ok(!Object.hasOwn(KITS, key), `${key}: extension cannot replace upstream`);
+test('a version kit file ver-<codename>.js registers that charId; ver-diy.js registers exactly DIY_BORROW_CHARS', async () => {
+  for (const file of VERSION_KIT_FILES) {
+    const m = /^ver-([a-z0-9]+)\.js$/.exec(file);
+    assert.ok(m, `${file}: name`);
+    const mod = await import(`../../server/sim/content/kits/ops/${file}`);
+    const keys = Object.keys(mod.default);
+    assert.equal(keys.length, 1, `${file}: one charId`);
+    assert.ok(keys[0].endsWith(`_${m[1]}`), `${file}: ${keys[0]}`);
+    assert.equal(typeof mod.default[keys[0]], 'function', `${file}: kit builder`);
+    assert.equal(VERSION_KITS[keys[0]], mod.default[keys[0]], `${file}: registered`);
+    assert.equal(KITS[keys[0]], mod.default[keys[0]], `${file}: in the merged registry`);
+    assert.ok(!KITTED_CHARS.includes(keys[0]), `${file}: a shop kit, not a 自选 pick`);
   }
+  assert.deepEqual(DIY_BORROW_KIT_FILES, ['ver-diy.js']);
+  const diy = await import('../../server/sim/content/kits/ops/ver-diy.js');
+  assert.deepEqual(Object.keys(diy.default), [...DIY_BORROW_CHARS]);
+  for (const charId of DIY_BORROW_CHARS) {
+    assert.equal(typeof diy.default[charId], 'function', charId);
+    assert.equal(DIY_BORROW_KITS[charId], diy.default[charId], charId);
+    assert.equal(KITS[charId], diy.default[charId], charId);
+    assert.ok(KITTED_CHARS.includes(charId), charId);
+  }
+});
+
+test('the registry is the tier groups, then the stand-ins, then the 自选 operators, then the version kits, then the borrowed 自选 charIds; content/index.js serves the same object', () => {
+  assert.deepEqual(Object.keys(KITS), [
+    ...TIER_KITS.flatMap((t) => Object.keys(t)), ...Object.keys(STANDIN_KITS), ...Object.keys(OPERATOR_KITS),
+    ...Object.keys(VERSION_KITS), ...Object.keys(DIY_BORROW_KITS),
+  ]);
+  // ver-diy.js is one file and 24 keys; every other kit file is one key
+  assert.equal(Object.keys(KITS).length, KIT_FILES.flat().length + STANDIN_KIT_FILES.length + OPERATOR_KIT_FILES.length + VERSION_KIT_FILES.length + DIY_BORROW_CHARS.length);
+  assert.equal(CONTENT_KITS, KITS);
 });
 
 test('kit files stay browser-safe and deterministic: no Node-only or server-only import, no clock, no Math.random', () => {

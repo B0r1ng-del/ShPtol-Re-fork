@@ -30,9 +30,9 @@ export function renderInfo(u) {
     defId: u.defId ?? null, name: u.name ?? '', tier: u.tier ?? 1, golden: !!u.golden, spine: u.spine ?? u.defId ?? null,
     avatar: u.avatar ?? u.defId ?? null, x: Number(u.x) || 0, y: Number(u.y) || 0, facing: u.facing === -1 ? -1 : 1,
     maxHp: Number(u.maxHp) || 1, boss: !!u.boss, motion: u.motion,
-    // 六.F: a 科研装置's charge meter reuses the ordinary SP slots (sim snapshot.js)
-    sp: Number.isFinite(u.sp) && u.sp >= 0 ? u.sp : 0,
-    spMax: Number.isFinite(u.spMax) && u.spMax >= 0 ? u.spMax : 0,
+    // the unit's OWN attack interval (UnitInfo.atkInterval, the sim's `s.interval` with its buffs): the view paces the
+    // attack clip over it (render/attackRate.js) — dropping it here sent every view back to the operator-record guess
+    atkInterval: Number.isFinite(u.atkInterval) && u.atkInterval > 0 ? u.atkInterval : undefined,
     // deploy direction of allies (UnitInfo.dir, DESIGN §3): the model (Back for UP, mirrored for LEFT) and the
     // ground wedge follow it; absent = unknown (legacy frames) → derived from `facing`, no wedge
     dir: typeof u.dir === 'string' ? u.dir : undefined,

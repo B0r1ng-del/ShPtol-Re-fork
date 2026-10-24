@@ -12,15 +12,16 @@
 //
 // Global & imperative so every screen can open it: `openGuide(page?)`; <GuideHost/> is mounted once by main.js
 // (and by the dev mock harness); <GuideButton/> is the standard trigger (title, lobby, room, in-match menu).
+// Official versions (DESIGN §35.23): with another version on screen a line under the header says the pictures are
+// 第二期下半's and some rules of that version differ [ASSUMED: a remake note until the version notes page of M3]; the
+// tips follow its config.
 
 import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Icon, MicroLabel, Button, Spinner } from './components.js';
 import { createStore, useStore } from '../store.js';
 import { data, useData, artUrls, nextArtUrl } from '../data.js';
 import { t, N_ } from '../../../shared/i18n.js';
-import { RELICS } from '../../../shared/relics.js';
-import { RelicList } from './relicPanel.js';
-import { installRelicJournal, relicJournalStore } from './relicJournal.js';
+import { DEFAULT_VERSION, shownVersion, versionLabel } from '../versions.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -130,6 +131,7 @@ export function GuideHost() {
   const [loaded, setLoaded] = useState(() => new Set());
   const [failed, setFailed] = useState(() => new Set());
   const boxRef = useRef(null);
+  const version = useStore(shownVersion);
   const n = pages.length;
   const i = n ? Math.min(Math.max(0, page), n - 1) : 0;
   const cur = pages[i] || null;
@@ -186,6 +188,7 @@ export function GuideHost() {
         </nav>` : null}
         <button type="button" class="guide__close" aria-label=${t('关闭')} title=${t('关闭 (Esc)')} onClick=${closeGuide}><${Icon} name="close" /></button>
       </header>
+      ${version !== DEFAULT_VERSION ? html`<p class="guide__vernote" data-testid="guide-version-note"><${Icon} name="info" />${t('玩法说明的图片来自第二期下半，「{version}」中部分规则不同', { version: versionLabel(version) })}</p>` : null}
 
       ${journal ? html`<section class="guide__journal" aria-label=${t('收藏品图鉴')} tabindex="0">
         <div class="guide__journal-head"><div><${MicroLabel} tone="mint">${t('COLLECTION // 已获得过')}</${MicroLabel}>

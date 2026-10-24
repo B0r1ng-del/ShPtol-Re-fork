@@ -169,11 +169,16 @@ export class BattleHooks {
       this._handlerError(`hookDepth:${name}`, null, new Error(`hook nesting deeper than ${MAX_HOOK_DEPTH}; handlers skipped — ${this._chain(name)}`));
       return ctx;
     }
-    const arr = list.length === 1 ? [list[0]] : list.slice();
     const d = this._emitDepth++;
+    // The hooks are iterated over a snapshot (a handler may add / remove hooks): one buffer per nesting level, reused
+    // across emits — this runs several times a tick, so a fresh `slice()` per call was pure garbage.
+    const arr = (this._emitBufs ?? (this._emitBufs = []))[d] ?? (this._emitBufs[d] = []);
+    arr.length = list.length;
+    for (let i = 0; i < list.length; i++) arr[i] = list[i];
     this._frameCtx[d] = ctx;
     try {
-      for (const h of arr) {
+      for (let i = 0; i < arr.length; i++) {
+        const h = arr[i];
         if (h.removed) continue;
         // 调用预算（`pack.json.callBudget`, DESIGN §35.52）：一个包的 hook 每被调一次就花掉一次预算。
         // 没有 `pack` 章的就是第一方内容（它们不记账，行为与从前逐字节相同）。
@@ -190,6 +195,7 @@ export class BattleHooks {
       }
     } finally {
       this._emitDepth--;
+      arr.length = 0; // drop the snapshot's references: a hook removed after this emit must not stay reachable
     }
     return ctx;
   }
@@ -240,32 +246,57 @@ export class BattleHooks {
   }
 
   _runScheduled() {
-    if (!this._sched.length) return;
+    const all = this._sched;
+    if (!all.length) return;
     const now = this.time + 1e-9;
-    let due = this._sched.filter((s) => !s.cancelled && s.due <= now);
-    if (!due.length) { if (this._sched.some((s) => s.cancelled)) this._sched = this._sched.filter((s) => !s.cancelled); return; }
-    due.sort((a, b) => a.due - b.due || a.seq - b.seq);
-    for (const s of due) {
-      if (s.cancelled) continue;
-      // 调用预算：包排的计时器每响一次也花一次（与它的 hook 记在同一本账上，DESIGN §35.52）
-      if (s.pack) {
-        const p = this._packBudgetOf(s.pack);
-        if (p && !this._spendCall(p)) { s.cancelled = true; continue; }
+    // Collected into a reused buffer (one per nesting level, emptied afterwards): this runs every tick, and `filter`
+    // plus `slice` allocated two arrays per tick.
+    const bufs = this._dueBufs ?? (this._dueBufs = []);
+    const depth = this._runDepth ?? 0;
+    const due = bufs[depth] ?? (bufs[depth] = []);
+    due.length = 0;
+    this._runDepth = depth + 1;
+    try {
+      let cancelled = 0;
+      for (let i = 0; i < all.length; i++) {
+        const s = all[i];
+        if (s.cancelled) { cancelled++; continue; }
+        if (s.due <= now) due.push(s);
       }
-      if (s.interval > 0) {
-        let n = 0;
-        while (s.due <= now && !s.cancelled && n++ < 8) { // loop-cap: battle.every at most 8 per tick
-          s.count++;
-          this._safe(() => s.fn(this, s), 'every', s.owner);
-          s.due += s.interval;
+      if (!due.length) {
+        if (cancelled) this._compactDue();
+        return;
+      }
+      due.sort((a, b) => a.due - b.due || a.seq - b.seq);
+      for (let i = 0; i < due.length; i++) {
+        const s = due[i];
+        if (s.cancelled) continue;
+        if (s.interval > 0) {
+          let n = 0;
+          while (s.due <= now && !s.cancelled && n++ < 8) { // loop-cap: battle.every at most 8 per tick
+            s.count++;
+            this._safe(() => s.fn(this, s), 'every', s.owner);
+            s.due += s.interval;
+          }
+          if (s.due <= now) s.due = this.time + s.interval;
+        } else {
+          s.cancelled = true;
+          this._safe(() => s.fn(this, s), 'after', s.owner);
         }
-        if (s.due <= now) s.due = this.time + s.interval;
-      } else {
-        s.cancelled = true;
-        this._safe(() => s.fn(this, s), 'after', s.owner);
       }
+      this._compactDue();
+    } finally {
+      this._runDepth = depth;
+      due.length = 0; // a fired timer must not stay reachable through the scratch buffer
     }
-    this._sched = this._sched.filter((s) => !s.cancelled);
+  }
+
+  /** Drop cancelled timers in place (the list is read every tick; a fresh array per tick was garbage). */
+  _compactDue() {
+    const all = this._sched;
+    let m = 0;
+    for (let i = 0; i < all.length; i++) { const s = all[i]; if (!s.cancelled) all[m++] = s; }
+    all.length = m;
   }
 
   // =============================================================================================================
