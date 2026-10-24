@@ -18,6 +18,7 @@
 
 import { MOD_KEYS, MOD_DEFAULTS, normalizeMods } from '../../../shared/constants.js';
 import { loadPref, savePref } from '../store.js';
+import { data } from '../data.js';
 import { N_ } from '../../../shared/i18n.js';
 
 /** localStorage key under the app's `sp.pref.` prefix (store.js loadPref/savePref): the last switches this device used. */
@@ -28,9 +29,21 @@ export function modsOn() {
   return normalizeMods(loadPref(PREF_MODS, MOD_DEFAULTS));
 }
 
-/** Remember the switches the host just set, so the next `room.create` on this device starts from them. */
+/**
+ * Remember the switches the host just set, so the next `room.create` on this device starts from them.
+ *
+ * ★ 需求方 2026-10-24 (「开启盟约 mod 后 S.W.E.E.P. 里看不到干员和盟约效果」): the lobby's 「Mod 菜单」 writes here and
+ * NOWHERE ELSE — no room exists yet, so `main.js`'s `room.state.mods` / `m.public.mods` selector stays null and the data
+ * store keeps listing only the original content. Pushing the preference into `data.setPacks` here is what makes every
+ * pack-backed list (S.W.E.E.P. 的盟约 / 策略 / 敌人, 干员调配, 图鉴) show the packs the player just turned on. In a room the
+ * room's own switches win (main.js), so this only seeds the lobby.
+ */
 export function rememberMods(mods) {
-  savePref(PREF_MODS, normalizeMods(mods));
+  const next = normalizeMods(mods);
+  savePref(PREF_MODS, next);
+  // the room's own set (when there is one) is the authority; `packKeysOnly` keeps this to the 内容包 half
+  if (!data.get('bonds')) return;
+  data.setPacks(next);
 }
 
 /** How many switches are on (the 房主配置 button's badge; 0 = the button shows no count). */

@@ -395,9 +395,10 @@ function handbookPage() {
 export function SweepReport({ onClose }) {
   const ready = useData('bonds', 'bands', 'bosses', 'factions', 'enemies', 'chess', 'assets');
   useData('local');
-  // ★ 内容包开关 (owner 2026-10-24: 「开启 mod 盟约后，Sweep 里预览不到」): `data.list` caches per `packsSig`, and switching
-  // a pack on rebuilds those arrays — but `useData` only re-renders on the FILE name, which does not move. Subscribing to
-  // the signature is what carries the rebuilt list into this screen. (The same trap loadout.js fixed for its roster.)
+  // ★ 内容包开关 (owner 2026-10-24: 「开启 mod 盟约后，Sweep 里预览不到」): root cause was NOT this screen — main.js only
+  //   handed `data.setPacks` the ROOM's switches, so in the lobby (no room) every pack was filtered out. It now falls back
+  //   to this device's 「Mod 菜单」 preferences. This subscription then picks the rebuilt lists up: `data.list` caches per
+  //   `packsSig`, which changes when the set does, but `useData` only re-renders on the FILE name (which does not move).
   const [, bumpPacks] = useReducer((n) => n + 1, 0);
   useEffect(() => {
     let last = data.packsSig();

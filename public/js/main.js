@@ -42,6 +42,7 @@ import { ToastHost, toast, toastError, describeError } from './ui/toasts.js';
 import { net, identity, NetError } from './net.js';
 import { store, useStore, emptyMatch, selectRoute, sessionResetNotice, isSpectating, entryGateBlocked } from './store.js';
 import { data } from './data.js';
+import { modsOn } from './ui/mods.js';
 import { GAME_FILES } from './ui/gameComponents.js';
 import { TitleScreen, sanitizeName } from './screens/title.js';
 import { LobbyScreen, rememberRoom, parseRoomParam, joinKnown } from './screens/lobby.js';
@@ -353,10 +354,13 @@ function App() {
   const route = useStore(selectRoute);
   useLang(); // a language switch re-renders the whole tree in place
   // 内容包开关 (shared/packData.js): the packs the room this client shows runs, so the data store lists only their
-  // content. In a match the host's switches are in m.public.mods; in a room, room.state.mods; with neither (the lobby)
-  // only the original content is listed, and a pack's operators appear the moment the client enters a room that has it.
-  const packs = useStore((s) => (s.match?.public?.mods || s.room?.mods || null));
-  useEffect(() => { data.setPacks(packs); }, [packs]);
+  // content. In a match the host's switches are in m.public.mods; in a room, room.state.mods. With neither (the lobby)
+  // this effect does NOTHING — the lobby's 「Mod 菜单」 already pushed this device's preference into `data.setPacks`
+  // (ui/mods.js rememberMods), which is what lets the hub's read-only screens (S.W.E.E.P. 报告) preview the packs the
+  // player turned on. 需求方 2026-10-24: 「开启盟约 mod 后 S.W.E.E.P. 里看不到」— the old code passed null in the lobby and
+  // that reset the store to the original content right after the menu had set it.
+  const roomPacks = useStore((s) => (s.match?.public?.mods || s.room?.mods || null));
+  useEffect(() => { if (roomPacks) data.setPacks(roomPacks); }, [roomPacks]);
   const [error, resetError] = useErrorBoundary((err) => console.error('[ui] screen crashed', err));
   const Screen = SCREENS[route] || LobbyScreen;
   return html`<div class="app-root">
@@ -427,6 +431,9 @@ async function boot() {
   }));
 
   wireNet();
+  // 内容包开关: seed the data store from this device's 「Mod 菜单」 preference on boot, so the lobby's read-only screens
+  // (S.W.E.E.P. 报告) list the packs the player turned on. A room's own switches override it in the App effect below.
+  data.setPacks(modsOn());
   installStatsRecorder(store); // follows the match on screen, so a 放弃模拟 can be recorded (ui/stats.js)
   installLoadoutSync({ net });
   installOwnershipSync({ net });
