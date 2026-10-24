@@ -660,20 +660,19 @@ function DetailImpl({ m, chess, golden, entries, ops = {}, onChange, onOps, onRe
 
 function Filters({ m, filters, onFilters, bonds }) {
   const set = (patch) => onFilters({ ...filters, ...patch });
+  // 需求方 2026-10-24: 职业筛选原本独占第二行、搜索框独占第一行 —— 合成一行：左侧职业、右侧搜索。
+  // 阶级 chips 已删（deck 自己按阶位分组、底栏能跳），盟约下拉与「仅看已调整」留在下一行。
   return html`<div class="lo-filters">
-    <div class="lo-frow">
-      ${/* 阶级筛选 chips removed (需求方 2026-10-24): the deck groups by tier already and its bottom bar jumps between
-           them, so this row was a second, redundant way to filter the same thing. */
-        null}
-      <${TextField} size="sm" icon="search" value=${filters.query} placeholder=${t('搜索干员 / 职业 / 盟约')} class="lo-search"
-        onInput=${(v) => set({ query: String(v).slice(0, 24) })} />
-    </div>
-    <div class="lo-frow">
+    <div class="lo-frow lo-frow--top">
       <div class="lo-chips lo-chips--prof" role="group" aria-label=${t('职业')}>
         ${PROF_ORDER.map((p) => html`<button key=${p} type="button" class=${cx('lo-chip', 'lo-chip--prof', filters.prof === p && 'is-on')}
           aria-pressed=${filters.prof === p ? 'true' : 'false'} title=${t(PROF_NAME[p])} onClick=${() => set({ prof: filters.prof === p ? null : p })}>
           <${Img} src=${profGlyphUrl(m, p)} class="lo-chip__icon lo-profglyph" fallback=${html`<span>${t(PROF_NAME[p])[0]}</span>`} /><span class="lo-chip__lbl">${t(PROF_NAME[p])}</span></button>`)}
       </div>
+      <${TextField} size="sm" icon="search" value=${filters.query} placeholder=${t('搜索干员 / 职业 / 盟约')} class="lo-search"
+        onInput=${(v) => set({ query: String(v).slice(0, 24) })} />
+    </div>
+    <div class="lo-frow">
       <label class="lo-select">
         <span class="lo-select__k">${t('盟约')}</span>
         <select value=${filters.bond || ''} onChange=${(e) => set({ bond: e.currentTarget.value || null })} aria-label=${t('按盟约筛选')}>
@@ -1022,10 +1021,10 @@ function LoadoutScreen({ st }) {
       ? html`<${DiyPanel} m=${m} picks=${st.diy || {}} legal=${diyLegal} kitted=${st.diyKitted} onSet=${setDiySlot} ops=${st.ops} onOps=${setOpsOf} />`
       : tab === 'ownership'
       ? html`<${OwnershipPanel} m=${m} roster=${ownRoster} notOwned=${st.notOwned} onToggle=${toggleOwned} />`
-      : html`<main class=${cx('lo-body', narrowDetail && 'is-detail')}>
+      : html`<main class=${cx('lo-body', narrowDetail && 'is-detail', !selId && 'is-empty')}>
       <section class="lo-roster">
         <${Filters} m=${m} filters=${st.filters} bonds=${bonds} onFilters=${(filters) => loadoutStore.set({ filters })} />
-        <div class="lo-list" ref=${gridRef}>
+        <div class="lo-list">
           ${view === 'deck'
             ? (deckTab === 'items'
               ? html`<${ItemCodex} m=${m} items=${codexItems(data.get('items'))} deckRef=${gridRef}
