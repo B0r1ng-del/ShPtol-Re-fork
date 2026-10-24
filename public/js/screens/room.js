@@ -21,7 +21,7 @@ import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, MAX_SPECTATORS, HOST
 import { MOD_ROWS, MOD_RULE_ROWS, modsCount, rememberMods, splitByLength } from '../ui/mods.js';
 import { isAlignBlocked } from '../mods/align.js';
 import {
-  html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyTag, DifficultyIcon, Tooltip, confirmDialog, doctorNo, Modal, SwitchRow,
+  html, Button, Icon, MicroLabel, PingPill, DifficultyTag, DifficultyIcon, Tooltip, confirmDialog, doctorNo, Modal, SwitchRow,
 } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { TestMark } from '../ui/testConsole.js';
@@ -203,18 +203,19 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
   const coop = room.mode !== 'solo';
   if (!seat) {
     const canAdd = coop && facts.isHost;
-    return html`<article class="seat seat--empty" style=${`--seat-i:${index}`}>
-      <header class="seat__head"><span class="seat__no num">P${index + 1}</span><${MicroLabel}>SEAT ${String(index + 1).padStart(2, '0')}<//></header>
-      <div class="seat__art seat__art--empty">
-        <div class="seat__radar" aria-hidden="true"></div>
-        <span class="seat__wait">${t('等待博士加入')}</span>
-        <${MicroLabel}>AWAITING DOCTOR<//>
+    return html`<article class="rseat rseat--empty" style=${`--i:${index}`}>
+      <span class="rseat__clip" aria-hidden="true"></span>
+      <header class="rseat__strip"><i></i><span class="num">P${index + 1}</span></header>
+      <div class="rseat__art">
+        <div class="rseat__radar" aria-hidden="true"></div>
+        <span class="rseat__wait"><small>${t('等待博士加入')}</small><${MicroLabel}>AWAITING DOCTOR<//></span>
+        <span class="rseat__noinfo" aria-hidden="true">NOINFO</span>
       </div>
-      <footer class="seat__foot">
+      <div class="rseat__plate rseat__plate--empty">
         ${canAdd
           ? html`<${Button} variant="secondary" size="sm" icon="robot" block=${true} loading=${busy === `add`} onClick=${onAddBot}>${t('添加 AI 队友')}<//>`
-          : html`<span class="seat__state t-dim">${t('空位')}</span>`}
-      </footer>
+          : html`<span class="rseat__state t-dim">${t('空位')}</span>`}
+      </div>
     </article>`;
   }
   const consent = room.content?.trusted?.consent?.[seat.seat];
@@ -223,45 +224,41 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
   const offline = seat.connected === false && !seat.isBot;
   // The host never needs to toggle ready: starting the match readies them (server rule).
   const state = offline ? 'offline' : seat.ready || seat.isBot ? 'ready' : isHostSeat ? 'host' : 'waiting';
+  const ready = state === 'ready' || state === 'host';
   // 名片干员: the picked operator's portrait, else one chosen by the player id (the same on every client)
   const cardSrc = seat.isBot || !portraits ? null : seatPortrait(seat, portraits);
   const canPick = isMe && !seat.isBot && !!onPickCard;
-  return html`<article class=${`seat brackets${isMe ? ' is-me' : ''}${isHostSeat ? ' is-host' : ''}${seat.isBot ? ' is-bot' : ''} is-${state}`}
-      style=${`--seat-i:${index}`}>
-    ${consent ? html`<span data-testid="script-consented">${t('已同意')}</span>` : null}
-    <header class="seat__head">
-      <span class="seat__no num">P${index + 1}</span>
-      <${MicroLabel}>SEAT ${String(index + 1).padStart(2, '0')}<//>
-      ${isHostSeat ? html`<span class="seat__host"><${Icon} name="crown" />${t('创建者')}</span>` : null}
-    </header>
-    <div class=${`seat__art${canPick ? ' is-pickable' : ''}`} onClick=${canPick ? onPickCard : undefined}
+  return html`<article class=${`rseat${ready ? ' is-ready' : ''}${isMe ? ' is-me' : ''}${isHostSeat ? ' is-host' : ''}${offline ? ' is-offline' : ''}${seat.isBot ? ' is-bot' : ''}`}
+      style=${`--i:${index}`}>
+    ${consent ? html`<span data-testid="script-consented" class="rseat__consent">${t('已同意')}</span>` : null}
+    <span class="rseat__clip" aria-hidden="true"></span>
+    <header class="rseat__strip"><i></i><span class="num">P${index + 1}</span></header>
+    <div class=${`rseat__art${canPick ? ' is-pickable' : ''}`} onClick=${canPick ? onPickCard : undefined}
         title=${canPick ? t('点击更换名片干员') : undefined}>
-      <div class="seat__stripes" aria-hidden="true"></div>
-      <${AvatarFrame} size="xl" name=${seat.name} src=${cardSrc} seat=${index} bot=${seat.isBot} self=${isMe} ready=${state === 'ready'} offline=${offline} />
-      ${seat.isBot ? html`<span class="seat__bot-label"><${Icon} name="robot" />${t('AI 队友')}</span>` : null}
-    </div>
-    <div class="seat__who">
-      <span class="seat__name">${seat.name || t('博士')}</span>
-      ${isMe ? html`<span class="seat__you">${t('你')}</span>` : null}
-    </div>
-    <${MicroLabel}>${seat.isBot ? 'AUTONOMOUS UNIT' : `DOCTOR #${doctorNo(seat.playerId)}`}<//>
-    ${facts.modded && !seat.isBot ? html`<span class=${`seat__content is-${seat.content || 'loading'}`} data-testid="seat-content">
-      ${seat.content === 'ready' ? t('插件内容就绪') : seat.content === 'failed' ? t('插件内容校验失败') : t('插件内容载入中')}
-    </span>` : null}
-    <footer class="seat__foot">
-      <span class=${`seat__state seat__state--${state}`}>
-        ${state === 'ready' ? html`<${Icon} name="check" />${t('已就绪')}`
+      ${cardSrc ? html`<img src=${cardSrc} alt="" draggable=${false} loading="lazy" />`
+        : html`<span class="rseat__glyph">${seat.isBot ? html`<${Icon} name="robot" />` : [...(seat.name || '?')][0]}</span>`}
+      ${isHostSeat ? html`<span class="rseat__host">${t('创建者')}</span>` : null}
+      ${canPick ? html`<button type="button" class="rseat__pick" onClick=${(e) => { e.stopPropagation(); onPickCard(); }}>
+        <${Icon} name="image" /><span>${t('更换立绘')}</span></button>` : null}
+      <span class=${`rseat__state is-${state}`}>
+        ${state === 'ready' ? html`<span class="rseat__box"><${Icon} name="check" /></span>${t('待命中')}`
           : state === 'offline' ? html`<${Icon} name="wifiOff" />${t('连接中断')}`
-          : state === 'host' ? html`<${Icon} name="crown" />${t('待命中')}`
+          : state === 'host' ? html`<span class="rseat__box"><${Icon} name="check" /></span>${t('待命中')}`
           : html`<${Icon} name="hourglass" />${t('准备中')}`}
       </span>
-      ${seat.isBot && facts.isHost ? html`<${Tooltip} text=${t('移除该 AI 队友')}>
-        <${Button} variant="ghost" size="sm" square=${true} icon="close" loading=${busy === `rm${index}`} onClick=${() => onRemoveBot(index)} aria-label=${t('移除 AI 队友')} />
-      <//>` : null}
-      ${!seat.isBot && !isMe && facts.isHost ? html`<${Tooltip} text=${t('将该博士移出同盟')}>
-        <${Button} variant="ghost" size="sm" square=${true} icon="close" loading=${busy === `kick${index}`} onClick=${() => onKick(index, seat.name, seat.playerId)} aria-label=${t('移出该博士')} />
-      <//>` : null}
-    </footer>
+      <span class="rseat__noinfo" aria-hidden="true">NOINFO</span>
+    </div>
+    <div class="rseat__plate">
+      <span class="rseat__who"><span class="rseat__name">${seat.name || t('博士')}</span>${isMe ? html`<span class="rseat__you">${t('你')}</span>` : null}</span>
+      <${MicroLabel} class="rseat__doc">${seat.isBot ? 'AUTONOMOUS UNIT' : `DOCTOR #${doctorNo(seat.playerId)}`}<//>
+      ${facts.modded && !seat.isBot ? html`<span class=${`rseat__content is-${seat.content || 'loading'}`} data-testid="seat-content">
+        ${seat.content === 'ready' ? t('插件内容就绪') : seat.content === 'failed' ? t('插件内容校验失败') : t('插件内容载入中')}
+      </span>` : null}
+      ${seat.isBot && facts.isHost ? html`<button type="button" class="rseat__kick" title=${t('移除该 AI 队友')} aria-label=${t('移除 AI 队友')}
+        disabled=${busy === `rm${index}`} onClick=${() => onRemoveBot(index)}><${Icon} name="close" /></button>` : null}
+      ${!seat.isBot && !isMe && facts.isHost ? html`<button type="button" class="rseat__kick" title=${t('将该博士移出同盟')} aria-label=${t('移出该博士')}
+        disabled=${busy === `kick${index}`} onClick=${() => onKick(index, seat.name, seat.playerId)}><${Icon} name="close" /></button>` : null}
+    </div>
   </article>`;
 }
 
@@ -721,7 +718,7 @@ export function RoomScreen() {
       </div>
     </header>
 
-    <main class=${`seats${coop ? '' : ' seats--solo'}${room.mode === 'ultimate' ? ' seats--ultimate' : ''}`}>
+    <main class=${`rs-seats${coop ? '' : ' rs-seats--solo'}${room.mode === 'ultimate' ? ' seats--ultimate' : ''}`} style=${`--n:${facts.seats.length || 4}`}>
       ${facts.seats.map((s, i) => html`<${SeatCard} key=${s ? `p${s.playerId}` : `e${i}`} seat=${s} index=${i} room=${room} facts=${facts}
         myId=${me.playerId} busy=${busy} onAddBot=${addBot} onRemoveBot=${removeBot} onKick=${kick}
         portraits=${portraits} onPickCard=${() => setPicking(true)} />`)}
