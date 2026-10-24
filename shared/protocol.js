@@ -581,14 +581,14 @@ export const C2S = {
   // soloUnlimited: the timed-solo opt-out 「不限时」 (DESIGN §35.23.10). Optional, and only the literal boolean —
   // the server applies `true` solely to a solo room of a version whose solo is timed, and ignores it otherwise, so a
   // default create stays the message it was.
-  // mode: upstream's two modes. 终极模拟 (the fork's `ultimate` room, ROOM_MODES) is NOT restored here: server/lobby.js
-  // create() dropped the fork's `mode === 'ultimate' ? ULTIMATE_DIFFICULTY` line, so a room accepted as ultimate would
-  // silently run whatever difficulty the client sent. Refusing the mode outright beats a silently wrong room.
+  // mode: 三个房间模式 (shared/constants.js ROOM_MODES)。终极模拟 (`ultimate`) 的房间难度由服务端**强制**成
+  // ABYSS（server/lobby.js create() 的 `mode === 'ultimate' ? ULTIMATE_DIFFICULTY`，setDifficulty 也只认 ABYSS）——
+  // 只放开协议不带上那两处判定，会造出「能建终极房但跑 HARD」的静默错误房。
   // mods: the creator's gameplay switches (shared/constants.js MOD_KEYS) — the per-device 模式界面 preference carried into
   // the room; a key outside MOD_KEYS is BAD_MSG rather than a silent drop (a version mismatch, not a typo).
   // modDigest: the 工坊 content-set digest — a DIFFERENT thing from `mods` on purpose (upstream calls the digest `mods`,
   // which this fork already uses for the switches; one name with two meanings was measured to return `bad field mods`).
-  'room.create': { mode: (v) => v === 'solo' || v === 'coop', difficulty: (v) => DIFFICULTIES.includes(v), mods: isMods, modDigest: isModDigest, test: (v) => v === true, version: isVersionId, soloUnlimited: isBool, $optional: ['mods', 'modDigest', 'test', 'difficulty', 'version', 'soloUnlimited'] },
+  'room.create': { mode: (v) => ROOM_MODES.includes(v), difficulty: (v) => DIFFICULTIES.includes(v), mods: isMods, modDigest: isModDigest, test: (v) => v === true, version: isVersionId, soloUnlimited: isBool, $optional: ['mods', 'modDigest', 'test', 'difficulty', 'version', 'soloUnlimited'] },
   'room.join': { $optional: ['modDigest', 'testAck'], testAck: (v) => v === true, modDigest: isModDigest, code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v) },
   'room.leave': {},
   'room.ready': { ready: isBool },
@@ -783,6 +783,37 @@ export const C2S = {
   // baseline; it is rate-limited like the other resend-heavy intents (server/net.js HEAVY_TYPES, and the lobby's
   // resyncMinGapMs). An old client never sends it and keeps receiving the frames it always got.
   'state.resync': {},
+
+  // 资源包准入（工坊 mod 层移植, DESIGN §34.13）。这三个类型属于**钩子总线**：唯一的消费者是包声明的
+  // `server.preDispatch` 钩子（server/net.js onFrame，过了 validateC2S 之后、ping/hello 之前）。它们必须在这里，
+  // 否则消息在 C2S 自有属性白名单就被当非法类型拒掉，连钩子都到不了；而钩子在 ping/hello **之前**被调用，
+  // 是因为服务端的挑战是连接建立时发出去的，客户端的证明往往在 `hello` 之前到达（放到会话检查之后就只会被回
+  // `hello required`）。形状在这里判死，钩子因此可以直接信任字段。
+  //
+  // 形状跟客户端的证明算法（public/js/resources/bundle.js prove()）：nonce 是服务端 24 随机字节的十六进制
+  // （48 位），version 是资源清单版本（12 位十六进制），proofs 是 3 条完整 SHA-256（64 位十六进制）。
+  // **没有钩子的服务器**上它们仍然是合法协议类型，会照常落到大厅 —— 大厅对没有处理的类型回 `BAD_MSG`，
+  // 不会静默吞掉。
+  'resource.challenge.request': {},
+  'resource.reset': {},
+  'resource.proof': {
+    nonce: (v) => typeof v === 'string' && /^[0-9a-f]{48}$/.test(v),
+    version: (v) => typeof v === 'string' && /^[0-9a-f]{12}$/.test(v),
+    proofs: (v) => Array.isArray(v) && v.length === 3
+      && v.every((p) => typeof p === 'string' && /^[0-9a-f]{64}$/.test(p)),
+  },
+
+  // 包命名空间消息（docs/WORKSHOP.md §1.9.6）。插件包要的聊天 / 皮肤这类通道，引擎里**没有**，而引擎也不该替它
+  // 发明语义。所以引擎只做一件事：把一条**不透明**载荷从发送者送到同一个房间里、装了同一个包、且声明过这个通道
+  // 的客户端。**类型名由引擎定**（`pack.msg`），**通道名由包定**（作者的 `client.panels[].messages` 里只写后半段，
+  // 线上的 `<包id>.<名字>` 由引擎拼）—— 于是「包能定义新协议类型」这件事没有发生，`b.*` 那条边界一个字没动。
+  'pack.msg': {
+    pack: isModId,
+    channel: (v) => typeof v === 'string' && /^[a-z][a-z0-9_-]{0,63}$/.test(v),
+    // 载荷**有界**：一条消息不该能把房间的内存吃掉。形状之外引擎一概不解释（`data` 的语义属于包自己）。
+    data: (v) => v === undefined || jsonBytes(v) <= PACK_MSG_LIMITS.bytes,
+    $optional: ['data'],
+  },
 };
 
 // Server → client message types (documentation + client dispatch table keys).

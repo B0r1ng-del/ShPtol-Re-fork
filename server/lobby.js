@@ -229,7 +229,7 @@
 
 import { aiTakeover, resetAiTakeover, reconcileAiTakeover } from './aiTakeover.js';
 import { randomBytes, randomInt } from 'node:crypto';
-import { DIFFICULTIES, ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor, HOST_CONFIG_KEYS, HOST_CONFIG_SOLO_KEYS, HOST_CONFIG_DEFAULTS, HOST_ENEMY_KEYS, HOST_ENEMY_DEFAULTS, HOST_ENEMY_MAX_STEPS, MOD_KEYS, MOD_DEFAULTS, normalizeMods, roomSeatCap } from '../shared/constants.js';
+import { DIFFICULTIES, ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor, HOST_CONFIG_KEYS, HOST_CONFIG_SOLO_KEYS, HOST_CONFIG_DEFAULTS, HOST_ENEMY_KEYS, HOST_ENEMY_DEFAULTS, HOST_ENEMY_MAX_STEPS, MOD_KEYS, MOD_DEFAULTS, normalizeMods, roomSeatCap, ULTIMATE_DIFFICULTY } from '../shared/constants.js';
 import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks, charPotentialChanges, checkSkinSelection, operatorCharIds, PACK_MSG_LIMITS } from '../shared/protocol.js';
 import { encode, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
@@ -946,6 +946,8 @@ export class Lobby {
       case 'room.proposeVersion': return this.proposeVersion(session, msg);
       case 'room.versionVote': return this.versionVote(session, msg);
       case 'room.cancelVersionVote': return this.cancelVersionVote(session, msg);
+      // 包通道（docs/WORKSHOP.md §1.9.6）：引擎只当不透明载荷转发，判据五条全在 packMsg 里。
+      case 'pack.msg': return this.packMsg(session, msg);
       // A client that missed a state-delta frame asks for a full one (shared/stateDelta.js StateReceiver; server/net.js
       // throttles it like the other resend-heavy intents). This is the same heavy resync a repeated hello runs, so it
       // draws from the same per-session budget: the match resends its full state, or the lobby its room state.
@@ -1029,8 +1031,11 @@ export class Lobby {
     if (!this.offered(version, mode).length) return fail(ERR.VERSION_UNSUPPORTED, `${version} has no ${mode} rooms`);
     if (!this.versionAvailable(version)) return fail(ERR.VERSION_UNSUPPORTED, 'the data of this version is not available');
     // left out: the default (header); the protocol refuses any other value that is not a difficulty; one the version
-    // lacks is lowered (终极 → 绝境)
-    const difficulty = this.fallbackDifficulty(version, mode, DIFFICULTIES.includes(asked) ? asked : DEFAULT_DIFFICULTY);
+    // lacks is lowered (终极 → 绝境). 终极模拟 has no picker at all: its single difficulty is the AC-4 (ABYSS) table,
+    // forced here because the client's value cannot be trusted (a room accepted as ultimate that then runs HARD would
+    // be a silently wrong room).
+    const difficulty = mode === 'ultimate' ? ULTIMATE_DIFFICULTY
+      : this.fallbackDifficulty(version, mode, DIFFICULTIES.includes(asked) ? asked : DEFAULT_DIFFICULTY);
     const cur = this.roomOf(session);
     if (cur && cur.match) return fail(ERR.ROOM_STARTED, 'leave your running match first');
     // 内容集摘要闸门（`room.create.modDigest`，DESIGN §34.4）：本进程装了包时，客户端必须说出它以为自己在加入哪一份
@@ -1326,6 +1331,8 @@ export class Lobby {
     if (!room) return fail(ERR.NOT_IN_ROOM);
     if (room.hostId !== session.playerId) return fail(ERR.NOT_HOST);
     if (room.match) return fail(ERR.ROOM_STARTED);
+    // 终极模拟 has a single difficulty (ABYSS): the lobby shows no picker and the room's value never changes
+    if (room.mode === 'ultimate') return difficulty === ULTIMATE_DIFFICULTY ? OK : fail(ERR.BAD_MSG, '终极模拟 has one difficulty'); // i18n-ignore (developer diagnostic)
     // the room's version offers it (header "Official versions": 第二期上半 / 第一期 have no 终极)
     if (!this.offered(room.version, room.mode).includes(difficulty)) return fail(ERR.BAD_TARGET, 'not a mode of this version');
     this.dropReplay(room, session.playerId);
