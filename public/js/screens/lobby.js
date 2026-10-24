@@ -34,6 +34,10 @@ import { NoticesButton } from '../ui/notices.js';
 // 大厅背景与音乐 (from the old UI PR #643's keep list): the generated scenes / one's own picture, and the lobby BGM.
 import { useHubBackdrop, HubBackdrop, backdropTheme, BackdropSettings, BackdropGlyph } from '../ui/hubBackdrop.js';
 import { LobbyMusicButton } from '../ui/lobbyMusic.js';
+// 选择模拟协议 (from the old UI PR #643's keep list): the full-screen page a mode opens — the difficulty's isometric
+// scene at the left, the difficulty cards down the right.
+import { ProtocolScene } from '../ui/protocolScene.js';
+import { useLeave } from '../ui/transitions.js';
 
 /** Official mode texts (activity_table act2autochess.modeDataDict), fallback when config.json is absent. */
 /**
@@ -304,23 +308,87 @@ function ModeCard({ card, selected, onSelect }) {
   </button>`;
 }
 
-function DifficultyCard({ roomMode, difficulty, selected, onSelect }) {
+/** The hand-drawn ring of the 已选定 stamp (two loose strokes). */
+function StampRing() {
+  return html`<svg class="pcard__ring" viewBox="0 0 120 100" aria-hidden="true" focusable="false">
+    <path pathLength="1" d="M18 62C6 34 34 8 70 10c34 2 48 30 38 54-10 24-46 32-72 22C20 80 10 66 16 50" />
+    <path pathLength="1" d="M30 20c22-14 62-12 78 10 12 18 4 44-16 54" />
+  </svg>`;
+}
+
+/** One difficulty of 选择模拟协议: name, text, effects, and the code / rounds / 隐秘核心 / battlefield note below. */
+function ProtoCard({ roomMode, difficulty, selected, onSelect }) {
   const info = difficultyInfo(roomMode, difficulty);
-  return html`<button type="button" class=${`diff-card${selected ? ' is-selected' : ''}`}
-      style=${`--d-color:${DIFFICULTY_COLORS[difficulty]}`} onClick=${() => onSelect(difficulty)} aria-pressed=${selected ? 'true' : 'false'}>
-    <span class="diff-card__bar" aria-hidden="true"></span>
-    <span class="diff-card__head">
-      <${DifficultyIcon} difficulty=${difficulty} class="diff-card__glyph" />
-      <span class="diff-card__name">${t(DIFFICULTY_NAMES[difficulty])}</span>
-      <span class="diff-card__code num">${info.code}</span>
-      <span class="diff-card__meta">
-        <span class="num">${info.rounds}</span> ${tc('rounds', '回合')}${info.hidden ? html`<span class="diff-card__hidden">${t('+ 隐秘核心')}</span>` : null}
-      </span>
+  return html`<button type="button" class=${`pcard${selected ? ' is-on' : ''}`} style=${`--d-color:${DIFFICULTY_COLORS[difficulty]}`}
+      onClick=${() => onSelect(difficulty)} aria-pressed=${selected ? 'true' : 'false'}>
+    <span class="pcard__glow" aria-hidden="true"></span>
+    <span class="pcard__head">
+      <${DifficultyIcon} difficulty=${difficulty} class="pcard__glyph" />
+      <span class="pcard__name">${t(DIFFICULTY_NAMES[difficulty])}</span>
     </span>
-    <span class="diff-card__desc">${info.desc}</span>
-    <span class="diff-card__effects">${info.effects.map((e) => html`<span key=${e}>${e}</span>`)}${info.stageNote ? html`<span key="stage" class="diff-card__stage"><${Icon} name="rook" />${info.stageNote}</span>` : null}</span>
-    <span class="diff-card__check" aria-hidden="true"><${Icon} name="check" /><span>${t('已选定')}</span></span>
+    <span class="pcard__desc">${info.desc}</span>
+    <span class="pcard__effects">${info.effects.map((e) => html`<span key=${e}>${e}</span>`)}</span>
+    <span class="pcard__meta">
+      ${info.code ? html`<span class="num">${info.code}</span>` : null}
+      <span><b class="num">${info.rounds}</b> ${tc('rounds', '回合')}${info.hidden ? t(' + 隐秘核心') : ''}</span>
+      ${info.stageNote ? html`<span>${info.stageNote}</span>` : null}
+    </span>
+    <span class="pcard__stamp" aria-hidden="true"><${StampRing} /><span class="pcard__tick"><${Icon} name="check" /></span><span class="pcard__ok">${t('已选定')}</span></span>
   </button>`;
+}
+
+/**
+ * 选择模拟协议: full screen over the hub — the selected difficulty's scene at the left (ui/protocolScene.js), the
+ * difficulties down the right with the 已选定 stamp, 开始模拟 at the bottom right. Esc or ‹ returns to the hub.
+ *
+ * This is the flow the owner asked for (2026-10-24): the HUB picks a MODE only; the difficulty is chosen here, on its own
+ * page, and 开始模拟 creates the room. The fork used to put both on one screen and create straight from the hub.
+ */
+function ProtocolSelect({ card, roomMode, difficulty, onDifficulty, onClose, online, busy, onCreate, testMode, asTest, onTestMode }) {
+  const [leaving, leave] = useLeave(onClose);
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape' && !document.querySelector('.modal, .guide')) leave(); };
+    addEventListener('keydown', onKey);
+    return () => removeEventListener('keydown', onKey);
+  }, []);
+  const info = difficultyInfo(roomMode, difficulty);
+  const label = roomMode === 'solo' ? t('开始独立模拟') : t('创建同盟');
+  return html`<div class=${`proto${leaving ? ' is-leaving' : ''}`} style=${`--d-color:${DIFFICULTY_COLORS[difficulty]}`} data-difficulty=${difficulty}
+      role="dialog" aria-label=${t('选择模拟协议')}>
+    <div class="proto__bg" aria-hidden="true"></div>
+    <header class="proto-top">
+      <button type="button" class="proto-back" onClick=${leave} title=${t('返回大厅 (Esc)')} aria-label=${t('返回大厅')}>
+        <${Icon} name="chevronLeft" /><span class="proto-back__home"><${Icon} name="rook" /></span>
+      </button>
+      <div class="proto-title">
+        <h2>${t('选择模拟协议')}</h2>
+        <span class="proto-title__mode">${t(card.name)}<i>${card.en}</i></span>
+      </div>
+    </header>
+    <div class="proto-body">
+      <section class="proto-stage">
+        <${ProtocolScene} key=${difficulty} difficulty=${difficulty} />
+        <div class="proto-brief">
+          <span class="proto-brief__code num">${info.code}</span>
+          <b class="proto-brief__name">${t(DIFFICULTY_NAMES[difficulty])}</b>
+          <p>${t(card.desc, card.params)}</p>
+        </div>
+      </section>
+      <section class="proto-side">
+        <div class="proto-list" role="radiogroup" aria-label=${t('模拟难度')}>
+          ${DIFFICULTIES.map((d) => html`<${ProtoCard} key=${d} roomMode=${roomMode} difficulty=${d} selected=${difficulty === d} onSelect=${onDifficulty} />`)}
+        </div>
+        <div class="proto-foot">
+          ${roomMode === 'solo' ? html`<div class="proto-opts">
+            <label class="proto-private" title=${t('不记录成绩，只用于试验阵容与模组')}>
+              <input type="checkbox" checked=${testMode} onChange=${(e) => onTestMode(e.currentTarget.checked)} /><span>${t('测试')}</span></label>
+          </div>` : null}
+          <${Button} variant="primary" size="lg" icon="play" loading=${busy === 'create'} disabled=${!online}
+            onClick=${() => onCreate(asTest)} class="proto-start">${label}<//>
+        </div>
+      </section>
+    </div>
+  </div>`;
 }
 
 /** Lobby screen component. */
@@ -364,10 +432,14 @@ export function LobbyScreen() {
   const codeOk = CODE_RE.test(code);
   // 终极模拟 has no difficulty picker: whatever card is (not) picked, the room is created for AC-4 (the server forces it)
   const effDifficulty = roomMode === 'ultimate' ? ULTIMATE_DIFFICULTY : difficulty;
-  const diffChoices = roomMode === 'ultimate' ? [ULTIMATE_DIFFICULTY] : DIFFICULTIES;
+
 
   const pickMode = (m) => { setRoomMode(m); savePref('lobby.mode', m); };
   const pickDifficulty = (d) => { setDifficulty(d); savePref('lobby.difficulty', d); };
+  // 选择模拟协议 (owner 2026-10-24): the hub picks a MODE and opens this page; the difficulty is chosen there and 开始模拟
+  // creates the room. `protoOpen` is the mode whose page is up (null = the hub).
+  const [protoOpen, setProtoOpen] = useState(null);
+  const openProto = (m) => { pickMode(m); setProtoOpen(m); };
 
   const run = async (kind, fn) => {
     if (inFlight.current) return;
@@ -383,8 +455,8 @@ export function LobbyScreen() {
   // 2026-10-16), so the room is created with them ALL OFF and the host sets them in the room (room.setMods). This
   // device's last-used switches still ride along as the starting point, so a host who set them in a previous room does
   // not have to set them again; `modsOn()` is that remembered preference.
-  const create = () => run('create', () => net.request('room.create', {
-    mode: roomMode, difficulty: effDifficulty, mods: modsOn(), ...(testMode && asTest ? { test: true } : {}),
+  const create = (asT = asTest) => run('create', () => net.request('room.create', {
+    mode: roomMode, difficulty: effDifficulty, mods: modsOn(), ...(testMode && asT ? { test: true } : {}),
   }));
   const join = (c = code) => {
     // `onClick=${join}` hands the click EVENT as the first argument, and a default parameter only applies to
@@ -467,7 +539,7 @@ export function LobbyScreen() {
       <section class="lobby-left">
         <div class="section-label"><span class="section-label__idx num">01</span>${t('模拟方式')}<${MicroLabel}>MODE<//></div>
         <div class="mode-cards">
-          ${MODE_CARDS.map((c) => html`<${ModeCard} key=${c.id} card=${c} selected=${roomMode === c.id} onSelect=${pickMode} />`)}
+          ${MODE_CARDS.map((c) => html`<${ModeCard} key=${c.id} card=${c} selected=${roomMode === c.id} onSelect=${openProto} />`)}
         </div>
 
         <div class="section-label"><span class="section-label__idx num">03</span>${t('加入同盟')}<${MicroLabel}>JOIN WITH ALLIANCE KEY<//></div>
@@ -491,31 +563,24 @@ export function LobbyScreen() {
       </section>
 
       <section class="lobby-right">
-        <div class="section-label"><span class="section-label__idx num">02</span>${t('模拟难度')}<${MicroLabel}>DIFFICULTY<//></div>
-        <div class="diff-list">
-          ${diffChoices.map((d) => html`<${DifficultyCard} key=${d} roomMode=${roomMode} difficulty=${d} selected=${effDifficulty === d} onSelect=${pickDifficulty} />`)}
-        </div>
-        <div class="create-box">
-          ${testMode ? html`<label class="create-box__test" data-testid="create-test">
-            <input type="checkbox" checked=${asTest} onChange=${(e) => setAsTest(e.target.checked)} />
-            <span>${t('测试房间')}</span>
-            <em class="t-dim">${t('不计入战绩。房间会标明「测试」，只有房主能使用测试指令。')}</em>
-          </label>` : null}
-          <${Tooltip} block=${true} text=${online ? null : t('正在连接服务器…')}>
-            <${Button} variant="primary" size="xl" block=${true} iconRight="chevrons" loading=${busy === 'create'} disabled=${!online} onClick=${create}>
-              ${roomMode === 'solo' ? t('开始独立模拟') : t('创建同盟')}
-            <//>
-          <//>
-          <div class="create-box__hint">
-            ${online
-              ? html`<span>${roomMode === 'solo' ? t('创建后即可开始模拟') : t('创建后可邀请好友或添加 AI 队友')}</span>`
-              : html`<${Spinner} size="sm" label="CONNECTING" />`}
-          </div>
-        </div>
+        ${/* 选择模拟协议 (owner 2026-10-24): the difficulty and 开始模拟 moved to their own page (ui/protocolScene.js's
+             screen, `ProtocolSelect` below), opened by picking a MODE on the left. The hub keeps only a pointer to it —
+             the fork used to put the difficulty cards and the create button here, which is the flow the new UI replaced. */
+          html`<div class="section-label"><span class="section-label__idx num">02</span>${t('选择模拟协议')}<${MicroLabel}>SELECT PROTOCOL<//></div>
+        <div class="lobby-protohint">
+          <p>${t('在左侧选择一种模拟方式，然后在新页面选择难度并开始模拟。')}</p>
+          <${Button} variant="secondary" size="md" iconRight="chevrons" disabled=${!online}
+            onClick=${() => openProto(roomMode)}>${t('选择难度')}<//>
+        </div>`}
       </section>
     </div>
     ${sweepOpen ? html`<${SweepReport} onClose=${() => setSweepOpen(false)} />` : null}
     ${bgOpen ? html`<${Modal} open=${true} title=${t('大厅背景')} micro="LOBBY BACKDROP" width="min(24rem, calc(100vw - 2rem))"
       onClose=${() => setBgOpen(false)}><${BackdropSettings} bg=${bg} /><//>` : null}
+    ${protoOpen ? html`<${ProtocolSelect} card=${MODE_CARDS.find((c) => c.id === protoOpen) || MODE_CARDS[0]} roomMode=${protoOpen}
+      difficulty=${protoOpen === 'ultimate' ? ULTIMATE_DIFFICULTY : difficulty}
+      onDifficulty=${(d) => { if (protoOpen !== 'ultimate') pickDifficulty(d); }}
+      onClose=${() => setProtoOpen(null)} online=${online} busy=${busy} testMode=${testMode} asTest=${asTest}
+      onTestMode=${setAsTest} onCreate=${(asT) => create(asT)} />` : null}
   </div>`;
 }

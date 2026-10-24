@@ -1887,19 +1887,12 @@ function MatchScreen() {
              — it must render unconditionally then; with the window on it moves into the window (see the ChatWindow below). */
           spectator ? null : (!chatOn || !chatOpen) ? html`<${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen}
             onSend=${(id, o) => (o && o.burst ? actions.emoteBurst(id) : actions.emote(id))} disabled=${conn.status !== 'online'} />` : null}
-        ${showMetrics ? html`<button type="button" class="gm__gear gm__metrics" aria-label=${t('作战统计')} title=${t('作战统计')} aria-expanded=${metricsOpen}
-          aria-controls="combat-metrics-panel" onKeyDown=${(e) => { if (e.key === ' ') e.stopPropagation(); }} onClick=${() => {
-            setMetricsOpen(!metricsOpen);
-            setEmoteOpen(false);
-            setDetail(null);
-            setSel(null);
-            setBondOpen(null);
-          }}><${Icon} name="signal" /></button>` : null}
-        ${prepLoadoutOpen && phase === PHASE.PREP && priv && !priv.ready && !spectator
+        ${/* 设置 / 玩法说明 / 全屏 / 作战统计 have exactly ONE home: the top bar's `tools` row (see the TopBar above).
+             This corner used to carry a second copy of all four; with the chat window open it sat underneath it, and the
+             buttons were both duplicated and covered. Only the PANEL stays here — an absolutely positioned panel mounted
+             inside `.gtop` would anchor above the top bar and land off-screen. */
+          prepLoadoutOpen && phase === PHASE.PREP && priv && !priv.ready && !spectator
           ? html`<${LoadoutButton} from="prep" size="sm" />` : null}
-        <button type="button" class="gm__gear" aria-label=${t('设置')} title=${t('设置')} onClick=${() => setSettingsOpen(true)}><${GIcon} name="gear" /></button>
-        <button type="button" class="gm__gear gm__guide" aria-label=${t('玩法说明')} title=${t('玩法说明')} onClick=${() => openGuide(0)}><${Icon} name="book" /></button>
-        <${FullscreenButton} class="gm__gear gm__fs" />
       </div>
 
       ${/* 在线聊天 (fork): the floating frosted window, and the 交流 wheel's new home while the option is on. A spectator
