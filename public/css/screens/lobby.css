@@ -1163,3 +1163,10 @@
 .hub-plate.hub-plate--loadout .lo-entry__n, .hub-plate.hub-plate--loadout .lo-entry__own { margin-left: 0; }
 .hub-plate.hub-plate--loadout .lo-entry__n { margin-left: auto; }
 .hub-plate.hub-plate--loadout .lo-entry__n + .lo-entry__own { margin-left: 0; }
+
+/* ---- hub 顶栏 (需求方 2026-10-24, 图二: 「上游是透明背景, 我的版本有一块纯黑」) ------------------------
+   The hub's bar floats over the backdrop: a top-down scrim that fades out, no bottom rule — unrelated to the
+   solid `.topbar` a plain screen gets. This rule was in #643 but was not carried over, so the lobby kept the
+   opaque bar. */
+.hub-topbar { background: linear-gradient(180deg, rgba(4, 8, 8, .85), transparent); border-bottom: 0; }
+.lobby-hub > .hub-topbar { position: relative; z-index: 2; }

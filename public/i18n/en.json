@@ -2715,5 +2715,6 @@
   "账号 {name}": "Account: {name}",
   "还没有可展示的战果：完成一局模拟后在这里记录盟约叠加最高的一局": "Nothing to show yet — finish a match and the one that stacked a bond highest is recorded here",
   "报告": "Report",
-  "成就统计": "Achievements"
+  "成就统计": "Achievements",
+  "选择一名干员查看详情": "Pick an operator to see the details"
 }

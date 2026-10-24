@@ -531,7 +531,7 @@ export function LobbyScreen() {
 
   return html`<div class="screen lobby-screen lobby-hub" data-hub-theme=${backdropTheme(bg)}>
     <${HubBackdrop} bg=${bg} />
-    <header class="topbar">
+    <header class="topbar hub-topbar">
       <div class="topbar__left">
         <${Button} variant="ghost" size="sm" icon="chevronLeft" onClick=${backToTitle} title=${t('返回标题')}>${t('返回')}<//>
         <${PingPill} ms=${conn.ping} online=${online} />
@@ -551,10 +551,10 @@ export function LobbyScreen() {
           <${PwaInstallButton} class="lobby-pwa" square=${true} />
         </div>
       </div>
-      <div class="topbar__center">
-        <${MicroLabel} tone="mint">SIMULATION PROTOCOL SELECT<//>
-        <h1 class="topbar__title">${t('选择模拟协议')}</h1>
-      </div>
+      ${null /* The hub's top bar has NO centre title: the emblem and "卫戍协议：盟约" on the stage are the screen's name.
+             Upstream's `.hub-topbar` is left + right only, and its background is a 4px→transparent gradient rather than
+             the solid bar a plain `.topbar` gets — the two things the owner saw as 「一块纯黑」 and 「多一行字」. */
+        }
       <div class="topbar__right">
         <${ResumeMatchButton} />
         ${/* Mod 菜单 (fork, 需求方 2026-10-16): the 内容包 switches' own dialog, beside 干员调配 as asked. The five
