@@ -24,7 +24,7 @@ import {
 } from '../server/modModules.js';
 import { hostMetrics, HOST_METRICS_FIELDS, resetHostMetrics } from '../server/hostMetrics.js';
 import { dynamicRoutePathIssue, RESERVED_ROUTE_PREFIXES, DYNAMIC_ROUTE_MAX_BYTES, runDynamicRoute } from '../server/http/routeMount.js';
-import { transportPolicy, WS_MAX_PAYLOAD } from '../server/http/websocket.js';
+import { transportPolicy, WS_MAX_PAYLOAD, WS_DEFLATE } from '../server/http/websocket.js';
 import { materializeVoiceCdn, dropFailedVoiceCdnFiles, voiceCdnCachePath } from '../server/voiceCdn.js';
 import { startServer } from '../server/index.js';
 import { TestClient } from './helpers/wsClient.js';
@@ -104,7 +104,7 @@ describe('§34.14 补账：`server.modules` 的源码静态扫描在 import 之�
 // ---------------------------------------------------------------------------------------------------------------
 describe('§34.14 boot(config)：冻结的只读配置快照', () => {
   test('白名单就是引擎真读的那几个 SP_*，多余的看不见', () => {
-    assert.deepEqual([...BOOT_CONFIG_ENV_KEYS], ['SP_BOT_EMOTES', 'SP_CSP', 'SP_MATCH_HOST', 'SP_PLUGIN_SCRIPTS', 'SP_STATE_DIR']);
+    assert.deepEqual([...BOOT_CONFIG_ENV_KEYS], ['SP_BOT_EMOTES', 'SP_BOT_STRATEGY', 'SP_CSP', 'SP_MATCH_HOST', 'SP_PLUGIN_SCRIPTS', 'SP_STATE_DIR']);
     // 反射源码：引擎里读过的 `process.env.SP_*` 必须全在名单里（新读一个而名单没跟上就红）。
     const src = [path.join(ROOT, 'server/index.js'), path.join(ROOT, 'server/modModules.js'),
       path.join(ROOT, 'server/match/Match.js'), path.join(ROOT, 'server/match/botEmotes.js')]
@@ -212,14 +212,17 @@ describe('§34.32 动态只读端点：命名空间、保留路径、缓存策�
 // ---------------------------------------------------------------------------------------------------------------
 describe('§34.30 transport：声明式配置 → 生效值', () => {
   // 0.2.6 进场（上游 WS_DEFLATE）：**缺省改了** —— 从前「没有声明 ⇒ perMessageDeflate: false」，现在是引擎自己的
-  // WS_DEFLATE（1 KB 起、2 KB 窗口、不保留上下文）。包声明仍然是唯一的声明式入口，只是没人声明时引擎自己开。
+  // WS_DEFLATE。参数本身随后又改过一次（0.3.2：保留上下文 + 8 KB 窗口），所以下面**读引擎的常量**而不是抄数字。
+  // 包声明仍然是唯一的声明式入口，只是没人声明时引擎自己开。
   test('没有声明 ⇒ 引擎的 WS_DEFLATE；多包声明按包 id 小的赢；生效值如实报', () => {
     const off = transportPolicy(new Map(), { log: quiet });
-    assert.equal(off.perMessageDeflate.threshold, 1024);
-    assert.equal(off.perMessageDeflate.serverNoContextTakeover, true);
-    assert.equal(off.perMessageDeflate.serverMaxWindowBits, 11);
-    assert.equal(off.perMessageDeflate.zlibDeflateOptions.memLevel, 7);
-    assert.deepEqual(off.transport, { deflate: true, params: null, maxPayload: WS_MAX_PAYLOAD, threshold: 1024 });
+    // 断言照**引擎自己**的 WS_DEFLATE 逐字比，不抄一份常数：上游改缺省（0.2.6：不保留上下文 + 2 KB 窗口 → 保留上下文 +
+    // 8 KB 窗口，见 docs/design/network.md §8、test/ws-compression.test.js）时，这一条跟着走而不是把它钉回旧值。
+    assert.equal(off.perMessageDeflate.threshold, WS_DEFLATE.threshold);
+    assert.equal(off.perMessageDeflate.serverNoContextTakeover, WS_DEFLATE.serverNoContextTakeover);
+    assert.equal(off.perMessageDeflate.serverMaxWindowBits, WS_DEFLATE.serverMaxWindowBits);
+    assert.equal(off.perMessageDeflate.zlibDeflateOptions.memLevel, WS_DEFLATE.zlibDeflateOptions.memLevel);
+    assert.deepEqual(off.transport, { deflate: true, params: null, maxPayload: WS_MAX_PAYLOAD, threshold: WS_DEFLATE.threshold });
 
     const said = [];
     const b = new Map([['b-pack', { deflate: true }], ['a-pack', { deflate: true, threshold: 512, level: 6 }]]);

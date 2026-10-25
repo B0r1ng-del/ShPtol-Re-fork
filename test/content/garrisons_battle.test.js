@@ -731,19 +731,114 @@ test('莱茵星源: first activation grants each active bond once, including aft
   }
 });
 
-test('多罗西: retired trap events never award research; attack trait is dispatched by Rhine content', () => {
+test('麦哲伦: retired trap events never award research; the attack trait is dispatched by Rhine content', () => {
+  // 多萝西 → 麦哲伦 (Rhine 2026-10-14, commit 94af4df6): `garrison_rhine_dorothy_a/b` no longer exist in the data
+  // (`tools/rhine-data-source.json` has no char_4048_doroth), so the old ids were an assertion about a retired
+  // operator. The two rules the test stood for still hold and are asserted on her own records: a `trapTriggered`
+  // event awards no research layers, and the trait's per-layer ATK is applied by content/rhine.js (not this
+  // dispatcher), reading the chess's own garrison list.
   for (const suffix of ['a', 'b']) {
-    const gid = `garrison_rhine_dorothy_${suffix}`;
-    assert.equal(GR(gid).effectKey, 'RHINE_DOROTHY_ATTACK');
+    const gid = `garrison_rhine_magallan_${suffix}`;
+    assert.equal(GR(gid).effectKey, 'RHINE_MAGALLAN_ATTACK');
     assert.equal(GR(gid).bb.atk_per_layer, suffix === 'b' ? 2 : 1);
-    const h = battle({ units: [{ id: 'doro', g: [gid], row: 10, col: 4 }], bonds: { rhineShip: B() } });
-    const owner = h.unit('doro'), token = { ownerUnit: owner, mem: {} };
+    assert.equal(GR(gid).bb.device_atk_per_layer, suffix === 'b' ? 1 : 0.5);
+    const h = battle({ units: [{ id: 'mag', g: [gid], row: 10, col: 4 }], bonds: { rhineShip: B(10) } });
+    const owner = h.unit('mag'), token = { ownerUnit: owner, mem: {} };
     for (let seq = 1; seq <= 20; seq++) {
       token.mem.dorothyTriggered = seq;
       h.b.emit('trapTriggered', { owner, token, deploySeq: seq });
       h.b.emit('trapTriggered', { owner, token, deploySeq: seq });
     }
-    assert.equal(gains(h).rhineShip ?? 0, 0); cover(gid);
+    assert.equal(gains(h).rhineShip ?? 0, 0, 'a retired trap event awards nothing');
+    h.step(1);
+    // 10 莱茵生命 layers × atk_per_layer, as a flat ATK bonus (content/rhine.js `researchTrait`)
+    assert.equal(owner.findBuff('rhine:magallan')?.mods?.atkFlat, 10 * GR(gid).bb.atk_per_layer);
+    cover(gid);
+  }
+});
+
+// 二.3 东国/乌萨斯: the 8 preset operators' 自身效果 are implemented by their own kits (kits/ops/chess_char_*_9*.js:
+// the kit reads its chess's blackboard / golden flag, not a battleRuneKey), so this old dispatcher installs nothing for
+// them — but their ids are still IN_BATTLE garrisons of a visible chess. Asserted here on the real chess and the real
+// kits so the coverage below stays honest rather than exempting them.
+
+/** A battle with one REAL chess (its own kits, tiers and garrison list) on the board. */
+function real(chessId, bonds = {}, { enemies = [], edefs = {} } = {}) {
+  const h = makeBattle({
+    units: [{ chessId, row: 10, col: 4 }], bonds,
+    defs: { enemies: edefs }, enemies, seed: 3, timeLimit: 30, autoFinish: false,
+  });
+  h.step(1);
+  return h;
+}
+const BOND = (layers = 0, active = true) => ({ count: active ? 3 : 0, active, tier: active ? 1 : 0, layers });
+/** A 1e7-HP punching bag: it survives the operator's normal hit, so the trait's own extra instance shows. */
+const TANK = () => dummy({ key: 'e_tank' });
+
+test('东国/乌萨斯 特质: 潮涌共鸣 / 乌萨斯齐鸣 / 雪崩攻势 / 病床巡视 / 奥术共鸣 / 恶鬼血战 / 同门切磋 / 麒麟之魂', () => {
+  // 980 怒潮凛冬 勇冠三军: every hit of hers carries 75 % (普通) / 150 % (精锐) of her own max HP as true damage
+  for (const [suffix, ratio] of [['a', 0.75], ['b', 1.5]]) {
+    const id = `chess_char_6_98_${suffix}`;
+    const h = real(id, {}, { edefs: { e_tank: TANK() }, enemies: [{ key: 'e_tank', pos: [10, 5] }] });
+    const u = h.unit(id), rider = [];
+    h.b.on('damaged', (c) => { if (c.source === u && (c.dmg.tags || []).includes('headb2Rider')) rider.push(c.dmg.amount); });
+    h.runUntil(() => rider.length > 0, 6);
+    assert.ok(rider.length > 0, `${id}: the rider fires`);
+    assert.ok(Math.abs(rider[0] - u.s.maxHp * ratio) < 1e-6, `${id}: ${rider[0]} = maxHp × ${ratio}`);
+    cover(`garrison_980_${suffix}`);
+  }
+  // 981 伯塔尼 乌萨斯齐鸣: each skill start ⇒ +3 / +6 <乌萨斯> layers per <乌萨斯> in range (cap 12 / 24 per battle)
+  for (const [opId, want, cap] of [['chess_char_2_98_a', 3, 12], ['chess_char_2_98_b', 6, 24]]) {
+    const h = real(opId, { ursusShip: BOND(0) });
+    const u = h.unit(opId);
+    skill(h, u);
+    assert.deepEqual(gains(h), { ursusShip: want }, opId);
+    for (let i = 0; i < 20; i++) skill(h, u);
+    assert.ok(gains(h).ursusShip <= cap, `${opId}: capped at ${cap} (${gains(h).ursusShip})`);
+    cover(`garrison_981_${opId.endsWith('_a') ? 'a' : 'b'}`);
+  }
+  // 984 病床巡视: the same skill-start grant on 乌萨斯 and 迅捷
+  for (const [opId, n] of [['chess_char_5_98_a', 3], ['chess_char_5_98_b', 6]]) {
+    const h = real(opId, { ursusShip: BOND(0), swiftShip: BOND(0) });
+    const u = h.unit(opId);
+    skill(h, u);
+    assert.deepEqual(gains(h), { ursusShip: n, swiftShip: n }, opId);
+    cover(`garrison_984_${opId.endsWith('_a') ? 'a' : 'b'}`);
+  }
+  // 983 早露 雪崩攻势 / 985 维伊 奥术共鸣: floor(Σ active layers / 3) × 1 % / 2 % ATK
+  for (const [opId, per] of [['chess_char_6_99_a', 0.01], ['chess_char_6_99_b', 0.02]]) {
+    const h = real(opId, { ursusShip: BOND(9), preciShip: BOND(0) });
+    assert.equal(h.unit(opId).findBuff('talent:poca:avalanche')?.mods?.atkPct, 3 * per, opId);
+    cover(`garrison_983_${opId.endsWith('_a') ? 'a' : 'b'}`);
+  }
+  for (const [opId, per] of [['chess_char_5_99_a', 0.01], ['chess_char_5_99_b', 0.02]]) {
+    const h = real(opId, { ursusShip: BOND(6), arcaneShip: BOND(3) });
+    assert.equal(h.unit(opId).findBuff('talent:veen:resonance')?.mods?.atkPct, 3 * per, opId);
+    cover(`garrison_985_${opId.endsWith('_a') ? 'a' : 'b'}`);
+  }
+  // 988 缠丸 恶鬼血战 / 989 嵯峨 同门切磋: the first drop below 70 % HP ⇒ +12 / +24 to each ACTIVE bond of the owner
+  for (const [opId, n, gid] of [
+    ['chess_char_3_99_a', 12, 'garrison_988_a'], ['chess_char_3_99_b', 24, 'garrison_988_b'],
+    ['chess_char_5_97_a', 12, 'garrison_989_a'], ['chess_char_5_97_b', 24, 'garrison_989_b'],
+  ]) {
+    const all = ['dongShip', 'indomShip', 'swiftShip'];
+    const h = real(opId, Object.fromEntries(all.map((b) => [b, BOND(0)])));
+    const u = h.unit(opId);
+    u.hp = u.s.maxHp * 0.5;
+    h.step(0.2);
+    const own = all.filter((b) => u.def.bonds.includes(b));
+    assert.deepEqual(gains(h), Object.fromEntries(own.map((b) => [b, n])), opId);
+    cover(gid);
+  }
+  // 992 麒麟R夜刀 麒麟之魂: redeploy −75 %, 【狂龙症】 on deploy (+50 % ATK, 90 % phys/arts reduction), ATK per 3 layers
+  for (const [opId, per] of [['chess_char_6_97_a', 0.01], ['chess_char_6_97_b', 0.02]]) {
+    const h = real(opId, { dongShip: BOND(6) });
+    const u = h.unit(opId);
+    h.step(0.5);
+    assert.equal(u.findBuff('trait:yato2:redeploy')?.mods?.redeployMul, 0.25, `${opId}: redeploy`);
+    assert.deepEqual(u.findBuff('trait:yato2:oni')?.mods, { atkPct: 0.5, physTakenMul: 0.1, artsTakenMul: 0.1 }, `${opId}: 狂龙症`);
+    assert.equal(u.findBuff('garrison:yato2:atk')?.mods?.atkPct, 2 * per, `${opId}: floor(6 / 3) steps`);
+    cover(`garrison_992_${opId.endsWith('_a') ? 'a' : 'b'}`);
   }
 });
 

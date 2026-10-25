@@ -1103,6 +1103,12 @@ export class Lobby {
     session.roomCode = code;
     session.notice = null;
     session.pendingResult = null;
+    // 房间级钩子（`pack.json.server.room`，DESIGN §34.20）：房间**建起来时**把声明过的包各 `install(room)` 一次。
+    // 一个包都没声明时 `install` 是空循环（那张表里连条目都不建）⇒ 干净安装与从前逐字节相同。
+    this.roomHooks.install(room);
+    // `create` 是房间生命周期的第一个事件（闭枚举见 `server/roomPack.js ROOM_HOOK_EVENTS`）：在 `install` 之后
+    // 触发，所以钩子既能观察到「房间刚建好」，也知道自己是这个房间的一员。
+    this.hookFire(room, 'create');
     this.log.info(`[lobby] ${code} created (${mode}/${difficulty}${version !== DEFAULT_VERSION ? `, ${version}` : ''}${room.test ? ', test' : ''}) by ${session.name}`);
     this.broadcastState(room);
     return OK;
@@ -2440,6 +2446,8 @@ export class Lobby {
       room.replay = null;
       room.matchCount++;
       this.log.info(`[lobby] ${room.code} match #${room.matchCount} starting (${room.mode}/${room.difficulty}, ${seats.length} seats, seed ${seed}${room.test ? ', test' : ''}${modded ? `, content ${room.content.cs.slice(0, 8)}${match.hosted ? ' in its match host' : ''}` : ''}${versioned ? `, version ${room.version}${match.hosted ? ' in its match host' : ''}` : ''})`);
+      // 房间级钩子：对局真的起来了（`match.start()` 之前 —— 钩子要能在第一帧之前看到「这一局开始了」）。
+      this.hookFire(room, 'matchStart', { matchNo: room.matchCount, players: room.seats.filter(Boolean) });
       this.broadcastState(room);
       match.start();
     } catch (e) {
@@ -2841,6 +2849,10 @@ export class Lobby {
   disposeRoom(room, reason) {
     if (room.disposed) return;
     room.disposed = true;
+    // `dispose` 是**唯一**一个在房间已经 disposed 之后触发的事件 —— 它的意义正是「这个房间没了」。
+    // 在删表之前发，钩子读到的还是自己的房间；之后 `forget` 掉这张表（房间码会被 `genCode` 复用）。
+    this.hookFire(room, 'dispose', { reason });
+    this.roomHooks.forget(room);
     if (this.rooms.get(room.code) === room) { this.trustedRuntime?.event('roomClosed',{room:room.toState(this.now())}); this.rooms.delete(room.code); }
     // an open version vote ends with the room (its timer)
     if (room.versionVote) { clearTimeout(room.versionVote.timer); room.versionVote = null; }

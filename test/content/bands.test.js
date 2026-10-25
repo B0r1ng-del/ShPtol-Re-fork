@@ -22,8 +22,8 @@ const A = (k) => `chess_item_${k}_e_a`;
 // ---------------------------------------------------------------------------------------------------------------
 // prep helpers
 
-function setup({ band, mode = 'solo', humans = 1, seed = 41, bands: perPlayer = null } = {}) {
-  const h = makeMatch({ mode, humans, seed, registry: REG, fake: true }).start();
+function setup({ band, mode = 'solo', humans = 1, seed = 41, bands: perPlayer = null, mods } = {}) {
+  const h = makeMatch({ mode, humans, seed, registry: REG, fake: true, mods }).start();
   h.toPrep(1);
   const m = h.m;
   for (const ps of m.players.values()) {
@@ -68,14 +68,15 @@ const slotOf = (id) => ({ kind: 'chess', id, basePrice: DATA.chess[id].tier === 
 // ---------------------------------------------------------------------------------------------------------------
 // data / wiring
 
-test('bands.js wires both parts: 28 bands with a prep handler, 10 with a battle part, 鸭爵 global, 歌利亚 = LP only', () => {
+test('bands.js wires both parts: 33 bands with a prep handler, 11 with a battle part, 鸭爵 global, 歌利亚 = LP only', () => {
   assert.equal(typeof bands.install, 'function');
   assert.equal(typeof bands.registerMeta, 'function');
   const ids = Object.keys(DATA.bands);
-  assert.equal(ids.length, 40);
+  // 45 = the official 40 + 二.3 东国/乌萨斯's 5 custom strategies (they carry no packId: always present, dong-ursus.test.js)
+  assert.equal(ids.length, 45);
   const meta = ids.filter((id) => REG.has(`band:${id}`));
   const battle = ids.filter(hasBattlePart);
-  assert.equal(meta.length, 28);
+  assert.equal(meta.length, 33);
   assert.deepEqual(battle.sort(), ['band_amedic', 'band_amiya', 'band_chen', 'band_clementia', 'band_dusk', 'band_emperor', 'band_ermengard', 'band_humus', 'band_ioleta', 'band_mberry', 'band_qalaisa'].sort());
   assert.ok(REG.has('global:bands_ducklord'));
   const none = ids.filter((id) => !meta.includes(id) && !battle.includes(id));
@@ -137,8 +138,10 @@ test('梓兰 猎头顾问: every manual refresh copies the highest-tier shop ope
   for (let i = 0; i < 4; i++) {
     assert.deepEqual(m.handle('p_0', { t: 'g.refresh' }), OK);
     const chess = ps.shop.slots.filter((sl) => sl && sl.kind === 'chess');
-    const top = Math.max(...chess.map((sl) => DATA.chess[sl.id].tier));
-    const pairs = chess.filter((sl) => DATA.chess[sl.id].tier === top);
+    // the room's view of a tier (gamedata.js tierOf, packRestore applied) — data/chess.json holds the ALL-PACKS-ON
+    // tier, e.g. 白面鸮 is IV while 莱茵生命 is off and the expansion's III only with it on (shared/packData.js).
+    const top = Math.max(...chess.map((sl) => m.gd.tierOf(sl.id)));
+    const pairs = chess.filter((sl) => m.gd.tierOf(sl.id) === top);
     const ids = pairs.map((sl) => sl.id);
     const dup = ids.find((id, j) => ids.indexOf(id) !== j);
     assert.ok(dup, 'two identical top-tier operators');
@@ -800,6 +803,111 @@ test('外勤医疗: 联防右侧 Touch retains its prepared targeting order', ()
   assert.equal(gargoyle.blockedBy, null);
   assert.equal(target, harold);
   checkInvariants(h.b);
+});
+
+// ---------------------------------------------------------------------------------------------------------------
+// 自制策略 (二.3 东国/乌萨斯, no packId: always present — dong-ursus.test.js "the 5 custom strategies need NO switch")
+
+test('天尊救我 泰拉大陆调查团: a round that lost LP ⇒ next round start grants 1 operator of (shop level + 1) tier, on the highest-layer active bond', () => {
+  const { m, ps, at } = setup({ band: 'band_palico' });
+  ps.shop.level = 2;
+  ps.bonds = { yanShip: { count: 3, active: true, tier: 3, layers: 4 }, sargonShip: { count: 3, active: true, tier: 3, layers: 9 } };
+  ps.layers = { yanShip: 4, sargonShip: 9 };
+  const got = spyGrants(ps);
+  at(2); m.dispatch(ps, 'onBattleResult', { round: 2, lpLoss: 3 });
+  at(3); m.dispatch(ps, 'onRoundStart', { round: 3 });
+  assert.equal(got.length, 1, 'exactly one operator, however many LP were lost (the owner’s 2026-10-17 rule)');
+  assert.equal(DATA.chess[got[0]].tier, 3, 'shop level 2 + 1');
+  assert.ok(DATA.chess[got[0]].bonds.includes('sargonShip'), 'the highest-layer active bond (9 > 4)');
+  const after = spyGrants(ps);
+  at(3); m.dispatch(ps, 'onBattleResult', { round: 3, lpLoss: 0 });
+  at(4); m.dispatch(ps, 'onRoundStart', { round: 4 });
+  assert.deepEqual(after, [], 'no LP lost last round ⇒ nothing');
+  cover('band_palico');
+});
+
+test('凛冬 雪原征召: the first manual refresh of a round shows ≥ 1 <乌萨斯> operator and it is free; later refreshes are normal', () => {
+  const { m, ps } = setup({ band: 'band_headbr', seed: 7, mods: { packUrsus: true } });
+  ps.shop.level = 4;
+  const ursus = () => ps.shop.slots.filter((sl) => sl && sl.kind === 'chess' && DATA.chess[sl.id].bonds.includes('ursusShip'));
+  assert.deepEqual(m.handle('p_0', { t: 'g.refresh' }), OK);
+  assert.equal(ursus().length, 1, 'refresh 1: 1 <乌萨斯>');
+  assert.equal(ursus()[0].basePrice, 0, 'and it costs 0');
+  assert.equal(ps.shop.slots.filter((sl) => sl && sl.basePrice === 0).length, 1, 'only that one is free');
+  // a second manual refresh is a normal one: nothing forced, nothing free (this seed shows no <乌萨斯>)
+  assert.deepEqual(m.handle('p_0', { t: 'g.refresh' }), OK);
+  assert.equal(ps.shop.slots.filter((sl) => sl && sl.basePrice === 0).length, 0, 'no free slot on refresh 2');
+  // and the "first" is per round: the next round's first refresh is special again
+  ps.round.refreshes = 0;
+  assert.deepEqual(m.handle('p_0', { t: 'g.refresh' }), OK);
+  assert.equal(ps.shop.slots.filter((sl) => sl && sl.basePrice === 0).length, 1, 'R2’s first refresh is free again');
+  cover('band_headbr');
+});
+
+test('遥 完美偶像: a round with no LP loss ⇒ +2 funds at the next round start (nothing after a loss)', () => {
+  const { m, ps, at } = setup({ band: 'band_haruka' });
+  at(2); m.dispatch(ps, 'onBattleResult', { round: 2, lpLoss: 0 });
+  const f0 = ps.funds;
+  at(3); m.dispatch(ps, 'onRoundStart', { round: 3 });
+  assert.equal(ps.funds - f0, 2);
+  at(3); m.dispatch(ps, 'onBattleResult', { round: 3, lpLoss: 2 });
+  const f1 = ps.funds;
+  at(4); m.dispatch(ps, 'onRoundStart', { round: 4 });
+  assert.equal(ps.funds - f1, 0, 'a loss cancels the bonus');
+  cover('band_haruka');
+});
+
+test('宴 以物易人: every 2 normal operators sold in a round ⇒ 1 <东> operator (elites do not count as 普通)', () => {
+  const { m, ps } = setup({ band: 'band_utage', mods: { packDong: true } });
+  ps.shop.level = 3;
+  const got = spyGrants(ps);
+  const normals = Object.values(DATA.chess)
+    .filter((c) => c.visible && !c.isGolden && !c.packId && c.tier === 1 && !c.bonds.includes('dongShip'))
+    .map((c) => c.chessId).slice(0, 4);
+  const perSale = normals.map((id) => {
+    const piece = ps.acquireChess(id, { source: 'test' });
+    const before = got.length;
+    assert.deepEqual(m.handle('p_0', { t: 'g.sell', uid: piece.uid }), OK);
+    return got.length - before;
+  });
+  assert.deepEqual(perSale, [0, 1, 0, 1], 'the 2nd and 4th sale of the round');
+  for (const id of got) assert.ok(DATA.chess[id].bonds.includes('dongShip') && DATA.chess[id].tier <= 3);
+  // an elite sale is not a 普通 operator: no progress
+  const elite = Object.values(DATA.chess).find((c) => c.visible && c.isGolden && !c.packId && c.tier === 1);
+  if (elite) {
+    const piece = ps.acquireChess(elite.chessId, { source: 'test' });
+    const before = got.length;
+    m.handle('p_0', { t: 'g.sell', uid: piece.uid });
+    assert.equal(got.length, before, 'an elite sale does not count');
+  }
+  cover('band_utage');
+});
+
+test('U-Official 人形天灾: +1 fund per round, and every shop refresh replaces every operator counting an active bond of the player', () => {
+  const { m, ps, at } = setup({ band: 'band_ulika' });
+  ps.shop.level = 4;
+  ps.bonds = { yanShip: { count: 3, active: true, tier: 3, layers: 2 } };
+  const ev = { round: 2, income: 10 };
+  at(2); m.dispatch(ps, 'onIncome', ev);
+  assert.equal(ev.income, 11);
+  const bonded = Object.values(DATA.chess)
+    .filter((c) => c.visible && !c.isGolden && !c.packId && c.bonds.includes('yanShip') && c.tier <= 4);
+  const free = Object.values(DATA.chess).find((c) => c.visible && !c.isGolden && !c.packId && !c.bonds.includes('yanShip') && c.tier <= 4);
+  for (const slot of [slotOf(bonded[0].chessId), slotOf(free.chessId)]) ps.shop.slots = [slot, ...ps.shop.slots.slice(1)];
+  ps.shop.slots = [slotOf(bonded[0].chessId), slotOf(free.chessId), slotOf(bonded[1].chessId), null, null, null];
+  at(3); m.dispatch(ps, 'onRoundStart', { round: 3 });
+  const count = (id) => ps.shop.slots.filter((sl) => sl && sl.kind === 'chess' && sl.id === id).length;
+  assert.equal(count(bonded[0].chessId), 0, 'the <炎> card was replaced');
+  assert.equal(count(bonded[1].chessId), 0, 'so was the other');
+  assert.equal(count(free.chessId), 1, 'the unrelated card stands');
+  // no active bond ⇒ nothing to replace (the text names no such rule)
+  const idle = setup({ band: 'band_ulika' });
+  idle.ps.shop.level = 4;
+  idle.ps.bonds = { yanShip: { count: 0, active: false, tier: 0, layers: 0 } };
+  idle.ps.shop.slots = [slotOf(bonded[0].chessId), null, null, null, null, null];
+  idle.at(3); idle.m.dispatch(idle.ps, 'onRoundStart', { round: 3 });
+  assert.equal(idle.ps.shop.slots[0].id, bonded[0].chessId, 'inactive bond: kept');
+  cover('band_ulika');
 });
 
 test('coverage: every band is exercised by a test above', () => {

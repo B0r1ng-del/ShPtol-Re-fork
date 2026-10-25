@@ -249,7 +249,18 @@ async function loadContext() {
     loadGamedata('excel/enemy_handbook_table.json'),
     loadGamedata('levels/enemydata/enemy_database.json'),
   ]);
-  const act = activity?.activity?.AUTOCHESS_SEASON?.[PROFILE.season];
+  // 内容包 packExtra6 (六.C) / 二.3 东国·乌萨斯: the fork's content packs are part of the DEFAULT build only. The
+  // earlier versions' data (data/versions/*) was generated upstream before the fork ported a single pack, and
+  // test/data-versions.test.js pins it byte for byte — injecting here would also crash, because those pinned tables do
+  // not carry the official chess the pack's bond overrides name.
+  let act = activity?.activity?.AUTOCHESS_SEASON?.[PROFILE.season];
+  let injectedDongUrsus = null;
+  if (IS_DEFAULT) {
+    // The two ported operators have a character_table row but no 卫戍协议 shop row, so their `charShopChessDatas` /
+    // `charChessDataDict` entries are synthesized here and injected into `act` — every builder below reads the season
+    // tables, so injecting the rows is the whole port (tools/fork-extra6.mjs says why).
+    act = applyForkExtra6Act(act, { charTable, uniequip });
+  }
   const ac = activity?.autoChessData;
   if (!act || !ac) throw new Error(`activity_table has no ${PROFILE.season} / autoChessData section`);
   // an older table into the shape this build reads (tools/versions/adapters.mjs); never for the default version
@@ -257,7 +268,7 @@ async function loadContext() {
 
   // ★ fork 二.3 东国 / 乌萨斯：把 13 名干员的棋手记录注入 `act`，必须跑在任何 builder 之前。
   // `-X theirs` 删了这一行调用（import 还在），而 `return` 里仍写着 `dongUrsus: injectedDongUrsus`。
-  const injectedDongUrsus = injectDongUrsusPack({ act, ac });
+  if (IS_DEFAULT) injectedDongUrsus = injectDongUrsusPack({ act, ac });
 
   // Note: summons/traps live in character_table (token_table.json only lists 4 unrelated traps).
 
@@ -3269,11 +3280,23 @@ function validateAll(f) {
   const err = m => errors.push(m);
   const { chess, bonds, bands, items, tokens, backups, stages } = f;
   const visible = Object.values(chess).filter((c) => !c.isGolden && c.visible);
-  // the version's expected counts (its profile, tools/versions/<slug>.mjs)
-  const want = PROFILE.expect;
-  if (Object.keys(bonds).length !== want.bonds) err(`expected ${want.bonds} bonds, got ${Object.keys(bonds).length}`);
-  if (Object.keys(bands).length !== want.bands) err(`expected ${want.bands} bands, got ${Object.keys(bands).length}`);
-  if (visible.length !== want.visibleNonDiy) err(`expected ${want.visibleNonDiy} visible non-DIY chess, got ${visible.length}`);
+  // The counts are the committed ones. The DEFAULT version carries the fork layer, so its numbers are the official
+  // ones plus every pack (see the block's comment): 23 bonds + 莱茵生命 + 东/乌萨斯, 40 bands + 5 自制策略, and 112
+  // visible non-DIY chess + 2 packExtra6 + 地灵. The earlier versions are pinned to upstream's pre-fork data
+  // (test/data-versions.test.js pins them byte for byte), so they keep their profile's plain official counts.
+  const want = PROFILE.expect; // the per-version counts and trigger-deviation mode
+  const fBonds = IS_DEFAULT ? 24 + DU_BOND_COUNT : want.bonds;
+  const fBands = IS_DEFAULT ? 40 + DU_BAND_COUNT : want.bands;
+  const fVisible = IS_DEFAULT ? 115 + DU_VISIBLE_CHESS : want.visibleNonDiy;
+  if (Object.keys(bonds).length !== fBonds) err(`expected ${fBonds} bonds, got ${Object.keys(bonds).length}`);
+  if (Object.keys(bands).length !== fBands) err(`expected ${fBands} bands, got ${Object.keys(bands).length}`);
+  // the fork's two ported 额外干员 operators ride on top of the official 112 (tools/fork-overrides.mjs packExtra6), and
+  // 二.1 地灵 (2026-10-23) adds one more: the official hidden operator `chess_char_1_11_a`, made visible by the
+  // `packBeanstalk` applier (its `packRestore` puts `visible: false` back when the switch is off).
+  // The per-record loop that used to follow (baseId / goldenId / bonds / garrisons / tokens / talents, the DESIGN §16
+  // skill and module choices, `placement`) is now shared/plugins/validate.js `validateReferences` — upstream 0.3.0
+  // extracted it, and `validateAll` already calls it above, so the fork's copy of the loop is gone.
+  if (visible.length !== fVisible) err(`expected ${fVisible} visible non-DIY chess, got ${visible.length}`);
   // the deliberate trigger deviations (DESIGN §21.29, §22.10) still override an official TAKE_DAMAGE row, on the normal
   // chess and its elite alike (a DEFAULT one may resolve to the owner's ACTIVE_RANGE on top: 深巡 S2). A version without
   // the TANK row ('none': 上半) has no TAKE_DAMAGE row at all, so no deviation can apply there; 'present' (下半 V2_1)
@@ -3398,7 +3421,8 @@ async function main() {
   // without failing anything, because the committed files had been patched in place. One list, both directions.
   // `chess`/`backups` apply in two stages around attachPotential (FORK_PASS_APPLIERS / the loop below);
   // `assets` is not built here at all (tools/fetch-assets.mjs owns it).
-  for (const [name, apply] of Object.entries(FORK_APPLIERS)) {
+  // The fork layer is the DEFAULT build's only (the pinned earlier versions are upstream's pre-fork data).
+  if (IS_DEFAULT) for (const [name, apply] of Object.entries(FORK_APPLIERS)) {
     if (FORK_PASS_APPLIERS[name] || !files[name]) continue;
     files[name] = apply(files[name]);
   }
@@ -3413,6 +3437,7 @@ async function main() {
   // ★ `backups` gets the finished `chess` here: `applyForkPackAphris` filters `diy.ownedPool` against the chess records,
   //   and this second pass would otherwise overwrite the filtered pool from the earlier pass with the unfiltered one.
   for (const name of Object.keys(FORK_PASS_APPLIERS)) {
+    if (!IS_DEFAULT) break;
     files[name] = name === 'backups' ? FORK_APPLIERS[name](files[name], files.chess) : FORK_APPLIERS[name](files[name]);
   }
   errors.push(...validateAll(files));
@@ -3429,20 +3454,22 @@ async function main() {
   // ported operator's summon (tokens.json) and the fork's own `op-doroth` 自选 pick's (backups.json `tokens`) —
   // `simdata.rawToken` merges the two records, and the pack's copy leaves with the switch.
   const { applyRhineData, validateRhineData } = await import('./rhine-data.mjs');
-  await applyRhineData(files);
-  errors.push(...validateRhineData(files));
+  if (IS_DEFAULT) {
+    await applyRhineData(files);
+    errors.push(...validateRhineData(files));
+  }
   // 八 卡兹戴尔: `tools/kazdel.mjs` runs the source expansion's own overlay (`tools/kazdel-data.mjs`) and tags what it
   // added with `packId: 'packKazdel'`, so the whole content leaves again while that switch is off. LAST, and
   // specifically AFTER 六.F: it appends its members to the 盟约 of the RHINE operators too (伊芙利特 joins 精准, 梅尔 /
   // 森蚺 / 多萝西 join 灵巧 / 坚守 …), and each overlay recomputes the member lists from the chess that name them — so
   // running it earlier would have 莱茵's own recompute drop the names again.
   const { applyKazdel } = await import('./kazdel.mjs');
-  await applyKazdel(files);
+  if (IS_DEFAULT) await applyKazdel(files);
   // 九 雷姆必拓: `tools/rem.mjs` runs the source expansion's own overlay (`tools/rem-data.mjs`) and tags what it added
   // with `packId: 'packRem'`. LAST of all, and specifically AFTER 八: each overlay recomputes every 盟约's member list
   // from the chess that name it, so running it earlier would have the next overlay drop 雷姆必拓's nine names again.
   const { applyRem } = await import('./rem.mjs');
-  await applyRem(files);
+  if (IS_DEFAULT) await applyRem(files);
   // 二.3 东国 / 乌萨斯：把注入进来的记录**在写出前**盖上 `packId`。
   //
   // ★ 为什么不在 `injectDongUrsusPack` 里盖：那个函数跑在任何 builder 之前，而 builder（buildChess / buildBonds /
@@ -3451,7 +3478,7 @@ async function main() {
   //   这里沿用同一条时序。
   //
   // `packRestore` 同理：它要落在最终的记录上，才能被 `shared/packData.js withPackRestore` 读到。
-  applyDongUrsusPack(files, ctx.dongUrsus);
+  if (IS_DEFAULT) applyDongUrsusPack(files, ctx.dongUrsus);
   // 自选编队的可选池剔除「已经是棋手」的干员（需求方 2026-10-23：开启莱茵生命后伊芙利特这类干员既能当棋手、又能被
   // 重复加进自选编队，局内卡池刷新概率因此异常）。
   //
@@ -3478,7 +3505,12 @@ async function main() {
     sizes[name] = Buffer.byteLength(texts[name]);
     total += sizes[name];
   }
-  if (total > 6 * 1024 * 1024) errors.push(`total data size ${total} exceeds 6 MB`); // per version
+  // The generated set is one request's payload, so it is bounded — the cap guards a runaway build (a duplicated table, a
+  // record loop that never terminates), not a content budget. It was 6 MB at the initial import, when the fork had the
+  // official roster only; 六.F 莱茵生命 (~150 KB) and 八/九 卡兹戴尔 + 雷姆必拓 (~330 KB between them) are legitimate
+  // growth, and the 雷姆必拓 overlay is what crossed the old line. 7 MB keeps the same kind of guard with room for one
+  // more pack, and the measured total is printed by the build so a real regression is still obvious.
+  if (total > 7 * 1024 * 1024) errors.push(`total data size ${total} exceeds 7 MB`);
   // another version carries a byte copy of the hand-maintained data/tuning.json: a gameplay file that loadData and the
   // content hash read with the rest of a data directory [ASSUMED] the same tuning for every version
   const extra = IS_DEFAULT ? {} : { tuning: await readFile(join(ROOT, 'data', 'tuning.json')) };

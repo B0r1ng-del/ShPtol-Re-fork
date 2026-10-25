@@ -64,13 +64,14 @@ function contentSets(lobby) {
  *           traffic?: ReturnType<typeof import('./traffic.js').createTrafficCounter>,
  *           assetIndex?: ReturnType<typeof import('./assetIndex.js').createAssetIndex> | null,
  *           views?: ReturnType<typeof import('./assetViews.js').createManifestViews> | null, trusted?: any,
+ *           modHealth?: (() => object) | object | null,
  *           versions?: ReturnType<typeof import('../versions.js').createVersionSets> | null,
  *           versionHosts?: { stats: () => object } | null }} health
  *   content: the server's vanilla content (server/plugins/identity.js); versions / versionHosts: the official versions
- *   and their match hosts (DESIGN §35.23)
+ *   and their match hosts (DESIGN §35.23); modHealth: the fields the packs' server modules add (DESIGN §34.14)
  * @param {boolean} [withTraffic]
  */
-export function healthReport({ startedAt, network, registry, lobby, content = null, traffic, assetIndex, views, trusted, versions = null, versionHosts = null }, withTraffic = false) {
+export function healthReport({ startedAt, network, registry, lobby, modHealth = null, content = null, traffic, assetIndex, views, trusted, versions = null, versionHosts = null }, withTraffic = false) {
   const report = {
     ok: true, version: PROTOCOL_VERSION, app: APP_VERSION, uptimeSec: Math.round((Date.now() - startedAt) / 1000),
     // the runtime the server is serving right now (public/js/ui/buildGuard.js): a page whose own build is
@@ -83,6 +84,11 @@ export function healthReport({ startedAt, network, registry, lobby, content = nu
     sockets: network.connectionCount, sessions: registry.size, ...lobby.stats(),
   };
   if (trusted && Object.keys(trusted).length) report.plugins = trusted;
+  // 包的服务端模块贡献的字段（`server.modules[*].uses` 含 `healthz`）：**每次请求现算**（那几个要报的是当前值，
+  // 不是启动时的快照），按包 id 分组（两个包不能互相盖字段）。空对象 ⇒ **不加这个键**（干净安装的 `/healthz`
+  // 与从前逐字节相同）。
+  const fields = typeof modHealth === 'function' ? modHealth() : modHealth;
+  if (fields && typeof fields === 'object' && Object.keys(fields).length) report.modHealth = fields;
   // the official versions (DESIGN §35.23): only when another one than 第二期下半 is enabled
   if (versions && versions.nonDefault.length) {
     report.versions = { enabled: [...versions.ids], default: versions.defaultId,
