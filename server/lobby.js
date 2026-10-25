@@ -2015,6 +2015,14 @@ export class Lobby {
       //   修法：**两条路都传原始 `entries`**。`setLoadout` 自己会 `checkLoadout` 校验，并已改成按
       //   「这次提交点过名的 id」删旧记录（server/match/player/basics.js），所以原始 entries 是它需要的输入。
       r = room.match.setLoadout(session.playerId, entries, ops);
+      // ★ 需求方 2026-10-25「第二次点击不生效」的最后一环（真的最后一环）：
+      //   `setLoadout` 内部只做 `markPrivate(ps)` —— 那只是把这一份私密视图**标脏**，
+      //   真正发出去要等 `Match.flush()`。而 `room.loadout` 是 **lobby 直接调** match 的，
+      //   走的不是 match 自己的消息循环，所以没有任何地方替它 flush：
+      //   服务端的 `ps.loadout` 改了，客户端的 `priv.loadout` 却永远是开局那份。
+      //   客户端于是拿旧基线算下一次切换 → 第二次点击看起来完全没反应（不是限流、不是判据）。
+      //   这里补一次 flush，让新的 m.private 立刻回到这个玩家。
+      room.match.flush?.();
     } catch (e) {
       this.log.error(`[lobby] ${room.code} match.setLoadout threw`, e);
       return fail(ERR.INTERNAL);

@@ -127,3 +127,18 @@ test('★ lobby 转发给 match 的必须是**原始 entries**（归一化会丢
   assert.doesNotMatch(body, /setLoadout\(session\.playerId, loadout, opsSet\)/,
     '不能把归一化后的 loadout 交下去（等于默认的条目在那里已经被丢掉了）');
 });
+
+test('★ 调完 setLoadout 必须立刻 flush（markPrivate 只标脏，不 flush 就永远发不出去）', () => {
+  // 需求方 2026-10-25 那个「第二次点击不生效」的最最后一环：
+  // `room.loadout` 是 lobby **直接调** match.setLoadout 的，走的不是 match 自己的消息循环，
+  // 所以没有任何地方替它 flush。setLoadout 里的 markPrivate 只是把私密视图标脏 ——
+  // 不 flush，新的 m.private 永远发不出去，客户端一直拿旧基线。
+  const src = readFileSync(join(ROOT, 'server/lobby.js'), 'utf8');
+  const at = src.indexOf('loadout(session, { entries, ops })');
+  const body = src.slice(at, src.indexOf('\n  /**', at));
+  assert.match(body, /room\.match\.flush\?\.\(\)/, 'setLoadout 之后必须 flush，让新的 private 回到玩家');
+  // 且 flush 必须在 setLoadout 之后（顺序反了就白标脏）
+  const iSet = body.indexOf('room.match.setLoadout');
+  const iFlush = body.indexOf('room.match.flush');
+  assert.ok(iSet > 0 && iFlush > iSet, 'flush 必须在 setLoadout 之后');
+});
