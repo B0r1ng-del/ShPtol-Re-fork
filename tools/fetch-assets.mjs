@@ -574,6 +574,18 @@ async function main() {
     stats: countStats(body, bytes, resolved.files.size),
     ...body,
   };
+  // ★ 内容包的本机美术（`public/art/**`，随仓库提交、不下载）：莱茵生命 / 卡兹戴尔的盟约图标、科研装置、
+  //   装备图，以及雷姆必拓的盟约图标。这三个 `add*Art` 是**就地改写 manifest** 的那种 applier，所以必须在
+  //   manifest 组装完之后、写盘之前跑。
+  //   需求方 2026-10-25（四个内容包的盟约图标都显示成「莱/卡/雷/乌」字块）：它们原先**只被 import、
+  //   从来没有调用**（`fetch-rem-assets.mjs` 那个独立工具倒是调了 addRemArtPlan），于是 `bonds` 里永远
+  //   只有 23 条官方盟约，四个包的图标全部退化成占位字块 —— 与 `-X theirs` 删调用点是同一类毛病。
+  const beforeBonds = Object.keys(manifest.bonds || {}).length;
+  addRhineArt(manifest);
+  addKazdelArt(manifest);
+  addRemArtPlan(manifest);
+  const afterBonds = Object.keys(manifest.bonds || {}).length;
+  if (afterBonds !== beforeBonds) log(`[art] pack bond icons: ${beforeBonds} → ${afterBonds}`);
   const guard = shrinkGuard(current, manifest, opts);
   if (guard.write) await writeJsonAtomic(MANIFEST, manifest);
 

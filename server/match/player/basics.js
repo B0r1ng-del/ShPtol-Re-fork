@@ -104,8 +104,14 @@ export class PlayerBasics {
     // [ASSUMED] prep merges ops the same way, so a partial panel does not wipe the operators it does not name.
     const merge = !!(opts && opts.merge);
     const out = merge && this.loadout && typeof this.loadout === 'object' ? { ...this.loadout } : {};
-    // Validation drops defaults. A named default resets that operator; an omitted operator keeps its choice.
-    if (merge) for (const id of Object.keys(entries)) delete out[id];
+    // ★ 需求方 2026-10-25「一技能换到二技能就换不回一技能」的真根因：
+    //   `checkLoadout` 会把「等于默认」的条目**丢掉**（返回的 `res.loadout` 里不留它），
+    //   而这里原先删的是 `entries`（= `res.loadout`）—— 于是「点回默认技能」这个操作**根本删不到**：
+    //   条目没进 `res.loadout`，`out` 里旧的选择就原地留着。表现就是换得过去、换不回来。
+    //   要删的是**这一次提交明确点过名的 id**（`loadout` 的键，含那些等于默认、被校验丢掉的）。
+    if (merge && loadout && typeof loadout === 'object' && !Array.isArray(loadout)) {
+      for (const id of Object.keys(loadout)) delete out[id];
+    }
     for (const [id, e] of Object.entries(res.loadout)) out[id] = Object.freeze({ skill: e.skill, module: e.module ?? null });
     this.loadout = Object.freeze(out);
     if (opsRes) {

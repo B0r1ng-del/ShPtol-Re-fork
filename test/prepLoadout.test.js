@@ -88,6 +88,30 @@ test('`mergeLoadoutEntries`：只覆盖这次写了的干员；非对象条目�
   assert.deepEqual(mergeLoadoutEntries(current, { a: [1] }), current, '数组也不算一条配发');
 });
 
+test('★ merge 时「点回默认技能」必须真的把旧选择删掉（换得过去也要换得回来）', () => {
+  // 需求方 2026-10-25：「一技能换到二技能就换不回一技能」。
+  // 真根因在 PlayerState.setLoadout 的 merge 分支：它原先删的是 `entries`，
+  // 而 `entries` 是 `checkLoadout` 的**输出**——等于默认的条目在那里就被丢掉了，
+  // 于是「点回默认」这一动作删不到任何东西，旧选择原地留着。
+  // 这里不复制那段实现，而是直接读源码断言它删的是「这次提交点过名的 id」。
+  const src = readFileSync(join(ROOT, 'server/match/player/basics.js'), 'utf8');
+  const at = src.indexOf('const merge = !!(opts && opts.merge);');
+  assert.ok(at > 0, 'setLoadout 的 merge 分支存在');
+  const body = src.slice(at, src.indexOf('this.loadout = Object.freeze(out);', at));
+  assert.match(body, /for \(const id of Object\.keys\(loadout\)\) delete out\[id\]/,
+    '删的必须是这次提交点过名的 id（loadout 的键）');
+  assert.doesNotMatch(body, /for \(const id of Object\.keys\(entries\)\) delete out\[id\]/,
+    '不能删 checkLoadout 的输出 —— 等于默认的条目在那里已经被丢掉了，删不到');
+  // 语义自检：默认技能被 checkLoadout 丢掉后，提交里仍必须「点名」它，才删得掉旧选择。
+  const current = { chess_x: { skill: 1, module: null } };
+  const submitted = { chess_x: { skill: 0 } };            // 用户点回默认技能 0
+  const afterCheck = {};                                   // checkLoadout 把「等于默认」的丢掉了
+  const out = { ...current };
+  for (const id of Object.keys(submitted)) delete out[id]; // ← 修好后的行为
+  for (const [id, e] of Object.entries(afterCheck)) out[id] = e;
+  assert.deepEqual(out, {}, '换回默认后不留旧记录');
+});
+
 // ---------------------------------------------------------------------------------------------------------------
 // 需求方 2026-10-23：整备阶段**默认**就能改技能（从前只有包声明 `prepLoadout: "prep"` 才开）。显式声明 `locked`
 // 才收回官方档 —— 那是包的选择，不是缺省。
@@ -190,8 +214,12 @@ test('整备期改技能：局内点棋盘干员（detailTarget.kind === unit）
   const body = src.slice(at, src.indexOf('\n  })();', at));
   assert.match(body, /detailTarget\?\.kind !== 'unit'/, "必须接受 'unit'（局内点棋盘干员的路径）");
   assert.equal(/detailTarget\?\.kind !== 'chess'\)/.test(body), false, '不许再只认 chess 一种');
-  // 且必须落到「自己的」loadout，队友的不能改
-  assert.match(body, /detailLoadout !== priv\.loadout/, '必须只在读自己的 loadout 时可改');
+  // 且必须落到「自己的」块上，队友的不能改。
+  // （原先钉的是 `detailLoadout !== priv.loadout`，但那个判据本身有 bug：`priv.loadout` 为 undefined 时
+  //   `null !== undefined` 恒真，会把「还没有调配记录的自己」也挡掉 —— 需求方 2026-10-25 报的
+  //   「局内还是不能改技能」就是这么来的。现在按这块 piece 的归属判。）
+  assert.match(body, /resolved\.ownerId != null && resolved\.ownerId !== myId/, '按 piece 归属判，队友的不能改');
+  assert.doesNotMatch(body, /detailLoadout !== priv\.loadout/, '不能再拿 loadout 的引用比');
   // 相位：服务端 setLoadout 只收 INFO_CHECK（prepLoadout=prep 再放 PREP），**COMBAT 一律 WRONG_PHASE**
   assert.equal(/phase !== PHASE\.COMBAT/.test(body), false, '不得在 COMBAT 出技能选择器（服务端会拒）');
   // 服务端在 PREP 还有第二道闸「这个座位已按准备就锁死」（platform.js:138），客户端必须跟着挡，

@@ -5,9 +5,21 @@ import { RAW } from './sources.mjs';
 export const REM_BOND_ICON = '/art/rem/bond.png';
 /** `public/art/rem/bond.png` under a checkout root — the file the manifest path points at. */
 export const localBondArt = (root) => `${root}/public${REM_BOND_ICON}`;
+/**
+ * 雷姆必拓的两件道具图标（工头的扩音器 / 动力护甲）。
+ * 需求方 2026-10-25（图：道具页里这两件是占位书本）：官方素材库没有它们（`iconId` 指向自制 trapId），
+ * 但 **mod 上游仓库里有**（`public/icons/rem-amplifier.svg` 与 `rem-armor.svg`，上游自己画的），
+ * 已原样提取到 `public/art/rem/`。与盟约图标同样处理：本机美术、随仓库提交、不下载。
+ */
+export const REM_ITEM_ART = Object.freeze({
+  trap_rem_amplifier: '/art/rem/rem-amplifier.svg',
+  trap_rem_armor: '/art/rem/rem-armor.svg',
+});
 export function addRemArtPlan(template) {
   template.bonds ||= {};
   template.bonds.remShip = REM_BOND_ICON;
+  template.items ||= {};
+  for (const [trapId, rel] of Object.entries(REM_ITEM_ART)) template.items[trapId] = rel;
   return template;
 }
 
