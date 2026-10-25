@@ -1883,7 +1883,7 @@ function MatchScreen() {
     // ★ 诊断开关（需求方 2026-10-25「控制台搜不到任何东西」）：把每个闸门的实际结果挂到 window 上，
     //   打开详情卡后到控制台敲 `__spSkillGate` 就能看到是哪一条挡住了。定位完可以整段删掉。
     const gate = (reason, extra) => {
-      try { globalThis.__spSkillGate = { blockedBy: reason, ...extra }; } catch { /* ignore */ }
+      try { globalThis.__spSkillGate = { blockedBy: reason, at: Date.now(), ...extra }; } catch { /* ignore */ }
       return null;
     };
     const facts = () => ({

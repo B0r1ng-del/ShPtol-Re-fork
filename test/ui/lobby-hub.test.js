@@ -232,8 +232,14 @@ test('the key: a pasted invite link of any length, a 5th character or a dash are
 test('official art only: every key the hub and 选择模拟协议 ask for is in data/assets.json', () => {
   const ui = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8')).ui;
   const keys = [...lobbySrc.matchAll(/\sk="([^"$]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(keys.sort(), ['entry/entry_bkg_01', 'entry/entry_bkg_02', 'entry/season_logo']);
+  // 需求方 2026-10-25（图二）：主页中央的标志**不再用 `entry/season_logo`**。
+  // 那张 png 在本机近乎全透明（27612 个像素里不透明的不到 200 个），位图加载成功但什么都看不见；
+  // 而官方的 `entry/season_logo_settle` 是**另一个**图形（点阵三角 + ALLIANCE），不是主页那个「城堡」。
+  // 合并前（fork-before-v032）这里就是 `<${Emblem} />`，恢复成它 —— Emblem 的 13×14 点阵正是城堡轮廓。
+  assert.deepEqual(keys.sort(), ['entry/entry_bkg_01', 'entry/entry_bkg_02']);
   for (const k of keys) assert.ok(ui[k], k);
+  assert.match(lobbySrc, /<div class="hub-center__mark"><\$\{HubRadar\} \/><\$\{Emblem\} \/><\/div>/, '主页标志用 Emblem，不用位图');
+  assert.doesNotMatch(lobbySrc, /entry\/season_logo"/, '不再引用那张空图');
   for (const d of ['funny', 'normal', 'hard', 'abyss']) assert.ok(ui[`modeChoice/${d}_rhodes_island`], d);
 });
 
