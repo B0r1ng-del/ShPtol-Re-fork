@@ -10,8 +10,9 @@ import { useStore } from '../store.js';
 import { skinsStore, ownerSkin } from './skins.js';
 import { settingsStore } from './settingsStore.js';
 import {
-  uiUrl, chessAvatarUrl, chessPortraitUrl, itemIconUrl, tokenAvatarUrl, enemyIconUrl, bondIconUrl, bandIconUrl,
+  uiUrl, itemIconUrl, tokenAvatarUrl, enemyIconUrl, bondIconUrl, bandIconUrl,
 } from './assetUrls.js';
+import { portraitUrlOf, avatarUrlOf, currentAppearanceLookup } from './portraitChain.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -84,8 +85,12 @@ export function OperatorImage({ m, chess, ownerId, skin = null, portrait = false
   const otherSkins = useStore((s) => s.otherSkins, Object.is, settingsStore);
   const selected = useStore((s) => ownerSkin(chess?.charId, { ownerId, skin, myId: s.me.playerId,
     players: s.match.public?.players || [], localSkins, otherSkins }));
-  const art = portrait ? chessPortraitUrl(m, chess, { skin: selected }) : null;
-  const src = art || (!portrait || avatarFallback ? chessAvatarUrl(m, chess, { skin: selected }) : null);
+  // ★ 立绘 / 头像一律走解析链（public/js/ui/portraitChain.js）：它把「时装提供者 → `_1`/`_2` 后缀 → 精确命中 →
+  // 官方回落」这一整串判断收在一处，钩子由 main.js 注册。直接调 chessPortraitUrl / chessAvatarUrl 会绕过时装，
+  // 装了时装也不生效（test/ui/portraitChain.test.js 的消费点守卫钉的就是这条）。
+  // `lookup` 显式传当前钩子：链的模块级默认值只在步骤 0 读，调用方这一格保证「没有提供者时也走同一条路」。
+  const art = portrait ? portraitUrlOf(m, chess, { skin: selected, lookup: currentAppearanceLookup() }) : null;
+  const src = art || (!portrait || avatarFallback ? avatarUrlOf(m, chess, { skin: selected, lookup: currentAppearanceLookup() }) : null);
   return html`<${Img} ...${props} src=${src} class=${art ? portraitClass ?? props.class : avatarClass ?? props.class} />`;
 }
 

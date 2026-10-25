@@ -95,6 +95,9 @@ export function portraitEntry(m, chess, opts = {}) {
 
   if (id) {
     // 步骤 2：`_1` / `_2` 后缀（旧行为的第一分支）
+    // ★ `&& !chars[id]` 这一格是旧实现 (`assetUrls.js`) 就有的：只有 `_2` 那个 id **本身不是**一条记录时，
+    // 才把后缀剥掉去取它对应的基础干员。少了这个条件，`char_c_2` 这种**自成一体的精锐记录**会被错当成
+    // 「char_c 的精锐版」而画成 `c/p1.png`（旧实现给的是 `c2/p1.png`）。
     if (opts.variant === 'elite') {
       // 调用方显式点名精锐（与 `_2` / `isGolden` 同一条请求的第三种写法）：先给这个干员的精锐字段。
       // 没有精锐字段就不在这里下结论 —— 让下面那条**已有的**回落决定（后缀分支 / 精确命中 / 步骤 5）。
@@ -102,11 +105,11 @@ export function portraitEntry(m, chess, opts = {}) {
       const eliteUrl = eliteRec ? strOf(eliteRec[f.elite]) : null;
       if (eliteUrl) return eliteUrl;
     }
-    if (id.endsWith('_2')) {
+    if (id.endsWith('_2') && !chars[id]) {
       const base = chars[id.slice(0, -2)];
       if (base) return strOf(base[f.elite]) || strOf(base[f.plain]);
     }
-    if (id.endsWith('_1')) {
+    if (id.endsWith('_1') && !chars[id]) {
       const base = chars[id.slice(0, -2)];
       if (base) return strOf(base[f.plain]);
     }
@@ -124,14 +127,16 @@ export function portraitEntry(m, chess, opts = {}) {
 
   // 步骤 5：回落这个干员自己的记录。
   //
-  // **立绘与头像在这一点上不同，而且必须保持不同**：
-  //   * 立绘：`isGolden` ⇒ 优先 `portraitE2`（`chessPortraitUrl` 今天的语义 —— 详情页画的是精锐那一张）；
-  //   * 头像：**不看 `isGolden`**。调用方自己传精锐变体（`screens/diy.js` 的
-  //     `elite ? unit.assets.avatarGolden : unit.assets.avatar`），所以这里再叠一次 `isGolden` 会把
-  //     「调用方明确要普通头像」的请求偷偷改成精锐头像 —— 那是**改行为**，不是统一链。
+  // 立绘与头像在这一点上**必须一致**：`chess.isGolden` ⇒ 优先 E2 字段（立绘 `portraitE2`、头像 `avatarE2`），
+  // 没 有 E2 字段就回落到普通那张。
+  // ★ 这里曾经写成「头像不看 isGolden」，理由是「精锐头像由调用方自己传变体（`screens/diy.js` 的
+  // `elite ? unit.assets.avatarGolden : unit.assets.avatar`）」。那个前提**是错的**：`assetUrls.js` 的
+  // `chessAvatarUrl` 一直就有 `if (entry && chess?.isGolden && str(entry.avatarE2)) return str(entry.avatarE2)`，
+  // 也就是说旧函数本来就认 `isGolden`。链少这一格，就和它声称要替代的对照实现分叉了
+  // （`test/ui/portraitChain.test.js` 的「与 chessAvatarUrl 一致」那条一直是红的，就是这个原因）。
   const byChar = charId ? chars[charId] : null;
   if (!byChar) return null;
-  if (kind === 'portrait' && chess && chess.isGolden) {
+  if (chess && chess.isGolden) {
     const elite = strOf(byChar[f.elite]);
     if (elite) return elite;
   }

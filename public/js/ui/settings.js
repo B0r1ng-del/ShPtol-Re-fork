@@ -33,6 +33,9 @@ export { settingsStore } from './settingsStore.js';
 import { sanitizeSettings, HOTKEY_ACTIONS, DEFAULT_HOTKEYS, hotkeyLabel, rebindHotkey, isDefaultHotkeys, captureHotkey, VOICE_LANGS, TEXT_SIZES } from './gameLogic.js';
 import { audio } from '../audio.js';
 import { VOICE_CHAR_ID_RE, VOICE_OVERRIDE_MAX, VOICE_PICKS } from '../voicePrefs.js';
+// 工坊外观的门控（「设置 → 工坊外观」这条线**唯一**的写入面）：立绘 / 头像解析链的模块级开关，
+// `setAppearanceFirst(false)` = 一律走官方图（与「没有时装」逐字节相同）。
+import { setAppearanceFirst } from './portraitChain.js';
 import { openGuide } from './guide.js';
 import { detectFeatures, isIOS } from './device.js';
 import { LangToggle, machineTranslationNote } from './lang.js';
@@ -79,12 +82,16 @@ settingsStore.subscribe((s) => {
   audio.setVoiceLang(s.voiceLang, s.voiceOverrides);
   audio.setVoiceNative(s.voiceNative);
   applyTextSize(s.textSize);
+  setAppearanceFirst(s.workshopSkins);
 });
 audio.setVolumes(settingsStore.get());
 audio.setVoiceLang(settingsStore.get().voiceLang, settingsStore.get().voiceOverrides);
 audio.setVoiceNative(settingsStore.get().voiceNative);
 // before the first render (main.js boot renders after its imports ran): the stored step is on screen without a flash
 applyTextSize(settingsStore.get().textSize);
+// 与 applyTextSize 同一条纪律：**第一帧之前**把工坊外观的门控同步好。否则首帧用的是链的默认值、
+// 下一帧才改成玩家的选择（那一下闪动就是「装了时装却先画官方图」）。
+setAppearanceFirst(settingsStore.get().workshopSkins);
 
 /** @param {Partial<ReturnType<typeof sanitizeSettings>>} patch */
 export function updateSettings(patch) {
@@ -325,6 +332,7 @@ function CosmeticSection() {
     return html`<section class="set-plugins" aria-labelledby="set-skins-title" data-testid="personal-plugins">
       <div class="set-keys__head"><span class="set-row__label" id="set-skins-title">${t('外观插件')}<${MicroLabel}>COSMETIC PLUGINS<//></span></div>
       <${OtherSkinsRow} value=${s.otherSkins !== false} onSet=${(v) => updateSettings({ otherSkins: v })} />
+      <${WorkshopSkinsRow} />
     </section>`;
   }
   const set = personalSet(ids, entries);
@@ -370,6 +378,17 @@ function CosmeticSection() {
 function OtherSkinsRow({ value, onSet }) {
   return html`<${Toggle} label=${t('显示其他玩家的皮肤')} micro="OTHER SKINS"
     value=${value} onChange=${(v) => onSet(v)} />`;
+}
+
+/**
+ * 工坊外观（设置 → 工坊外观）：立绘 / 头像解析链的总开关。
+ * 关掉 ⇒ 链的步骤 0 整段不存在，画面与「没装时装」逐字节相同（`portraitChain.js` 的 `setAppearanceFirst`）。
+ * 这是这条线**唯一**的写入面 —— 与 `otherSkins` 同一条纪律：订阅里与首帧之前各同步一次。
+ */
+function WorkshopSkinsRow({ value }) {
+  const s = useStore((x) => x, Object.is, settingsStore);
+  return html`<${Toggle} label=${t('工坊外观')} micro="WORKSHOP SKINS"
+    value=${s.workshopSkins} onChange=${(v) => updateSettings({ workshopSkins: v })} />`;
 }
 
 /**

@@ -24,7 +24,8 @@ import { html, TierChip } from './components.js';
 import { GEO } from '../../../shared/constants.js';
 import { circleRangeSections } from '../../../shared/rhineRange.js';
 import { rhineDevice } from '../../../shared/rhineResearch.js';
-import { chessAvatarUrl, itemIconUrl, tokenAvatarUrl, enemyIconUrl } from './assetUrls.js';
+import { itemIconUrl, tokenAvatarUrl, enemyIconUrl } from './assetUrls.js';
+import { avatarUrlOf, currentAppearanceLookup } from './portraitChain.js';
 import { tileKey, hasFlag, UF, penPlacement, PEN, fieldTile, ownStandIn, ownDiyRecord } from './gameLogic.js';
 import { t } from '../../../shared/i18n.js';
 import { ownerSkin } from './skins.js';
@@ -39,10 +40,12 @@ export function unitArt(m, info, appearance = {}) {
   if (!m || !id) return null;
   if (info.side === 'enemy' || String(id).startsWith('enemy_')) return enemyIconUrl(m, id);
   if (String(id).startsWith('token_')) return tokenAvatarUrl(m, id);
-  // Same golden rule as chessAvatarUrl: a character-key avatar uses avatarE2 on a golden piece.
+  // 立绘 / 头像一律走解析链（portraitChain）：时装提供者 → `_1`/`_2` 后缀 → 精确命中 → 官方回落。
+  // 直连旧函数会绕过时装，装了也不生效（test/ui/portraitChain.test.js 的消费点守卫钉的就是这条）。
   const charId = info.diy?.charId || info.spine || String(id).replace(/_[12]$/, '');
   const skin = ownerSkin(charId, { ...appearance, ownerId: info.ownerId ?? null, skin: info.skin });
-  return chessAvatarUrl(m, { charId, isGolden: !!info.golden, assets: { avatar: id } }, { skin });
+  return avatarUrlOf(m, { charId, isGolden: !!info.golden, assets: { avatar: id } },
+    { skin, lookup: currentAppearanceLookup() });
 }
 
 /** Look of the stage tile (row, col) on the fallback board (stage coordinates). */
@@ -157,7 +160,7 @@ export function createFallbackView(host, opts = {}) {
     const body = ownSi(chess) || ownDiy(chess) || chess;
     const skin = ownerSkin(body?.charId, { ownerId: st.priv?.playerId ?? st.myId, skin: p.skin,
       myId: st.myId, players: st.players, otherSkins: st.settings.otherSkins });
-    return chessAvatarUrl(mm, body, { skin });
+    return avatarUrlOf(mm, body, { skin, lookup: currentAppearanceLookup() });
   }
   /** 0.2.0 补位: the player's own piece of a chess it does not own is its stand-in, bench and board alike (render/app.js pieceInfo) */
   function ownSi(chess) {

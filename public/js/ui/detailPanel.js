@@ -43,7 +43,8 @@ import { useEffect } from '../../vendor/hooks.module.js';
 import { html, Icon, TierChip, MicroLabel, Button, confirmDialog, useTicker } from './components.js';
 import { OperatorImage, Img, RichText, UnitThumb, BondGlyph, GIcon, diyToken } from './gameComponents.js';
 import { attackInterval, rangeGridBox, fmtNum, tileKey, chessLoadout, nextThreshold, bondTier, briefingBondTip, pieceBondIds, grantedBonds, morphPairings, ownStandIn, standInOf, standInLoadout, standInLabel, standInTip, standInForText, ownDiyRecord, ownDiyPick, diyRecordFor, pickGetter, unitPick, unitCultivation } from './gameLogic.js';
-import { chessPortraitUrl, chessAvatarUrl, skillIconUrl, skillRecordIconUrl, profIconUrl, subProfIconUrl, itemIconUrl, enemyIconUrl, tokenAvatarUrl, factionIconUrl, uiUrl, moduleTypeIconUrl } from './assetUrls.js';
+import { skillIconUrl, skillRecordIconUrl, profIconUrl, subProfIconUrl, itemIconUrl, enemyIconUrl, tokenAvatarUrl, factionIconUrl, uiUrl, moduleTypeIconUrl } from './assetUrls.js';
+import { portraitUrlOf, avatarUrlOf, currentAppearanceLookup } from './portraitChain.js';
 import { abilityRows } from './abilityLines.js';
 import { data } from '../data.js';
 import { attackRangeGrid } from '../../../shared/loadoutRecord.js';
@@ -714,7 +715,7 @@ export function TokenDetail({ token, piece, ownerId = null, snapHp = null, live 
   const baseResearchAttack = research && !Number.isFinite(live?.atk);
   return html`
     <div class="dhead dhead--item">
-      <div class="dhead__icon"><${Img} src=${soul ? chessAvatarUrl(m, { assets: { avatar: soulState.avatar } }) : tokenAvatarUrl(m, token.tokenId)} fallback=${html`<${GIcon} name="target" />`} /></div>
+      <div class="dhead__icon"><${Img} src=${soul ? avatarUrlOf(m, { assets: { avatar: soulState.avatar } }, { lookup: currentAppearanceLookup() }) : tokenAvatarUrl(m, token.tokenId)} fallback=${html`<${GIcon} name="target" />`} /></div>
       <div class="dhead__info">
         <div class="dhead__chips"><span class=${soul ? 'dtag-token dtag-kazdel-soul' : 'dtag-token'}>${soul ? t('亡魂') : research ? t('科研装置') : t('召唤物')}</span>${piece?.count > 1 ? html`<span class="dtag-kind num">×${piece.count}</span>` : null}</div>
         <h3 class="dhead__name">${soul ? soulState.name : token.name}</h3>

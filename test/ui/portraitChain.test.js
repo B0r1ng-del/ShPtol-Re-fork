@@ -82,16 +82,23 @@ describe('解析链：没有 hook 时与今天**逐字相同**（开关开与关
     }
   });
 
-  test('头像：与 chessAvatarUrl 一致 —— **包括不看 isGolden 这一条**', () => {
+  test('头像：与 chessAvatarUrl 一致 —— 两者都看 isGolden', () => {
     for (const c of CASES) {
       const got = avatarUrlOf(M, c.chess);
       const want = chessAvatarUrl(M, c.chess);
       assert.equal(got, want, `${c.name}: 头像链 = ${JSON.stringify(got)}，今天 = ${JSON.stringify(want)}`);
     }
-    // 单独钉住那条容易写错的语义：头像**不**因 isGolden 改用 E2 —— 精锐变体由调用方自己传
-    // （`screens/diy.js`：`elite ? unit.assets.avatarGolden : unit.assets.avatar`）。
-    assert.equal(avatarUrlOf(M, { charId: 'char_a', isGolden: true }), 'a/v1.png', '普通头像');
-    assert.equal(portraitEntry(M, { charId: 'char_a', isGolden: true }, { kind: 'portrait' }), 'a/p2.png', '而立绘会走 E2');
+    // ★ 这条原本写的是「头像**不**因 isGolden 改用 E2」，理由是「精锐变体由调用方自己传」
+    // （`screens/diy.js`：`elite ? unit.assets.avatarGolden : unit.assets.avatar`）。**那个前提是错的**：
+    // `assetUrls.js` 的 `chessAvatarUrl` 从 fork 版起就有
+    //   `if (entry && chess?.isGolden && str(entry.avatarE2)) return str(entry.avatarE2);`
+    // 也就是说旧函数本来就认 isGolden。上面那圈循环一路比对下来也一直是两边都取 v2。
+    // 所以这里按实际语义钉：**立绘与头像都看 isGolden**（没有 E2 字段才回落到普通那张）。
+    assert.equal(avatarUrlOf(M, { charId: 'char_a', isGolden: true }), 'a/v2.png', '精锐头像走 E2');
+    assert.equal(portraitEntry(M, { charId: 'char_a', isGolden: true }, { kind: 'portrait' }), 'a/p2.png', '立绘同样走 E2');
+    // 没有 E2 字段的干员：精锐也回落到普通那张（两个 kind 一致）
+    assert.equal(avatarUrlOf(M, { charId: 'char_b', isGolden: true }), 'b/v1.png', '没有 E2 就用普通头像');
+    assert.equal(portraitEntry(M, { charId: 'char_b', isGolden: true }, { kind: 'portrait' }), 'b/p1.png', '没有 E2 就用普通立绘');
   });
 
   test('开关**关掉**时：逐项与今天相同（这是那条最硬的验收点）', () => {
@@ -125,12 +132,14 @@ describe('解析链：没有 hook 时与今天**逐字相同**（开关开与关
   });
 
   test('精确命中的 id：链用上了它（这是把 portraitUrl 的行为并进来的一步）', () => {
-    // 这条正是**两条旧链的差异**：`chessPortraitUrl` 会忽略 `char_c`（不是 _1/_2）而回落 char_a；
+    // 这条正是**两条旧链历史上的差异**：早期的 `chessPortraitUrl` 会忽略 `char_c`（不是 _1/_2）而回落 char_a；
     // 链必须**先看精确命中**（第 3 步），否则一套外部外观的 id 永远不会被认出来。
     const id = portraitEntry(M, { charId: 'char_a', assets: { portrait: 'char_c' } });
     assert.equal(id, 'c/p1.png', '精确命中优先于回落');
-    // 也就是说：这一条**有意**与旧的 chessPortraitUrl 不同 —— 差异集中在「id 是 chars 里的精确键」这一种输入上。
-    assert.equal(chessPortraitUrl(M, { charId: 'char_a', assets: { portrait: 'char_c' } }), 'a/p1.png', '旧实现确实忽略它');
+    // ★ 这条原本写的是「旧实现确实忽略它」（断言 `a/p1.png`）。那个前提**已经过时**：当前 `assetUrls.js` 的
+    // `chessPortraitUrl` 第 41 行有 `const entry = chars[id]`，精确命中本来就会生效，实测它返回 `c/p1.png`。
+    // 也就是说链与旧实现在这一点上**已经一致**了 —— 差异只剩历史上的那一版。按实际钉住。
+    assert.equal(chessPortraitUrl(M, { charId: 'char_a', assets: { portrait: 'char_c' } }), 'c/p1.png', '旧实现同样认精确命中');
     // 开了工坊外观也一样：**没有提供者**时这一步整段不存在（这是「默认开」仍然安全的原因）
     assert.equal(portraitEntry(M, { charId: 'char_a', assets: { portrait: 'char_c' } }, { skins: true }), 'c/p1.png');
   });
@@ -186,9 +195,11 @@ describe('提供者先说话（步骤 0）：开关打开且确有提供者', ()
       assert.equal(chessPortraitUrl(M, { charId: 'char_a', assets: { portrait: 'char_a_2' } }), 'a/p2.png', '与旧实现逐字相同');
       assert.equal(portraitEntry(M, { charId: 'char_a', assets: { portrait: 'char_a_1' } }), 'a/p1.png', '点名一阶 ⇒ 官方一阶');
       assert.equal(asked, 0, '点名了版本就不该打扰提供者');
-      // 提供者不认识的那一种输入，后缀分支照旧（去 `_2` 之后命中的是 `char_c`；它没有 `portraitE2`）
-      assert.equal(portraitEntry(M, { charId: 'char_a', assets: { portrait: 'char_c_2' } }), 'c/p1.png');
-      assert.equal(chessPortraitUrl(M, { charId: 'char_a', assets: { portrait: 'char_c_2' } }), 'c/p1.png', '与旧实现逐字相同');
+      // 提供者不认识的那一种输入，后缀分支照旧（★ 注：`char_c_2` 在 `chars` 里**是一条存在的记录**，
+      // 所以当前 `chessPortraitUrl` 会精确命中它、返回 `c2/p1.png` —— 早先版本没有精确命中这一步时才会
+      // 剥掉 `_2` 取 `char_c`。链的第 3 步（精确命中）排在 `_1`/`_2` 之后，两条现在一致。）
+      assert.equal(portraitEntry(M, { charId: 'char_a', assets: { portrait: 'char_c_2' } }), 'c2/p1.png');
+      assert.equal(chessPortraitUrl(M, { charId: 'char_a', assets: { portrait: 'char_c_2' } }), 'c2/p1.png', '与旧实现逐字相同');
     });
   });
 
@@ -393,16 +404,17 @@ describe('消费点都接了链（源码级守卫）', () => {
   const ROOT = new URL('../../', import.meta.url);
   const read = async (rel) => (await import('node:fs')).readFileSync(new URL(rel, ROOT), 'utf8');
 
-  /** 这些文件以前直接调旧函数，现在必须全走链。 */
+  /**
+   * 这些文件是立绘 / 头像的**消费点**，必须全走链。
+   * ★ 名单收窄过：原来还列了 `shopBar.js` / `screens/loadout.js` / `screens/diy.js` / `screens/ownership.js` /
+   * `screens/support.js`。前三者在上游 v0.3.2 的重构里**不再自己取图**（改为挂 `<UnitThumb>` 等共用组件，
+   * 取图收进 `gameComponents.js` 一处）；`support.js` 这个文件已经不存在了。对一个不取图的文件要求它
+   * 「必须引用解析链」是空要求，只会逼人加一句无用的 import —— 所以按**当前真的取图**的文件列。
+   */
   const CONSUMERS = [
-    'public/js/ui/gameComponents.js',     // UnitThumb：结算页 / 队伍面板 / 手牌共用的小头像
-    'public/js/ui/detailPanel.js',        // 详情页立绘
-    'public/js/ui/shopBar.js',            // 商店卡立绘
-    'public/js/ui/fallbackField.js',      // 补位小头像
-    'public/js/screens/loadout.js',       // 干员调配：立绘 + 头像
-    'public/js/screens/diy.js',           // 自选编队
-    'public/js/screens/ownership.js',     // 干员持有
-    'public/js/screens/support.js',       // 助战列表
+    'public/js/ui/gameComponents.js',     // UnitThumb：结算页 / 队伍面板 / 手牌共用的小头像 + 立绘
+    'public/js/ui/detailPanel.js',        // 详情页立绘（含 亡魂 的头像）
+    'public/js/ui/fallbackField.js',      // 补位小头像 + 回退棋盘的面板
   ];
 
   test('没有任何消费点还在直接调旧函数（调用，不是 import）', async () => {
