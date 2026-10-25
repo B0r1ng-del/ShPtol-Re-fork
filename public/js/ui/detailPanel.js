@@ -404,9 +404,6 @@ function skillTextNote(sk) {
 export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bonds, offBonds = null, loadout, onBond, live = null, hint = null, unitItems = null, standIn = null, diy = null, cultOpts = null, morphMode = 'official', onUnequip = null, ownerId, skin = null,
   // ★ fork：局内改技能（方案 A）的技能选择器；上游签名里没有
   skillPicker = null }) {
-  // ★ 诊断（需求方 2026-10-25）：`__spSkillGate.blockedBy === null` 说明 game.js 那边算出来了，
-  //   但 DOM 里还是 `.dskill` —— 于是要确认 ChessDetail 究竟有没有收到这个 prop。
-  try { globalThis.__spChessDetailPicker = { received: !!skillPicker, options: skillPicker?.options ?? null, chessId: chess?.chessId ?? null }; } catch { /* ignore */ }
   const m = data.get('assets');
   const hp = hpOf(live, snapHp);
   // 0.2.0 自选编队: `chess` is then the composed 自选 record (the operator, the slot's tier / price); its skill and module are
@@ -930,9 +927,6 @@ export function DetailPanel({ detail, editable, snapHp, onClose, onSell, onDestr
   // ★ fork 的两个 prop：`itemSell`（道具售卖行，ITEM_SELL_PRICE）与 `skillPicker`（局内改技能，方案 A）。上游 v0.3.2
   // 的签名里没有它们，`-X theirs` 用了上游签名而函数体的 fork 分支还在 ⇒ 8 个 no-undef。
   itemSell = false, skillPicker = null }) {
-  // ★ 诊断（需求方 2026-10-25）：`__spChessDetailPicker.received` 是 false，说明 prop 没到 ChessDetail。
-  //   这一条记录 DetailPanel 自己收到了什么（detail.type 决定后面走哪条分支）。
-  try { globalThis.__spDetailPanelPicker = { received: !!skillPicker, options: skillPicker?.options ?? null, detailType: detail?.type ?? null, chessId: detail?.chess?.chessId ?? null }; } catch { /* ignore */ }
   const getter = typeof live === 'function' ? live : null;
   useTicker(detail && (getter || bondTimers) ? 250 : 0);
   // 选中干员 voice (audio.voice 'select'): once per opened operator — the panel stays mounted while the target changes,

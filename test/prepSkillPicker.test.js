@@ -90,6 +90,57 @@ describe('三.2 整备阶段改技能', () => {
     assert.match(block, /resolved\.ownerId != null && resolved\.ownerId !== myId/, '按 piece 归属判，不按 loadout 引用判');
   });
 
+  test('★ htm 模板里不得出现行首 // —— 它会被当成属性名，吞掉之后的所有属性', async () => {
+    // 需求方 2026-10-25 那个查了很久的「skillPicker 算出来了却传不到组件」的真根因：
+    // game.js 的 DetailPanel 调用里有一段 `// 装备拆卸…` 说明夹在属性中间。htm 不是 JS 注释位，
+    // `//` 被解析成属性，于是 `onUnequip` 与 `skillPicker` 全丢。这条用真实 htm 跑最小复现，再扫全库模板。
+    const { default: htm } = await import('../public/vendor/htm.module.js');
+    const html = htm.bind((type, props) => ({ type, props }));
+    const Probe = 'PROBE';
+    const lost = html`<${Probe} a=${1}
+      // 注释
+      b=${2} c=${3} />`;
+    assert.deepEqual(Object.keys(lost.props), ['a'], 'htm 在 // 之后停住（这就是那个 bug 的形状）');
+    const ok = html`<${Probe} a=${1}
+      b=${2} c=${3} />`;
+    assert.deepEqual(Object.keys(ok.props), ['a', 'b', 'c'], '没有 // 就正常');
+    // 全库：html`…` 模板里，**属性位置**不得有行首 //。
+    // （`${ … }` 内部的行首 // 是合法 JS —— 那是箭头函数体，不能误报。所以先把插值整段剔除。）
+    const { readdirSync, statSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const BACKTICK = String.fromCharCode(96);
+    const TPL = new RegExp('html' + BACKTICK + '([\\s\\S]*?)' + BACKTICK, 'g');
+    const stripInterpolations = (body) => {
+      let out = '';
+      for (let i = 0; i < body.length; i++) {
+        if (body[i] === '$' && body[i + 1] === '{') {
+          let depth = 0; let j = i + 1;
+          for (; j < body.length; j++) {
+            if (body[j] === '{') depth++;
+            else if (body[j] === '}') { depth--; if (depth === 0) break; }
+          }
+          out += ' '.repeat(j - i + 1); i = j;
+        } else out += body[i];
+      }
+      return out;
+    };
+    const walk = (d, out = []) => {
+      for (const f of readdirSync(d)) {
+        const p = join(d, f);
+        if (statSync(p).isDirectory()) walk(p, out); else if (f.endsWith('.js')) out.push(p);
+      }
+      return out;
+    };
+    const bad = [];
+    for (const f of walk(join(ROOT, 'public', 'js'))) {
+      const src = readFileSync(f, 'utf8');
+      for (const m of src.matchAll(TPL)) {
+        if (/^\s*\/\//m.test(stripInterpolations(m[1]))) bad.push(`${f}:${src.slice(0, m.index).split('\n').length}`);
+      }
+    }
+    assert.deepEqual(bad, [], '属性位置不许写 //：用 ${/* … */ \'\'} 或把说明挪到模板外');
+  });
+
   test('the picker only appears where the requirement says it may', () => {
     const game = read('public/js/screens/game.js');
     const start = game.indexOf('const skillPicker = (() => {');
