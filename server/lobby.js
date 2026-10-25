@@ -2005,10 +2005,16 @@ export class Lobby {
     if (typeof room.match.setLoadout !== 'function') return fail(ERR.ROOM_STARTED, 'stored for the next match');
     let r;
     try {
-      // Preserve named defaults for prep merging: normalisation drops them, but they mean reset this operator.
-      r = ruleOption(room.content?.rules, 'prepLoadout') === 'prep'
-        ? room.match.setLoadout(session.playerId, entries, ops)
-        : room.match.setLoadout(session.playerId, loadout, opsSet);
+      // ★ 需求方 2026-10-25「第二次点击不生效」的最后一环就在这里：
+      //   原先只有 `rules` 里显式写着 `prepLoadout: 'prep'` 时才把**原始 entries** 交给 match
+      //   （注释说「保留点名的默认值，merge 需要它来重置这个干员」—— 思路是对的），
+      //   否则转发的是 `loadout`（`checkLoadout` 归一化后的结果）。
+      //   而归一化会把「等于默认」的条目**丢掉**，于是「点回默认技能」在 else 那条路上变成空对象，
+      //   `setLoadout` 的 merge 删不到任何东西 —— 换得过去、换不回来。
+      //   未装任何 mod 的普通房间正好走 else（`room.content?.rules` 是 null），所以这是**默认路径**上的 bug。
+      //   修法：**两条路都传原始 `entries`**。`setLoadout` 自己会 `checkLoadout` 校验，并已改成按
+      //   「这次提交点过名的 id」删旧记录（server/match/player/basics.js），所以原始 entries 是它需要的输入。
+      r = room.match.setLoadout(session.playerId, entries, ops);
     } catch (e) {
       this.log.error(`[lobby] ${room.code} match.setLoadout threw`, e);
       return fail(ERR.INTERNAL);

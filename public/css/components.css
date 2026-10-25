@@ -1107,9 +1107,26 @@
    36 px each with a 10 px gap — their 44 px hit areas (css/devices.css) stay 46 px apart and never overlap, and the
    squares no longer dwarf 干员调配 / the player chip beside them (user report 图 3: 左边太大、右边太小) */
 .topbar__tools { display: flex; align-items: center; gap: .14rem; }
-.topbar__tools .btn--square.btn--sm { --sq: .46rem; height: var(--sq); min-width: var(--sq); }
+/* 顶栏工具栏的方格按钮统一尺寸与外观（需求方 2026-10-25：主页顶栏几个按钮大小不一、风格不同）。
+   原先只有 `.btn--square.btn--sm` 这一条，于是：
+     · ⚙ / 📖 / 📱 走它（.46rem）
+     · 🔨 Forge 是 `<a class="btn btn--secondary btn--square">`（没有 --sm）→ 用默认尺寸，比邻居大一圈
+     · 🖼 媒体按钮自带 class，尺寸又不一样
+   这里把**这一行里的所有方格控件**收敛到同一个尺寸/边框/底色，不管它是 button 还是 a、带不带 --sm。 */
+.topbar__tools .btn--square,
+.topbar__tools .lobby-forge,
+.topbar__tools .lobby-media,
+.topbar__tools .lobby-pwa { --sq: .46rem; width: var(--sq); height: var(--sq); min-width: var(--sq);
+  display: inline-grid; place-items: center; padding: 0; }
+.topbar__tools .btn--square .icon,
+.topbar__tools .lobby-forge .icon,
+.topbar__tools .lobby-media .icon,
+.topbar__tools .lobby-pwa .icon { width: .22rem; height: .22rem; }
 .sp-coarse .topbar__tools { gap: max(.16rem, calc(10px * var(--sp-ui, 1))); }
-.sp-coarse .topbar__tools .btn--square.btn--sm { --sq: max(.56rem, 32px, calc(40px * var(--sp-ui, 1))); }
+.sp-coarse .topbar__tools .btn--square,
+.sp-coarse .topbar__tools .lobby-forge,
+.sp-coarse .topbar__tools .lobby-media,
+.sp-coarse .topbar__tools .lobby-pwa { --sq: max(.56rem, 32px, calc(40px * var(--sp-ui, 1))); }
 .topbar__right { justify-self: end; display: flex; align-items: center; gap: .16rem; min-width: 0; }
 /* The lobby's right group is one row with the ⚙ / 📖 squares: 干员调配 and the player chip take the same height on touch
    screens (≥ 36 px, user report 图 3), and the label keeps a legible floor at the clamped 40 px phone scale. */

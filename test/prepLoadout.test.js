@@ -186,8 +186,14 @@ test('协议面一个字节都不动：`room.loadout` 仍登记在 C2S，lobby �
   assert.ok(Object.hasOwn(C2S, 'room.loadout'), 'room.loadout 必须仍在协议表里');
   assert.equal(Object.hasOwn(C2S, 'g.loadout'), false, '本引擎不因此新增 g.loadout 意图：room.loadout 本来就到得了比赛');
   const lobby = readFileSync(join(ROOT, 'server/lobby.js'), 'utf8');
-  assert.match(lobby, /room\.match\.setLoadout\(session\.playerId, loadout, opsSet\)/,
-    'lobby 的转发点必须还在（比赛进行中 room.loadout 就是走它到 Match 的）');
+  // ★ 需求方 2026-10-25：转发点仍在，但**传的是原始 entries**。
+  //   原先按 `rules.prepLoadout === 'prep'` 分叉：有 → entries、没有 → 归一化后的 `loadout`。
+  //   归一化会丢掉「等于默认」的条目，于是未装 mod 的普通房间（正好走 else）在「点回默认技能」时
+  //   传下去的是空对象，merge 删不到旧选择 —— 换得过去、换不回来。现在两条路统一传原始 entries。
+  assert.match(lobby, /room\.match\.setLoadout\(session\.playerId, entries, ops\)/,
+    'lobby 的转发点必须还在，且传原始 entries（比赛进行中 room.loadout 就是走它到 Match 的）');
+  assert.doesNotMatch(lobby, /setLoadout\(session\.playerId, loadout, opsSet\)/,
+    '不能把归一化后的 loadout 交下去（等于默认的条目在那里已经被丢掉了）');
   // 相位判据只有一处：`Match.setLoadout`（lobby 只做数据校验，不自己判相位）。范围只取 `setLoadout` 那一段
   // —— `setSupport` 的 `!== INFO_CHECK` 是**另一格**（助战）的闸门，这一格不许动它。
   const platform = readFileSync(join(ROOT, 'server/match/match/platform.js'), 'utf8');
