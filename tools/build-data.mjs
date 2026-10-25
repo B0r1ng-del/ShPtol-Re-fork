@@ -1456,6 +1456,9 @@ function buildBands(ctx, effects) {
       params: eff?.params || {},
       victorCount: b.victorCount, rewardModulus: b.bandRewardModulus ?? 1,
       unlockDesc: meta.unlockDesc || null,
+      // 二.3 东国 / 乌萨斯 的 5 条自制策略：官方没有对应的 bandicon，素材计划回落这个干员的头像
+      // （tools/assets/plan.mjs 的 extraBands 分支）。官方策略没有这个字段，不写。
+      ...(meta.iconChar ? { iconChar: meta.iconChar } : {}),
     };
   }
   return out;

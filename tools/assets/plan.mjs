@@ -653,7 +653,14 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
   const bands = {};
   for (const [bandId, b] of Object.entries(assets07?.bands || {})) bands[bandId] = leaf(alt(`band/${bandId}.png`, b.icon?.url, b.icon?.bytes));
   for (const [bandId, b] of Object.entries(extraBands)) if (!bands[bandId] && b.iconId) {
-    bands[bandId] = leaf(alt(`band/${bandId}.png`, joinUrl(RAW.aa2, `ui/autochess/[uc]autochesscommon/arts/bandicon/${b.iconId}.png`)));
+    // 二.3 东国 / 乌萨斯 的 5 条自制策略（band_palico / headbr / haruka / utage / ulika）是 fork 自己写的，
+    // 官方 `bandicon/` 下没有它们的图 —— 这个 URL 必然 404，整条 manifest 于是写不出去（shrinkGuard 会拦）。
+    // 它们的记录里带 `iconChar`（这条策略对应的干员），官方 avatars 库里一定有 180×180 的头像；
+    // 策略图标的官方尺寸也正好是 180×180（band_amiya.png 实测），所以直接拿头像当策略图标。
+    // 顺序：官方 bandicon → iconChar 头像 → 放弃。
+    const official = alt(`band/${bandId}.png`, joinUrl(RAW.aa2, `ui/autochess/[uc]autochesscommon/arts/bandicon/${b.iconId}.png`));
+    const fallback = b.iconChar ? alt(`band/${bandId}.png`, joinUrl(RAW.yuanyan, `avatar/${b.iconChar}.png`)) : null;
+    bands[bandId] = leaf(official, fallback);
   }
 
   // --- professions ----------------------------------------------------------

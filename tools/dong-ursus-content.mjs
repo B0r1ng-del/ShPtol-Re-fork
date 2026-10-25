@@ -738,7 +738,9 @@ export function injectCustomContent(ctx) {
         bandDesc: cfg.desc, totalHp: cfg.totalHp, effectId: cfg.effectId,
         victorCount: cfg.victorCount ?? 3, bandRewardModulus: 1.0,
       };
-      ac.bandDataDict[bandId] = { bandId, bandName: cfg.name, bandIconId: cfg.iconId || bandId, unlockDesc: null };
+      // ★ `iconChar` 必须带出去：`tools/assets/plan.mjs` 用它给这 5 条自制策略找图标
+      //   （官方 `bandicon/` 下没有它们的图，回落该干员的 180×180 头像）。丢掉它，策略就会没有头像。
+      ac.bandDataDict[bandId] = { bandId, bandName: cfg.name, bandIconId: cfg.iconId || bandId, unlockDesc: null, iconChar: cfg.iconChar || null };
       act.effectInfoDataDict[cfg.effectId] = {
         effectId: cfg.effectId, effectType: 'BAND_INITIAL', effectCounterType: 'NONE', continuedRound: -1,
         effectName: cfg.effectName, effectDesc: cfg.desc, effectDecoIconId: null, enemyPrice: 0,
