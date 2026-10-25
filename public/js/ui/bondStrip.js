@@ -31,7 +31,7 @@
 // operator too, with the 「同构」 tag (#846: it showed the empty slot's 「甄」).
 
 import { cloneElement } from '../../vendor/preact.module.js';
-import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
+import { useRef } from '../../vendor/hooks.module.js';
 import { html, BondDisc, Icon, MicroLabel, Tooltip } from './components.js';
 import { RichText, UnitThumb, BondGlyph, GIcon } from './gameComponents.js';
 import { sortBonds, bondMembers, nextThreshold, bondTier, harmonyMembers, HARMONY_BOND, memberHeadCount, briefingBondTip, diyGetter, diyRecordFor, memberStandIn, standInForText } from './gameLogic.js';
@@ -52,36 +52,12 @@ function OwnerTag({ owner }) {
 
 function BondScroller({ count, children }) {
   const viewport = useRef(null);
-  const [edges, setEdges] = useState({ left: false, right: false });
-  useEffect(() => {
-    const el = viewport.current;
-    if (!el) return;
-    const update = () => {
-      const left = el.scrollLeft > 1, right = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
-      setEdges((old) => old.left === left && old.right === right ? old : { left, right });
-    };
-    // A render can resize the observed slots too. Update after observer delivery, so those changes are measured in the
-    // next frame rather than producing "ResizeObserver loop completed with undelivered notifications" during prep.
-    let frame = null;
-    const observer = new ResizeObserver(() => {
-      if (frame !== null) return;
-      frame = requestAnimationFrame(() => { frame = null; update(); });
-    });
-    observer.observe(el);
-    for (const child of el.children) observer.observe(child);
-    el.addEventListener('scroll', update, { passive: true });
-    update();
-    return () => {
-      observer.disconnect();
-      if (frame !== null) cancelAnimationFrame(frame);
-      el.removeEventListener('scroll', update);
-    };
-  }, [viewport, count]);
-  const scroll = direction => viewport.current?.scrollBy({ left: direction * Math.max(80, viewport.current.clientWidth * .75), behavior: 'smooth' });
+  // 需求方 2026-10-25（图一黄框）：两侧的 ‹ › 滚动按钮不要 —— 被误读成「产物」的多余控件。
+  // 盟约条本身是 overflow-x:auto 的容器，直接点/拖/滚轮就能横向滚，按钮纯属冗余。
+  // 按钮没了，测量「还能不能往左/右滚」的那套 ResizeObserver 也就没有消费者了，一并删掉。
+  void count;
   return html`<div class="bstrip-scroll">
-    <button type="button" class="bstrip-scroll__arrow" disabled=${!edges.left} aria-label=${t('向左滚动盟约')} onClick=${() => scroll(-1)}>‹</button>
     ${cloneElement(children, { ref: viewport })}
-    <button type="button" class="bstrip-scroll__arrow" disabled=${!edges.right} aria-label=${t('向右滚动盟约')} onClick=${() => scroll(1)}>›</button>
   </div>`;
 }
 

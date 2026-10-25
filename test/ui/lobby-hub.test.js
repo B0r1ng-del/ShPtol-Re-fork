@@ -611,7 +611,13 @@ test('official versions (DESIGN §35.23): the cards of the version shown, the wa
   assert.equal(byId(failed, 'proto-loading').length, 0, 'no spinner');
   assert.ok(byClass(failed, 'diff-card').every((c) => c.props.disabled === true));
   // the lobby: the version only on a server that enables versions; the shown difficulty (the fallback) is the one sent
-  assert.match(lobbySrc, /mode, difficulty: mode === 'solo' \? shownSolo : shownCoop, \.\.\.\(testMode && asTest \? \{ test: true \} : \{\}\), \.\.\.\(versions \? \{ version \} : \{\}\),\n {4}\.\.\.\(mode === 'solo' && soloFree && soloTimed === true \? \{ soloUnlimited: true \} : \{\}\),/);
+  // ★ 内容包（需求方 2026-10-25「mod 菜单所有功能不生效」）：create 载荷必须同时带上
+  //   `roomMods.buildCreatePayload()`（digest + modIds）和 `mods: modsOn()`（本地开关）——
+  //   `-X theirs` 曾把这两样连同 import 一起抹掉，服务端于是永远按纯原版建房。
+  assert.match(lobbySrc, /\.\.\.roomMods\.buildCreatePayload\(mode, mode === 'solo' \? shownSolo : shownCoop\)/);
+  assert.match(lobbySrc, /mods: modsOn\(\)/);
+  assert.match(lobbySrc, /\.\.\.\(testMode && asTest \? \{ test: true \} : \{\}\), \.\.\.\(versions \? \{ version \} : \{\}\),/);
+  assert.match(lobbySrc, /\.\.\.\(mode === 'solo' && soloFree && soloTimed === true \? \{ soloUnlimited: true \} : \{\}\),/);
   assert.match(lobbySrc, /const shownSolo = fallbackDifficulty\(solo, difficulty\);/);
   assert.match(lobbySrc, /const pickDifficulty = \(d\) => \{ setDifficulty\(d\); savePref\('lobby\.difficulty', d\); \};/, 'the pref changes only on a pick');
   assert.match(lobbySrc, /<\$\{VersionSwitch\} \/>\s*<\$\{ResumeMatchButton\} \/>/, 'the chip before 恢复本机对局');

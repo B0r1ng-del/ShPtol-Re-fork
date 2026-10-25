@@ -596,17 +596,19 @@
   z-index: 10;
   display: flex;
   flex-direction: column;
-  gap: .12rem;
-  /* 需求方 2026-10-25: the panel now holds a TWO-COLUMN switch grid and full-width sliders, so it needs a real width
-     instead of `max-content` (which shrank it to its widest label and left the slider track a stub). The 92vw cap stays
-     for a phone; 17rem is about 680 px at 1rem = 40 px — two ~8rem columns plus the track. */
-  width: min(17rem, 92vw);
+  gap: .1rem;
+  /* 需求方 2026-10-25（图三）：面板「太长太宽」—— 从 17rem 收到 13.5rem，内边距与行距一起收紧。
+     两列开关仍放得下（每列约 6rem + 间隙），滑块轨道也够长。 */
+  width: min(13.5rem, 92vw);
   max-width: 92vw;
-  padding: .16rem .2rem;
+  padding: .12rem .16rem;
   transform: translateX(-50%);
-  background: linear-gradient(180deg, #202323, #141616);
-  border: 1px solid rgba(255, 255, 255, .16);
-  box-shadow: 0 .1rem .4rem rgba(0, 0, 0, .7);
+  /* 亚克力材质（需求方 2026-10-25 图三）：半透明深色 + 背景模糊 + 细亮边，不是原来那块不透明渐变板。 */
+  background: rgba(22, 26, 25, .58);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, .14);
+  box-shadow: 0 .1rem .4rem rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .06);
 }
 .rs-opts h4 { margin: 0; font-size: calc(.2 * var(--t)); }
 /* 同盟设置 / 模拟设置's own loose switches (the AI-handover opt-in, the solo setting) — same SwitchRow as the panel's rows,

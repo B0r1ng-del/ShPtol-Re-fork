@@ -529,13 +529,23 @@ function HostConfigDialog({ rows, enemyRows, modRows, open, busy, onClose, onTog
  * 房间配置的内容本体 — 开关两列 + 四个敌人强化滑块。**一处实现，两处调用**：齿轮弹出层（`.rs-opts`，图五/图七 需求方
  * 2026-10-24 把房间配置搬进右侧小齿轮）与 {@link HostConfigDialog} 对话框共用，避免两份逻辑漂移。
  */
-function RoomConfigBody({ rows, enemyRows, modRows, busy, onToggle, onEnemy, onMod }) {
+function RoomConfigBody({ rows, enemyRows, modRows, takeoverOption = null, takeoverBusy = null, onAiTakeover = null, busy, onToggle, onEnemy, onMod }) {
   if (!rows || !rows.length) return null;
   // 图一 (2026-10-17): ONE list of switches for the whole dialog — the Mod rules first, then the host options — so
   // {@link MatchOptionSection} can split it into two aligned columns.
+  // 需求方 2026-10-25（图三）：「允许观战者接替 AI」并进这一列，不再在面板顶部单独占一行。
   const switchRows = [
     ...(modRows || []).map((r) => ({ ...r, testid: `hostcfg-mod-${r.key}`, onChange: (v) => r.editable && onMod(r.key, v) })),
     ...(rows || []).map((r) => ({ ...r, testid: `hostcfg-${r.key}`, onChange: (v) => r.editable && onToggle(r.key, v) })),
+    ...(takeoverOption ? [{
+      key: 'aiTakeover',
+      label: '允许观战者接替 AI',
+      tip: '默认关闭。开启后，观战者可在休整期经同房间真人投票接替 AI；继承记录不计个人统计或奖励。',
+      on: takeoverOption.on,
+      editable: takeoverOption.editable,
+      testid: 'room-ai-takeover',
+      onChange: (v) => takeoverOption.editable && !takeoverBusy && onAiTakeover?.(v),
+    }] : []),
   ];
   return html`<div class="hostcfg">
     ${rows.some((r) => !r.editable) ? html`<p class="hostcfg__note">${t('由创建者设置：只有房主可以修改这些选项。')}</p>` : null}
@@ -612,11 +622,14 @@ function AiTakeoverToggle({ option, busy, onToggle }) {
 }
 
 /**
- * ⚙ of the bottom pill (co-op): 同盟设置 — the 「允许观战者接替 AI」 opt-in, the 「AI 队友最后选择」 switch and the host's
- * 对局选项 panel. The 模拟难度 and 版本 are NOT here: the pill's own two buttons already carry them (需求方 2026-10-25).
+ * ⚙ of the bottom pill (co-op): the host's 对局选项 panel plus the solo-only 「不限时」 switch.
+ * The 模拟难度 and 版本 are NOT here: the pill's own two buttons already carry them (需求方 2026-10-25).
+ * 需求方 2026-10-25（图三）：标题「同盟设置」删掉（面板本身已经一眼能看出来是什么），
+ * 「允许观战者接替 AI」并进对局选项那一列，不再单独占一行。
  * Closes on a click outside it or Esc.
  */
 function RoomOptions({ option, takeoverOption, onAiTakeover, soloOption = null, busy, onAiLast, onSoloUnlimited, onClose, panel = null }) {
+  // 无障碍名称仍需要一个（role="dialog" 没有可见标题时靠 aria-label）
   const title = soloOption ? t('模拟设置') : t('同盟设置');
   useEffect(() => {
     const away = (e) => { if (!e.target.closest?.('.rs-opts, .rs-pill__gear')) onClose(); };
@@ -626,16 +639,13 @@ function RoomOptions({ option, takeoverOption, onAiTakeover, soloOption = null, 
     return () => { removeEventListener('pointerdown', away); removeEventListener('keydown', onKey); };
   }, []);
   return html`<div class="rs-opts" role="dialog" aria-label=${title}>
-    <h4>${title}</h4>
-    ${/* 需求方 2026-10-25: the 模拟难度 and 版本 rows are GONE — the bottom pill already carries both buttons (its
-         .rs-pill__diff / .rs-pill__ver open 选择模拟协议 and the version switch), so this panel had them twice. What
-         stays here is what the pill cannot express: the AI-handover opt-in and the host's option switches. */ ''}
-    <${AiTakeoverToggle} option=${takeoverOption} busy=${busy} onToggle=${onAiTakeover} />
     ${soloOption
       ? html`<${SoloUnlimitedToggle} option=${soloOption} busy=${busy} onToggle=${onSoloUnlimited} />`
-      // 房主配置 panel already carries the 「AI 队友最后选择」 row (hostcfg-aiPicksLast), so the loose switch would be the
-      // same option twice — one of them is enough
-      : panel ? null : html`<${AiLastToggle} option=${option} busy=${busy} onToggle=${onAiLast} />`}
+      : null}
+    ${/* 「允许观战者接替 AI」交给 panel（RoomConfigBody）并进「对局选项」那一列（需求方 2026-10-25 图三）。
+         没有 panel 时（纯 solo / 旧路径）仍在这里单独画，功能不丢。 */ ''}
+    ${panel ? null : html`<${AiTakeoverToggle} option=${takeoverOption} busy=${busy} onToggle=${onAiTakeover} />`}
+    ${panel ? null : (option || !soloOption ? html`<${AiLastToggle} option=${option} busy=${busy} onToggle=${onAiLast} />` : null)}
     ${panel}
   </div>`;
 }
@@ -1015,6 +1025,7 @@ export function RoomScreen() {
           ${opts && (aiLast || soloOpt) ? html`<${RoomOptions} takeoverOption=${aiTakeoverOption(room, me.playerId)} onAiTakeover=${setAiTakeover} option=${aiLast} soloOption=${soloOpt} busy=${busy} onAiLast=${setAiLast}
             onSoloUnlimited=${setSoloUnlimited} onClose=${() => setOpts(false)}
             panel=${cfgRows && cfgRows.length ? html`<${RoomConfigBody} rows=${cfgRows} enemyRows=${enemyRows} modRows=${modRows} busy=${busy}
+              takeoverOption=${aiTakeoverOption(room, me.playerId)} takeoverBusy=${busy} onAiTakeover=${setAiTakeover}
               onToggle=${setHostConfig} onEnemy=${setEnemyBuff} onMod=${setMods} />` : null} />` : null}
         </div>
       </div>

@@ -805,8 +805,14 @@ export function LobbyScreen() {
   // 扩展模拟 sends the co-op pick like any other mode — the server forces ULTIMATE_DIFFICULTY for it (lobby.js create()),
   // so the room always runs AC-4 whatever went in the message.
   // (`version`: the lobby's, only when welcome.versions is present — protocol §4; omitted when the server offers 第二期下半 alone)
+  // ★ 内容包（需求方 2026-10-25「mod 菜单所有功能不生效」的根因）：`-X theirs` 把这一整条载荷抹掉了 ——
+  //   `roomMods.buildCreatePayload()`（服务器装了什么包的 digest + 房主勾选的 modIds）和 `mods: modsOn()`
+  //   （本地「Mod 菜单」的开关）都没发。import 还在，调用没了，于是服务端永远按「纯原版」建房。
+  //   两者缺一不可：digest 让服务端确认客户端和它看到的是同一套包，modIds 才是房主真正勾选的那几个。
   const create = (mode) => run('create', () => net.request('room.create', {
-    mode, difficulty: mode === 'solo' ? shownSolo : shownCoop, ...(testMode && asTest ? { test: true } : {}), ...(versions ? { version } : {}),
+    ...roomMods.buildCreatePayload(mode, mode === 'solo' ? shownSolo : shownCoop),
+    mods: modsOn(),
+    ...(testMode && asTest ? { test: true } : {}), ...(versions ? { version } : {}),
     ...(mode === 'solo' && soloFree && soloTimed === true ? { soloUnlimited: true } : {}),
   }));
   const join = (c = code) => {
