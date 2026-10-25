@@ -1885,46 +1885,36 @@ function MatchScreen() {
     // 技能切换的去抖计时器（连点几次只发最后一次）：挂在组件级 ref 上，跨渲染存活。
     const skillPickTimer = skillPickTimerRef.current;
     // 休整期改技能（需求方 2026-10-23；2026-10-25 定稿「有几个技能就显示几个可选的」）。
-    // ★ 曾经查了很久的假象：`__spSkillGate` 说算出来了、`__spChessDetailPicker` 却说没收到 ——
-    //   真因不在这一函数里，而是调用处 `game.js` 的 htm 模板把 `//` 注释当成属性，
-    //   吞掉了它之后的 `onUnequip` 与 `skillPicker`。见那段注释里的说明。
-    const facts = () => ({
-      phase, prepLoadoutOpen, ready: !!priv?.ready, alive, spectator: !!spectator,
-      targetKind: detailTarget?.kind ?? null, resolvedType: resolved?.type ?? null,
-      hasPiece: !!resolved?.piece, ownerId: resolved?.ownerId ?? null, myId: myId ?? null,
-      chessId: resolved?.chess?.chessId ?? null,
-    });
-    const gate = (reason) => {
-      try { globalThis.__spSkillGate = { blockedBy: reason, at: Date.now(), ...facts() }; } catch { /* ignore */ }
-      return null;
-    };
-    if (!priv || !alive) return gate('!priv || !alive');
+    // ★ 这个功能查了很久才通，三个真 bug 串在一起，别把它们改回去：
+    //   ① 调用处的 htm 模板把 `//` 注释当成属性名，吞掉了 `skillPicker` 这个 prop；
+    //   ② 基线取自局外的 loadoutStore（局内改动刻意不写回 store），第二次点击会覆盖回开局那份；
+    //   ③ lobby 调完 `match.setLoadout` 从不 `flush`，新的 m.private 永远发不出去。
+    if (!priv || !alive) return null;
     // ★ 两个闸门必须与**服务端**同一条（`server/match/match/platform.js` 的 `loadoutPhasesFor()`）：档位（包可以用
     //   `prepLoadout: "locked"` 收紧）+ 相位。客户端读同一个落点 —— `loadoutSync` 的 `prepLoadoutAllowed()`。
-    if (!prepLoadoutOpen || phase !== PHASE.PREP) return gate('!prepLoadoutOpen || phase !== PHASE.PREP');
+    if (!prepLoadoutOpen || phase !== PHASE.PREP) return null;
     // ★ 服务端在 PREP 还有第二道闸：**这个座位已经按了准备就锁死**（`platform.js:138`）。客户端必须跟着挡。
-    if (phase === PHASE.PREP && priv.ready) return gate('phase===PREP && priv.ready');
+    if (phase === PHASE.PREP && priv.ready) return null;
     // ★ 需求方 2026-10-25：手牌 / 整备区里的干员也要能改。`indexPieces` 已把 board/hand/temp/research 四区
     //   都收进 `placeCtx.pieces`，卡落到 `resolved.piece` 就算数；还没买的商店卡没有 piece，天然被挡住。
-    if (!resolved || resolved.type !== 'chess' || !resolved.piece) return gate('!resolved || type!==chess || !resolved.piece');
-    if (detailTarget?.kind !== 'unit' && detailTarget?.kind !== 'chess' && detailTarget?.kind !== 'piece') return gate('bad detailTarget.kind');
+    if (!resolved || resolved.type !== 'chess' || !resolved.piece) return null;
+    if (detailTarget?.kind !== 'unit' && detailTarget?.kind !== 'chess' && detailTarget?.kind !== 'piece') return null;
     // 队友的干员不能改：按**这块 piece 的归属**判，不按 `detailLoadout` 的引用判
     // （后者在 `priv.loadout` 为 undefined 时会与 null 恒不等，把「还没有调配记录的自己」也挡掉）。
-    if (resolved.ownerId != null && resolved.ownerId !== myId) return gate('resolved.ownerId !== myId');
+    if (resolved.ownerId != null && resolved.ownerId !== myId) return null;
     const body = resolved.chess;
     // 补位干员用替身的技能，不在这一格改
-    if (!body || (resolved.standIn && resolved.standIn.standInFor)) return gate('no body / standIn');
+    if (!body || (resolved.standIn && resolved.standIn.standInFor)) return null;
     const base = body.isGolden ? (gd.chess(body.baseId) || body) : body;
     const opt = loadoutOptions(base, body.isGolden ? body : null);
     // ★ 需求方 2026-10-25：「有两个技能就显示两个可以选，有三个就显示三个可以选」—— 只要求 >1 个。
-    if (!opt || !Array.isArray(opt.skills) || opt.skills.length < 2) return gate('opt.skills < 2');
+    if (!opt || !Array.isArray(opt.skills) || opt.skills.length < 2) return null;
     const records = {};
     for (const s of Array.isArray(base.skills) ? base.skills : []) if (s && Number.isInteger(s.index)) records[s.index] = s;
     if (body.isGolden && Array.isArray(body.skills)) for (const s of body.skills) if (s && Number.isInteger(s.index)) records[s.index] = s;
     const id = body.baseId || body.chessId;
     const stored = detailLoadout && detailLoadout[id];
     const current = stored && Number.isInteger(stored.skill) ? stored.skill : opt.defaultSkill;
-    try { globalThis.__spSkillGate = { blockedBy: null, options: opt.skills, at: Date.now(), ...facts() }; } catch { /* ignore */ }
     return {
       options: opt.skills,
       records,
@@ -1946,15 +1936,7 @@ function MatchScreen() {
         // 服务端 `setLoadout(…, { merge: true })` 是叠加语义：没点名的干员保留当前配发。
         // 去抖 250ms：连续点几次只发最后一次，既不刷屏也不撞 HEAVY_TYPES 的令牌桶（2/s、突发 6）。
         if (skillPickTimer.id) clearTimeout(skillPickTimer.id);
-        skillPickTimer.id = setTimeout(() => {
-          skillPickTimer.id = 0;
-          // 诊断：把「发出去的是什么、当时的基线是什么」留一份在 window 上
-          try {
-            globalThis.__spPick = (globalThis.__spPick || []);
-            globalThis.__spPick.push({ at: Date.now(), id, index, cur: JSON.parse(JSON.stringify(cur)), next: JSON.parse(JSON.stringify(next)) });
-          } catch { /* ignore */ }
-          sendMatchLoadout(next, { net });
-        }, 250);
+        skillPickTimer.id = setTimeout(() => { skillPickTimer.id = 0; sendMatchLoadout(next, { net }); }, 250);
       },
     };
   })();

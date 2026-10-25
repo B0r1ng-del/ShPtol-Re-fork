@@ -297,15 +297,7 @@ function wireNet() {
     toast(known ? t(known) : typeof msg.reason === 'string' && msg.reason.length < 60 ? t('同盟已关闭：{reason}', { reason: msg.reason }) : t('同盟已关闭'), 'warn');
   });
   net.on('m.public', (msg) => { matchAt = Date.now(); store.patch('match', { public: payload(msg) }); maybeFinishRestore(); });
-  // 诊断：记下每次收到的 m.private 里的 loadout（排查「局内改技能第二次不生效」用；定位完可删）
-  net.on('m.private', (msg) => {
-    try {
-      const p = payload(msg);
-      globalThis.__spPriv = (globalThis.__spPriv || []);
-      globalThis.__spPriv.push({ at: Date.now(), loadout: JSON.parse(JSON.stringify(p?.loadout ?? null)) });
-    } catch { /* ignore */ }
-    matchAt = Date.now(); store.patch('match', { private: payload(msg) });
-  });
+  net.on('m.private', (msg) => { matchAt = Date.now(); store.patch('match', { private: payload(msg) }); });
   net.on('m.layer', (msg) => {
     const s = store.get();
     if (selectRoute(s) === 'game' && msg.playerId === s.me?.playerId) audio.layerGain(msg.bondId, msg.add);
