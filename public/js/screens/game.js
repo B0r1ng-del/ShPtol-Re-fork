@@ -135,7 +135,6 @@ import { loadoutStore, setEntries, sendMatchLoadout, prepLoadoutAllowed } from '
 import { loadoutOptions } from '../../../shared/protocol.js';
 import { toast } from '../ui/toasts.js';
 import { researchRange } from '../../../shared/rhineRange.js';
-import { LoadoutButton } from './loadout.js';
 import { BriefingScreen } from './briefing.js';
 import { BandDraftScreen } from './bandDraft.js';
 import { ResultScreen } from './settle.js';
@@ -1888,14 +1887,19 @@ function MatchScreen() {
     //   只有商店 / 手牌 / 盟约弹窗里的卡片才是 `'chess'`。所以条件永远不成立，技能选择器一次都没渲染过。
     //   现在两种打开方式都接受，但都必须**落到自己棋盘上的那块 piece**（`resolved.piece` 存在），队友的、商店的照旧不给改。
     if (!priv || !alive) return null;
-    // ★ 相位：服务端 `setLoadout` **只收 INFO_CHECK**，`prepLoadout=prep` 档位再额外允许 PREP 合并一次；进入战斗后一律
-    //   `WRONG_PHASE`（server/match/match.js:79-83 的契约）。所以这里**不能**放开到 COMBAT —— 那会发出注定被拒的请求
-    //   （上一轮就是这么错的）。战斗内改技能需要服务端新能力，见 sendMatchLoadout 的注释与 docs。
-    if (phase !== PHASE.PREP && phase !== PHASE.INFO_CHECK) return null;
+    // ★ 两个闸门必须与**服务端**同一条（`server/match/match/platform.js` 的 `loadoutPhasesFor()`）：档位（包可以用
+    //   `prepLoadout: "locked"` 收紧）+ 相位。客户端读同一个落点 —— `loadoutSync` 的 `prepLoadoutAllowed()`。
+    //   ★ 曾经写成 `phase !== PHASE.PREP && phase !== PHASE.INFO_CHECK`（不看档位），包一收紧就会出现「按钮亮着、
+    //   点了必被拒」；反过来漏掉档位也不行。两个都要判。
+    if (!prepLoadoutOpen || phase !== PHASE.PREP) return null;
     // ★ 服务端在 PREP 还有第二道闸：**这个座位已经按了准备就锁死**（`platform.js:138`
     //   `if (prep && ps.ready) return fail(WRONG_PHASE, 'loadout locked … readied up')`）。客户端必须跟着挡，
     //   否则按钮亮着、点了必被拒。INFO_CHECK 没有这条（那时还没人准备）。
     if (phase === PHASE.PREP && priv.ready) return null;
+    // ★ 需求方 2026-10-25：**手牌 / 整备区里的干员也要能改**（不然买了干员得先上场才能换技能）。
+    //   `indexPieces` 已经把 board / hand / temp / research 四区都收进 `placeCtx.pieces`，所以只要卡落到
+    //   `resolved.piece` 上就算数；唯一要排除的是**还没买的商店卡**（`detailTarget.kind === 'chess'` 且没有
+    //   piece）—— 那时显示默认技能，不给选。
     if (!resolved || resolved.type !== 'chess' || !resolved.piece) return null;
     if (detailTarget?.kind !== 'unit' && detailTarget?.kind !== 'chess' && detailTarget?.kind !== 'piece') return null;
     // 必须读的是**我自己**的 loadout（`detailLoadout` 对队友的单位返回 unitLoadout ⇒ 不是同一个对象引用），
@@ -2085,9 +2089,10 @@ function MatchScreen() {
         ${/* 设置 / 玩法说明 / 全屏 / 作战统计 have exactly ONE home: the top bar's `tools` row (see the TopBar above).
              This corner used to carry a second copy of all four; with the chat window open it sat underneath it, and the
              buttons were both duplicated and covered. Only the PANEL stays here — an absolutely positioned panel mounted
-             inside `.gtop` would anchor above the top bar and land off-screen. */
-          prepLoadoutOpen && phase === PHASE.PREP && priv && !priv.ready && !spectator
-          ? html`<${LoadoutButton} from="prep" size="sm" />` : null}
+             inside `.gtop` would anchor above the top bar and land off-screen.
+             ★ 需求方 2026-10-25（图二）：「局内的干员调配删掉吧」。局内改技能走的是干员详情卡里的技能格
+             （下面的 `skillPicker`），不需要再开整块干员调配屏 —— 这一颗按钮撤掉，`prepLoadoutOpen` 仍喂给
+             skillPicker，所以「整备期可改」这个开关照样生效。 */''}
       </div>
 
       ${/* 在线聊天 (fork): the floating frosted window, and the 交流 wheel's new home while the option is on. A spectator

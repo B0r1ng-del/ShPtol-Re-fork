@@ -305,6 +305,8 @@
   "技能": "Skill",
   "技能等级": "Skill Level",
   "选择技能": "Choose Skill",
+  "点击选择该技能（只影响本局）": "Click to use this skill (this match only)",
+  "使用中": "In use",
   "默认配置": "Default Loadout",
   "模组": "Module",
   "仅精锐干员装备 · 模组等级": "Elite Operators only · Module Level",

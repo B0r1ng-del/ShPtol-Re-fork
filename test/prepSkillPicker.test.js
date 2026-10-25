@@ -63,26 +63,54 @@ describe('三.2 整备阶段改技能', () => {
     for (const text of [game, sync]) assert.doesNotMatch(text, /'room\.setSkill'|'g\.setSkill'/);
   });
 
+  test('★ 局内改技能不写回局外配置：sendMatchLoadout 只发服务端，不碰 pref / 不碰 store', () => {
+    // 需求方 2026-10-25 原话：「出到局外的干员调配还是一开始的样子」。
+    // 这一条钉的是**实现约束**：局内那条路径一旦顺手调了 setEntries / savePref，局外配置就被污染了。
+    const sync = read('public/js/ui/loadoutSync.js');
+    const start = sync.indexOf('export function sendMatchLoadout');
+    assert.ok(start > 0, 'sendMatchLoadout 存在');
+    const fn = sync.slice(start, sync.indexOf('\n}', start) + 2);
+    assert.match(fn, /net\.request\('room\.loadout'/, '只发 room.loadout');
+    // 这两个是「写局外」的入口：一个写 store、一个写 localStorage
+    assert.doesNotMatch(fn, /loadoutStore\.set|setEntries\(|savePref\(|localStorage/, '不写 store / 不写 pref');
+  });
+
   test('the picker only appears where the requirement says it may', () => {
     const game = read('public/js/screens/game.js');
     const start = game.indexOf('const skillPicker = (() => {');
     assert.ok(start > 0, 'skillPicker 存在');
     const block = game.slice(start, game.indexOf('})();', start));
-    // ① 档位是 prep  ② 休整期  ③ 自己棋盘上的干员  ④ 技能不止一个
+    // ① 档位是 prep  ② 休整期  ③ 卡落到自己的某块 piece  ④ 技能不止一个
     assert.match(block, /!prepLoadoutOpen \|\| phase !== PHASE\.PREP/, '档位与相位两个闸门');
     assert.match(block, /priv\.ready/, '准备了就锁死');
-    assert.match(block, /!resolved\.piece/, '只认自己棋盘上的干员');
+    assert.match(block, /!resolved\.piece/, '只认自己的 piece（棋盘 / 手牌 / 整备区都算）');
     assert.match(block, /opt\.skills\.length < 2/, '只有一个技能时没有可选项');
     // 只改技能，不碰模组
     assert.match(block, /delete entry\.skill; else entry\.skill = index/, '只写 skill');
     assert.doesNotMatch(block, /entry\.module\s*=/, '不写 module');
+    // ★ 需求方 2026-10-25：手牌 / 整备区也要能改。`indexPieces` 收 board/hand/temp/research 四区，
+    //   而「还没买的商店卡」没有 piece ⇒ 上面那条 `!resolved.piece` 已经把它挡住了（显示默认技能、不给选）。
+    const placement = read('public/js/ui/gameLogic/placement.js');
+    for (const area of ['board', 'hand', 'temp']) {
+      assert.match(placement, new RegExp(`area: '${area}'`), `indexPieces 收 ${area} 区（局内点得到就有 piece）`);
+    }
   });
 
-  test('the detail card draws one button per skill, and the current one is marked', () => {
+  test('the detail card draws one FULL card per skill, and the current one is marked', () => {
     const panel = read('public/js/ui/detailPanel.js');
     assert.match(panel, /skillPicker\.options\.map/, '每个技能一个按钮');
     assert.match(panel, /data-skill-opt=\$\{i\}/, '带一个可供测试认出的属性');
     assert.match(panel, /is-on/, '当前选中的那个高亮');
     assert.match(panel, /onClick=\$\{\(\) => skillPicker\.onPick\(i\)\}/, '点一下就提交');
+    // ★ 需求方 2026-10-25 定稿：「把该干员的所有技能都平铺出来，点哪个用哪个」——
+    //   每张卡要自带图标 + 名字 + 标签 + 描述（先前那排小图标看不到描述，等于还得靠记忆猜）。
+    assert.match(panel, /dskpick__card/, '每张技能卡一个容器');
+    assert.match(panel, /dskpick__icon/, '图标');
+    assert.match(panel, /dskpick__name/, '名字');
+    assert.match(panel, /skillTags\(rec\)/, '标签（SP 类型 / 触发方式 / 初动消耗）');
+    assert.match(panel, /dskpick__desc/, '描述正文容器');
+    assert.match(panel, /rec\.descRaw \|\| rec\.desc/, '描述取自这一条技能自己的 desc');
+    // 平铺时不再单独画「当前技能」那一条（卡片本身就是那条），避免同一个技能出现两次
+    assert.match(panel, /skillPicker \? null : html`<\$\{RichText\} as="p" text=\$\{sk\.descRaw \|\| sk\.desc\}/, '平铺时不重复画当前技能');
   });
 });

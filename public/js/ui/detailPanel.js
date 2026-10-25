@@ -472,31 +472,40 @@ export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bond
   blocks.trait = body.trait?.desc ? html`<p key="trait" class="dtrait"><${Icon} name="info" /><${RichText} text=${traitText(body, golden, lo)} /></p>` : null;
   // (`fr` is the body the unit fights with — a stand-in's record for a 补位 chess; `chess` is only the range's fallback)
   blocks.stats = chessStatsBlock({ rec: fr, chess: c, live });
+  // 整备阶段改技能（三.2，需求方 2026-10-25 定稿）：**把该干员的所有技能平铺成完整卡片**，点哪张这一场就用哪张。
+  // 之前是一排小图标 + 下方单独一条当前技能，需求方要的是「看到他的三个技能、手动改选」那种逐条列出的样子。
   blocks.skill = sk ? html`<${Section} key="skill" title=${t('技能')} micro="SKILL" class="dsec--skill">
-      ${skillPicker ? html`<div class="dskill-pick" role="radiogroup" aria-label=${t('选择技能')}>
+      ${skillPicker ? html`<div class="dskpick" role="radiogroup" aria-label=${t('选择技能')}>
         ${skillPicker.options.map((i) => {
           const rec = skillPicker.records[i];
           if (!rec) return null;
           const on = i === skillPicker.current;
           return html`<button key=${i} type="button" role="radio" aria-checked=${on ? 'true' : 'false'}
-            class=${cx('dskill-pick__opt', on && 'is-on')} data-skill-opt=${i}
-            title=${rec.name || t('技能 {skSlot}', { skSlot: `S${i + 1}` })}
+            class=${cx('dskpick__card', on && 'is-on')} data-skill-opt=${i}
+            title=${t('点击选择该技能（只影响本局）')}
             onClick=${() => skillPicker.onPick(i)}>
-            <${Img} src=${skillRecordIconUrl(m, rec, { empty: false })} class="dskill-pick__icon"
-              fallback=${html`<span class="dskill-pick__icon dskill-pick__icon--empty"><b class="num">S${i + 1}</b></span>`} />
-            <span class="dskill-pick__slot num">S${i + 1}</span>
+            <span class="dskpick__head">
+              <${Img} src=${skillRecordIconUrl(m, rec, { empty: false })} class="dskpick__icon"
+                fallback=${html`<span class="dskpick__icon dskpick__icon--empty"><b class="num">S${i + 1}</b></span>`} />
+              <span class="dskpick__meta">
+                <b class="dskpick__name"><span class="dskpick__slot num">S${i + 1}</span>${rec.name || t('技能 {skSlot}', { skSlot: `S${i + 1}` })}</b>
+                <span class="dskpick__tags">${skillTags(rec)}</span>
+              </span>
+              ${on ? html`<span class="dskpick__on">${t('使用中')}</span>` : null}
+            </span>
+            <${RichText} as="p" text=${rec.descRaw || rec.desc} class="dskpick__desc" />
+            ${skillTextNote(rec)}
           </button>`;
         })}
-      </div>` : null}
-      <div class="dskill" data-skill=${sk.skillId || ''}>
+      </div>` : html`<div class="dskill" data-skill=${sk.skillId || ''}>
         <${Img} src=${skIcon} class="dskill__icon" fallback=${html`<span class="dskill__icon dskill__icon--empty">${skSlot ? html`<b class="num">${skSlot}</b>` : null}</span>`} />
         <div class="dskill__meta">
           <b class="dskill__name">${skSlot && (lo?.choices || 0) > 1 ? html`<span class="dskill__slot num" title=${t('技能 {skSlot}', { skSlot })}>${skSlot}</span>` : null}${sk.name}${lo && !lo.defaultSkill && !si ? html`<span class="dtag-loadout" title=${t('干员调配中选择的技能')}>${t('已调配')}</span>` : null}</b>
           <div class="dskill__tags">${skillTags(sk)}</div>
         </div>
-      </div>
-      <${RichText} as="p" text=${sk.descRaw || sk.desc} class="dtext" />
-      ${skillTextNote(sk)}
+      </div>`}
+      ${skillPicker ? null : html`<${RichText} as="p" text=${sk.descRaw || sk.desc} class="dtext" />`}
+      ${skillPicker ? null : skillTextNote(sk)}
     <//>` : null;
   blocks.module = golden && lo?.module ? html`<${Section} key="module" title=${t('模组')} micro="MODULE" class="dsec--module">
       <div class=${cx('dmodule', lo.module.none && 'is-none')} data-module=${lo.module.id}>
