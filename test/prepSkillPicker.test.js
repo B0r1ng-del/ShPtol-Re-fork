@@ -75,6 +75,21 @@ describe('三.2 整备阶段改技能', () => {
     assert.doesNotMatch(fn, /loadoutStore\.set|setEntries\(|savePref\(|localStorage/, '不写 store / 不写 pref');
   });
 
+  test('★ 归属判据不能拿 detailLoadout 与 priv.loadout 比引用（undefined vs null 永远不等）', () => {
+    // 需求方 2026-10-25 报「局内还是不能改技能」，浏览器 DOM 里只有 .dskill 没有 .dskpick —— 即 skillPicker 返回 null。
+    // 真根因：`detailLoadout` = `priv?.loadout ?? null`，而服务端没发这一项时 `priv.loadout` 是 **undefined**，
+    // `null !== undefined` 恒为真 ⇒ 一个还没有任何调配记录的座位，技能格一次都打不开。
+    const game = read('public/js/screens/game.js');
+    const start = game.indexOf('const skillPicker = (() => {');
+    assert.ok(start > 0, 'skillPicker 存在');
+    const block = game.slice(start, game.indexOf('})();', start));
+    assert.doesNotMatch(block, /if \(detailLoadout !== priv\.loadout\) return null;/, '不能拿两者直接比引用');
+    assert.doesNotMatch(block, /\(detailLoadout \?\? null\) !== \(priv\.loadout \?\? null\)/,
+      '也不能两边都 ?? null：队友的 unitLoadout() 在没有调配时同样返回 null，会被误判成自己');
+    // 正确判据：这张卡落到的 piece 属于我（自己的棋盘 / 手牌 / 整备区都是自己）
+    assert.match(block, /resolved\.ownerId != null && resolved\.ownerId !== myId/, '按 piece 归属判，不按 loadout 引用判');
+  });
+
   test('the picker only appears where the requirement says it may', () => {
     const game = read('public/js/screens/game.js');
     const start = game.indexOf('const skillPicker = (() => {');

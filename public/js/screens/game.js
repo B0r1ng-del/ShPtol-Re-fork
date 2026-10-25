@@ -1902,9 +1902,14 @@ function MatchScreen() {
     //   piece）—— 那时显示默认技能，不给选。
     if (!resolved || resolved.type !== 'chess' || !resolved.piece) return null;
     if (detailTarget?.kind !== 'unit' && detailTarget?.kind !== 'chess' && detailTarget?.kind !== 'piece') return null;
-    // 必须读的是**我自己**的 loadout（`detailLoadout` 对队友的单位返回 unitLoadout ⇒ 不是同一个对象引用），
-    // 这样「队友的干员」即使点开了也不会出现可以改的按钮。
-    if (detailLoadout !== priv.loadout) return null;
+    // ★ 需求方 2026-10-25 报「局内还是不能改技能」的真根因就在这里：
+    //   `detailLoadout` 走的是 `priv?.loadout ?? null`，而 `priv.loadout` 在服务端没发这一项时是 **undefined** ——
+    //   `null !== undefined` 恒为真，于是**一个还没有任何调配记录的座位，技能格一次都打不开**。
+    //   也不能改成 `(a ?? null) !== (b ?? null)`：队友的 `unitLoadout()` 在没有调配时也返回 null，
+    //   归一化后会被误判成「自己的」。
+    //   判据换成「这张卡是不是落到我自己的一块 piece 上」—— 上面那行已经保证了 `resolved.piece` 存在，
+    //   而 `resolved` 的 `ownerId` 就是这块 piece 的归属（自己的棋盘 / 手牌 / 整备区都是自己）。
+    if (resolved.ownerId != null && resolved.ownerId !== myId) return null;
     const body = resolved.chess;
     // 补位干员用替身的技能，不在这一格改
     if (!body || (resolved.standIn && resolved.standIn.standInFor)) return null;
