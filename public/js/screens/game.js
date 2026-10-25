@@ -272,6 +272,8 @@ function MatchScreen() {
 
   const hostRef = useRef(null);
   const barRef = useRef(null);
+  // 局内技能切换的去抖计时器（连点几次只发最后一次；见 skillPicker 的 onPick）
+  const skillPickTimerRef = useRef({ id: 0 });
   const hudElRef = useRef(null);                         // .gm__hud (inside the safe-area insets: the panels' frame)
   // 局内界面入场（上游 `gm__hud.is-enter` 的逐件错峰编排，game.css 的 gtop-* 一组）：
   // 挂上 is-enter 播放一次，等最后一拍（shopbar 460ms 延迟 + 460ms）结束后摘掉，之后的 DOM 变化不再重播。
@@ -1880,6 +1882,8 @@ function MatchScreen() {
    *   不写 pref、不动 `loadoutStore` —— 局外 干员调配 原样保留，下一局开局仍按局外配置重发。
    */
   const skillPicker = (() => {
+    // 技能切换的去抖计时器（连点几次只发最后一次）：挂在组件级 ref 上，跨渲染存活。
+    const skillPickTimer = skillPickTimerRef.current;
     // 休整期改技能（需求方 2026-10-23；2026-10-25 定稿「有几个技能就显示几个可选的」）。
     // ★ 曾经查了很久的假象：`__spSkillGate` 说算出来了、`__spChessDetailPicker` 却说没收到 ——
     //   真因不在这一函数里，而是调用处 `game.js` 的 htm 模板把 `//` 注释当成属性，
@@ -1926,12 +1930,12 @@ function MatchScreen() {
       records,
       current,
       onPick: (index) => {
-        // ★ 需求方 2026-10-25「无法进行多次修改，改了一次就不能再改了」：
-        //   旧写法从 `loadoutStore`（**局外**的 localStore）取基线，可局内改动是刻意不写回 store 的
-        //   （「出到局外的干员调配还是一开始的样子」），于是第二次点击拿到的 `cur` 还是开局那份，
-        //   会把第一次的选择**整个覆盖回默认**，看起来就像"改了一次就不能再改"。
-        //   基线必须取**这一局当前生效的** loadout（`priv.loadout`，也是服务端 `setLoadout` 的合并底），
-        //   再从它上面只改这一个干员、这一个字段。
+        // ★ 需求方 2026-10-25「无法进行多次修改」：基线必须取**这一局当前生效的** loadout
+        //   （`priv.loadout`，也是服务端 `setLoadout` 的合并底），不能取局外的 `loadoutStore`
+        //   —— 局内改动刻意不写回 store（「出到局外的干员调配还是一开始的样子」），
+        //   取 store 会让第二次点击把第一次的选择整个覆盖回开局那份。
+        //   ★ 「第二次不生效」的另一半在服务端：PREP 分支原先没有 `markPrivate`，
+        //   新的 loadout 从没回推给客户端，于是这里的基线一直是旧的。两处都修了。
         const cur = (detailLoadout && typeof detailLoadout === 'object') ? detailLoadout : {};
         const entry = { ...(cur[id] || {}) };
         // 选回**默认技能**时把 skill 清掉（`checkLoadout` 会把「等于缺省」的条丢掉，本地保持一致）；
@@ -1939,9 +1943,10 @@ function MatchScreen() {
         if (index === opt.defaultSkill) delete entry.skill; else entry.skill = index;
         const next = { ...cur };
         if (Object.keys(entry).length) next[id] = entry; else delete next[id];
-        // 服务端 `setLoadout(…, { merge: true })` 是叠加语义：没点名的干员保留当前配发，
-        // 所以这里整份发过去也不会抹掉别人，且能容纳连续多次修改。
-        sendMatchLoadout(next, { net });
+        // 服务端 `setLoadout(…, { merge: true })` 是叠加语义：没点名的干员保留当前配发。
+        // 去抖 250ms：连续点几次只发最后一次，既不刷屏也不撞 HEAVY_TYPES 的令牌桶（2/s、突发 6）。
+        if (skillPickTimer.id) clearTimeout(skillPickTimer.id);
+        skillPickTimer.id = setTimeout(() => { skillPickTimer.id = 0; sendMatchLoadout(next, { net }); }, 250);
       },
     };
   })();

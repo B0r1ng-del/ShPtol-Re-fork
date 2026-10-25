@@ -644,8 +644,14 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
   }
   const items = {};
   for (const [trapId, it] of Object.entries(assets07?.items || {})) items[trapId] = leaf(alt(`item/${trapId}.png`, it.icon?.url, it.icon?.bytes));
-  for (const [id, b] of Object.entries(extraBonds)) if (!bonds[id] && b.iconId) {
-    bonds[id] = leaf(alt(`bond/${id}.png`, joinUrl(RAW.aa2, `ui/autochess/[uc]autochesscommon/arts/bondicon/${b.iconId.toLowerCase()}.png`)));
+  for (const [id, b] of Object.entries(extraBonds)) if (!bonds[id]) {
+    // 二.3 东国 / 乌萨斯的两个盟约（dongShip / ursusShip）来自原 mod，官方 `bondicon/` 下没有它们。
+    // ★ 需求方 2026-10-25：真素材已从 Weedy-wendi/Dong-Ursus-Mod 提取
+    //   （`files/public/assets/bond/{dongShip,ursusShip}.png`），落在 `public/assets/bond/` 里。
+    //   记录上的图标线索是 `icon: 'icon_<bondId>'`（不是 `iconId`），所以按 id 直接推本地路径；
+    //   本地文件在，fetch-assets 会 skip 下载。
+    const key = typeof b.iconId === 'string' ? b.iconId : (typeof b.icon === 'string' ? b.icon.replace(/^icon_/, '') : id);
+    bonds[id] = leaf(alt(`bond/${id}.png`, joinUrl(RAW.aa2, `ui/autochess/[uc]autochesscommon/arts/bondicon/${key.toLowerCase()}.png`)));
   }
   for (const id of Object.keys(extraItems)) if (!items[id]) {
     items[id] = leaf(alt(`item/${id}.png`, joinUrl(RAW.aa2, `ui/autochess/[uc]autochesscommon/arts/shopitemicon/${id}.png`)));
@@ -654,13 +660,12 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
   for (const [bandId, b] of Object.entries(assets07?.bands || {})) bands[bandId] = leaf(alt(`band/${bandId}.png`, b.icon?.url, b.icon?.bytes));
   for (const [bandId, b] of Object.entries(extraBands)) if (!bands[bandId] && b.iconId) {
     // 二.3 东国 / 乌萨斯 的 5 条自制策略（band_palico / headbr / haruka / utage / ulika）是 fork 自己写的，
-    // 官方 `bandicon/` 下没有它们的图 —— 这个 URL 必然 404，整条 manifest 于是写不出去（shrinkGuard 会拦）。
-    // 它们的记录里带 `iconChar`（这条策略对应的干员），官方 avatars 库里一定有 180×180 的头像；
-    // 策略图标的官方尺寸也正好是 180×180（band_amiya.png 实测），所以直接拿头像当策略图标。
-    // 顺序：官方 bandicon → iconChar 头像 → 放弃。
-    const official = alt(`band/${bandId}.png`, joinUrl(RAW.aa2, `ui/autochess/[uc]autochesscommon/arts/bandicon/${b.iconId}.png`));
-    const fallback = b.iconChar ? alt(`band/${bandId}.png`, joinUrl(RAW.yuanyan, `avatar/${b.iconChar}.png`)) : null;
-    bands[bandId] = leaf(official, fallback);
+    // 官方 `bandicon/` 下没有它们的图。
+    // ★ 需求方 2026-10-25：**真素材已从原 mod 仓库提取**（Weedy-wendi/Dong-Ursus-Mod 的
+    //   `files/public/assets/band/*.png`，180×180，与官方策略图标同规格），已落在 `public/assets/band/`。
+    //   所以这里只保留官方 URL 这一条候选；本地文件存在时 fetch-assets 会直接 skip 掉下载。
+    //   （先前用 `iconChar` 的干员头像兜底的那一版已被真素材取代，不再需要。）
+    bands[bandId] = leaf(alt(`band/${bandId}.png`, joinUrl(RAW.aa2, `ui/autochess/[uc]autochesscommon/arts/bandicon/${b.iconId}.png`)));
   }
 
   // --- professions ----------------------------------------------------------

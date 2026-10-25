@@ -156,7 +156,13 @@ export class MatchPlatform {
           if (['skillIndex', 'moduleId', 'potential', 'cultivate'].some((key) => previous[key] !== next[key])) ps._reconcileTokensFor(owner);
         }
         ps.recompute();
-      } else this.markPrivate(ps);
+      }
+      // ★ 需求方 2026-10-25「第二次点击根本不生效，更别谈多次切换」的真根因：
+      //   PREP 分支原先只 `ps.recompute()`，**没有 `markPrivate(ps)`** —— 服务端确实改了自己的 loadout，
+      //   但新的 `m.private` 从没发给这个玩家。客户端因此一直拿着旧的 `priv.loadout` 当基线，
+      //   第二次点击算出来的仍然是「从开局那份覆盖一次」，看起来就是第二次点了没反应。
+      //   两个分支都要把这一份 private 标脏（INFO_CHECK 分支本来就在 markPrivate）。
+      this.markPrivate(ps);
     });
     return res;
   }

@@ -1014,7 +1014,11 @@
   min-width: 2.4rem;
   max-width: 7.2rem;
   padding: .11rem .2rem .11rem .14rem;
-  background: rgba(9, 12, 11, .96);
+  /* 需求方 2026-10-25：所有 toast 的背景改成**亚克力** —— 半透明深底 + 背景模糊，
+     取代原先近乎不透明的 rgba(9,12,11,.96)。左边的色条与描边保留，用来看提示级别。 */
+  background: rgba(16, 20, 19, .62);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  backdrop-filter: blur(16px) saturate(150%);
   border: 1px solid var(--line-2);
   border-left: 3px solid var(--tc);
   box-shadow: 0 .08rem .24rem rgba(0, 0, 0, .55), -.04rem 0 .16rem transparent; box-shadow: 0 .08rem .24rem rgba(0, 0, 0, .55), -.04rem 0 .16rem color-mix(in srgb, var(--tc) 25%, transparent);
