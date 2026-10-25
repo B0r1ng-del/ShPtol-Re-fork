@@ -29,11 +29,11 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  /* 需求方 2026-10-25（图四箭头所指的「房间界面的线」）：这里原本还叠了三层**细线** ——
-     `repeating-linear-gradient(90deg, …1px…)` 的竖向细纹 + 两套 1.1rem 的 1px 网格线（横、竖各一套）。
-     它们铺满整屏，在座位区两侧看起来就像两条莫名其妙的竖线。只留底色与光晕。 */
   background:
     radial-gradient(60% 50% at 30% 40%, rgba(23, 249, 183, .05), transparent 70%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .02) 0 1px, transparent 1px 4px),
+    linear-gradient(rgba(255, 255, 255, .025) 1px, transparent 1px) 0 0 / 1.1rem 1.1rem,
+    linear-gradient(90deg, rgba(255, 255, 255, .025) 1px, transparent 1px) 0 0 / 1.1rem 1.1rem,
     radial-gradient(120% 90% at 50% 30%, #161818, #070808);
 }
 .rs-top, .rs-seats, .rs .specbar, .rs-foot { position: relative; }

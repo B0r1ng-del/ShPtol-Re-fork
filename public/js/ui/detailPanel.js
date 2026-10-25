@@ -404,6 +404,9 @@ function skillTextNote(sk) {
 export function ChessDetail({ chess, piece, unit, snapHp, editable, onSell, bonds, offBonds = null, loadout, onBond, live = null, hint = null, unitItems = null, standIn = null, diy = null, cultOpts = null, morphMode = 'official', onUnequip = null, ownerId, skin = null,
   // ★ fork：局内改技能（方案 A）的技能选择器；上游签名里没有
   skillPicker = null }) {
+  // ★ 诊断（需求方 2026-10-25）：`__spSkillGate.blockedBy === null` 说明 game.js 那边算出来了，
+  //   但 DOM 里还是 `.dskill` —— 于是要确认 ChessDetail 究竟有没有收到这个 prop。
+  try { globalThis.__spChessDetailPicker = { received: !!skillPicker, options: skillPicker?.options ?? null, chessId: chess?.chessId ?? null }; } catch { /* ignore */ }
   const m = data.get('assets');
   const hp = hpOf(live, snapHp);
   // 0.2.0 自选编队: `chess` is then the composed 自选 record (the operator, the slot's tier / price); its skill and module are
