@@ -1880,28 +1880,36 @@ function MatchScreen() {
    *   不写 pref、不动 `loadoutStore` —— 局外 干员调配 原样保留，下一局开局仍按局外配置重发。
    */
   const skillPicker = (() => {
-    // 休整期 / 确认本局信息 改技能（需求方 2026-10-23 原需求；2026-10-24 确认按 **方案 A**：只在服务端收的相位开放，
-    // 战斗内部允许改 —— 那需要新协议，见下）。
-    // ★ 为什么前几轮「始终没做出来」的**真根因**：旧条件写的是 `detailTarget.kind !== 'chess'` ⇒ 直接把这个功能
-    //   整个排除了。局内点自己棋盘上的干员，`detailTarget.kind` 是 **'unit'**（game.js setDetail({kind:'unit'})），
-    //   只有商店 / 手牌 / 盟约弹窗里的卡片才是 `'chess'`。所以条件永远不成立，技能选择器一次都没渲染过。
-    //   现在两种打开方式都接受，但都必须**落到自己棋盘上的那块 piece**（`resolved.piece` 存在），队友的、商店的照旧不给改。
-    if (!priv || !alive) return null;
+    // ★ 诊断开关（需求方 2026-10-25「控制台搜不到任何东西」）：把每个闸门的实际结果挂到 window 上，
+    //   打开详情卡后到控制台敲 `__spSkillGate` 就能看到是哪一条挡住了。定位完可以整段删掉。
+    const gate = (reason, extra) => {
+      try { globalThis.__spSkillGate = { blockedBy: reason, ...extra }; } catch { /* ignore */ }
+      return null;
+    };
+    const facts = () => ({
+      phase, prepLoadoutOpen, ready: !!priv?.ready, alive, spectator: !!spectator,
+      targetKind: detailTarget?.kind ?? null, resolvedType: resolved?.type ?? null,
+      hasPiece: !!resolved?.piece, ownerId: resolved?.ownerId ?? null, myId: myId ?? null,
+      chessId: resolved?.chess?.chessId ?? null,
+      loadout: priv?.loadout ?? null,
+      detailLoadoutIsPriv: detailLoadout === (priv?.loadout ?? null),
+    });
+    if (!priv || !alive) return gate('!priv || !alive', facts());
     // ★ 两个闸门必须与**服务端**同一条（`server/match/match/platform.js` 的 `loadoutPhasesFor()`）：档位（包可以用
     //   `prepLoadout: "locked"` 收紧）+ 相位。客户端读同一个落点 —— `loadoutSync` 的 `prepLoadoutAllowed()`。
     //   ★ 曾经写成 `phase !== PHASE.PREP && phase !== PHASE.INFO_CHECK`（不看档位），包一收紧就会出现「按钮亮着、
     //   点了必被拒」；反过来漏掉档位也不行。两个都要判。
-    if (!prepLoadoutOpen || phase !== PHASE.PREP) return null;
+    if (!prepLoadoutOpen || phase !== PHASE.PREP) return gate('!prepLoadoutOpen || phase !== PHASE.PREP', facts());
     // ★ 服务端在 PREP 还有第二道闸：**这个座位已经按了准备就锁死**（`platform.js:138`
     //   `if (prep && ps.ready) return fail(WRONG_PHASE, 'loadout locked … readied up')`）。客户端必须跟着挡，
     //   否则按钮亮着、点了必被拒。INFO_CHECK 没有这条（那时还没人准备）。
-    if (phase === PHASE.PREP && priv.ready) return null;
+    if (phase === PHASE.PREP && priv.ready) return gate('phase===PREP && priv.ready', facts());
     // ★ 需求方 2026-10-25：**手牌 / 整备区里的干员也要能改**（不然买了干员得先上场才能换技能）。
     //   `indexPieces` 已经把 board / hand / temp / research 四区都收进 `placeCtx.pieces`，所以只要卡落到
     //   `resolved.piece` 上就算数；唯一要排除的是**还没买的商店卡**（`detailTarget.kind === 'chess'` 且没有
     //   piece）—— 那时显示默认技能，不给选。
-    if (!resolved || resolved.type !== 'chess' || !resolved.piece) return null;
-    if (detailTarget?.kind !== 'unit' && detailTarget?.kind !== 'chess' && detailTarget?.kind !== 'piece') return null;
+    if (!resolved || resolved.type !== 'chess' || !resolved.piece) return gate('!resolved || type!==chess || !resolved.piece', facts());
+    if (detailTarget?.kind !== 'unit' && detailTarget?.kind !== 'chess' && detailTarget?.kind !== 'piece') return gate('bad detailTarget.kind', facts());
     // ★ 需求方 2026-10-25 报「局内还是不能改技能」的真根因就在这里：
     //   `detailLoadout` 走的是 `priv?.loadout ?? null`，而 `priv.loadout` 在服务端没发这一项时是 **undefined** ——
     //   `null !== undefined` 恒为真，于是**一个还没有任何调配记录的座位，技能格一次都打不开**。
@@ -1909,19 +1917,20 @@ function MatchScreen() {
     //   归一化后会被误判成「自己的」。
     //   判据换成「这张卡是不是落到我自己的一块 piece 上」—— 上面那行已经保证了 `resolved.piece` 存在，
     //   而 `resolved` 的 `ownerId` 就是这块 piece 的归属（自己的棋盘 / 手牌 / 整备区都是自己）。
-    if (resolved.ownerId != null && resolved.ownerId !== myId) return null;
+    if (resolved.ownerId != null && resolved.ownerId !== myId) return gate('resolved.ownerId !== myId', facts());
     const body = resolved.chess;
     // 补位干员用替身的技能，不在这一格改
-    if (!body || (resolved.standIn && resolved.standIn.standInFor)) return null;
+    if (!body || (resolved.standIn && resolved.standIn.standInFor)) return gate('no body / standIn', facts());
     const base = body.isGolden ? (gd.chess(body.baseId) || body) : body;
     const opt = loadoutOptions(base, body.isGolden ? body : null);
-    if (!opt || !Array.isArray(opt.skills) || opt.skills.length < 2) return null;
+    if (!opt || !Array.isArray(opt.skills) || opt.skills.length < 2) return gate('opt.skills < 2', facts());
     const records = {};
     for (const s of Array.isArray(base.skills) ? base.skills : []) if (s && Number.isInteger(s.index)) records[s.index] = s;
     if (body.isGolden && Array.isArray(body.skills)) for (const s of body.skills) if (s && Number.isInteger(s.index)) records[s.index] = s;
     const id = body.baseId || body.chessId;
     const stored = detailLoadout && detailLoadout[id];
     const current = stored && Number.isInteger(stored.skill) ? stored.skill : opt.defaultSkill;
+    try { globalThis.__spSkillGate = { blockedBy: null, options: opt.skills, ...facts() }; } catch { /* ignore */ }
     return {
       options: opt.skills,
       records,

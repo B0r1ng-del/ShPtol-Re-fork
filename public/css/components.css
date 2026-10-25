@@ -1093,15 +1093,8 @@
   background: linear-gradient(180deg, rgba(8, 10, 9, .92), rgba(10, 13, 12, .55));
   border-bottom: 1px solid var(--line);
 }
-.topbar::after {
-  content: '';
-  position: absolute;
-  left: .44rem;
-  right: .44rem;
-  bottom: -1px;
-  height: 1px;
-  background: linear-gradient(90deg, var(--mint-700), transparent 26%, transparent 74%, var(--mint-700));
-}
+/* (需求方 2026-10-25 图：顶栏下方那条横贯全屏的薄荷绿细线已删 —— 它原先是 `.topbar::after` 画的一道
+   1px 渐变。底色渐变与 `border-bottom` 仍在，顶栏与内容的分界不靠它。) */
 .topbar__left { justify-self: start; display: flex; align-items: center; gap: .18rem; min-width: 0; }
 .topbar__center { display: flex; flex-direction: column; align-items: center; gap: .03rem; text-align: center; }
 .topbar__title { display: flex; align-items: center; gap: .18rem; font-size: calc(.3 * var(--t)); font-weight: 700; letter-spacing: .1em; line-height: 1.2; }
