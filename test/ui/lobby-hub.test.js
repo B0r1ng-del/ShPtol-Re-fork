@@ -277,12 +277,19 @@ test('成就统计 window (screens/stats.js AchievementDialog): the project Moda
   assert.match(dlg, /scriptOf\(t\('卫戍协议'\)\) === 'alphabetic' \? ': ' : '：'/);
 });
 
-test('选择同盟方式 creates the room itself: the lobby never stacks 选择模拟协议 for a 同盟', () => {
-  // (the remembered difficulty, or the server's fallback when the lobby's version lacks it: DESIGN §35.23)
-  assert.match(lobbySrc, /onCreate=\$\{\(\) => create\('coop'\)\} difficulty=\$\{shownCoop\}/);
+test('选择同盟方式 creates the room at once for BOTH co-op modes; 扩展模拟 goes through it too (owner 2026-10-25)', () => {
+  // 创建同盟 creates the room itself at the remembered difficulty — 选择模拟协议 never stacks on top of an alliance
+  // (the owner's flow: 主页 → 选择同盟方式 → 同盟房间).
+  assert.match(lobbySrc, /onCreate=\$\{\(\) => create\(allyMode\)\}/);
   assert.match(lobbySrc, /onCreate=\$\{\(\) => create\('solo'\)\}/);
   assert.doesNotMatch(lobbySrc, /setProtocol\('coop'\)/);
   assert.match(lobbySrc, /<\$\{ProtocolSelect\} roomMode="solo"/, '选择模拟协议 stays before 独立模拟');
+  // `-X theirs` had folded the two cases into `m === 'solo' || m === 'ultimate'`, which skipped 选择同盟方式 for 扩展模拟
+  assert.match(lobbySrc, /if \(m === 'solo'\) \{ setProtoOpen\(m\); return; \}/);
+  assert.match(lobbySrc, /setAllyMode\(m\); setAllyOpen\(true\);/);
+  // the screen names the mode it was opened for, and the create card states 扩展模拟's fixed AC-4
+  assert.match(lobbySrc, /mode=\$\{allyMode\}/);
+  assert.match(lobbySrc, /难度：终极模拟 AC-4（固定）/);
 });
 
 test('no server-only features: accounts, friends, federation, matchmaking, 无限火力, Android', () => {

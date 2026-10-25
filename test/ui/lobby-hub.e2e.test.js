@@ -256,18 +256,20 @@ describe('hub lobby (real server, headless Chrome)', { skip: !ENABLED && 'set SP
       await page.waitForSelector('.modal__box.proto', { hidden: true });
       assert.match(await page.$eval('.rs-pill__diff', (el) => el.textContent), /绝境模拟/);
 
-      // ⚙ 同盟设置: the 模拟难度 (更改 opens 选择模拟协议) and the 「AI 队友最后选择」 switch, both the host's
+      // ⚙ 同盟设置: the 「允许观战者接替 AI」 and 「AI 队友最后选择」 switches. (需求方 2026-10-25: the 模拟难度 /
+      // 版本 rows left this panel — the pill's own .rs-pill__diff / .rs-pill__ver carry them — so it is switches only.)
       await press(page, '.rs-pill__gear');
       await page.waitForSelector('.rs-opts', { visible: true });
       st = await page.evaluate(() => ({
-        diff: document.querySelector('[data-testid="room-opt-difficulty"]')?.textContent.replace(/\s+/g, ' ').trim(),
+        pillDiff: document.querySelector('.rs-pill__diff')?.textContent.replace(/\s+/g, ' ').trim(),
         ailast: [...document.querySelectorAll('.rs-opts [role="switch"]')].map((b) => [b.textContent.trim(), b.disabled]),
       }));
-      assert.ok(st.diff.includes('绝境模拟') && st.diff.includes('更改') && !st.diff.includes('由创建者选择'), st.diff);
+      assert.ok(st.pillDiff.includes('绝境模拟') && !st.pillDiff.includes('由创建者选择'), st.pillDiff);
       // §35.100 adds the host's default-off spectator handover switch alongside AI 队友最后选择.
       assert.deepEqual(st.ailast, [['允许观战者接替 AI', false], ['AI 队友最后选择', false]]);
       await page.screenshot({ path: path.join(OUT, 'lobby-hub-room-settings.png') });
-      await press(page, '.rs-opts__diff');
+      // the difficulty is changed from the PILL now (the panel no longer has that row)
+      await press(page, '.rs-pill__diff');
       await page.waitForSelector('.modal__box.proto', { visible: true });
       assert.equal(await page.$('.rs-opts'), null, 'the menu closes under the dialog');
       await escape(page);

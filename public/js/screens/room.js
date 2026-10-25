@@ -596,26 +596,27 @@ function EnemyBuffSection({ enemyRows, onEnemy }) {
   </div>`;
 }
 
+/** 「允许观战者接替 AI」 — 需求方 2026-10-25: rendered as the same SwitchRow the 对局选项 rows use, so the panel is one
+ * consistent list instead of a lone pill button above a column of switches. */
 function AiTakeoverToggle({ option, busy, onToggle }) {
   if (!option) return null;
-  return html`<div class="ailast">
-    <${Tooltip} text=${t('默认关闭。开启后，观战者可在休整期经同房间真人投票接替 AI；继承记录不计个人统计或奖励。')}>
-      <button type="button" role="switch" aria-checked=${option.on ? 'true' : 'false'} data-testid="room-ai-takeover"
-          class=${`dpick__opt ailast__opt${option.on ? ' is-active' : ''}`} disabled=${!option.editable || !!busy}
-          onClick=${() => option.editable && onToggle(!option.on)}>
-        <${Icon} name="check" class=${option.on ? 'is-on' : ''} />${t('允许观战者接替 AI')}
-      </button>
-    <//>
-    ${option.editable ? null : html`<span class="t-dim">${t('由创建者设置')}</span>`}
+  return html`<div class="hostcfg__extra">
+    <${SwitchRow}
+      label=${t('允许观战者接替 AI')}
+      tip=${t('默认关闭。开启后，观战者可在休整期经同房间真人投票接替 AI；继承记录不计个人统计或奖励。')}
+      on=${option.on} disabled=${!option.editable || !!busy}
+      testid="room-ai-takeover" infoTestid="room-ai-takeover-info"
+      onChange=${(v) => option.editable && onToggle(v)} />
+    ${option.editable ? null : html`<p class="hostcfg__note">${t('由创建者设置')}</p>`}
   </div>`;
 }
 
 /**
- * ⚙ of the bottom pill (co-op): 同盟设置 — the 模拟难度 (opens 选择模拟协议: the host's 确认, the others' read-only view)
- * and the 「AI 队友最后选择」 switch. Closes on a click outside it or Esc.
+ * ⚙ of the bottom pill (co-op): 同盟设置 — the 「允许观战者接替 AI」 opt-in, the 「AI 队友最后选择」 switch and the host's
+ * 对局选项 panel. The 模拟难度 and 版本 are NOT here: the pill's own two buttons already carry them (需求方 2026-10-25).
+ * Closes on a click outside it or Esc.
  */
-function RoomOptions({ option, takeoverOption, onAiTakeover, soloOption = null, room, isHost, busy, onAiLast, onSoloUnlimited, onDifficulty, onClose, version = null, panel = null }) {
-  const info = difficultyInfo(room.mode, room.difficulty);
+function RoomOptions({ option, takeoverOption, onAiTakeover, soloOption = null, busy, onAiLast, onSoloUnlimited, onClose, panel = null }) {
   const title = soloOption ? t('模拟设置') : t('同盟设置');
   useEffect(() => {
     const away = (e) => { if (!e.target.closest?.('.rs-opts, .rs-pill__gear')) onClose(); };
@@ -626,25 +627,9 @@ function RoomOptions({ option, takeoverOption, onAiTakeover, soloOption = null, 
   }, []);
   return html`<div class="rs-opts" role="dialog" aria-label=${title}>
     <h4>${title}</h4>
-    ${soloOption ? null : html`<div class="rs-opts__row" data-testid="room-opt-difficulty">
-      <span class="rs-opts__k">${t('模拟难度')}</span>
-      <button type="button" class="rs-opts__diff" disabled=${isHost && !!busy} onClick=${onDifficulty}
-          title=${isHost ? t('更改模拟难度') : t('由创建者选择')}>
-        <${DifficultyIcon} difficulty=${room.difficulty} />${DIFFICULTY_NAMES[room.difficulty] ? t(DIFFICULTY_NAMES[room.difficulty]) : ''}<span class="num rs-pill__code">${info.code}</span>
-        ${isHost ? html`<em>${t('更改')}</em>` : null}
-      </button>
-      ${isHost ? null : html`<span class="t-dim">${t('由创建者选择')}</span>`}
-    </div>`}
-    ${!soloOption && version ? html`<div class="rs-opts__row" data-testid="room-opt-version">
-      <span class="rs-opts__k">${t('版本')}</span>
-      <${Tooltip} text=${version.why}>
-        <button type="button" class="rs-opts__diff rs-opts__ver" disabled=${version.disabled} onClick=${version.onOpen}
-            title=${version.editable ? t('发起切换版本') : t('由创建者发起')}>
-          <${Icon} name="book" />${versionLabel(version.id)}${version.editable ? html`<em>${t('切换')}</em>` : null}
-        </button>
-      <//>
-      ${version.editable ? null : html`<span class="t-dim">${t('由创建者发起')}</span>`}
-    </div>` : null}
+    ${/* 需求方 2026-10-25: the 模拟难度 and 版本 rows are GONE — the bottom pill already carries both buttons (its
+         .rs-pill__diff / .rs-pill__ver open 选择模拟协议 and the version switch), so this panel had them twice. What
+         stays here is what the pill cannot express: the AI-handover opt-in and the host's option switches. */ ''}
     <${AiTakeoverToggle} option=${takeoverOption} busy=${busy} onToggle=${onAiTakeover} />
     ${soloOption
       ? html`<${SoloUnlimitedToggle} option=${soloOption} busy=${busy} onToggle=${onSoloUnlimited} />`
@@ -1027,8 +1012,8 @@ export function RoomScreen() {
           ${aiLast || soloOpt ? html`<button type="button" class=${`rs-pill__gear${opts ? ' is-on' : ''}`} data-testid="hostcfg-open"
             onClick=${() => setOpts((v) => !v)} title=${aiLast ? t('同盟设置') : t('模拟设置')} aria-label=${aiLast ? t('同盟设置') : t('模拟设置')}
             aria-expanded=${opts ? 'true' : 'false'}><${GearGlyph} /></button>` : null}
-          ${opts && (aiLast || soloOpt) ? html`<${RoomOptions} takeoverOption=${aiTakeoverOption(room, me.playerId)} onAiTakeover=${setAiTakeover} option=${aiLast} soloOption=${soloOpt} room=${room} isHost=${facts.isHost} busy=${busy} onAiLast=${setAiLast}
-            onSoloUnlimited=${setSoloUnlimited} onDifficulty=${openProto} onClose=${() => setOpts(false)} version=${versionCtl}
+          ${opts && (aiLast || soloOpt) ? html`<${RoomOptions} takeoverOption=${aiTakeoverOption(room, me.playerId)} onAiTakeover=${setAiTakeover} option=${aiLast} soloOption=${soloOpt} busy=${busy} onAiLast=${setAiLast}
+            onSoloUnlimited=${setSoloUnlimited} onClose=${() => setOpts(false)}
             panel=${cfgRows && cfgRows.length ? html`<${RoomConfigBody} rows=${cfgRows} enemyRows=${enemyRows} modRows=${modRows} busy=${busy}
               onToggle=${setHostConfig} onEnemy=${setEnemyBuff} onMod=${setMods} />` : null} />` : null}
         </div>

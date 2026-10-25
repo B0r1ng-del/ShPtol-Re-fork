@@ -672,9 +672,11 @@ export function ProtocolSelect({ roomMode, difficulty, onDifficulty, onClose, on
  * `placeholderShort`, by the field's width: English and Japanese at 特大 on every desktop, the default Chinese at 特大
  * in a 1024 px window — it ended in an ellipsis there).
  */
-export function AllianceSelect({ onClose, onCreate, difficulty = 'FUNNY', code, onCode, codeOk, online, busy, onJoin, onSpectate, recent, marks, focusKey,
+export function AllianceSelect({ onClose, onCreate, difficulty = 'FUNNY', mode = 'coop', code, onCode, codeOk, online, busy, onJoin, onSpectate, recent, marks, focusKey,
   testMode = false, asTest = false, onTest = () => {}, short = false }) {
   const diffName = DIFFICULTY_NAMES[difficulty] ? t(DIFFICULTY_NAMES[difficulty]) : '';
+  // 扩展模拟 opens this screen too (it is a co-op mode), so the header names the mode it was opened for.
+  const ultimate = mode === 'ultimate';
   return html`<${Modal} open=${true} onClose=${onClose} class="ally" veilClass="proto-veil">
     <div class="ally__body">
       <div class="proto__bg ally__bg" aria-hidden="true"></div>
@@ -682,7 +684,7 @@ export function AllianceSelect({ onClose, onCreate, difficulty = 'FUNNY', code, 
         <${BackPlate} onClick=${onClose} class="ally__back" />
         <div class="proto-title">
           <h2 class="modal__title">${t('选择同盟方式')}</h2>
-          <span class="proto-title__mode ally__mode"><${Icon} name="users" />${t('同盟模拟')}<i>ALLIANCE SIMULATION</i></span>
+          <span class="proto-title__mode ally__mode"><${Icon} name=${ultimate ? 'crown' : 'users'} />${t(ultimate ? '扩展模拟' : '同盟模拟')}<i>${ultimate ? 'EXTENDED SIMULATION' : 'ALLIANCE SIMULATION'}</i></span>
         </div>
       </header>
       <div class="proto-body ally-body">
@@ -695,7 +697,7 @@ export function AllianceSelect({ onClose, onCreate, difficulty = 'FUNNY', code, 
               disabled=${!online || busy === 'create'} aria-busy=${busy === 'create' ? 'true' : 'false'} onClick=${() => onCreate()}>
             <span class="ally-card__art"><${CreateArt} /></span>
             <span class="ally-card__bar"><span class="ally-card__icon">${busy === 'create' ? html`<${Spinner} size="sm" />` : html`<${Icon} name="plus" />`}</span><span class="ally-card__name">${t('创建同盟')}</span>
-              <small>${online ? t('难度：{name}（可在同盟内更改）', { name: diffName }) : t('正在连接服务器…')}</small></span>
+              <small>${online ? (ultimate ? t('难度：终极模拟 AC-4（固定）') : t('难度：{name}（可在同盟内更改）', { name: diffName })) : t('正在连接服务器…')}</small></span>
           </button>
           ${testMode ? html`<label class="create-box__test ally-test" data-testid="create-test">
             <input type="checkbox" checked=${asTest} onChange=${(e) => onTest(e.target.checked)} />
@@ -739,8 +741,8 @@ export function LobbyScreen() {
   // 「不限时」 for the next timed solo (DESIGN §35.23.10; default off). The room's 模拟设置 is the authority once the
   // room exists; this pref is what the lobby card and the create message say before that.
   const [soloFree, setSoloFree] = useState(() => loadPref('lobby.soloUnlimited', false) === true);
-  // the open dialogs: 选择同盟方式 (同盟模拟 / 密钥加入), and 选择模拟协议 — `protoOpen` is the mode whose page is up
-  // (独立模拟 / 扩展模拟), null = the hub
+  // the open dialogs: 选择同盟方式 (同盟模拟 / 扩展模拟 / 密钥加入) and 选择模拟协议 — `protoOpen` is the mode whose page
+  // is up (独立模拟 from the hub; the room's host reuses this page for a difficulty change), null = the hub
   const [allyOpen, setAllyOpen] = useState(false);
   const [protoOpen, setProtoOpen] = useState(null);
   const [code, setCode] = useState('');
@@ -774,7 +776,15 @@ export function LobbyScreen() {
   const shownSolo = fallbackDifficulty(solo, difficulty);
   const shownCoop = fallbackDifficulty(coop, difficulty);
 
-  const openMode = (m) => { if (m === 'solo' || m === 'ultimate') setProtoOpen(m); else setAllyOpen(true); };
+  // 扩展模拟 goes through 选择同盟方式 like 同盟模拟 — it IS a co-op mode, and 创建同盟 there creates the room at once (the
+  // difficulty page never stacks on top of an alliance). Only 独立模拟 opens 选择模拟协议 directly. (`-X theirs` had
+  // folded the two cases into `m === 'solo' || m === 'ultimate'`, which skipped 选择同盟方式 for 扩展模拟 — the owner's
+  // report of 2026-10-25.) The screen also needs to know which mode opened it, so its header and create card can say so.
+  const [allyMode, setAllyMode] = useState('coop');
+  const openMode = (m) => {
+    if (m === 'solo') { setProtoOpen(m); return; }
+    setAllyMode(m); setAllyOpen(true);
+  };
   const pickDifficulty = (d) => { setDifficulty(d); savePref('lobby.difficulty', d); };
   // 扩展模拟 has one difficulty (the server forces ULTIMATE_DIFFICULTY): its page shows AC-4 alone and a card click
   // changes no state — the guard sits here, at the one place both mounts pass their picks through
@@ -848,6 +858,10 @@ export function LobbyScreen() {
       <div class="topbar__right">
         <${VersionSwitch} />
         <${ResumeMatchButton} />
+        ${/* Mod 菜单 (fork, 需求方 2026-10-16): the 内容包 switches' own dialog, beside 干员调配 as asked. The five
+             game-rule switches are NOT here — they live in 房主配置 → 对局选项. `-X theirs` dropped this render (the
+             import survived), which is why the hub lost the button after the v0.3.2 merge (需求方 2026-10-25 报). */ ''}
+        <${ModMenuButton} class="lobby-modmenu" />
       </div>
     </header>
 
@@ -873,7 +887,8 @@ export function LobbyScreen() {
       </section>
     </main>
 
-    ${allyOpen ? html`<${AllianceSelect} onClose=${() => setAllyOpen(false)} onCreate=${() => create('coop')} difficulty=${shownCoop}
+    ${allyOpen ? html`<${AllianceSelect} onClose=${() => setAllyOpen(false)} onCreate=${() => create(allyMode)} difficulty=${shownCoop}
+      mode=${allyMode}
       code=${code} onCode=${(v) => setCode(normalizeCode(v))} codeOk=${codeOk} online=${online} busy=${busy}
       onJoin=${join} onSpectate=${spectate} recent=${recent} marks=${marks} focusKey=${!coarse}
       testMode=${testMode} asTest=${asTest} onTest=${setAsTest} short=${shortScreen} />` : null}

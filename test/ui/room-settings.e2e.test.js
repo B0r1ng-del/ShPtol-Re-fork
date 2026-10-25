@@ -52,15 +52,18 @@ describe('co-op room settings (real server)', { skip: !ENABLED && 'set SP_E2E=1 
       await guest.page.keyboard.press('Escape');
       await guest.page.waitForSelector('.modal__box.proto', { hidden: true });
 
-      // the guest: ⚙ 同盟设置 — the difficulty and the switch, both read-only
+      // the guest: ⚙ 同盟设置 — the switches read-only. (需求方 2026-10-25: the 模拟难度 / 版本 rows left this panel —
+      // the pill's own two buttons carry them — so there is no room-opt-difficulty here any more.)
       await guest.click('.rs-pill__gear');
       await guest.page.waitForSelector('.rs-opts', { visible: true });
       v = await guest.page.evaluate(() => ({
-        diff: document.querySelector('[data-testid="room-opt-difficulty"]')?.textContent.replace(/\s+/g, ' ').trim(),
+        diff: document.querySelector('.rs-pill__diff')?.textContent.replace(/\s+/g, ' ').trim(),
         sw: [...document.querySelectorAll('.rs-opts [role="switch"]')].map((b) => [b.textContent.trim(), b.disabled]),
-        note: document.querySelector('.rs-opts .ailast')?.textContent.includes('由创建者设置'),
+        note: document.querySelector('.rs-opts .hostcfg__extra .hostcfg__note')?.textContent.includes('由创建者设置'),
       }));
-      assert.ok(v.diff.includes('标准模拟') && v.diff.includes('由创建者选择') && !v.diff.includes('更改'), v.diff);
+      assert.ok(v.diff.includes('标准模拟'), v.diff);
+      // (the pill's own button carries the difficulty now; a guest still cannot change it — it shows read-only)
+      assert.equal(await guest.page.$eval('.rs-pill__diff', (el) => el.disabled || el.classList.contains('is-ro')), true);
       // §35.100 adds the default-off spectator handover setting; both switches are read-only for the guest.
       assert.deepEqual(v.sw, [['允许观战者接替 AI', true], ['AI 队友最后选择', true]]);
       assert.equal(v.note, true);
