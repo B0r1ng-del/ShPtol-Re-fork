@@ -928,9 +928,12 @@
 .lo-bbar__seg button .icon { width: max(.2rem, 13px); height: max(.2rem, 13px); }
 
 /* ---- 道具图鉴 (the 道具 tab: one tile per shop item, grouped by tier; a tile opens ItemDetail) ----
-   The tiles are the operator cards' width — `--opw` is set on `.lo-deck`, of which `.lo-igrid` is a descendant; reusing it
-   keeps the two tabs' columns in step. The height follows the content, unlike a card. */
-.lo-igrid { display: grid; grid-auto-flow: column; grid-template-rows: repeat(3, minmax(min-content, max-content)); grid-auto-columns: var(--opw, max(2.1rem, 100px));
+   需求方 2026-10-25（图三）：要**上游那种自适应网格**，且不改现有美术。
+   原先是 `grid-auto-flow: column` + 固定 3 行 + `grid-auto-columns: var(--opw)` ——
+   列宽被钉死在干员卡片的宽度上：容器变窄就把每格挤扁（文字只剩「继式…」），变宽也不会多排几列。
+   改成 `auto-fill` + `minmax()`：可用宽度决定列数，每格不小于一个干员卡宽，余量平均分掉。
+   卡片外观（渐变底、白竖条、浅色图标方块、右上角的「特殊获取」标签）一个字没动。 */
+.lo-igrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--opw, max(2.1rem, 100px)), 1fr));
   align-content: start; gap: .14rem .16rem; min-height: 0; }
 .lo-item { position: relative; display: grid; grid-template-columns: min(1.05rem, 34%) minmax(0, 1fr); align-items: start; gap: .1rem; min-height: 0;
   padding: .1rem .08rem .08rem .14rem; font: inherit; color: var(--text-hi); text-align: left; cursor: pointer; overflow: hidden;

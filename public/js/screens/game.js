@@ -1926,12 +1926,21 @@ function MatchScreen() {
       records,
       current,
       onPick: (index) => {
-        const cur = loadoutStore.get().entries || {};
+        // ★ 需求方 2026-10-25「无法进行多次修改，改了一次就不能再改了」：
+        //   旧写法从 `loadoutStore`（**局外**的 localStore）取基线，可局内改动是刻意不写回 store 的
+        //   （「出到局外的干员调配还是一开始的样子」），于是第二次点击拿到的 `cur` 还是开局那份，
+        //   会把第一次的选择**整个覆盖回默认**，看起来就像"改了一次就不能再改"。
+        //   基线必须取**这一局当前生效的** loadout（`priv.loadout`，也是服务端 `setLoadout` 的合并底），
+        //   再从它上面只改这一个干员、这一个字段。
+        const cur = (detailLoadout && typeof detailLoadout === 'object') ? detailLoadout : {};
         const entry = { ...(cur[id] || {}) };
-        // 选回**默认技能**时把那一条清掉（`checkLoadout` 会把「等于缺省」的条丢掉，本地保持一致）
+        // 选回**默认技能**时把 skill 清掉（`checkLoadout` 会把「等于缺省」的条丢掉，本地保持一致）；
+        // module 若有就原样带上 —— 这一格只改技能，不碰模组。
         if (index === opt.defaultSkill) delete entry.skill; else entry.skill = index;
         const next = { ...cur };
         if (Object.keys(entry).length) next[id] = entry; else delete next[id];
+        // 服务端 `setLoadout(…, { merge: true })` 是叠加语义：没点名的干员保留当前配发，
+        // 所以这里整份发过去也不会抹掉别人，且能容纳连续多次修改。
         sendMatchLoadout(next, { net });
       },
     };

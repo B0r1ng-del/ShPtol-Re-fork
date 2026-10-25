@@ -162,10 +162,15 @@
    图标条看不到描述，等于还是要靠记忆猜。 */
 .dskpick { display: flex; flex-direction: column; gap: .08rem; }
 .dskpick__card { display: flex; flex-direction: column; gap: .05rem; width: 100%; padding: .08rem .1rem; text-align: left;
-  border: 1px solid var(--line-3); background: #0a0d0c; color: inherit; font: inherit; cursor: pointer;
+  /* 需求方 2026-10-25：未选中的技能卡也要亚克力（原先是不透明纯黑 #0a0d0c，和选中态一眼分不出材质）。
+     半透明深底 + 背景模糊；选中态在此基础上叠一层薄荷绿。 */
+  border: 1px solid var(--line-3); color: inherit; font: inherit; cursor: pointer;
+  background: rgba(18, 22, 21, .55);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
   transition: border-color .12s, background .12s; }
-.dskpick__card:hover { border-color: var(--mint-400); }
-.dskpick__card.is-on { border-color: var(--mint-400); background: rgba(90, 220, 160, .12); }
+.dskpick__card:hover { border-color: var(--mint-400); background: rgba(24, 30, 28, .62); }
+.dskpick__card.is-on { border-color: var(--mint-400); background: rgba(90, 220, 160, .16); }
 .dskpick__head { display: flex; gap: .1rem; align-items: center; }
 .dskpick__icon { width: .52rem; height: .52rem; flex: none; object-fit: cover; border: 1px solid var(--line-3); }
 .dskpick__icon--empty { display: grid; place-items: center; background: #111614; }

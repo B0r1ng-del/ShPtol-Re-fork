@@ -90,6 +90,36 @@ describe('三.2 整备阶段改技能', () => {
     assert.match(block, /resolved\.ownerId != null && resolved\.ownerId !== myId/, '按 piece 归属判，不按 loadout 引用判');
   });
 
+  test('★ 连改两次都以「这一局当前生效的 loadout」为基线（不能回退到局外 store）', () => {
+    // 需求方 2026-10-25：「无法进行多次修改，改了一次就不能再改了」。
+    // 旧 onPick 从 `loadoutStore`（局外）取基线，而局内改动刻意不写回 store
+    // （「出到局外的干员调配还是一开始的样子」），于是第二次点击拿到的还是开局那份，把第一次的选择覆盖掉。
+    const game = read('public/js/screens/game.js');
+    const start = game.indexOf('const skillPicker = (() => {');
+    const block = game.slice(start, game.indexOf('})();', start));
+    assert.doesNotMatch(block, /loadoutStore\.get/, '基线不能取局外 store');
+    assert.match(block, /const cur = \(detailLoadout && typeof detailLoadout === 'object'\) \? detailLoadout : \{\}/,
+      '基线取这一局当前生效的 loadout（priv.loadout）');
+    // 只改技能、不碰模组（模块沿用 entry 里已有的值）
+    assert.match(block, /if \(index === opt\.defaultSkill\) delete entry\.skill; else entry\.skill = index/);
+    assert.doesNotMatch(block, /entry\.module\s*=/, '不写 module');
+    // 逐次验证叠加语义：第一次选 1、第二次选 0，最终应是 0（而不是被覆盖回缺省）
+    const apply = (base, idx, def) => {
+      const cur = { ...(base || {}) };
+      const entry = { ...(cur['chess_x'] || {}) };
+      if (idx === def) delete entry.skill; else entry.skill = idx;
+      const next = { ...cur };
+      if (Object.keys(entry).length) next['chess_x'] = entry; else delete next['chess_x'];
+      return next;
+    };
+    const afterFirst = apply({}, 1, 0);
+    assert.deepEqual(afterFirst, { chess_x: { skill: 1 } });
+    const afterSecond = apply(afterFirst, 0, 0);   // 第二次：基线是第一次的结果
+    assert.deepEqual(afterSecond, {}, '选回默认就把那条清掉（checkLoadout 同样会丢缺省）');
+    const third = apply(afterSecond, 1, 0);
+    assert.deepEqual(third, { chess_x: { skill: 1 } }, '还能再改回来 —— 不是「只能改一次」');
+  });
+
   test('★ htm 模板里不得出现行首 // —— 它会被当成属性名，吞掉之后的所有属性', async () => {
     // 需求方 2026-10-25 那个查了很久的「skillPicker 算出来了却传不到组件」的真根因：
     // game.js 的 DetailPanel 调用里有一段 `// 装备拆卸…` 说明夹在属性中间。htm 不是 JS 注释位，

@@ -734,6 +734,15 @@ export function AllianceSelect({ onClose, onCreate, difficulty = 'FUNNY', mode =
 export function LobbyScreen() {
   const conn = useStore((s) => s.connection, shallowEqual);
   useData('config', 'assets');
+  // Forge 工坊按钮的地址（服务端给；本机带 key）。第一次渲染时还没问到 ⇒ 这一帧不画，问到了下一帧就有。
+  const [studioHref, setStudioHref] = useState(() => studioLinkUrl());
+  useEffect(() => {
+    if (studioHref) return undefined;
+    let alive = true;
+    const tick = () => { const u = studioLinkUrl(); if (alive && u) setStudioHref(u); };
+    const id = setInterval(tick, 400);   // 问到了就停：studioLinkUrl 有缓存，tick 只是一次读
+    return () => { alive = false; clearInterval(id); };
+  }, [studioHref]);
   const [difficulty, setDifficulty] = useState(() => {
     const d = loadPref('lobby.difficulty', 'FUNNY');
     return DIFFICULTIES.includes(d) ? d : 'FUNNY';
@@ -857,6 +866,12 @@ export function LobbyScreen() {
           <${NoticesButton} />
           <${SettingsButton} class="lobby-settings" variant="secondary" square=${true} />
           <${GuideButton} class="lobby-guide" variant="secondary" square=${true} />
+          ${/* Forge 工坊（需求方 2026-10-24，2026-10-25 复报「入口也没了」）：跳**插件工作台** `/studio/`
+               （不是 editor/ 那个独立进程）。地址由服务端的 `/api/studio-link` 给（本机带 key、局域网不带）；
+               没有工作台时 `studioLinkUrl()` 为 null，这一整个按钮就不画 —— 点了 404 的按钮不如不画。
+               v0.3.2 合并时这段渲染被删（`studioLinkUrl` 与注释都还在，所以 lint 不报），这次连同它的取值一起接回来。 */
+            studioHref ? html`<a class="btn btn--secondary btn--square lobby-forge" href=${studioHref} target="_blank" rel="noopener noreferrer"
+              title=${t('Forge 工坊')} aria-label=${t('Forge 工坊')} data-testid="forge-link"><${Icon} name="hammer" /></a>` : null}
           <${LobbyMediaButton} />
           <${PwaInstallButton} class="lobby-pwa" square=${true} />
         </div>
