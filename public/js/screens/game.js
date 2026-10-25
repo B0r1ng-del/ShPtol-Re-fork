@@ -1946,7 +1946,15 @@ function MatchScreen() {
         // 服务端 `setLoadout(…, { merge: true })` 是叠加语义：没点名的干员保留当前配发。
         // 去抖 250ms：连续点几次只发最后一次，既不刷屏也不撞 HEAVY_TYPES 的令牌桶（2/s、突发 6）。
         if (skillPickTimer.id) clearTimeout(skillPickTimer.id);
-        skillPickTimer.id = setTimeout(() => { skillPickTimer.id = 0; sendMatchLoadout(next, { net }); }, 250);
+        skillPickTimer.id = setTimeout(() => {
+          skillPickTimer.id = 0;
+          // 诊断：把「发出去的是什么、当时的基线是什么」留一份在 window 上
+          try {
+            globalThis.__spPick = (globalThis.__spPick || []);
+            globalThis.__spPick.push({ at: Date.now(), id, index, cur: JSON.parse(JSON.stringify(cur)), next: JSON.parse(JSON.stringify(next)) });
+          } catch { /* ignore */ }
+          sendMatchLoadout(next, { net });
+        }, 250);
       },
     };
   })();

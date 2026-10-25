@@ -78,6 +78,9 @@ import { sanitizeVersions, roomVersion, isDefaultVersion, matchFrameVersion } fr
 // ★ fork：在线聊天的历史上限（m.chat 只留最近 CHAT_KEEP 行）与 mod 面板注册表。
 import { CHAT_KEEP } from '../../shared/constants.js';
 import { createPanelRegistry } from './ui/extensions.js';
+// 开场动画 (需求方 2026-10-25)：每次打开页面、标题画面出现之前播一遍「卫戍协议：盟约」的活动入场动画。
+// 素材全是游戏已有的（entry/* 与 prepareBkg/* 的图、act1autochess_g_ui_load 音效、大厅 BGM），不新增任何文件。
+import { playLobbyIntro } from './ui/lobbyIntro.js';
 
 const RESTORE_GRACE_MS = 1500;
 const JOIN_DELAY_MS = 350;
@@ -294,7 +297,15 @@ function wireNet() {
     toast(known ? t(known) : typeof msg.reason === 'string' && msg.reason.length < 60 ? t('同盟已关闭：{reason}', { reason: msg.reason }) : t('同盟已关闭'), 'warn');
   });
   net.on('m.public', (msg) => { matchAt = Date.now(); store.patch('match', { public: payload(msg) }); maybeFinishRestore(); });
-  net.on('m.private', (msg) => { matchAt = Date.now(); store.patch('match', { private: payload(msg) }); });
+  // 诊断：记下每次收到的 m.private 里的 loadout（排查「局内改技能第二次不生效」用；定位完可删）
+  net.on('m.private', (msg) => {
+    try {
+      const p = payload(msg);
+      globalThis.__spPriv = (globalThis.__spPriv || []);
+      globalThis.__spPriv.push({ at: Date.now(), loadout: JSON.parse(JSON.stringify(p?.loadout ?? null)) });
+    } catch { /* ignore */ }
+    matchAt = Date.now(); store.patch('match', { private: payload(msg) });
+  });
   net.on('m.layer', (msg) => {
     const s = store.get();
     if (selectRoute(s) === 'game' && msg.playerId === s.me?.playerId) audio.layerGain(msg.bondId, msg.add);
@@ -482,6 +493,11 @@ async function boot() {
   }));
 
   wireNet();
+  // 开场动画 (需求方 2026-10-25)：在标题画面出现之前播一遍活动入场动画。
+  // 「进入房间 / 对局」时不让它盖住页面；资源没就绪时它自己会跳过（见 lobbyIntro 的 whenResourcesReady）。
+  playLobbyIntro({
+    skip: () => { const s = store.get(); return !!(s.match && s.match.public); },
+  });
   // 内容包开关: seed the data store from this device's 「Mod 菜单」 preference on boot, so the lobby's read-only screens
   // (S.W.E.E.P. 报告) list the packs the player turned on. A room's own switches override it in the App effect below.
   data.setPacks(modsOn());
