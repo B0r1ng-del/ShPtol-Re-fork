@@ -1051,7 +1051,6 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
   .hub-center__title { max-width: none; font-size: calc(.46 * var(--t)); }
   .hub-right { padding-top: .1rem; }
   .lobby-hub .hub-plate { min-height: max(.7rem, 32px, calc(40px * var(--sp-ui, 1))); }
-  .lobby-hub .hub-plate--ach { display: flex; }
   /* (here the hub's height is the limit: a top padding for the icon made the English and Korean cards so tall at 大 /
      特大 that the line above them ran into the title on a 640 / 740 px phone. The decorative line keeps clear of the icon
      beside it instead, .44rem — at 小 it stays on one line there in every language) */
