@@ -47,7 +47,7 @@ function importSpecifiers(code) {
 function climbOf(spec) {
   let n = 0;
   let rest = spec;
-  while (rest.startsWith('../')) { n++; rest = rest.slice(3); }
+  while (rest.startsWith('../')) { n++; rest = rest.slice(3); } // loop-cap: rest shrinks 3 chars per pass
   return n;
 }
 

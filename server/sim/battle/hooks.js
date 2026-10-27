@@ -271,17 +271,26 @@ export class BattleHooks {
       for (let i = 0; i < due.length; i++) {
         const s = due[i];
         if (s.cancelled) continue;
+        // Call budget (DESIGN 35.52) takes the SAME path as hooks: a pack's timer spends one call each time it fires,
+        // and exhausting the budget rolls the whole pack back (_spendCall -> _rollbackPack marks the pack's remaining
+        // timers cancelled, so the while below exits at once). The callback also runs inside the pack scope, so the
+        // buffs it marks carry the pack stamp and the rollback can remove them.
+        const sp = s.pack ? this._packBudgetOf(s.pack) : null;
         if (s.interval > 0) {
           let n = 0;
           while (s.due <= now && !s.cancelled && n++ < 8) { // loop-cap: battle.every at most 8 per tick
+            if (sp && !this._spendCall(sp)) { s.cancelled = true; break; }
             s.count++;
-            this._safe(() => s.fn(this, s), 'every', s.owner);
+            if (sp) this._withPackScope({ id: sp.id, callBudget: sp.max }, () => this._safe(() => s.fn(this, s), 'every', s.owner));
+            else this._safe(() => s.fn(this, s), 'every', s.owner);
             s.due += s.interval;
           }
           if (s.due <= now) s.due = this.time + s.interval;
         } else {
           s.cancelled = true;
-          this._safe(() => s.fn(this, s), 'after', s.owner);
+          if (sp && !this._spendCall(sp)) continue;
+          if (sp) this._withPackScope({ id: sp.id, callBudget: sp.max }, () => this._safe(() => s.fn(this, s), 'after', s.owner));
+          else this._safe(() => s.fn(this, s), 'after', s.owner);
         }
       }
       this._compactDue();

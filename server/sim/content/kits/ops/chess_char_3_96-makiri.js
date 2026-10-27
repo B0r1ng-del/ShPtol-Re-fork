@@ -55,7 +55,7 @@ export default {
         const iv = num(b2.interval, 1), n = num(b2.cost), total = num(b2.value);
         if (!st || !(iv > 0) || !(n > 0)) return;
         st.acc += dt;
-        while (st.acc + 1e-9 >= iv && st.got + n <= total + 1e-9) {
+        while (st.acc + 1e-9 >= iv && st.got + n <= total + 1e-9) { // loop-cap: total / n paid out, then stops
           st.acc -= iv;
           st.got += n;
           battle.addDp(unit.ownerId, n);
