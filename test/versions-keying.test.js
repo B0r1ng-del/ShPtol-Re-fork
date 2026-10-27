@@ -109,8 +109,10 @@ const SHANG = Object.freeze({
 });
 const EXPECT = Object.freeze({
   data: {
-    kits: { own: 129, tier: 0, op: 0, pending: 0 }, diy: { kitted: 81, generic: 6, pending: 0 }, standIns: { kitted: 82, generic: 28 },
-    items: 54, handlers: 27, battleEffect: 82,
+    // This fork's 12 preset kits (chess_char_3_96 … 6_99) and its expansion chess raise `own`; its 18 extra items raise
+    // `battleEffect`; `kitted` drops because the 自选 pool is pinned by the expansions' own pools (shared/diy.js).
+    kits: { own: 165, tier: 0, op: 0, pending: 0 }, diy: { kitted: 67, generic: 6, pending: 0 }, standIns: { kitted: 82, generic: 28 },
+    items: 54, handlers: 27, battleEffect: 100,
     hammers: ['chess_item_4_09_e', 'chess_item_3_09_e', 'chess_item_3_10_e', 'chess_item_2_03_e'], meta: DEFAULT_META,
     cells: ['chess_item_5_08_e_a'],
   },
@@ -217,10 +219,16 @@ for (const dir of DIRS) {
         else if (KIT_CHAR_IDS[key]) split.tier++;
         else split.op++;
       }
-      if (key) {
+      // A chess of an expansion registry (kits/rhine.js, kits/kazdel.js, kits/rem.js) is keyed by its own id and names no
+      // operator kit: those registries merge into KITS beside KIT_CHAR_IDS (content/index.js), and this fork is the only
+      // one that ships them (12 + 12 + 18 chess; upstream has none), so KIT_CHAR_IDS never lists them.
+      const expansion = key != null && Object.hasOwn(KITS, key) && !Object.hasOwn(KIT_CHAR_IDS, key);
+      if (key && !expansion) {
         assert.equal(KIT_CHAR_IDS[key] ?? key, def.charId, `${id} (${def.charId}) → ${key}`);
         const same = (TIER_KIT_KEYS_BY_CHAR[def.charId] ?? []).some((k) => tierOfKey(k) === def.tier);
         if (same) assert.equal(tierOfKey(key), def.tier, `${id}: the tier kit of its tier`);
+      } else if (key) {
+        assert.ok(Object.hasOwn(KITS, key), `${id} → ${key}: an expansion kit is in KITS`);
       } else {
         assert.ok(PENDING_KIT_CHARS.includes(def.charId), `${id} (${def.charId}) has no kit and is not in PENDING_KIT_CHARS`);
         pending.add(def.charId);
@@ -296,7 +304,12 @@ for (const dir of DIRS) {
 // each list sees, as literals: a roster that brings in a new member fails until the list follows (DESIGN §35.22.4). The
 // additions of M0 (安哲拉, 星源) apply on a version's build only.
 const GROUPS = Object.freeze({
-  'data': { abyssal: ['char_1023_ghost2', 'char_143_ghost', 'char_263_skadi', 'char_4145_ulpia', 'char_474_glady'], rhineMissed: [] },
+  // This fork ships the 莱茵生命 expansion (kits/rhine.js), so its shop chess carry four more 莱茵生命 members that
+  // 缪尔赛思's own list does not name (upstream has no rhine chess at all).
+  'data': {
+    abyssal: ['char_1023_ghost2', 'char_143_ghost', 'char_263_skadi', 'char_4145_ulpia', 'char_474_glady'],
+    rhineMissed: ['char_134_ifrit', 'char_135_halo', 'char_242_otter', 'char_248_mgllan'],
+  },
   'data/versions/act1autochess': {
     abyssal: ['char_1023_ghost2', 'char_143_ghost', 'char_218_cuttle', 'char_263_skadi', 'char_4145_ulpia', 'char_474_glady'],
     // 伊芙利特 and 淬羽赫默: shop chess in 第一期, 自选 picks today; whether 自选 members count is open (M2, DESIGN §35.22.5)
@@ -358,9 +371,10 @@ for (const dir of DIRS) {
   });
 }
 
-test('kits of data/: the new lookup equals the by-id lookup for all 266 records', () => {
+test('kits of data/: the new lookup equals the by-id lookup for every record', () => {
   const all = defsOf(dataOf(DEFAULT_DIR));
-  assert.equal(all.length, 266);
+  // 266 on upstream; this fork adds its 12 preset kits, the 14 fork-only operators and the 12 + 12 + 18 expansion chess.
+  assert.equal(all.length, 350);
   for (const { id, def } of all) assert.equal(officialKitKey(def), oldKitKey(def), id);
 });
 

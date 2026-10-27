@@ -1,5 +1,5 @@
 {
-  "about": "Versions M0 keying baseline, frozen from the untouched 0.3.2 integration head db8e226d (default data) before item behaviour was keyed by effectId: the item handler keys (battle.byItem), each item id → its handler key (battle.dispatch), the items with a battle part (battle.battleEffect), the items/meta.js overrides (meta.wraps) and the item: entries of the default meta registry with their hooks (registry.itemHooks). test/versions-keying.test.js checks the default data against it. It is not regenerated: an intended change of an item handler, an item override or a built-in item hook edits the affected entry by hand and says why in the commit (band:, choice:, garrison: and other registry entries are not pinned).",
+  "about": "Versions M0 keying baseline, frozen from the untouched 0.3.2 integration head db8e226d (default data) before item behaviour was keyed by effectId: the item handler keys (battle.byItem), each item id → its handler key (battle.dispatch), the items with a battle part (battle.battleEffect), the items/meta.js overrides (meta.wraps) and the item: entries of the default meta registry with their hooks (registry.itemHooks). test/versions-keying.test.js checks the default data against it. It is not regenerated: an intended change of an item handler, an item override or a built-in item hook edits the affected entry by hand and says why in the commit (band:, choice:, garrison: and other registry entries are not pinned). This fork adds its 18 expansion item records (9_02…9_04, kazdel_blade/sigil, rem_amplifier/armor, rhine_mainframe/terminal) to battle.battleEffect: they carry battle parts of their own expansions, and nothing else in the baseline moved.",
   "battle": {
     "byItem": [
       "chess_item_3_02_e",
@@ -168,7 +168,25 @@
       "chess_item_6_10_e_a",
       "chess_item_6_10_e_b",
       "chess_item_6_11_e_a",
-      "chess_item_6_11_e_b"
+      "chess_item_6_11_e_b",
+      "chess_item_9_02_e_a",
+      "chess_item_9_02_e_b",
+      "chess_item_9_03_e_a",
+      "chess_item_9_03_e_b",
+      "chess_item_9_04_e_a",
+      "chess_item_9_04_e_b",
+      "chess_item_kazdel_blade_a",
+      "chess_item_kazdel_blade_b",
+      "chess_item_kazdel_sigil_a",
+      "chess_item_kazdel_sigil_b",
+      "chess_item_rem_amplifier_a",
+      "chess_item_rem_amplifier_b",
+      "chess_item_rem_armor_a",
+      "chess_item_rem_armor_b",
+      "chess_item_rhine_mainframe_a",
+      "chess_item_rhine_mainframe_b",
+      "chess_item_rhine_terminal_a",
+      "chess_item_rhine_terminal_b"
     ]
   },
   "meta": {

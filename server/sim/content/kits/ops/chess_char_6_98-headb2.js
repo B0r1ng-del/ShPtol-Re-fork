@@ -25,7 +25,8 @@
 // 机制细节（高台溅射 x-5、锤击帧、扩散）与 [ASSUMED] 项的完整推导见 op-headb2.js 头注，此处不重复。
 
 import { num, talentBb, traitBb, skillRec, up, giveSp } from '../shared/tier1.js';
-import { hasHp } from '../../../attack.js';
+/** A unit that still has HP: the old `damage.js hasHp` (deleted in 0.3.2), same as 4_20-fartth.js's `downed`. */
+const hasHp = (u) => !!u && u.alive && (u.bossPool ? u.bossPool.hp > 0 : u.hp > 0);
 import { COLS } from '../../../constants.js';
 import { sortEnemyTargets } from '../../../targeting.js';
 

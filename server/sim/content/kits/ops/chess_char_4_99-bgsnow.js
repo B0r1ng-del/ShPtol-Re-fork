@@ -13,7 +13,8 @@ import { num, up, traitBb, skillRec, batMod } from '../shared/tier1.js';
 import { absoluteRangeKeys } from '../../../targeting.js';
 import { bodyKeys, bodyInKeys } from '../../../body.js';
 import { toLocal } from '../../../dir.js';
-import { hasHp } from '../../../attack.js';
+/** A unit that still has HP: the old `damage.js hasHp` (deleted in 0.3.2), same as 4_20-fartth.js's `downed`. */
+const hasHp = (u) => !!u && u.alive && (u.bossPool ? u.bossPool.hp > 0 : u.hp > 0);
 import { COLS } from '../../../constants.js';
 import { startCountdown } from '../../tokens.js';
 
