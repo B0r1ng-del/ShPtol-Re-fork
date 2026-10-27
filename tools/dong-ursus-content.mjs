@@ -1030,6 +1030,26 @@ export function applyDongUrsusPack(files, injected) {
     const pack = packForGarrison(id, chessByGarrison) || packForBonds((orig.bonds || '').split(','));
     note(now, pack, fields);
   }
+  // ── packMembers：关包时把本包的人从盟约成员表里拿掉 ────────────────────────────────────────────
+  // 必须写，否则「盟约活着、成员被剥掉」：那个包的干员记录被 filterRecords 删了，但 bond.members 里还写着
+  // 他的 id，详情页查不到记录就把 id 当名字显示（需求方 2026-10-27 报的 chess_char_4_99_a / chess_char_6_99_a）。
+  // 判据只有一个：**这个成员自己的 packId**（上面 stampByBonds 刚盖好的）。谁的包就记在谁名下，
+  // 东 / 乌萨斯是两个独立开关，不能混。登记进 packMembers 后，关掉那个包时 withPackMembers 会把它剔掉。
+  for (const rec of Object.values(files.bonds || {})) {
+    if (!rec || typeof rec !== 'object') continue;
+    for (const field of ['members', 'visibleMembers']) {
+      const list = Array.isArray(rec[field]) ? rec[field] : null;
+      if (!list || !list.length) continue;
+      for (const m of list) {
+        const pack = files.chess?.[m]?.packId;
+        if (pack !== DONG_PACK && pack !== URSUS_PACK) continue;
+        const cur = rec.packMembers?.[pack] || [];
+        if (cur.includes(m)) continue;
+        rec.packMembers = { ...(rec.packMembers || {}), [pack]: [...cur, m] };
+      }
+    }
+  }
+
   for (const [id, w] of injected.restore.weight) {
     const now = files.bonds?.[id];
     // 权重覆盖一次动了好几条官方盟约（远见/奇迹/迅捷/精准/灵巧/协防），它们**不属于**东国或乌萨斯任何一包 ——

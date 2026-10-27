@@ -799,11 +799,10 @@
   .rseat__who .seat__name { white-space: normal; overflow-wrap: anywhere; line-height: 1.1; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 }
 @media (max-width: 900px) {
-  /* the centre column takes what the button leaves (it keeps its width); the status line and the pill sit at its start, as
-     narrow as their text (left-aligned, as before the §35.18 review) */
-  .rs-foot { grid-template-columns: minmax(0, 1fr) auto; }
-  .rs-foot__left { display: none; }
-  .rs-foot__center { justify-self: start; max-width: 100%; }
+  /* 需求方 2026-10-27：窄屏**不隐藏底栏左侧**（终极模拟 / 第二期下半 / 齿轮），否则手机上点不到这三项。
+     保留桌面的三栏网格，只收窄两侧；「开始模拟」继续占中间那一栏。布局一致优先于腾地方。 */
+  .rs-foot { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .rs-foot__center { justify-self: center; max-width: 100%; }
 }
 @media (max-aspect-ratio: 1/1) {
   .rs-seats { justify-content: flex-start; }

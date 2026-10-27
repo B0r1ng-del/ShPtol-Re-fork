@@ -448,8 +448,27 @@ export function Modal({ open, title, micro, tone = 'mint', onClose, actions, wid
       ghost.classList.remove('modal');
       ghost.classList.add('modal-ghost');
       ghost.setAttribute('aria-hidden', 'true');
+      // 克隆体是「正在播退场动画」的那个节点的副本：它带着 scale(.99) / 位移，若再让它跑一遍
+      // 退场动画，起点就和关闭那一刻对不上 —— 手机上（文字要重新折行）表现成尺寸抖 4 帧的卡闪
+      // （需求方 2026-10-27「点开无论左右哪个成就统计，过渡动画都很奇怪，会卡闪」）。
+      // 做法：把两个节点各自**当前计算出的**可见状态钉成内联值，再只做一层淡出。可见区域与关闭那一刻一致。
+      const frozen = (el) => {
+        if (!el) return;
+        const cs = getComputedStyle(el);
+        el.style.animation = 'none';
+        el.style.opacity = cs.opacity;
+        el.style.transform = cs.transform === 'none' ? '' : cs.transform;
+        el.style.visibility = cs.visibility;
+      };
+      const gbox = ghost.querySelector('.modal__box');
+      frozen(ghost);
+      frozen(gbox);
       document.body.appendChild(ghost);
-      setTimeout(() => ghost.remove(), 220);
+      requestAnimationFrame(() => {
+        ghost.style.transition = 'opacity 200ms cubic-bezier(.2, .8, .2, 1)';
+        ghost.style.opacity = '0';
+      });
+      setTimeout(() => ghost.remove(), 240);
     };
   }, []);
   const closeRef = useRef(onClose);
