@@ -539,7 +539,7 @@ function HubBackdrop() {
 
 /** The radar rings behind the emblem (original drawing; the sweep stops under 减少动态效果). */
 function HubRadar() {
-  return html`<div class="hub-radar" aria-hidden="true">
+  return html`<div class="hub-radar vt-radar" aria-hidden="true">
     <svg viewBox="-240 -240 480 480">
       <circle r="92" /><circle r="152" /><circle class="hub-radar__ticks" r="214" />
       <path d="M-236 0H-176M176 0H236M0 -236V-176M0 176V236" />
@@ -555,9 +555,9 @@ function HubTitle() {
   // another official version (DESIGN §35.23): its name under the title
   const version = useStore(lobbyVersion);
   return html`<div class="hub-center">
-    <div class="hub-center__mark"><${HubRadar} /><${Emblem} /></div>
-    ${alphabetic ? null : html`<div class="hub-center__en">STRONGHOLD PROTOCOL <b>ALLIANCE</b></div>`}
-    <h1 class=${`hub-center__title${alphabetic ? ' hub-center__title--latin' : ''}`}>${t('卫戍协议')}<span>${alphabetic ? ': ' : '：'}</span><em>${t('盟约')}</em></h1>
+    <div class="hub-center__mark"><${HubRadar} /><${Emblem} class="vt-emblem" /></div>
+    ${alphabetic ? null : html`<div class="hub-center__en vt-wordmark">STRONGHOLD PROTOCOL <b>ALLIANCE</b></div>`}
+    <h1 class=${`hub-center__title${alphabetic ? ' hub-center__title--latin' : ''} vt-title`}>${t('卫戍协议')}<span>${alphabetic ? ': ' : '：'}</span><em>${t('盟约')}</em></h1>
     ${version !== DEFAULT_VERSION ? html`<div class="hub-center__ver" data-testid="hub-version">· ${versionLabel(version)}</div>` : null}
   </div>`;
 }

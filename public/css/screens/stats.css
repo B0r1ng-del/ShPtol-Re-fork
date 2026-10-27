@@ -365,7 +365,10 @@
   .st-body { padding-top: .12rem; }
 }
 .sp-coarse .st-tab, .sp-coarse .st-table tr.is-clickable td { min-height: 30px; }
-@media (prefers-reduced-motion: reduce) { .st { animation: none; } }
+/* 退场（ui/components.js 的 useLeaving）：与进场对称地淡出，而不是点完就消失 */
+.st.is-leaving { animation: st-out 160ms var(--ease-out) forwards; pointer-events: none; }
+@keyframes st-out { to { opacity: 0; visibility: hidden; transform: scale(.995); } }
+@media (prefers-reduced-motion: reduce) { .st, .st.is-leaving { animation: none; } }
 
 /* ---- 成就统计 (screens/stats.js AchievementDialog, the lobby's achievement card — the event's 卫戍协议：盟约 window,
    PR #643): an orange banner over one scrolling column of the 总览 / 盟约&策略 records ---- */

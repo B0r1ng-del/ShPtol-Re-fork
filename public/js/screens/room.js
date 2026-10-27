@@ -466,10 +466,10 @@ function SoloUnlimitedToggle({ option, busy, onToggle }) {
  * A slider's value is an integer count of 10 % steps (HOST_ENEMY_MAX_STEPS = 10, i.e. +100 %); 0 is the official numbers.
  */
 export const HOST_ENEMY_ROWS = Object.freeze([
-  { key: 'enemyHp', label: N_('怪物血量'), icon: 'shield', tip: N_('每格 +10%，最高 +100%：本局全部敌人（含首领与联防）的最大生命值按此提高') },
-  { key: 'enemyAtk', label: N_('怪物攻击'), icon: 'sword', tip: N_('每格 +10%，最高 +100%：本局全部敌人（含首领与联防）的攻击力按此提高') },
-  { key: 'enemyDef', label: N_('怪物防御'), icon: 'shield', tip: N_('每格 +10%，最高 +100%：本局全部敌人（含首领与联防）的防御力按此提高') },
-  { key: 'enemyRes', label: N_('怪物魔抗'), icon: 'shield', tip: N_('每格 +10%，最高 +100%：本局全部敌人（含首领与联防）的法术抗性按此提高') },
+  { key: 'enemyHp', label: N_('敌方血量'), icon: 'shield', tip: N_('每格 +10%，最高 +100%：本局全部敌人（含首领与联防）的最大生命值按此提高') },
+  { key: 'enemyAtk', label: N_('敌方攻击'), icon: 'sword', tip: N_('每格 +10%，最高 +100%：本局全部敌人（含首领与联防）的攻击力按此提高') },
+  { key: 'enemyDef', label: N_('敌方防御'), icon: 'shield', tip: N_('每格 +10%，最高 +100%：本局全部敌人（含首领与联防）的防御力按此提高') },
+  { key: 'enemyRes', label: N_('敌方法抗'), icon: 'shield', tip: N_('每格 +10%，最高 +100%：本局全部敌人（含首领与联防）的法术抗性按此提高') },
 ]);
 
 /**
@@ -501,7 +501,8 @@ export const enemyBuffTotal = (rows) => (rows || []).reduce((n, r) => n + r.step
  * editability rule — the host moves them, everybody else reads them. The 内容包 switches did NOT come along: they have
  * their own 「Mod 菜单」 dialog on the lobby screen (screens/mods.js), so this dialog has two sections, not three.
  */
-function HostConfigDialog({ rows, enemyRows, modRows, open, busy, onClose, onToggle, onEnemy, onMod }) {
+function HostConfigDialog({ rows, enemyRows, modRows, open, busy, onClose, onToggle, onEnemy, onMod,
+  takeoverOption = null, takeoverBusy = null, onAiTakeover = null, soloOption = null, onSoloUnlimited = null }) {
   if (!rows || !rows.length) return null;
   // 图一 (2026-10-17): ONE list of switches for the whole dialog — the Mod rules first, then the host options — so
   // {@link MatchOptionSection} can split it into two aligned columns. Each row carries its own write handler and the
@@ -521,7 +522,9 @@ function HostConfigDialog({ rows, enemyRows, modRows, open, busy, onClose, onTog
   return html`<${Modal} open=${open} onClose=${onClose} tone="mint" width="min(9rem, 96vw)"
       title=${t('房间配置')} micro="HOST CONFIG"
       actions=${html`<${Button} variant="secondary" onClick=${onClose}>${t('完成')}<//>`}>
-    <${RoomConfigBody} rows=${rows} enemyRows=${enemyRows} modRows=${modRows} busy=${busy} onToggle=${onToggle} onEnemy=${onEnemy} onMod=${onMod} />
+    <${RoomConfigBody} rows=${rows} enemyRows=${enemyRows} modRows=${modRows} busy=${busy} onToggle=${onToggle} onEnemy=${onEnemy} onMod=${onMod}
+      takeoverOption=${takeoverOption} takeoverBusy=${takeoverBusy} onAiTakeover=${onAiTakeover} />
+    ${soloOption ? html`<div class="hostcfg__extra"><${SoloUnlimitedToggle} option=${soloOption} busy=${busy} onToggle=${onSoloUnlimited} /></div>` : null}
   <//>`;
 }
 
@@ -1017,16 +1020,11 @@ export function RoomScreen() {
             title=${facts.isHost ? t('更改模拟难度') : t('由创建者选择')}><${DifficultyIcon} difficulty=${room.difficulty} />${DIFFICULTY_NAMES[room.difficulty] ? t(DIFFICULTY_NAMES[room.difficulty]) : ''}<span class="num rs-pill__code">${info.code}</span></button>
           ${versionCtl ? html`<${Tooltip} text=${versionCtl.why} class="rs-pill__version"><button type="button" class=${`rs-pill__ver${versionCtl.editable ? '' : ' is-ro'}`} data-testid="room-version"
             disabled=${versionCtl.disabled} onClick=${versionCtl.onOpen} aria-label=${t('游戏版本：{name}', { name: versionLabel(curVersion) })}><${Icon} name="book" /><span class="rs-pill__vername">${versionLabel(curVersion)}</span></button><//>` : null}
-          ${/* 房间配置 (房主配置, the fork's panel): its entry is this ⚙, and its body rides in the 同盟设置 popover below —
-               one gear, both panels (上游 v0.3.2 filled the same popover with the difficulty / version / AI switches). */ null}
-          ${aiLast || soloOpt ? html`<button type="button" class=${`rs-pill__gear${opts ? ' is-on' : ''}`} data-testid="hostcfg-open"
-            onClick=${() => setOpts((v) => !v)} title=${aiLast ? t('同盟设置') : t('模拟设置')} aria-label=${aiLast ? t('同盟设置') : t('模拟设置')}
-            aria-expanded=${opts ? 'true' : 'false'}><${GearGlyph} /></button>` : null}
-          ${opts && (aiLast || soloOpt) ? html`<${RoomOptions} takeoverOption=${aiTakeoverOption(room, me.playerId)} onAiTakeover=${setAiTakeover} option=${aiLast} soloOption=${soloOpt} busy=${busy} onAiLast=${setAiLast}
-            onSoloUnlimited=${setSoloUnlimited} onClose=${() => setOpts(false)}
-            panel=${cfgRows && cfgRows.length ? html`<${RoomConfigBody} rows=${cfgRows} enemyRows=${enemyRows} modRows=${modRows} busy=${busy}
-              takeoverOption=${aiTakeoverOption(room, me.playerId)} takeoverBusy=${busy} onAiTakeover=${setAiTakeover}
-              onToggle=${setHostConfig} onEnemy=${setEnemyBuff} onMod=${setMods} />` : null} />` : null}
+          ${/* 图一 (2026-10-26, owner)：「把这个菜单改成像 Mod 菜单一样，弹出个子窗口」 — 齿轮开「房间配置」子窗口
+              （HostConfigDialog），不再是贴底栏的小浮层；对话框里已含 对局选项 / 房主配置 / 观战者接替 AI /「不限时」。 */ null}
+          ${cfgRows && cfgRows.length || aiLast || soloOpt ? html`<button type="button" class=${`rs-pill__gear${opts || cfgOpen ? ' is-on' : ''}`} data-testid="hostcfg-open"
+            onClick=${() => setCfgOpen(true)} title=${aiLast ? t('同盟设置') : t('模拟设置')} aria-label=${aiLast ? t('同盟设置') : t('模拟设置')}
+            aria-expanded=${(opts || cfgOpen) ? 'true' : 'false'}><${GearGlyph} /></button>` : null}
         </div>
       </div>
       <div class="room-bar__right rs-foot__right">
@@ -1053,7 +1051,9 @@ export function RoomScreen() {
       note=${versionEditable ? versionWhy || (facts.humans.length > 1 ? t('其他博士同意后才会切换；切换后需要重新准备。') : null) : t('由创建者发起')}
       onPick=${proposeVersion} onClose=${() => setVersionOpen(false)} />` : null}
     <${HostConfigDialog} rows=${cfgRows} enemyRows=${enemyRows} modRows=${modRows} open=${cfgOpen} busy=${busy}
-      onClose=${() => setCfgOpen(false)} onToggle=${setHostConfig} onEnemy=${setEnemyBuff} onMod=${setMods} />
+      onClose=${() => setCfgOpen(false)} onToggle=${setHostConfig} onEnemy=${setEnemyBuff} onMod=${setMods}
+      takeoverOption=${aiTakeoverOption(room, me.playerId)} takeoverBusy=${busy} onAiTakeover=${setAiTakeover}
+      soloOption=${soloOpt} onSoloUnlimited=${setSoloUnlimited} />
   </div>`;
 }
 

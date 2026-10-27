@@ -100,6 +100,10 @@ export const MOD_PACK_ROWS = Object.freeze(MOD_ROWS.filter((r) => r.col === 'pac
  */
 export function splitByLength(rows) {
   const sorted = (rows || []).slice().sort((a, b) => b.label.length - a.label.length);
-  const half = Math.ceil(sorted.length / 2);
-  return [sorted.slice(0, half), sorted.slice(half)];
+  // 2026-10-26 (owner): 「按字数长短排列整一下」 — dealt ALTERNATELY, not cut in half. Halving put every long name in
+  // the left column and every short one in the right, so the two columns stepped apart row by row; alternating gives
+  // each ROW two labels of near-equal length while each column still reads long → short (both orders the tests pin).
+  const cols = [[], []];
+  sorted.forEach((r, i) => cols[i % 2].push(r));
+  return cols;
 }

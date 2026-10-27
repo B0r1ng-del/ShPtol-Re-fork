@@ -489,6 +489,20 @@
 }
 @keyframes modal-fade { from { opacity: 0; } }
 @keyframes modal-in { from { opacity: 0; transform: translateY(.14rem) scale(.985); } }
+/* 退场（ui/components.js 的 useLeaving 把节点多留 180ms）：来路怎么进，就怎么退 —— 框往下沉一点、画面一淡，
+   而不是当场消失。时长比进场短，关闭不该让人等。 */
+.modal.is-leaving { animation: modal-fade-out 180ms var(--ease-out) forwards; pointer-events: none; }
+.modal__box.is-leaving { animation: modal-out 180ms var(--ease-out) forwards; }
+@keyframes modal-fade-out { to { opacity: 0; visibility: hidden; } }
+@keyframes modal-out { to { opacity: 0; transform: translateY(.1rem) scale(.99); } }
+/* 被卸载时留下的那张克隆（ui/components.js Modal 的清理函数）：位置固定、不接点击，淡出后自行删除 */
+.modal-ghost {
+  position: fixed; inset: 0; z-index: var(--z-modal);
+  display: grid; place-items: center; padding: .3rem;
+  pointer-events: none;
+  animation: modal-fade-out 200ms var(--ease-out) forwards;
+}
+.modal-ghost .modal__box { animation: modal-out 200ms var(--ease-out) forwards; }
 
 /* ---- tooltip -------------------------------------------------------------------------------------- */
 .tt-anchor { display: inline-flex; }
@@ -552,13 +566,32 @@
    对不齐，且手机和电脑端表现不一致」; measured in a browser: 44×24 track, 20×20 knob, gaps 3/1). Subtracting the
    border restores a symmetric `--sw-p` gap on every side, at every `--t` and in all three menus (Mod 开关 / 房主配置 /
    作弊菜单) — they share this rule. `--sw-b` is the border width, named so the two cannot drift apart. */
-.sw { --sw-w: max(.52rem, 44px); --sw-h: max(.28rem, 24px); --sw-p: max(2px, calc(.02 * var(--t))); --sw-b: 1px;
-  flex: none; position: relative; width: var(--sw-w); height: var(--sw-h); padding: 0; border: var(--sw-b) solid var(--line-2);
-  border-radius: calc(var(--sw-h) / 2); background: var(--bg-3); cursor: pointer;
-  transition: background var(--t-fast), border-color var(--t-fast); }
-.sw__knob { position: absolute; top: calc(var(--sw-p) - var(--sw-b)); left: calc(var(--sw-p) - var(--sw-b)); width: calc(var(--sw-h) - 2 * var(--sw-p)); height: calc(var(--sw-h) - 2 * var(--sw-p));
-  border-radius: 50%; background: var(--text-lo); transition: transform var(--t-fast) var(--ease-out), background var(--t-fast); }
-.sw.is-on { background: var(--mint-800); border-color: var(--mint-700); }
+/* 图三 (2026-10-26, owner): the pill became a SQUARE track — a grey block on the left for off, a mint block on the right
+   for on — the shape the owner drew for all three menus (Mod 菜单 / 房间配置 / 作弊菜单). The knob is a rectangle that
+   slides, not a circle, and there are no 开启/关闭 words anywhere: the moving block IS the state, which is what the
+   owner asked for (「把开启关闭的字眼去掉」). Every other rule below — the two custom-property sizes, the border-aware
+   inset, the disabled state, the press feedback on the KNOB — is unchanged and still shares this one rule. */
+/* 2026-10-26 (owner, 第二次): 「直接把设置里那个按钮取下来，把开启和关闭两个字去掉」 — `.sw` is now the 设置 menu's
+   own control (game.css `.set-toggle`) minus its 开启/关闭 label: a dark bordered BOX around a track, with a SQUARE
+   knob (not a circle) that slides from one end to the other. The box, the track and the square knob are exactly
+   `.set-toggle`'s geometry — `--sw-w`/`--sw-h` stay the TRACK's size (so `.cheatball__row`'s smaller override still
+   works), `--sw-box` is the box's padding around it. One rule, three menus (Mod 菜单 / 房间配置 / 作弊菜单).
+
+   The knob is offset by `--sw-box + --sw-p`, not `--sw-p`: it is positioned against the BOX now. Its travel is
+   `--sw-w - --sw-h` because a square knob of `--sw-h - 2*--sw-p` slides the track's inner width minus its own — the
+   same figure `.set-toggle i::after` uses (`.22rem` on a `.46rem` track), so the two controls cannot drift apart.
+   The `--sw-b`-aware inset of the old pill is gone: there is no border between the knob and its track any more. */
+.sw { --sw-w: max(.52rem, 44px); --sw-h: max(.28rem, 24px); --sw-p: max(2px, calc(.02 * var(--t))); --sw-b: 1px; --sw-box: max(3px, calc(.05 * var(--t)));
+  flex: none; position: relative; width: calc(var(--sw-w) + 2 * (var(--sw-box) + var(--sw-b)));
+  height: calc(var(--sw-h) + 2 * (var(--sw-box) + var(--sw-b))); padding: 0; border: var(--sw-b) solid var(--line-2);
+  background: #0a0d0c; cursor: pointer; transition: border-color var(--t-fast); }
+/* the track (the settings control's `<i>`): inset by --sw-box inside the box */
+.sw::before { content: ''; position: absolute; left: var(--sw-box); top: var(--sw-box); width: var(--sw-w); height: var(--sw-h);
+  background: var(--bg-3); transition: background var(--t-fast); }
+.sw__knob { position: absolute; top: calc(var(--sw-box) + var(--sw-p)); left: calc(var(--sw-box) + var(--sw-p)); width: calc(var(--sw-h) - 2 * var(--sw-p)); height: calc(var(--sw-h) - 2 * var(--sw-p));
+  background: var(--text-lo); transition: transform var(--t-fast) var(--ease-out), background var(--t-fast); }
+.sw.is-on { border-color: var(--mint-700); }
+.sw.is-on::before { background: var(--mint-800); }
 .sw.is-on .sw__knob { transform: translateX(calc(var(--sw-w) - var(--sw-h))); background: var(--mint-400); }
 .sw:disabled { cursor: default; opacity: .45; }
 .sw:focus-visible { outline: 2px solid var(--mint-400); outline-offset: 2px; }

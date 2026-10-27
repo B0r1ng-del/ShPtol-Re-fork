@@ -1141,7 +1141,6 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 /* ---- 转场 (PR #643, the event's screen changes): a screen comes up from black, its panels slide in one after another ---- */
 .lobby-hub, .modal__box.proto, .modal__box.ally { --tr-ease: cubic-bezier(.16, .84, .3, 1); }
 @keyframes tr-fade { from { opacity: 0; } }
-@keyframes tr-veil { from { background-color: transparent; } }
 @keyframes tr-right { from { opacity: 0; transform: translateX(.36rem); } }
 @keyframes tr-left { from { opacity: 0; transform: translateX(-.36rem); } }
 @keyframes tr-rise { from { opacity: 0; transform: translateY(.22rem); } }
@@ -1149,31 +1148,66 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 @keyframes tr-draw { to { stroke-dashoffset: 0; } }
 @keyframes tr-diamond { 0% { opacity: 0; transform: translateX(-50%) rotate(45deg) scale(.5); } 30%, 72% { opacity: 1; transform: translateX(-50%) rotate(45deg) scale(1); }
   100% { opacity: 0; transform: translateX(-50%) rotate(45deg) scale(1.1); } }
-/* the hub */
-.lobby-hub .hub-bg { animation: tr-fade 560ms ease-out backwards; }
-.lobby-hub > .topbar { animation: tr-fade 320ms ease-out 120ms backwards; } /* opacity only: its dialogs are fixed */
-.lobby-hub .hub-center { animation: tr-zoom 600ms var(--tr-ease) 140ms backwards; }
-.lobby-hub .hub-side { animation: tr-left 480ms var(--tr-ease) 220ms backwards; }
-.lobby-hub .hub-right { animation: tr-right 480ms var(--tr-ease) 260ms backwards; }
-.hub-entries .hub-entry-wrap { animation: tr-rise 440ms var(--tr-ease) 300ms backwards; }
-.hub-entries .hub-entry-wrap:nth-child(2) { animation-delay: 360ms; }
-.hub-entries .hub-entry-wrap:nth-child(3) { animation-delay: 420ms; }
-.hub-entries .hub-entry-wrap:nth-child(4) { animation-delay: 480ms; }
+/* the hub —— 两拍走：先只给"堡垒 + 标题"，其余控件等它站稳了再淡出来。
+   需求方 2026-10-26：「从登录页进到主页先显示堡垒和文字，其他 UI 控件在淡出显示」。
+   原来是背景/顶栏/中央/两侧/按钮按 120~480ms 一路错开，等于所有东西同时涌上来 ——
+   观众第一眼拿到的是"满屏控件"，而视觉主角（堡垒和标题）反而被淹在里面。
+   现在：
+   第一拍 0~420ms   背景先亮起来 → 中央（雷达 + 堡垒图标 + 中英文标题）淡入并轻微推近；
+   第二拍 420ms 起  顶栏、左右两侧、底部按钮依次从边缘滑进来，把画面填满。
+   这样视线先落在堡垒和字上，再逐层展开，和「登录页 → 主页」的方向感是一致的。 */
+/* 背景**不淡入**，一开始就满不透明。
+   实测（登录页→主页录屏）它从 opacity:0 起步时，前 7 帧屏幕底下什么都还没有，
+   直接露出 .app-bg 的黑 —— 亮度掉到 6.7（正常 25~40），这就是"黑屏一下"。
+   背景本来就不是"进场的东西"，它是这页的地板；地板必须先在，控件才有地方落。
+   所以这里不给它 animation：它始终在，动的只有上面的内容。 */
+.lobby-hub .hub-bg { animation: none; }
+/* 主页中央这一组（雷达 + 堡垒图标 + 中英文标题）**不加进场动画**。
+   它们的"从登录页原位平移到主页原位"由浏览器原生 view transition 补间
+   （theme.css 的 .vt-emblem / .vt-wordmark / .vt-title）。
+   ⚠ 这里绝不能有 transform 动画：原来挂的 tr-zoom 会在快照那一刻把父级算成
+   matrix(1.04,0,0,1.04,0,0)，浏览器量到的主页矩形是错的，补间目标就偏了
+   —— 实测 group 的 to 一直是 1.04 而不是真实的 0.72/0.59，尺寸补间等于丢失。
+   这也是之前"old/new 快照层不生成、只剩 group"的真正原因：
+   浏览器认为该元素尺寸没变，就不会为它生成独立快照层。
+   首次进主页（没有上一屏可对接）时的观感由 topbar/side/entry 的延迟进场承担。 */
+.lobby-hub .hub-center { animation: none; }
+/* 进场的延迟要**跟着图标落地的节奏**走，不能拖太长。
+   需求方 2026-10-26「这一版主页的UI控件甚至堡垒和文字会跳动」：
+   原来顶栏 420ms / 侧栏 460-500ms / 底部按钮 540-690ms，
+   换屏后要先空等半秒多控件才冒出来，观感就是"先什么都没有、然后一拥而上"。
+   图标和文字的 FLIP 是 620ms，控件在它后半段开始接上，看起来才是同一段过渡。
+   现在整体提前到 180~400ms，和图标落地重叠约 200ms，衔接更紧。 */
+.lobby-hub > .topbar { animation: tr-fade 320ms ease-out 180ms backwards; } /* opacity only: its dialogs are fixed */
+.lobby-hub .hub-side { animation: tr-left 420ms var(--tr-ease) 220ms backwards; }
+.lobby-hub .hub-right { animation: tr-right 420ms var(--tr-ease) 260ms backwards; }
+.hub-entries .hub-entry-wrap { animation: tr-rise 400ms var(--tr-ease) 300ms backwards; }
+.hub-entries .hub-entry-wrap:nth-child(2) { animation-delay: 340ms; }
+.hub-entries .hub-entry-wrap:nth-child(3) { animation-delay: 380ms; }
+.hub-entries .hub-entry-wrap:nth-child(4) { animation-delay: 420ms; }
 /* 选择模拟协议 / 选择同盟方式: from black, then the title, the stage and the cards */
-.modal__box.proto, .modal__box.ally { animation: tr-veil 150ms linear backwards; }
-.proto__bg { animation: tr-fade 340ms ease-out 140ms backwards; }
-.proto-top { animation: tr-fade 260ms ease-out 170ms backwards; }
-.proto-title { animation: tr-right 400ms var(--tr-ease) 200ms backwards; }
-.proto-stage, .ally-stage { animation: tr-zoom 480ms var(--tr-ease) 190ms backwards; }
-.proto-list .pcard { animation: tr-right 400ms var(--tr-ease) backwards; animation-delay: calc(240ms + var(--n, 0) * 60ms); }
+/* 弹窗也改成两拍：先让"主体内容"（画面 + 标题）站住，再从边缘把控件铺进来。
+   需求方 2026-10-26：「还是有一点奇怪的 UI 弹出动画」——
+   原来是 tr-veil 从 background-color:transparent 起步：这个弹窗**是全屏的**，
+   第一帧背景全透明，等于露了一下屏幕底下的黑，随后 150ms 内"啪"地变成实心框，
+   观感就是一个突兀的黑闪 + 硬贴上去的面板。而且所有控件在同一时刻一拥而上。
+   现在：不再动 background-color（框体本身保持实心，绝不露黑），
+   改为容器整体淡入 + 内容分层推进：画面和标题先到，卡片与页脚随后。 */
+.modal__box.proto, .modal__box.ally { animation: modal-fade-in 220ms var(--ease-out) backwards; }
+.proto__bg { animation: tr-fade 300ms ease-out 40ms backwards; }
+.proto-top { animation: tr-fade 240ms ease-out 80ms backwards; }
+.proto-title { animation: tr-right 380ms var(--tr-ease) 110ms backwards; }
+.proto-stage, .ally-stage { animation: tr-zoom 460ms var(--tr-ease) 90ms backwards; }
+.proto-list .pcard { animation: tr-right 380ms var(--tr-ease) backwards; animation-delay: calc(200ms + var(--n, 0) * 60ms); }
 .proto-list .pcard:nth-child(2) { --n: 1; }
 .proto-list .pcard:nth-child(3) { --n: 2; }
 .proto-list .pcard:nth-child(4) { --n: 3; }
 .proto-list .pcard:nth-child(5) { --n: 4; }
-.proto-foot { animation: tr-rise 400ms var(--tr-ease) 440ms backwards; }
-.ally-card--create { animation: tr-right 420ms var(--tr-ease) 240ms backwards; }
-.ally-card--join { animation: tr-right 420ms var(--tr-ease) 380ms backwards; }
-.ally-guide { animation: tr-rise 380ms var(--tr-ease) 450ms backwards; }
+.proto-foot { animation: tr-rise 360ms var(--tr-ease) 380ms backwards; }
+.ally-card--create { animation: tr-right 400ms var(--tr-ease) 200ms backwards; }
+.ally-card--join { animation: tr-right 400ms var(--tr-ease) 320ms backwards; }
+.ally-guide { animation: tr-rise 360ms var(--tr-ease) 380ms backwards; }
+@keyframes modal-fade-in { from { opacity: 0; } }
 /* the diamond at the bottom while it comes up */
 .proto__body::after, .ally__body::after { content: ''; position: absolute; left: 50%; bottom: .5rem; z-index: 9; width: .3rem; height: .3rem; pointer-events: none; opacity: 0;
   border: 2px solid rgba(223, 230, 226, .55); box-shadow: inset 0 0 0 3px #0a0b0b, inset 0 0 0 5px rgba(223, 230, 226, .3); animation: tr-diamond 720ms ease-out 60ms both; }

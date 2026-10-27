@@ -24,6 +24,9 @@
   --lo-pad-x: .3rem;
 }
 @keyframes lo-in { from { opacity: 0; } }
+/* 退场（ui/components.js 的 useLeaving）：整层淡出并轻微收一点，而不是点完就凭空消失 */
+.lo.is-leaving { animation: lo-out 160ms var(--ease-out) forwards; pointer-events: none; }
+@keyframes lo-out { to { opacity: 0; visibility: hidden; transform: scale(.995); } }
 .lo__bg {
   position: absolute; inset: 0; pointer-events: none;
   background:
@@ -935,6 +938,35 @@
    卡片外观（渐变底、白竖条、浅色图标方块、右上角的「特殊获取」标签）一个字没动。 */
 .lo-igrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--opw, max(2.1rem, 100px)), 1fr));
   align-content: start; gap: .14rem .16rem; min-height: 0; }
+/* 道具页网格（需求方 2026-10-27，退回上一版）：
+   每一级横向排开、整体可横向滚动；级内固定 2 列、卡片 460x220。
+   全部限定在 .lo-deck--items 下：干员页用 .lo-op*，不受影响。 */
+.lo-deck--items {
+  --itw: max(4.6rem, 460px);
+  --ith: max(2.2rem, 220px);
+}
+/* 每一级 = 一块，宽度由卡片撑开，不参与收缩 */
+.lo-deck--items .lo-tgroup { flex: none; align-items: flex-start; }
+/* 级内固定 2 列 */
+.lo-deck--items .lo-igrid {
+  grid-template-columns: repeat(2, var(--itw));
+  grid-auto-rows: var(--ith);
+  align-content: start;
+}
+.lo-deck--items .lo-item {
+  width: var(--itw); height: var(--ith);
+  /* 图标列固定 165px，文字列吃剩余宽度（原 34% 上限在大卡片下会把文字列挤爆） */
+  grid-template-columns: max(1.65rem, 165px) minmax(0, 1fr);
+  align-items: start; gap: max(.14rem, 14px); padding-top: max(.12rem, 12px);
+}
+.lo-deck--items .lo-item__icon { width: 100%; height: auto; aspect-ratio: 1; align-self: start; }
+.lo-deck--items .lo-item__name { font-size: max(calc(.19 * var(--t)), 15px); }
+.lo-deck--items .lo-item__desc { font-size: max(calc(.14 * var(--t)), 12px); -webkit-line-clamp: 5; }
+.lo-deck--items .lo-item__tag {
+  top: auto; bottom: max(.06rem, 3px); right: max(.06rem, 3px);
+  max-width: 60%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* 道具卡片：名字独占整行，不被标签挤；「特殊获取」浮右上角（方案 c） */
 .lo-item { position: relative; display: grid; grid-template-columns: min(1.05rem, 34%) minmax(0, 1fr); align-items: start; gap: .1rem; min-height: 0;
   padding: .1rem .08rem .08rem .14rem; font: inherit; color: var(--text-hi); text-align: left; cursor: pointer; overflow: hidden;
   background: linear-gradient(180deg, rgba(48, 54, 52, .9), rgba(28, 32, 31, .94)); border: 1px solid rgba(255, 255, 255, .08); }
@@ -953,6 +985,8 @@
 .lo-item__zoom .icon { width: max(.2rem, 13px); height: max(.2rem, 13px); }
 .lo-item__tag { position: absolute; right: .08rem; top: .08rem; padding: 1px 5px; font-size: max(calc(.11 * var(--t)), 8px); color: var(--amber);
   border: 1px solid rgba(246, 163, 41, .5); background: rgba(0, 0, 0, .4); }
+/* 「特殊获取」标签留在卡片右上角（原设计，方案 c）；名字在它下面单独一行，不再与它抢同一行
+   （需求方 2026-10-27：「加速维式重锤的名字和特殊获取的标志重叠在一起」）。 */
 .lo-idetail .lo-item__tag { position: static; }
 /* one item: the base form beside its 进阶 (golden) form, ‹ / › to browse the codex */
 .lo-idetail { position: absolute; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; gap: .3rem; padding: .2rem;

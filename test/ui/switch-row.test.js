@@ -51,8 +51,13 @@ test('the CSS keeps the parts aligned as a column and gives both controls a real
   // the ⓘ and the switch are held at a real hit area with max(), so a phone's smaller --t cannot shrink them
   assert.match(CSS, /\.swrow__info \{[^}]*width: max\(\.34rem, 24px\); height: max\(\.34rem, 24px\);/);
   assert.match(CSS, /\.sw \{ --sw-w: max\(\.52rem, 44px\); --sw-h: max\(\.28rem, 24px\);/);
-  // the on state is a mint track + a travelled knob (the visible state the owner asked for)
-  assert.match(CSS, /\.sw\.is-on \{ background: var\(--mint-800\); border-color: var\(--mint-700\); \}/);
+  // 2026-10-26 (owner, 第二次): 「直接把设置里那个按钮取下来，把开启和关闭两个字去掉」 — the control is now the
+  // 设置 menu's `.set-toggle` geometry without its label: a bordered BOX (.sw) around a TRACK (.sw::before) with a
+  // SQUARE knob inside. So `.sw` carries the border and the box background, the track is the pseudo-element.
+  assert.match(CSS, /\.sw::before \{[^}]*background: var\(--bg-3\)/, 'the track is the ::before');
+  assert.match(CSS, /\.sw\.is-on \{ border-color: var\(--mint-700\); \}/, 'on: the box border turns mint');
+  assert.match(CSS, /\.sw\.is-on::before \{ background: var\(--mint-800\); \}/, 'on: the track turns mint');
+  // a SQUARE knob slides the track's inner width minus its own — the same figure `.set-toggle i::after` uses (.22/46)
   assert.match(CSS, /\.sw\.is-on \.sw__knob \{ transform: translateX\(calc\(var\(--sw-w\) - var\(--sw-h\)\)\); background: var\(--mint-400\); \}/);
   assert.match(CSS, /\.sw:disabled \{ cursor: default; opacity: \.45; \}/);
   // the press feedback lives on the KNOB: a transform on `.sw` would make it the containing block for a fixed dialog
@@ -60,16 +65,17 @@ test('the CSS keeps the parts aligned as a column and gives both controls a real
   assert.ok(!/\.sw:active[^{]*\{[^}]*transform/.test(CSS), 'no transform on the switch button itself');
 });
 
-test('the knob is centred: its offset subtracts the border, or the pill hangs 1px low and right', () => {
+test('the knob is centred inside the box\'s track', () => {
   // An absolutely positioned child is laid out against the PADDING box, so `top: var(--sw-p)` double-counts the 1px
   // border: the knob then sits `--sw-p + 1px` from the track's top/left but `--sw-p - 1px` from its bottom/right. On the
   // 44×24 pill that is a 3px / 1px gap — the owner's report of 2026-10-15 (「所有开关按钮位置都有偏移，对不齐，且手机和
   // 电脑端表现不一致」; measured in a browser across desktop + phone). The border width is named so the two cannot drift.
   assert.match(CSS, /\.sw \{ [^}]*--sw-b: 1px;/, 'the border width has a name');
   assert.match(CSS, /\.sw \{ [^}]*border: var\(--sw-b\) solid var\(--line-2\)/, 'and the border uses it');
-  assert.match(CSS, /\.sw__knob \{ position: absolute; top: calc\(var\(--sw-p\) - var\(--sw-b\)\); left: calc\(var\(--sw-p\) - var\(--sw-b\)\);/,
-    'the knob subtracts the border from its inset');
-  // the travel is still the two sizes' difference: with the corrected inset the ON right gap equals `--sw-p`
+  // the knob is laid out against the BOX, so its inset is the box padding plus the track padding — the border is
+  // already outside both, so it no longer takes part (the old `- var(--sw-b)` term is gone with the pill).
+  assert.match(CSS, /\.sw__knob \{ position: absolute; top: calc\(var\(--sw-box\) \+ var\(--sw-p\)\); left: calc\(var\(--sw-box\) \+ var\(--sw-p\)\);/,
+    'the knob sits inside the box padding plus the track padding');
   assert.match(CSS, /\.sw\.is-on \.sw__knob \{ transform: translateX\(calc\(var\(--sw-w\) - var\(--sw-h\)\)\)/);
 });
 

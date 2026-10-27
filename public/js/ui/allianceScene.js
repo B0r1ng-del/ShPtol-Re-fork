@@ -157,6 +157,7 @@ const CSS = `
 .spa-logo{pointer-events:none}
 .spa-card{background:#212226}
 .spa-pyr{position:absolute;left:0;top:0;width:177px;height:156px;transform-origin:0 0}
+.spa-dots{position:absolute;left:0;top:0;display:block;width:1280px;height:720px}
 .spa-pyr img{position:absolute;left:0;top:0;width:177px;height:156px}
 .spa-pyrTeal{filter:brightness(.56) sepia(.2) hue-rotate(160deg) saturate(.7)}
 .spa-cream{overflow:hidden;background:repeating-linear-gradient(0deg,rgba(40,36,32,.16) 0 1px,transparent 1px 3px),#dcd4ca}
@@ -409,6 +410,31 @@ const CREAM = K([[2.0, 702, 306, 226], [2.033, 681, 303, 222], [2.1, 661, 296, 2
 const WIPE = curve([[2.0, 0], [2.033, 0.2], [2.067, 0.4], [2.1, 0.59], [2.133, 0.73], [2.167, 0.83], [2.2, 0.87], [2.267, 0.94], [2.3, 0.975], [2.333, 1]]);
 // pyramid after the lockup has settled: cy, w
 const PYR = K([[2.933, 228, 150], [2.967, 222, 152], [3.0, 215, 155], [3.033, 206, 156], [3.067, 195, 156], [3.1, 178, 154], [3.133, 164, 150], [3.167, 156, 146], [3.2, 150, 144], [3.333, 147, 144], [3.5, 145, 144], [3.8, 144, 144]]);
+// The white pyramid is a 12-row dot matrix and the fork's own mark is the 13×14 fortress Emblem
+// (screens/title.js) — the same idea in another shape. So the closing glyph is drawn as dots, and every
+// triangle dot flies to its slot in the emblem while the emblem's extra dots grow in.
+const EMBLEM = [
+  'XXX..XXX..XXX', 'XXX..XXX..XXX', 'XXXXXXXXXXXXX', '.XXXXXXXXXXX.', '..XXXXXXXXX..', '..XXXXXXXXX..',
+  '..XXXX.XXXX..', '..XXXX.XXXX..', '..XXXXXXXXX..', '..XXXXXXXXX..', '..XXXXXXXXX..', '.XXXXXXXXXXX.',
+  'XXXXXXXXXXXXX', 'XXXXXXXXXXXXX',
+];
+// dot layouts in the emblem's own viewBox (-0.5 -0.5 14 15): [x, y, r, accent]
+const EMB_DOTS = [];
+EMBLEM.forEach((row, r) => [...row].forEach((ch, c) => {
+  if (ch !== 'X') return;
+  EMB_DOTS.push([c + 0.5, r + 0.5, 0.2 + (r / (EMBLEM.length - 1)) * 0.2, (r === 6 || r === 7) && (c === 5 || c === 7)]);
+}));
+/* The pyramid sprite's own dots, measured off entry/season_logo.png: 78 of them, 12 rows of 1..12, centre
+   (88.5, 78) in that 177×156 box, 12.93 px between rows, 15.35 px across, radius tapering 6.6 -> 1.8.
+   Rescaled into the emblem's viewBox (14 wide, 15 tall, so the two axes use their own factor) — that puts a
+   triangle dot and an emblem dot in one coordinate system, where the morph is a straight line. */
+const SX = 14 / 177, SY = 15 / 156;
+const TRI_DOTS = [];
+for (let r = 0; r < 12; r++) {
+  for (let i = 0; i <= r; i++) {
+    TRI_DOTS.push([6.5 + (88 + (i - r / 2) * 15.35 - 88.5) * SX, 7 + (8.8 + r * 12.93 - 78) * SY, (6.6 - r * 0.4) * SX]);
+  }
+}
 // brackets around the card / lobby title: xl, xr, yt, yb
 const BRK = K([[2.37, 513, 764, 172, 376], [2.4, 511, 766, 169, 373], [2.533, 509, 769, 161, 361], [2.667, 511, 767, 153, 347], [2.8, 514, 762, 141, 330], [2.933, 521, 758, 130, 310],
   [3.0, 524, 755, 122, 293], [3.067, 530, 749, 110, 265], [3.133, 540, 742, 90, 230], [3.2, 545, 737, 85, 220], [3.333, 549, 733, 80, 212], [3.5, 552, 730, 78, 207]]);
@@ -520,16 +546,19 @@ function introHTML() {
   </div>
   <div class="spa-L spa-logo" data-k="logo">
     <div class="spa-a0 spa-card" data-k="card"></div>
-    <div class="spa-a0 spa-brk spa-bkL" data-k="bkL"></div><div class="spa-a0 spa-brk spa-bkR" data-k="bkR"></div>
-    <div class="spa-a0 spa-abs" data-k="abs"><span>AB1</span><span>AB2</span><span>AB3</span><span>AB4</span></div>
     <div class="spa-pyr" data-k="pyr"><img class="spa-pyrTeal" data-k="pyrTeal" src="${logo}" alt=""><img data-k="pyrWhite" src="${logo}" alt=""></div>
     <div class="spa-a0 spa-cream" data-k="cream"><img class="spa-pyrBlack" data-k="pyrBlack" src="${logo}" alt=""></div>
-    <svg class="spa-a0" data-k="tA"></svg>
-    <div class="spa-a0 spa-tline spa-tB" data-k="tB"><span class="spa-ink" data-k="tBink">STRONGHOLD PROTOCOL</span><span class="spa-pale" data-k="tBpale">STRONGHOLD PROTOCOL</span></div>
-    <div class="spa-a0 spa-tline spa-tC" data-k="tC"><span data-k="tCtxt">${[...'ALLIANCE'].map((c) => `<span>${c}</span>`).join('')}</span></div>
-    <div class="spa-dot2" data-k="dotL"></div><div class="spa-dot2" data-k="dotR"></div>
-    <div class="spa-a0 spa-blk" data-k="blk"><div class="spa-bars"><i></i><i></i></div><div class="spa-lines"><b><span>STRONGHOLD PROTOCOL</span></b><s>ALLIED OPERATIONS ·</s></div></div>
-    <div class="spa-a0 spa-tline spa-tE" data-k="tE">卫戍协议: <em>盟约</em></div>
+    <canvas class="spa-dots" data-k="dots"></canvas>
+    <div class="spa-a0" data-k="txt">
+      <div class="spa-a0 spa-brk spa-bkL" data-k="bkL"></div><div class="spa-a0 spa-brk spa-bkR" data-k="bkR"></div>
+      <div class="spa-a0 spa-abs" data-k="abs"><span>AB1</span><span>AB2</span><span>AB3</span><span>AB4</span></div>
+      <svg class="spa-a0" data-k="tA"></svg>
+      <div class="spa-a0 spa-tline spa-tB" data-k="tB"><span class="spa-ink" data-k="tBink">STRONGHOLD PROTOCOL</span><span class="spa-pale" data-k="tBpale">STRONGHOLD PROTOCOL</span></div>
+      <div class="spa-a0 spa-tline spa-tC" data-k="tC"><span data-k="tCtxt">${[...'ALLIANCE'].map((c) => `<span>${c}</span>`).join('')}</span></div>
+      <div class="spa-dot2" data-k="dotL"></div><div class="spa-dot2" data-k="dotR"></div>
+      <div class="spa-a0 spa-blk" data-k="blk"><div class="spa-bars"><i></i><i></i></div><div class="spa-lines"><b><span>STRONGHOLD PROTOCOL</span></b><s>ALLIED OPERATIONS ·</s></div></div>
+      <div class="spa-a0 spa-tline spa-tE" data-k="tE">卫戍协议: <em>盟约</em></div>
+    </div>
   </div>`;
 }
 
@@ -673,6 +702,92 @@ export function mountAllianceIntro(host) {
     E.grain.style.opacity = ((t < 1.5 ? 0.24 : 0.16) * ov).toFixed(3); E.introScan.style.opacity = (0.8 * ov).toFixed(3);
   }
 
+  // ---- the closing glyph, drawn dot by dot (a canvas, so the morph is one cheap pass per frame) ----
+  const DC = E.dots, dg = DC.getContext('2d');
+  DC.width = 1280; DC.height = 720;
+  /** Triangle dot -> emblem dot, or -1 when the dot has nowhere to go. Row by row: the triangle's r+1 dots
+   *  match the emblem's outer shape (1..6 at ease), the emblem's leftovers grow in from the nearest slot. */
+  const MORPH = (() => {
+    const used = new Set(), map = [];
+    TRI_DOTS.forEach(([x, y], i) => {
+      let best = -1, bd = 1e9;
+      EMB_DOTS.forEach((e, j) => {
+        if (used.has(j)) return;
+        const d = (e[0] - x) ** 2 + (e[1] - y) ** 2 * 0.5;
+        if (d < bd) { bd = d; best = j; }
+      });
+      if (best >= 0) used.add(best);
+      map[i] = best;
+    });
+    return map;
+  })();
+  /** Sorted by distance to the emblem's centre: the crest lights up from its middle out, like a signal. */
+  const EMB_ORDER = EMB_DOTS
+    .map((e, j) => [Math.hypot(e[0] - 6.5, e[1] - 7), j])
+    .sort((a, b) => a[0] - b[0])
+    .map(([, j]) => j);
+  const ease = (x) => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2);
+  /* Where the page's own emblem sits (the title screen's, or the hub's): the intro is a black overlay on top of
+     it, so landing this glyph exactly there turns the fade-out into a dissolve instead of a jump. Rect in stage
+     units; null when the page has no emblem yet, and the curve alone carries the glyph. */
+  let MARK = null;
+  const readMark = () => {
+    const em = document.querySelector('.emblem'), sv = em && em.querySelector('.emblem__svg');
+    if (!em || !sv) return null;
+    const hb = host.getBoundingClientRect();
+    const ox = hb.left + hb.width / 2 - 640 * scale, oy = hb.top + hb.height / 2 - 360 * scale;
+    const rel = (r) => ({ cx: (r.left + r.width / 2 - ox) / scale, cy: (r.top + r.height / 2 - oy) / scale, w: r.width / scale, h: r.height / scale });
+    return { box: rel(em.getBoundingClientRect()), svg: rel(sv.getBoundingClientRect()) };
+  };
+  function drawGlyph(t, cx, cy, w) {
+    if (!dg) return;
+    // the title screen mounts around 3.0 s and its emblem then rises for 600 ms, so re-read it while it may move
+    if (t > 2.9 && t < 3.6) MARK = readMark();
+    const morph = t < 2.98 ? 0 : smooth(seg(t, 2.98, 3.44));
+    // the canvas takes over from the bitmap at exactly 2.98 s, dot for dot on the same lattice
+    const a = t < 2.98 ? 0 : 1 - seg(t, 3.60, 3.92);
+    dg.clearRect(0, 0, 1280, 720);
+    if (a <= 0) return;
+    // land on the page's own emblem 3.20-3.44 s, before the overlay starts to fade: the dissolve then has
+    // nothing left to move
+    let gx = cx, gy = cy, k = w / 14; // emblem viewBox units -> stage px
+    if (MARK) {
+      const mb = smooth(seg(t, 3.20, 3.44));
+      if (mb > 0) { gx += (MARK.svg.cx - cx) * mb; gy += (MARK.svg.cy - cy) * mb; k += (MARK.svg.w / 14 - k) * mb; }
+    }
+    // the viewBox is -0.5 -0.5 14 15, so its own centre is (6.5, 7) — land the dots exactly on it
+    const tgt = (j) => [gx + (EMB_DOTS[j][0] - 6.5) * k, gy + (EMB_DOTS[j][1] - 7) * k];
+    const m = ease(morph);
+    dg.globalAlpha = a;
+    // each dot keeps its own size: the triangle's dots are fatter, the emblem's are fine, so the radius
+    // is interpolated too — otherwise the body travels as a shaggy fringe instead of settling into a crest
+    TRI_DOTS.forEach(([x, y, r], i) => {
+      const dst = MORPH[i];
+      if (dst < 0) return;
+      const [tx, ty] = tgt(dst);
+      const sx = gx + (x - 6.5) * k, sy = gy + (y - 7) * k;
+      const X = m > 0 ? sx + (tx - sx) * m : sx, Y = m > 0 ? sy + (ty - sy) * m : sy;
+      const R = r * k * (0.86 + 0.14 * Math.min(1, i / 4));
+      const R2 = EMB_DOTS[dst][2] * k;
+      dg.beginPath();
+      dg.arc(X, Y, m > 0 ? R + (R2 - R) * m : R, 0, 6.2832);
+      dg.fillStyle = '#eef2ef';
+      dg.fill();
+    });
+    // the emblem's own dots (no triangle dot carries them) grow in behind the migration, from the middle out
+    if (morph > 0) EMB_ORDER.forEach((j, n) => {
+      if (MORPH.includes(j)) return;
+      const s = smooth(clamp((morph - 0.28 - (n / EMB_ORDER.length) * 0.5) / 0.22));
+      if (s <= 0) return;
+      const [X, Y] = tgt(j);
+      dg.beginPath();
+      dg.arc(X, Y, EMB_DOTS[j][2] * k * s, 0, 6.2832);
+      dg.fillStyle = EMB_DOTS[j][3] ? '#17f9b7' : '#eef2ef';
+      dg.fill();
+    });
+    dg.globalAlpha = 1;
+  }
+
   function logo(t) {
     const on = t >= 1.833; show(E.logo, on);
     if (!on) return;
@@ -692,10 +807,15 @@ export function mountAllianceIntro(host) {
     if (t < 2.933) { const w0 = t < 2.0 ? cw : kw; pcx = t < 2.0 ? ccx : kx; pcy = (t < 2.0 ? ccy : ky) + 7 * w0 / 172; pw = 0.87 * w0; }
     else { const [py, pww] = PYR(tc); pcx = 640; pcy = py; pw = pww; }
     const ps = pw / 177, ph = 156 * ps;
+    // the bitmap pyramid is the sprite's own art (teal, inside the card); once it stands alone the dots are drawn
+    show(E.pyr, t < 2.98);
     E.pyr.style.transform = `translate(${pcx - pw / 2}px,${pcy - ph / 2}px) scale(${ps.toFixed(4)})`;
-    E.pyrTeal.style.opacity = t < 2.6 ? 1 : 0;
-    E.pyrWhite.style.opacity = t >= 2.93 ? 1 : 0;
+    E.pyrTeal.style.opacity = (1 - seg(t, 2.90, 2.98)).toFixed(3);
     if (creamOn) E.pyrBlack.style.transform = `translate(${pcx - pw / 2 - (kx - kw / 2)}px,${pcy - ph / 2 - (ky - kw / 2)}px) scale(${ps.toFixed(4)})`;
+    drawGlyph(t, pcx, pcy, pw);
+    // the lock-up text dissolves as the title screen's own lock-up takes over (it is the same words, one
+    // size larger); leaving it at full opacity doubled every line — the "重影" of the old hand-off
+    E.txt.style.opacity = (1 - seg(t, 3.10, 3.24)).toFixed(3);
     // AB tabs above the card: they vanish left to right as the cream passes under them
     const absOn = t < 2.24; show(E.abs, absOn);
     if (absOn && NAT.abs) {

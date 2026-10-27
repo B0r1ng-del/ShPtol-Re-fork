@@ -16,7 +16,7 @@ import { html, Fragment, Modal, Button, SwitchRow } from '../ui/components.js';
 import { useState } from '../../vendor/hooks.module.js';
 import { t } from '../../../shared/i18n.js';
 import { PACK_AUTHORS } from '../../../shared/constants.js';
-import { MOD_PACK_ROWS, modsOn, rememberMods } from '../ui/mods.js';
+import { MOD_PACK_ROWS, modsOn, rememberMods, splitByLength } from '../ui/mods.js';
 
 /**
  * The 「Mod 菜单」 dialog: one switch per ported 内容包 (MOD_PACK_ROWS), each with its author in the ⓘ beside it.
@@ -40,12 +40,14 @@ export function ModMenuDialog({ open, onClose }) {
       actions=${html`<${Button} variant="secondary" onClick=${onClose}>${t('完成')}<//>`}>
     <div class="modmenu" data-testid="mod-menu">
       <p class="modmenu__note">${t('这些内容包默认全部关闭。开启后创建的房间会包含它们，房间内的玩家同样生效。')}</p>
-      <div class="modmenu__rows">
-        ${MOD_PACK_ROWS.map((r) => html`<${SwitchRow} key=${r.key}
+      <div class="mods mods--hostcfg modmenu__rows">
+        <div class="mods__rows">
+        ${splitByLength(MOD_PACK_ROWS).map((col) => html`<div class="mods__col">${col.map((r) => html`<${SwitchRow} key=${r.key}
           label=${t(r.label)} tip=${`${t(r.tip)}\n${t('原作者：{author}', { author: PACK_AUTHORS[r.key] })}`}
           on=${mods[r.key] === true}
           testid=${`modmenu-${r.key}`} infoTestid=${`modmenu-info-${r.key}`}
-          onChange=${(v) => set(r.key, v)} />`)}
+          onChange=${(v) => set(r.key, v)} />`)}</div>`)}
+        </div>
       </div>
     </div>
   <//>`;
