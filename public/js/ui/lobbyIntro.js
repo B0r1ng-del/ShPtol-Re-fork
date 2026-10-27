@@ -9,6 +9,7 @@
 // it meant no opening on phones); the system's reduced-motion switch does not stop it (often only a performance tweak;
 // the tap skips). main.js calls playLobbyIntro once at boot.
 import { store, selectRoute } from '../store.js';
+import { identity } from '../net.js';
 import { audio, resolveBgm } from '../audio.js';
 import { data } from '../data.js';
 import { mountAllianceIntro, preloadSprites, setCycleOrigin, whenResourcesReady, INTRO_AUDIO, INTRO_SPAN } from './allianceScene.js';
@@ -209,5 +210,10 @@ export function playLobbyIntro(opts = {}) {
   const { skip = () => false } = opts;
   const allowed = () => { const r = selectRoute(store.get()); return r !== 'room' && r !== 'game' && !skip(); };
   if (!allowed()) return;
+  /* 需求方 2026-10-26：开场动画之后必须是登录界面，再到主页，三段连成一条链。
+     实测过的漏洞：这个标签页之前进过主页时，启动就把 entered 认作已登录（main.js: entered = wasEntered() && savedName），
+     动画一播完直接落进主页，登录界面一次都不出现 —— 看起来就是「登录界面被删了」。
+     代号本身留着（title.js 会把 loadName() 填回输入框），玩家按一下「开始」即可，所以这里只清这一层的进入标记。 */
+  if (store.get().session.entered) { identity.setEntered(false); store.patch('session', { entered: false }); }
   whenPhoneReady(allowed, run);
 }

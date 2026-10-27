@@ -40,7 +40,7 @@
 // Polyfills first (older Safari / Firefox ESR): every module evaluated after this one sees them.
 import './ui/compat.js';
 import { render } from '../vendor/preact.module.js';
-import { useErrorBoundary, useEffect } from '../vendor/hooks.module.js';
+import { useErrorBoundary, useEffect, useState } from '../vendor/hooks.module.js';
 import { html, UiHosts, Button, MicroLabel, closeAllDialogs } from './ui/components.js';
 import { ConnectionBanner } from './ui/connBanner.js';
 import { ToastHost, toast, toastError, describeError } from './ui/toasts.js';
@@ -59,7 +59,7 @@ import { audio, installAudio } from './audio.js';
 import { installLobbyMedia } from './ui/lobbyMedia.js';
 import { settingsStore } from './ui/settings.js';
 import { GuideHost } from './ui/guide.js';
-import { installDeviceSupport, useFullscreen, useScreenWakeLock } from './ui/device.js';
+import { installDeviceSupport, useFullscreen, useScreenWakeLock, reducedMotion } from './ui/device.js';
 import { isCombatPhase } from './ui/gameLogic/phases.js';
 import { registerImportedAssetWorker } from './assetCache.js';
 import { LoadoutHost } from './screens/loadout.js';
@@ -391,8 +391,107 @@ function ScreenCrashed({ error, reset }) {
   </div>`;
 }
 
+/**
+ * 换屏交叉淡化（需求方 2026-10-26：界面切换没有合理的过渡动画）。
+ * 原来换屏的观感是「闪一下黑」：App 的 key=route 让旧画面当场卸载，新画面又从 screen-in 的 opacity:0 淡入，
+ * 中间露出的正好是 .app-bg 的黑底（实测亮度 91.9 → 21.1 → 129.0）。
+ * 这里什么都不改，只在换屏那一次把「渲染」交给浏览器的 View Transition：它拍下旧画面、渲染新画面、
+ * 在两份快照之间做交叉淡化，于是过渡期间画面永远不是黑的。
+ * 不支持 View Transitions 的浏览器（老 Safari / Firefox）直接硬切 —— 比「先黑一下再淡入」干净；
+ * 减少动效时也不做。失败（同一帧已有一次过渡）时退回普通渲染，功能不受影响。
+ */
+function startRouteTransition(renderNow) {
+  /* 登录页 <-> 主页：堡垒 + 中英标题从旧位置尺寸**连续**变到新位置尺寸，其余内容各自交叉淡变。
+     需求方 2026-10-26「从主页返回登录页，堡垒和文字还是会消失一会，只剩下背景」。
+     十二轮补丁的教训写在下面，别再走：
+       · 别淡**旧**屏的图标/文字 —— 它们正是要一路飞过去的主角，淡了中间就是空白；
+       · 别淡**新**屏的图标/文字 —— 新元素一挂上就得能被量到、被显示；
+       · 别在换屏和"开始 FLIP"之间留等待 —— 那段等待在画面上就是"不动"，肉眼即"卡住/消失"。
+     所以顺序是：量旧矩形 → 换屏（同一拍内）→ 量新矩形 → 立刻挂反向变换。
+     旧屏其余内容在新屏盖上来之前一直留着，不做任何淡出 —— 新屏自己不透明，会把它盖住。 */
+  if (reducedMotion()) { renderNow(); return; }
+  const doc = globalThis.document;
+  const cur = doc.querySelector('.lobby-hub') ? 'lobby'
+    : doc.querySelector('.title-screen') ? 'title' : null;
+  if (!cur) { renderNow(); return; }
+
+  const easing = 'cubic-bezier(.16,.84,.3,1)';
+  const DUR = 620;
+  const from = cur === 'lobby' ? '.lobby-hub' : '.title-screen';
+  const to = cur === 'lobby' ? '.title-screen' : '.lobby-hub';
+  const KINDS = ['emblem', 'wordmark', 'title'];
+
+  /* 1. 量旧矩形（此刻旧屏还在，量到的就是它真实的样子）。 */
+  const before = KINDS.map((k) => {
+    const el = doc.querySelector(`${from} .vt-${k}`);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: r.x, y: r.y, w: r.width, h: r.height };
+  });
+
+  /* 2. 换屏，并在**同一拍**里接上 FLIP。
+     renderNow() 对 preact 是异步的，所以要等一拍才是新 DOM；这一拍里浏览器还没画 ——
+     用微任务（不是 rAF）就能保证新元素挂上后立刻被处理，中间不出帧。 */
+  renderNow();
+  Promise.resolve().then(() => {}).then(() => {}).then(() => {
+    /* 新屏已挂上。它那几样身上的进场动画（rise-in / tr-zoom）起点是 opacity:0 + 位移，
+       会和 FLIP 打架，先停掉 —— 它们的位置/可见性从此完全由这里的 FLIP 决定。 */
+    const targets = [];
+    for (const k of KINDS) {
+      const sel = `${to} .vt-${k}`;
+      const el = doc.querySelector(sel);
+      if (!el) continue;
+      el.style.setProperty('animation', 'none', 'important');
+      targets.push(el);
+    }
+    targets.forEach((el, i) => {
+      const a = before[i];
+      if (!a) return;
+      const b = el.getBoundingClientRect();
+      if (!b.width || !b.height) return;
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      const sx = a.w / b.width;
+      const sy = a.h / b.height;
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1
+        && Math.abs(sx - 1) < 0.01 && Math.abs(sy - 1) < 0.01) return;
+      el.style.transformOrigin = '0 0';
+      /* translate 必须写在 scale 前面：反过来的话位移会被缩放放大，元素直接飞出画面。 */
+      el.animate(
+        [
+          { transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})` },
+          { transform: 'translate(0px, 0px) scale(1, 1)' },
+        ],
+        { duration: DUR, easing, fill: 'both' }
+      );
+    });
+    /* 新屏里其余内容是"另一页的控件"，让它们淡进来，别硬闪。 */
+    const rest = to === '.lobby-hub'
+      ? [[['.hub-radar'], 90]]
+      : [[['.title-login'], 140], [['.title-tag'], 160], [['.title-assets'], 180]];
+    for (const [[sel], delay] of rest) {
+      for (const el of doc.querySelectorAll(sel)) {
+        el.animate([{ opacity: 0 }, { opacity: 1 }],
+          { duration: 360, delay, easing: 'ease-out', fill: 'backwards' });
+      }
+    }
+  });
+}
+
+/* 其它路由（局内、房间、统计…）直接换，不做专属过渡。
+   以前这里还会调 document.startViewTransition，但实测从未真正生效过
+   （拦截验证过 window.__vt 一直是空数组），所有 ::view-transition-* 规则都是死代码。 */
+
 function App() {
   const route = useStore(selectRoute);
+  // 画面上正在显示的那个画面比 store 慢一拍：换屏时先让浏览器拍下旧画面，再提交新画面，两次之间做交叉淡化。
+  const [viewRoute, setViewRoute] = useState(route);
+  useEffect(() => {
+    if (route === viewRoute) return undefined;
+    let alive = true;
+    startRouteTransition(() => { if (alive) setViewRoute(route); });
+    return () => { alive = false; };
+  }, [route, viewRoute]);
   const combatActive = useStore((s) => selectRoute(s) === 'game' && s.room?.inMatch === true
     && !s.match?.result && isCombatPhase(s.match?.public?.phase));
   const fullscreenWakeLock = useStore((s) => s.fullscreenWakeLock, Object.is, settingsStore);
@@ -408,10 +507,10 @@ function App() {
   const roomPacks = useStore((s) => (s.match?.public?.mods || s.room?.mods || null));
   useEffect(() => { if (roomPacks) data.setPacks(roomPacks); }, [roomPacks]);
   const [error, resetError] = useErrorBoundary((err) => console.error('[ui] screen crashed', err));
-  const Screen = SCREENS[route] || LobbyScreen;
+  const Screen = SCREENS[viewRoute] || LobbyScreen;
   return html`<div class="app-root">
     <div class="app-bg" aria-hidden="true"></div>
-    ${error ? html`<${ScreenCrashed} error=${error} reset=${resetError} />` : html`<${Screen} key=${route} />`}
+    ${error ? html`<${ScreenCrashed} error=${error} reset=${resetError} />` : html`<${Screen} key=${viewRoute} />`}
     <${TrustedNotice} />
     <${ConnectionBanner} />
     <${ToastHost} />

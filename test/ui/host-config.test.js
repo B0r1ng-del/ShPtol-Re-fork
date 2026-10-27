@@ -134,7 +134,8 @@ test('the 对局选项 markup: one slider per row, wired to room.setEnemyBuff, w
   assert.match(SRC, /testid: `hostcfg-mod-\$\{r\.key\}`/, 'the rule switches keep their testid');
   assert.match(SRC, /splitByLength\(switchRows\)\.map\(/, 'and are dealt into two columns by label length');
   // every label and explanation is a msgid with a real English translation
-  for (const zh of ['对局选项', '怪物血量', '怪物攻击', '怪物防御', '怪物魔抗', '每格 +10%，最高 +100% · 加强本局全部敌人（含首领与联防）', '本局敌人已获得强化（合计 {n}%），请谨慎调整']) {
+  // 2026-10-26 (owner): 「把所有怪物字眼改为敌方」, and 怪物魔抗 → 敌方法抗.
+  for (const zh of ['对局选项', '敌方血量', '敌方攻击', '敌方防御', '敌方法抗', '每格 +10%，最高 +100% · 加强本局全部敌人（含首领与联防）', '本局敌人已获得强化（合计 {n}%），请谨慎调整']) {
     // the warning's msgid carries a {n} param, so match the literal alone
     assert.ok(SRC.includes(`'${zh}'`), zh);
     assert.equal(typeof EN[zh], 'string', `en.json: ${zh}`);
@@ -190,7 +191,11 @@ test('room.js sends room.setHostConfig { key, on } and opens the dialog from the
   // bottom pill, so the entry is the gear and the body is the shared RoomConfigBody (one implementation, two callers).
   assert.match(SRC, /function RoomConfigBody\(/, 'the panel body is its own component');
   assert.match(SRC, /data-testid="hostcfg-open"/, 'the ⚙ carries the entry testid the e2e opens it by');
-  assert.match(SRC, /<[$]\{RoomConfigBody\} rows=[$]\{cfgRows\}/, 'the ⚙ popover renders the shared body');
+  // 图一 (2026-10-26, owner): 「把这个菜单改成像 Mod 菜单一样，弹出个子窗口」 — the ⚙ now opens the 房间配置 DIALOG
+  // (cfgOpen), not the `.rs-opts` popover, so this asserts the dialog and the gear → dialog wiring instead of the old
+  // 「popover carries the body」 shape (that popover is now the solo-only 「不限时」 strip).
+  assert.ok(SRC.includes('onClick=${() => setCfgOpen(true)}'), 'the ⚙ opens the dialog (both co-op and solo)');
+  assert.match(SRC, /<[$]\{HostConfigDialog\}[\s\S]{0,400}?open=[$]\{cfgOpen\}/, 'and the dialog is rendered with cfgOpen');
   assert.match(SRC, /const \[cfgOpen, setCfgOpen\] = useState\(false\)/);
   assert.match(SRC, /const cfgRows = hostConfigPanel\(room, me\.playerId\)/);
   assert.match(SRC, /<[$]\{Modal\} open=[$]\{open\}/, 'the dialog uses the shared Modal');

@@ -110,7 +110,7 @@ const EMBLEM = [
   'XXXXXXXXXXXXX',
 ];
 
-export function Emblem() {
+export function Emblem({ class: cls }) {
   const dots = useMemo(() => {
     const out = [];
     EMBLEM.forEach((row, r) => {
@@ -118,15 +118,15 @@ export function Emblem() {
         if (ch !== 'X') return;
         const rad = 0.2 + (r / (EMBLEM.length - 1)) * 0.2;
         const accent = (r === 6 || r === 7) && (c === 5 || c === 7);
-        out.push({ cx: c + 0.5, cy: r + 0.5, r: rad, accent, d: (r * 13 + c) % 7 });
+        out.push({ cx: c + 0.5, cy: r + 0.5, r: rad, accent });
       });
     });
     return out;
   }, []);
-  return html`<div class="emblem" aria-hidden="true">
+  return html`<div class=${cls ? `emblem ${cls}` : 'emblem'} aria-hidden="true">
     <span class="emblem__bracket emblem__bracket--l"></span>
     <svg class="emblem__svg" viewBox="-0.5 -0.5 14 15">
-      ${dots.map((d, i) => html`<circle key=${i} cx=${d.cx} cy=${d.cy} r=${d.r} class=${d.accent ? 'is-accent' : `d${d.d}`} />`)}
+      ${dots.map((d, i) => html`<circle key=${i} cx=${d.cx} cy=${d.cy} r=${d.r} class=${d.accent ? 'is-accent' : ''} />`)}
     </svg>
     <span class="emblem__bracket emblem__bracket--r"></span>
   </div>`;
@@ -240,12 +240,14 @@ export function TitleScreen() {
     </div>
 
     <main class="title-main">
-      <${Emblem} />
-      ${alphabetic ? null : html`<div class="title-en">
+      ${/* 登录页 → 主页：两边的堡垒图标共用一个 view-transition-name，换屏时浏览器把它们当作同一个东西，
+           位置与尺寸自然补间过去（详见 theme.css 的 .vt-emblem）。 */ null}
+      <${Emblem} class="vt-emblem" />
+      ${alphabetic ? null : html`<div class="title-en vt-wordmark">
         <span class="title-en__a">STRONGHOLD PROTOCOL</span>
         <span class="title-en__b">ALLIANCE</span>
       </div>`}
-      <h1 class=${`title-cn${alphabetic ? ' title-cn--latin' : ''}`}>${t('卫戍协议')}<span class="title-cn__colon">${alphabetic ? ': ' : '：'}</span><em>${t('盟约')}</em></h1>
+      <h1 class=${`title-cn${alphabetic ? ' title-cn--latin' : ''} vt-title`}>${t('卫戍协议')}<span class="title-cn__colon">${alphabetic ? ': ' : '：'}</span><em>${t('盟约')}</em></h1>
       <p class="title-tag">${t('调配资金与干员，与同伴协同布防，抵御多波次进攻，直至击败敌方领袖。')}</p>
 
       <div class="title-login">

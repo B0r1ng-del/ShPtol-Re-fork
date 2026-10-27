@@ -149,14 +149,16 @@
 
 .emblem { position: relative; display: flex; align-items: center; gap: .26rem; margin-bottom: .26rem; animation: rise-in 600ms var(--ease-out) backwards; }
 .emblem__svg { width: 1.3rem; height: 1.4rem; overflow: visible; filter: drop-shadow(0 0 .12rem rgba(210, 255, 240, .25)); }
-.emblem__svg circle { fill: #dfe6e2; animation: dot-twinkle 4.8s ease-in-out infinite; }
-.emblem__svg circle.d1 { animation-delay: -.7s; }
-.emblem__svg circle.d2 { animation-delay: -1.4s; }
-.emblem__svg circle.d3 { animation-delay: -2.1s; }
-.emblem__svg circle.d4 { animation-delay: -2.8s; }
-.emblem__svg circle.d5 { animation-delay: -3.5s; }
-.emblem__svg circle.d6 { animation-delay: -4.2s; }
-.emblem__svg circle.is-accent { fill: var(--mint-glow); filter: drop-shadow(0 0 .04rem var(--mint-glow)); animation: none; }
+/* 点阵的呼吸只做一次，不做在 136 个 <circle> 上。
+   原来每个圆点各自挂 animation + 6 档不同的 animation-delay，等于 136 条独立的 opacity 动画，
+   每帧都要分别合成。实测主页/登录页各有 136 条 dot-twinkle 在跑（全部动画 139 条），
+   需求方反馈「帧率有点卡」；而 136 个不同相位的圆点各自明灭，看着也是一片抽搐的噪点，
+   并不像"整体在呼吸"。改成：外层 .emblem__svg 挂一条动画，整块点阵一起明灭。
+   成本从 136 条降到 1 条，观感反而更像一次呼吸。
+   （.d1-.d6 这些延迟类不再需要；circle.is-accent 本来就不参与，保持不动。） */
+.emblem__svg { animation: dot-twinkle 4.8s ease-in-out infinite; }
+.emblem__svg circle { fill: #dfe6e2; }
+.emblem__svg circle.is-accent { fill: var(--mint-glow); filter: drop-shadow(0 0 .04rem var(--mint-glow)); }
 @keyframes dot-twinkle { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 .emblem__bracket { width: .16rem; height: 1.7rem; border: 2px solid rgba(223, 230, 226, .45); }
 .emblem__bracket--l { border-right: 0; }

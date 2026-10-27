@@ -301,16 +301,14 @@ h1, h2, h3, h4, p { margin: 0; }
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: screen-in var(--t-slow) var(--ease-out) backwards;
 }
-/* Opacity only: a transform here would become the containing block of fixed overlays. */
+/* 仍然被局内的 .awayov / .spov__inner 使用（screens/game.css、game-panels.css），不要删 */
 @keyframes screen-in { from { opacity: 0; } }
-
-.screen__scroll {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-}
+/* 换屏过渡全部由 main.js 的 startRouteTransition 在真实 DOM 上做（见那里的注释）。
+   这里曾经有 60 多行 ::view-transition-* 规则和几组 vt-running / vt-morph-prep 补丁，
+   但 document.startViewTransition 在本项目里从未真正被调用过（拦截验证 window.__vt 一直是空数组），
+   那些规则全是死代码，已随新版实现一并删除。 */
+.vt-emblem, .vt-wordmark, .vt-title { view-transition-name: none; }
 
 /* crosshair "+" marks used as decoration */
 .cross {

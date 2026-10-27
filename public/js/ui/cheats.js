@@ -104,7 +104,7 @@ export const CHEAT_ROWS = Object.freeze([
   { kind: 'switch', key: 'infiniteFunds', label: N_('无限金币') },
   { kind: 'action', action: 'freeRefresh', step: CHEAT_FREE_REFRESH_STEP, label: N_('免费刷新 +5') },
   { kind: 'action', action: 'bondLayers', step: CHEAT_BOND_LAYER_STEP, label: N_('盟约+100') },
-  { kind: 'switch', key: 'enemyOneHp', label: N_('怪物血量降为 1 血') },
+  { kind: 'switch', key: 'enemyOneHp', label: N_('敌方血量降为 1 血') },
 ]);
 
 /**

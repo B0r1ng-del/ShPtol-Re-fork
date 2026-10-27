@@ -30,7 +30,7 @@
 
 import { useEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS } from '../../../shared/constants.js';
-import { html, Icon, MicroLabel, Spinner, Button, Modal, confirmDialog } from '../ui/components.js';
+import { html, Icon, MicroLabel, Spinner, Button, Modal, confirmDialog, useLeaving } from '../ui/components.js';
 import { useGameData, makeLookups, BandIcon, BondGlyph, Img } from '../ui/gameComponents.js';
 import { data, useData } from '../data.js';
 import { fmtNum, diyRecordFor, cardStandIn } from '../ui/gameLogic.js';
@@ -608,7 +608,7 @@ function clearReplayVersion() {
 }
 
 /** The overlay, rendered while open (its data hooks run only then). */
-function StatsScreen({ tab }) {
+function StatsScreen({ tab, leaving }) {
   const ready = useData('config', 'bands', 'bonds', 'assets');
   const gd = useMemo(() => makeLookups(ready), [ready, data.locale(), data.contentId()]);
   const [stats, setStats] = useState(() => loadStats());
@@ -703,7 +703,7 @@ function StatsScreen({ tab }) {
 
   const tabInfo = TABS.find((x) => x.id === tab) || TABS[0];
   const empty = !stats.records.length;
-  return html`<div class="st" role="dialog" aria-modal="true" aria-label=${t('统计数据')} tabindex="-1" ref=${boxRef}>
+  return html`<div class=${leaving ? 'st is-leaving' : 'st'} role="dialog" aria-modal="true" aria-label=${t('统计数据')} tabindex="-1" ref=${boxRef}>
     <div class="st__bg" aria-hidden="true"></div>
     <header class="st-top">
       <div class="st-top__left">
@@ -794,7 +794,8 @@ export function AchievementDialog({ onClose }) {
 /** Global stats viewer host — mounted once by main.js; renders nothing (and loads nothing) until opened. */
 export function StatsHost() {
   const { open, tab } = useStore((s) => s, Object.is, statsStore);
-  if (!open) return null;
-  return html`<${StatsScreen} tab=${tab} />`;
+  const { show, leaving } = useLeaving(open);
+  if (!show) return null;
+  return html`<${StatsScreen} tab=${tab} leaving=${leaving} />`;
 }
 

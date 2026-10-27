@@ -40,7 +40,7 @@
 // lists two slots.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
-import { html, Icon, MicroLabel, Button, TierChip, TextField, Countdown, Spinner, confirmDialog, hasDeadline, Modal, Fragment, Tooltip } from '../ui/components.js';
+import { html, Icon, MicroLabel, Button, TierChip, TextField, Countdown, Spinner, confirmDialog, hasDeadline, Modal, Fragment, Tooltip, useLeaving } from '../ui/components.js';
 import { OperatorImage, Img, RichText, UnitThumb, PromotionIcon } from '../ui/gameComponents.js';
 import { profGlyphUrl, subProfIconUrl, bondIconUrl, itemIconUrl, uiUrl } from '../ui/assetUrls.js';
 import { GarrisonBlock } from '../ui/detailPanel.js';
@@ -686,7 +686,7 @@ export function DataMissing({ files }) {
 }
 
 /** The overlay screen. */
-function LoadoutScreen({ st }) {
+function LoadoutScreen({ st, leaving }) {
   // 'items' is the 道具 tab's own file (the codex and the bar's per-tier counts read it): without it in this list nothing
   // ever loaded it, so that tab sat on 「载入中」 for good (the fork read data.get('items') without loading it)
   const ready = useData('chess', 'bonds', 'assets', 'local', 'backups', 'garrisons', 'effects', 'items');
@@ -976,7 +976,7 @@ function LoadoutScreen({ st }) {
     notOwned=${!!base && (st.notOwned || []).includes(base.chessId)} />`;
 
   return html`<${Fragment}>
-  <div class=${cx('lo', deck && 'lo--deck')} role="dialog" aria-modal="true" aria-label=${t('干员调配')}>
+  <div class=${cx('lo', deck && 'lo--deck', leaving && 'is-leaving')} role="dialog" aria-modal="true" aria-label=${t('干员调配')}>
     <div class="lo__bg" aria-hidden="true"></div>
     <header class=${cx('lo-top', deck && 'lo-top--deck')}>
       <div class="lo-top__left">
@@ -1175,8 +1175,9 @@ export function LoadoutHost() {
     if (st.open) document.documentElement.classList.add('sp-loadout-open');
     else document.documentElement.classList.remove('sp-loadout-open');
   }, [st.open]);
-  if (!st.open) return null;
-  return html`<${LoadoutScreen} st=${st} />`;
+  const { show, leaving } = useLeaving(st.open);
+  if (!show) return null;
+  return html`<${LoadoutScreen} st=${st} leaving=${leaving} />`;
 }
 
 /**

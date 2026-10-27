@@ -407,8 +407,51 @@ const modalStack = []; // open modals, topmost last: only the topmost handles ke
  *   width?: string, closeOnBackdrop?: boolean, class?: string, veilClass?: string, children?: any }} props
  * `veilClass` styles the backdrop itself (e.g. a dialog that dims the field without blurring it).
  */
+/**
+ * 让「条件挂载」的浮层在关掉后多留 ms 毫秒再卸载，好让退场动画播完 —— 否则 open 一翻 false 就当场从 DOM 里
+ * 消失，视觉上是一次硬切（需求方 2026-10-26「UI 切换没有合理的过渡动画」）。
+ * 只在浮层自己关掉时生效：整棵子树被卸载（换屏）时不会有残留。
+ * @returns {{ show: boolean, leaving: boolean }} show=false 时才真的返回 null
+ */
+export function useLeaving(open, ms = 180) {
+  const [phase, setPhase] = useState(open ? 'in' : 'gone'); // 'in' | 'out' | 'gone'
+  const was = useRef(open);
+  useEffect(() => {
+    if (open) { was.current = true; setPhase('in'); return undefined; }
+    if (!was.current) return undefined;
+    // 减少动效：CSS 已把时长压到 1ms，这里直接跳过退场，免得留一层透明浮层挡点击
+    if (globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      was.current = false; setPhase('gone'); return undefined;
+    }
+    setPhase('out');
+    const id = setTimeout(() => { was.current = false; setPhase('gone'); }, ms);
+    return () => clearTimeout(id);
+  }, [open, ms]);
+  return { show: phase !== 'gone', leaving: phase === 'out' };
+}
+
 export function Modal({ open, title, micro, tone = 'mint', onClose, actions, width, closeOnBackdrop = true, class: cls, veilClass, children }) {
   const boxRef = useRef(null);
+  const veilRef = useRef(null);
+  // 绝大多数调用方写的是 `open ? <Modal open /> : null`（settings.js 等）——关掉时整个 Modal 被卸载，
+  // 组件内的退场状态来不及跑，视觉上仍是硬切。这里在卸载的瞬间把画面克隆一份到 body 上淡出：
+  // 一处改动覆盖全部调用方。换屏导致的卸载不克隆（下面用「挂载时那个 .screen 还在不在」判断），
+  // 否则一张残留的弹窗会飘到下一个画面上。克隆体不带 .modal 类，测试里数弹窗数量不受影响。
+  useLayoutEffect(() => {
+    // 必须在 effect 里把节点取出来：卸载时 preact 已把 ref 清空，清理函数里再读 veilRef.current 拿到的是 null。
+    const veil = veilRef.current;
+    const screenAtMount = typeof document !== 'undefined' ? document.querySelector('.screen') : null;
+    return () => {
+      if (!veil || !veil.isConnected || !screenAtMount || !screenAtMount.isConnected) return;
+      if (globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+      const ghost = veil.cloneNode(true);
+      ghost.classList.remove('modal');
+      ghost.classList.add('modal-ghost');
+      ghost.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(ghost);
+      setTimeout(() => ghost.remove(), 220);
+    };
+  }, []);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   useLayoutEffect(() => {
@@ -467,7 +510,7 @@ export function Modal({ open, title, micro, tone = 'mint', onClose, actions, wid
     };
   }, [open]);
   if (!open) return null;
-  return html`<div class=${cx('modal', veilClass)} role="presentation"
+  return html`<div ref=${veilRef} class=${cx('modal', veilClass)} role="presentation"
       onMouseDown=${(e) => { if (closeOnBackdrop && e.target === e.currentTarget && onClose) onClose(); }}>
     <div ref=${boxRef} class=${cx('modal__box', 'brackets', `modal__box--${tone}`, cls)} role="dialog" aria-modal="true" tabindex="-1"
          style=${width ? `width:${width}` : undefined}>
