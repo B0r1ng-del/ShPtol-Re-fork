@@ -118,6 +118,18 @@ function scanText(data) {
   return text;
 }
 
+/**
+ * Keys whose name means two different things depending on the table, so a garrison's small ratio must not become the
+ * official maximum of a skill's absolute value. `heal` is a per-layer healing RATIO on a garrison (莱茵 萨尔贡
+ * "每 3 层科研使自身治疗量提高 2%" — data/garrisons.json bb.heal = 0.02, read by content/rhine.js) but the absolute
+ * amount a skill heals for elsewhere; folding the 0.02 into the shared cap pinned heal at dataBound(0.02) = 64, which
+ * then rejected every custom skill writing heal: 65. Only the garrison reading is skipped, so garrison data itself
+ * stays checked and every other key keeps its garrison contribution.
+ * @type {ReadonlyArray<readonly [string, string]>}
+ */
+const BB_KEYS_PER_TABLE_MEANING = Object.freeze([['garrisons', 'heal']]);
+const skipsBbKey = (table, key) => BB_KEYS_PER_TABLE_MEANING.some(([t, k]) => t === table && k === key);
+
 function scan(data) {
   const bb = new Map();
   const fields = new Map();
@@ -126,6 +138,7 @@ function scan(data) {
   for (const table of BOUND_TABLES) {
     visit(data?.[table], table, table, (ev) => {
       if (ev.kind === 'bb') {
+        if (skipsBbKey(table, ev.key)) return;
         bump(bb, ev.key, Math.abs(ev.value));
         bumpMin(bbMin, ev.key, ev.value);
       } else {

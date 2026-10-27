@@ -90,11 +90,14 @@ const PLUGIN_TYPES = new Set(UI_PLUGIN_MESSAGES);
 const HOST_TYPES = new Set(UI_HOST_MESSAGES);
 
 /**
- * A client→server type (shared/protocol.js C2S): hello, ping, room.*, g.*, b.*.
+ * A client→server type (shared/protocol.js C2S): hello, ping, room.*, g.*, b.*, resource.*, pack.msg.
+ * The last two are the fork's own C2S types (resource challenges; the namespace channel a pack's panels use);
+ * they are client→server too, so this predicate has to name them as well. It is NOT "a match intent" —
+ * isMatchIntent below is that, and treats every type named here as an intent (a plugin may not store one).
  * The unit test asserts every current C2S key matches.
  * @param {unknown} s
  */
-export const isIntentType = (s) => typeof s === 'string' && /^(?:hello|ping|room\.[A-Za-z][A-Za-z0-9]*|g\.[A-Za-z][A-Za-z0-9]*|b\.[A-Za-z][A-Za-z0-9]*)$/.test(s);
+export const isIntentType = (s) => typeof s === 'string' && /^(?:hello|ping|room\.[A-Za-z][A-Za-z0-9]*|g\.[A-Za-z][A-Za-z0-9]*|b\.[A-Za-z][A-Za-z0-9]*|resource\.[A-Za-z][A-Za-z0-9.]*|pack\.msg)$/.test(s);
 
 /**
  * Whether `value` is, or carries, a match intent. A plugin must not send one (no auto-play, no cheat).

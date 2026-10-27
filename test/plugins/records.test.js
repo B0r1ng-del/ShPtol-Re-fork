@@ -151,7 +151,8 @@ test('kit.ref together with talentMods is refused at expand and at validation', 
 test('official tables pass the systematic bound; a 1e9 blackboard or loop field is PLUGIN_DATA_BOUND', () => {
   assert.equal(officialBbMax('times'), 12);
   assert.equal(officialBbMax('attack@times'), 5);
-  assert.equal(officialBbMax('count'), 20);
+  // 20 on upstream; this fork's kazdel expansion gives 奥达 (chess_kazdel_odd_a) blackboard count 45.
+  assert.equal(officialBbMax('count'), 45);
   assert.equal(officialFieldMax('enemy.sp.maxSp'), 55);
   assert.equal(dataBound(12), 120);
   assert.equal(dataBound(null), 64);
