@@ -23,9 +23,9 @@ const done = (h) => { assert.deepEqual(h.b.errors.map((e) => `${e.label} ${e.mes
 /** defs.chess override: the chess without its 特质 (garrisons have their own tests) — isolates kit damage numbers/types. */
 const noGarrison = (...ids) => Object.fromEntries(ids.map((id) => [id, { ...ds.rawChess(id), garrisonIds: [] }]));
 
-test('tier3 kit registry covers every tier-3 chess (19 visible + 2 hidden)', () => {
+test('tier3 kit registry covers every tier-3 chess (upstream 19 visible + 2 hidden, plus the fork\'s 东 / 乌萨斯 picks)', () => {
   const ids = ds.chessIds().filter((id) => /^chess_char_3_\d+_a$/.test(id));
-  assert.equal(ids.length, 21);
+  assert.equal(ids.length, 25);
   for (const id of ids) assert.equal(typeof KITS[id], 'function', id);
   for (const id of ids) for (const v of [id, id.replace(/_a$/, '_b')]) {
     const d = D(v);
@@ -1234,7 +1234,7 @@ test('忍冬 迷彩: after a kill during 隐狐之艺 ranged enemies stop target
 
 test('every tier-3 variant (normal + 精锐) fights and casts in a real battle without content errors', () => {
   const ids = ds.chessIds().filter((id) => /^chess_char_3_\d+_[ab]$/.test(id)).sort();
-  assert.equal(ids.length, 42);
+  assert.equal(ids.length, 50);
   for (const id of ids) {
     const melee = D(id).position === 'MELEE';
     const h = makeBattle({

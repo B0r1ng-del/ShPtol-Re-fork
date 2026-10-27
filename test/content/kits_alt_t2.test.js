@@ -53,7 +53,7 @@ const plain = (id, o = {}) => chessRec({ id, skill: null, ...o });
 test('kit coverage: every selectable skill of every visible tier-2 chess is hand-authored (normal + elite)', () => {
   const rep = kitCoverage({ tier: 2 });
   // 17 official + 星源 (内容包 packRhine, 六.F) + 四月 / 温米 (九 雷姆必拓)
-  assert.equal(rep.summary.chess, 22);
+  assert.equal(rep.summary.chess, 24);
   assert.equal(rep.summary.covered, rep.summary.skills, JSON.stringify(rep.chess.filter((r) => r.skills.some((s) => !s.covered)).map((r) => r.name)));
   for (const r of rep.chess) {
     for (const s of r.skills.filter((x) => !x.isDefault)) {

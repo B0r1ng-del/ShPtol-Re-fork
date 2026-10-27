@@ -53,7 +53,7 @@ const skillBuff = (u) => u.findBuff(`skill:${u.id}`);
 test('kit coverage: every selectable skill of every visible tier-6 chess is hand-authored (normal + elite, every module)', () => {
   const rep = kitCoverage({ tier: 6 });
   // 19 official + 丰川祥子 (内容包 packExtra6, 六.C) + 莱伊 (九 雷姆必拓)
-  assert.equal(rep.summary.chess, 22);
+  assert.equal(rep.summary.chess, 25);
   assert.equal(rep.summary.covered, rep.summary.skills, JSON.stringify(rep.chess.filter((r) => r.skills.some((s) => !s.covered)).map((r) => r.name)));
   for (const r of rep.chess) {
     for (const s of r.skills.filter((x) => !x.isDefault)) {

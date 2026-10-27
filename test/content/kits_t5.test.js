@@ -17,11 +17,11 @@ const fxOf = (h, kind) => h.eventsOf('fx').filter((e) => e[1] === kind);
 const absKeysHas = (grid, u, r, c) => grid.some(([dr, dc]) => u.tileR + dr === r && u.tileC + dc * u.facing === c);
 const clean = (h) => { assert.deepEqual(h.b.errors.map((e) => `${e.label}: ${e.message}`), []); checkInvariants(h.b); };
 
-test('tier-5 registry: all 24 non-DIY tier-5 chess have a hand-authored kit', () => {
+test('tier-5 registry: every non-DIY tier-5 chess has a hand-authored kit', () => {
   const ids = Object.keys(KITS).sort();
   // 23 official + 结城理 (内容包 packExtra6, 六.C — tools/fork-extra6.mjs; a PRESET card, so it is not one of the 官方
-  // numbered slots the loop below walks)
-  assert.equal(ids.length, 24);
+  // numbered slots the loop below walks) + the fork's 东/乌萨斯 picks 5_97 / 5_98 / 5_99.
+  assert.equal(ids.length, 27);
   assert.ok(KITS.chess_char_5_makoto_a, 'the ported packExtra6 operator has a kit');
   for (let i = 1; i <= 23; i++) assert.ok(KITS[`chess_char_5_${String(i).padStart(2, '0')}_a`], `kit for 5_${i}`);
   for (const id of ids) {
