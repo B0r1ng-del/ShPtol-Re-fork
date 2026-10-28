@@ -4,6 +4,7 @@ import { makeBattle, chessRec, enemyRec } from '../helpers/battleHarness.js';
 import { install } from '../../server/sim/content/rem_traits.js';
 import { gameData } from '../../server/sim/content/support/index.js';
 import { performAttack } from '../../server/sim/ai.js';
+import { diyPoolSource } from '../helpers/diyPoolSource.js';
 
 function fixture(specs, { round = 1, layers = 0 } = {}) {
   const chess = {}, units = [], kits = {};
@@ -217,7 +218,11 @@ test('Rem Ray native S3 retains one bullet and one trance increment while enhanc
   const h = makeBattle({ units: [
     { uid: 1, diy: { slot: 6, charId: 'char_4117_ray', skillIndex: 2, uniEquipId: null }, row: 10, col: 3 },
     { uid: 2, chessId: 'chess_char_3_02_a', row: 10, col: 5 },
-  ], defs: { enemies: { dummy: enemyRec({ key: 'dummy', hp: 1e7, speed: 0 }) } }, autoFinish: false, captureNoisy: true });
+  ], defs: { enemies: { dummy: enemyRec({ key: 'dummy', hp: 1e7, speed: 0 }) } }, autoFinish: false, captureNoisy: true,
+  // Ray is fielded here at the 自选 slot. tools/fork-overrides.mjs ownedPoolOf strips every operator who is
+  // already a chess piece out of the shipped pool, so the test supplies the pool entry itself: the kit is
+  // unaffected by that decision, only the pool is. Product data stays untouched.
+  data: diyPoolSource('char_4117_ray', { raw: { enemies: { dummy: enemyRec({ key: 'dummy', hp: 1e7, speed: 0 }) } } }) });
   const ray = h.unit(1), blocker = h.unit(2);
   ray.def = { ...ray.def, raw: { ...ray.def.raw, garrisonIds: ['garrison_rem_ray_a'] } };
   install(h.b);
@@ -277,11 +282,6 @@ test('Warmy shipped language descriptions match current 16/32 source records', a
   const { applyRecordOverlay } = await import('../../shared/i18nData.js');
   for (const lang of ['en', 'ja', 'ko', 'zh-TW']) {
     const overlay = JSON.parse(await readFile(new URL(`../../data/i18n/${lang}.json`, import.meta.url), 'utf8'));
-    // `data/i18n/*.json` is GENERATED from the official client tables of each language (`tools/build-i18n.mjs`, which
-    // needs that language's `.cache/gamedata-<code>` — only zh_CN is cached on a normal checkout). A language whose
-    // overlay carries no 雷姆必拓 record yet has simply not been rebuilt for this pack: skip it by NAME rather than
-    // fabricating a translation, and assert the record's shape for every language that HAS been rebuilt.
-    if (!overlay.files?.garrisons?.garrison_rem_warmy_a) continue;
     const ui = JSON.parse(await readFile(new URL(`../../public/i18n/${lang}.json`, import.meta.url), 'utf8'));
     for (const [suffix, cap] of [['a', 16], ['b', 32]]) {
       const id = `garrison_rem_warmy_${suffix}`, source = gameData().garrisons[id];
