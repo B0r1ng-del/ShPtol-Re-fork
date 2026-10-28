@@ -692,8 +692,9 @@ test('变形同构体: carrier counts as a member of the other item\'s giveBondI
   // every giveBondId item grants its bond (the official 14, plus 莱茵生命 from 莱茵实验终端, 六.F, plus
   // 卡兹戴尔 from 舍身刻印, 内容包 卡兹戴尔)
   const grants = Object.values(DATA.items).filter((r) => r.giveBondId && !r.isGolden);
-  assert.equal(grants.length, 20);
-  assert.equal(new Set(grants.map((r) => r.giveBondId)).size, 16);
+  // 20 / 16 on upstream; the fork's 东 / 雷姆必拓 equipment adds two more items and two more bonds
+  assert.equal(grants.length, 22);
+  assert.equal(new Set(grants.map((r) => r.giveBondId)).size, 18);
   for (const r of grants) {
     const hh = fight({ units: [{ chessId: 't_op', row: 10, col: 4, items: [r.id, A('6_09')] }] });
     assert.ok(unitBonds(hh.unit('t_op')).includes(r.giveBondId), r.id);
@@ -1294,7 +1295,10 @@ test('coverage: every equipment (normal + golden) and every Art is exercised by 
   // 卡兹戴尔装备 (内容包, tools/kazdel-data.mjs) 的数值在 test/content/kazdel_equipment.test.js 里连它们读的
   // 盟约 / 魂灵一起断言 —— 这个文件的合成战斗没有【卡兹戴尔】盟约，套进来只会测出一个假的默认值。
   const kazdel = /^chess_item_kazdel_/;
-  const missing = Object.keys(DATA.items).filter((id) => !COVER.has(id) && !kazdel.test(id)).sort();
+  // Same reason for the fork's other expansion equipment: 东国鬼面 / 雷姆必拓 / the extra 6_09 / 9_xx rows are asserted
+  // in their own files (packId packDong / packRem), whose bonds this file's composite battle does not carry.
+  const expansion = /^chess_item_(?:kazdel_|rem_|9_0\d_e_|6_09_e_)/;
+  const missing = Object.keys(DATA.items).filter((id) => !COVER.has(id) && !expansion.test(id)).sort();
   assert.deepEqual(missing, []);
-  assert.equal(Object.keys(DATA.items).length, 123);
+  assert.equal(Object.keys(DATA.items).length, 135);
 });
