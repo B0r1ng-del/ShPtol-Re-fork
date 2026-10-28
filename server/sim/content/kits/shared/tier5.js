@@ -36,6 +36,7 @@
 //   'overload', 'ember', 'bloodBattle', 'reborn', 'candle', 'wake' {scale}, 'mote', 'hpShare', 'crit',
 //   'meltdown', 'soul', 'sleepGuard', 'weightless'; engine kinds used: 'dodge'.
 
+import { nativeOperator } from './nativeIdentity.js';
 import { bodyInRange } from '../../../body.js';
 import { absoluteRangeKeys, sortEnemyTargets } from '../../../targeting.js';
 import { hypot } from '../../../detmath.js';
@@ -83,7 +84,7 @@ const dist = (a, b) => hypot(a.x - b.x, a.y - b.y);
 const nationOf = (u) => u?.def?.raw?.nationId ?? null;
 const inFaction = (u, bond, nations) => !!u?.def && ((u.def.bonds || []).includes(bond) || nations.includes(nationOf(u)));
 const isAbyssal = (u) => u?.def?.raw?.groupId === 'abyssal' || abyssalOf().has(u?.def?.charId);
-const isOp = (u) => u && u.kind === 'op';
+const isOp = (u) => u && nativeOperator(u);
 
 // ---- operator loadouts (DESIGN §16) -------------------------------------------------------------------------------
 // A kit function is resolved per SELECTED skill: `bb` / `chess.skill` / `def.skill` are the selected skill's. The default

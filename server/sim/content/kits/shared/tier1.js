@@ -67,11 +67,16 @@ export const cheb = (a, b) => (b.hitArea ? bodyTileReach(b, Math.round(a.y), Mat
     : Math.max(Math.abs(Math.round(a.y) - Math.round(b.y)), Math.abs(Math.round(a.x) - Math.round(b.x))));
 /** Normal attack hit on its primary target (no splash, no chain jump). */
 export const isMainHit = (dmg) => !!dmg && dmg.isAttack && !dmg.isSplash && !(dmg.tags && dmg.tags.includes('chain'));
-/** Ordinary HP injury from an actual enemy source; action flags and descriptive tags do not select it. */
+/**
+ * Ordinary HP injury from an actual enemy source; action flags and descriptive tags do not select it.
+ * A counter / reflection is excluded: without that, an inverse-damage talent answers its own answer and the
+ * two ping-pong until the hook limit (玛恩纳 无动于衷 vs an enemy that reflects — kazdel_soul_skills pins it).
+ */
 export const byEnemyDamage = (ctx) => {
   const source = ctx.source, dmg = ctx.dmg;
-  return !!source && source.side === 'enemy' && !!dmg && !dmg.sourceless
-    && ctx.type !== 'element' && !isHpLoss(dmg);
+  if (!source || source.side !== 'enemy' || !dmg || dmg.sourceless) return false;
+  if (ctx.type === 'element' || isHpLoss(dmg)) return false;
+  return !(Array.isArray(dmg.tags) && (dmg.tags.includes('counter') || dmg.tags.includes('reflect')));
 };
 /** @deprecated Use byEnemyDamage: these injury effects do not require an attack action. */
 export const byEnemyAttack = byEnemyDamage;
