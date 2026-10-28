@@ -89,10 +89,12 @@ test('护愈之手：实际溢出治疗、倍率、叠加上限、屏障承伤�
 
 test('护愈之手：未领取、范围外、召唤物、队友、禁疗和回复均不转屏障，选项不外泄', () => {
   const h = setup(), m = h.unit(1), u = h.unit(2), out = h.unit(3), token = h.unit(4);
-  const opts = {};
-  h.b.heal(m, u, 100, opts);
-  h.b.heal(m, out, 100, opts);
-  assert.deepEqual(opts, {});
+  // One object per heal: the covered ally is flagged, the out-of-range one must leave its own object bare.
+  const optsIn = {}, optsOut = {};
+  h.b.heal(m, u, 100, optsIn);
+  h.b.heal(m, out, 100, optsOut);
+  assert.deepEqual(optsIn, { overheal: true }, "in range: the heal overflows into a barrier");
+  assert.deepEqual(optsOut, {}, "out of range: nothing is flagged");
   assert.equal(shield(out), 0);
   m.rangeKeySet = new Set([...m.rangeKeys, token.tileR * 21 + token.tileC, out.tileR * 21 + out.tileC]);
   h.b.heal(m, token, 100);
