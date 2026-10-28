@@ -195,7 +195,11 @@ test('user #557 (PR #558 by IceCodeNew): Given a bottom-row boss lineup, When th
       if (col === 7 || free && col === 8) continue;
       units.push({ uid: col, chessId: 'chess_char_1_01_a', row: 9, col });
     }
-    const h = makeBattle({ kind, stageId: 'act2autochess_m02', players: [{ playerId: 'p1', side, units }], autoFinish: false });
+    // Same 自选 pool as `field()` above: the shipped pool strips every operator who is already a chess piece
+    // (fork-overrides ownedPoolOf), and this fork fields 维什戴尔 as the kazdel chess — so without the helper she is
+    // not a legal pick and the unit never comes in at all (the shadow assertions would pass vacuously).
+    const h = makeBattle({ kind, stageId: 'act2autochess_m02', players: [{ playerId: 'p1', side, units }], autoFinish: false,
+      data: diyPoolSource(WD, { bonds: ['emptyShip'], raw: { enemies: ENEMIES } }) });
     h.step();
     const u = h.unit(1);
     const expected = free ? [[2, side === 'L' ? 8 : 12]] : [];
@@ -214,7 +218,8 @@ test('#557: a shadow may stand on the teammate\'s half of a pair field (Battle.o
       ...[[9, 8], [11, 8], [12, 8], [9, 9]].map(([row, col], i) => ({ uid: 2 + i, chessId: 'chess_char_1_01_a', row, col }))];
     const players = [{ playerId: 'p1', side, units }];
     if (pair) players.push({ playerId: 'p2', side: side === 'L' ? 'R' : 'L', units: [{ uid: 11, chessId: 'chess_char_1_01_a', row: 12, col: 2 }] });
-    const h = makeBattle({ kind, stageId: 'act2autochess_m02', players, autoFinish: false });
+    const h = makeBattle({ kind, stageId: 'act2autochess_m02', players, autoFinish: false,
+      data: diyPoolSource(WD, { bonds: ['emptyShip'], raw: { enemies: ENEMIES } }) });
     h.step();
     const u = h.unit(1);
     const expected = pair ? [[2, side === 'L' ? 11 : 9]] : [];
