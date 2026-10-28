@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, enemyRec, chessRec, checkInvariants } from '../helpers/battleHarness.js';
+import { diyPoolSource } from '../helpers/diyPoolSource.js';
 
 function fixture(kind) {
   const ids = { philae: ['chess_char_3_06_a', 1], rmixer: ['chess_char_4_01_a', 2], yu: ['chess_char_6_03_a', 2] };
@@ -124,8 +125,10 @@ for (const actor of ['operator', 'enemy']) {
 
 
 test('Logos source calculation marks a base attack, target calculation affects precomputed arts, and resolved damage skips both', () => {
+  const ENEMS = { enemy_probe: enemyRec({ key: 'enemy_probe', hp: 100000, def: 0, res: 0, speed: 0, atk: 0 }) };
+  // 逻各斯 is a chess piece here, so build-data strips him from the 自选 pool; the test supplies the pool entry.
   const h = makeBattle({ autoFinish: false, units: [{ uid: 'logos', diy: { slot: 6, charId: 'char_4133_logos', skillIndex: 0 }, row: 10, col: 5 }],
-    defs: { enemies: { enemy_probe: enemyRec({ key: 'enemy_probe', hp: 100000, def: 0, res: 0, speed: 0, atk: 0 }) } } });
+    defs: { enemies: ENEMS }, data: diyPoolSource('char_4133_logos', { raw: { enemies: ENEMS } }) });
   h.step();
   const b = h.b, u = h.unit('logos'), e = h.spawn('enemy_probe', { pos: [10, 8] });
   b.dealDamage({ source: u, target: e, amount: 100, type: 'arts', isAttack: true, calculation: 'precomputed' });
@@ -143,7 +146,8 @@ test('weakness and actual calculation share Logos target addition, without specu
   const h = makeBattle({ autoFinish: false, units: [
     { uid: 'weak', chessId: 'weak', row: 10, col: 4 },
     { uid: 'logos', diy: { slot: 6, charId: 'char_4133_logos', skillIndex: 0 }, row: 10, col: 5 }],
-    defs: { chess: { weak }, enemies: { enemy_probe: enemyRec({ key: 'enemy_probe', hp: 100000, def: 25, res: 80, atk: 0, speed: 0 }) } } });
+    defs: { chess: { weak }, enemies: { enemy_probe: enemyRec({ key: 'enemy_probe', hp: 100000, def: 25, res: 80, atk: 0, speed: 0 }) } },
+    data: diyPoolSource('char_4133_logos', { raw: { enemies: { enemy_probe: enemyRec({ key: 'enemy_probe', hp: 100000, def: 25, res: 80, atk: 0, speed: 0 }) } } }) });
   h.step();
   const b = h.b, u = h.unit('weak'), logos = h.unit('logos'), e = h.spawn('enemy_probe', { pos: [10, 8] });
   b.dealDamage({ source: logos, target: e, amount: 1, type: 'true' });

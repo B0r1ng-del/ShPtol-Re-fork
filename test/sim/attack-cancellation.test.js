@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
+import { diyPoolSource } from '../helpers/diyPoolSource.js';
 import { dealDamage, cancelDamage } from '../../server/sim/attack.js';
 
 function fixture() {
@@ -124,8 +125,10 @@ test('cancellation masks cannot bypass unrelated refusal, mode cap or malformed 
 
 for (const kind of ['count', 'full', 'partial', 'special-hp']) {
   test(`Logos S1 native cancellation mask works through ${kind} and preserves its single survivor attempt`, () => {
+    // 逻各斯 is a chess piece here, so build-data strips him from the 自选 pool; supply the pool entry in the test.
     const h = makeBattle({ autoFinish: false, units: [{ uid: 'logos', diy: { slot: 6, charId: 'char_4133_logos', skillIndex: 0 }, row: 10, col: 5 }],
-      defs: { enemies: { enemy_probe: enemyRec({ key: 'enemy_probe', hp: 1000, speed: 0, atk: 0, def: 0, res: 0 }) } } });
+      defs: { enemies: { enemy_probe: enemyRec({ key: 'enemy_probe', hp: 1000, speed: 0, atk: 0, def: 0, res: 0 }) } },
+      data: diyPoolSource('char_4133_logos', { raw: { enemies: { enemy_probe: enemyRec({ key: 'enemy_probe', hp: 1000, speed: 0, atk: 0, def: 0, res: 0 }) } } }) });
     h.step();
     const b = h.b, u = h.unit('logos'), e = h.spawn('enemy_probe', { pos: [10, 8] });
     e.hp = 10;
