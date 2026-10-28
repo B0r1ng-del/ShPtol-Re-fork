@@ -9,6 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
+import { diyPoolSource } from '../helpers/diyPoolSource.js';
 import { PROTECT, holdProtect } from '../../server/sim/content/kits/shared/tier1.js';
 import { getDefaultSource } from '../../server/sim/simdata.js';
 
@@ -63,8 +64,10 @@ test('余 (blocking), 缪尔赛思\'s melee copies, 赫拉格 / 左乐 (SBL-X, b
   // 遥's bubble stays its own effect (damage_resistance[bonus])
   assert.doesNotMatch(src('op-haruka.js'), /holdProtect\(/);
   // 赫拉格 (SBL-X, tier 5) at 40 % HP: his 庇护 on the shared key
+  // 赫拉格 is a chess piece here, so build-data strips him from the 自选 pool; the kit test supplies the pool entry.
   const h = makeBattle({
     defs: { enemies: { e: enemyRec({ key: 'e', hp: 1e9, speed: 0 }) } },
+    data: diyPoolSource('char_188_helage', { raw: { enemies: { e: enemyRec({ key: 'e', hp: 1e9, speed: 0 }) } } }),
     units: [{ diy: { slot: 5, charId: 'char_188_helage', skillIndex: 0, uniEquipId: 'uniequip_002_helage' }, elite: true, row: 10, col: 5 }],
     autoFinish: false, timeLimit: 30, seed: 3,
   });

@@ -11,6 +11,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
+import { diyPoolSource } from '../helpers/diyPoolSource.js';
 import { COLS } from '../../server/sim/constants.js';
 
 const SLOT = { 5: 'chess_char_5_diy1_a', 6: 'chess_char_6_diy1_a' };
@@ -27,8 +28,10 @@ function done(h) {
 
 /** `charId` as uid 1 at (9, 2) facing RIGHT (her 3-1: rows 8–10, cols 2–5) with skill `skill`; `pieces` = [[tokenId, r, c]]. */
 function field(charId, skill, pieces = [], { tier = 6, elite = true } = {}) {
+  // charId may be a chess piece here, and build-data strips those from the 自选 pool: supply the pool entry.
   const h = makeBattle({
     defs: { enemies: ENEMIES }, timeLimit: 900, autoFinish: false, seed: 5,
+    data: diyPoolSource(charId, { raw: { enemies: ENEMIES } }),
     flags: { dpInit: 99, dpPerSec: 0, dpMax: 999, startOpCooldown: 0 }, hooks: ['skillStart', 'skillEnd', 'death'], captureNoisy: true,
     units: [{ uid: 1, diy: { slot: SLOT[tier], charId, skillIndex: skill, uniEquipId: null }, elite, row: 9, col: 2 },
       ...pieces.map(([tokenId, r, c], i) => ({ uid: 10 + i, kind: 'token', tokenId, ownerUid: 1, row: r, col: c, dir: 'RIGHT' }))],
