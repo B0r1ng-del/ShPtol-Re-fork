@@ -70,7 +70,8 @@ test('电弧 in every 自选 form: her kit (all three skills authored), the form
       assert.deepEqual([u.s.blockCnt, u.profile.attack, u.profile.dmgType, u.profile.canHitFly, u.profile.maxTargets, u.base.bat], [1, 'ranged', 'arts', true, 1, 1.6], `${label(f)}: 召唤师 (SO-B's 额外攻击一个目标 is 集成战略-only)`);
       assert.deepEqual(u.liveRangeGrid, form.rangeGrid, `${label(f)}: 3-1`);
       assert.deepEqual([u.skill.rule, form.skills[skill].trigger.rule], ['DEFAULT', 'DEFAULT'], `${label(f)}: the data's trigger`);
-      assert.deepEqual([u.def.bonds, u.def.raw.garrisonIds], [['emptyShip'], []], `${label(f)}: bonds / 特质`);
+      // `emptyShip` on upstream; this fork files her under 乌萨斯 (ursus).
+      assert.deepEqual([u.def.bonds, u.def.raw.garrisonIds], [['ursusShip'], []], `${label(f)}: bonds / 特质`);
       assert.ok(!u.s.flags.liftoff && !u.s.flags.camou && !u.s.flags.stealth, `${label(f)}: ground enemies target her`);
       done(h);
     }

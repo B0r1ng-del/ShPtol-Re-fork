@@ -71,7 +71,8 @@ test('遥 in every 自选 form: her kit (all three skills authored), the form\'s
       assert.deepEqual(u.liveRangeGrid, form.rangeGrid, `${label(f)}: y-6`);
       assert.equal(u.skill.rule, skill === 2 ? 'ACTIVE_RANGE' : 'DEFAULT', `${label(f)}: trigger`);
       if (skill === 2) assert.deepEqual(u.skill.triggerGrid, form.skills[2].rangeGrid, `${label(f)}: the y-8 trigger grid`);
-      assert.deepEqual([u.def.bonds, u.def.raw.garrisonIds], [['emptyShip'], []], `${label(f)}: bonds / 特质`);
+      // `emptyShip` on upstream; this fork files 遥 under the 东 (dong) bond.
+      assert.deepEqual([u.def.bonds, u.def.raw.garrisonIds], [['dongShip'], []], `${label(f)}: bonds / 特质`);
       assert.ok(!u.s.flags.liftoff && !u.s.flags.camou && !u.s.flags.stealth, `${label(f)}: ground enemies target her`);
       done(h);
     }

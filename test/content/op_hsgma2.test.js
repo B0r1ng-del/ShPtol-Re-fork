@@ -64,7 +64,8 @@ test('斩业星熊 in every 自选 form: her operator kit (all three skills auth
       assert.deepEqual([u.s.blockCnt, u.profile.attack, u.profile.canHitFly, u.profile.dmgType, u.base.bat], [3, 'melee', false, 'phys', 1.6], `${label(f)}: 驭法铁卫`);
       assert.equal(form.dmgType, 'phys', 'the data carries the normal attack\'s type (build-data classifyAttack: "技能开启时…法术伤害")');
       assert.deepEqual(u.liveRangeGrid, form.rangeGrid, `${label(f)}: 1-1`);
-      assert.deepEqual([u.def.bonds, u.def.raw.garrisonIds], [['yanShip'], []], `${label(f)}: bonds / 特质`);
+      // `yanShip` on upstream; this fork also files her under 东 (dong).
+      assert.deepEqual([u.def.bonds, u.def.raw.garrisonIds], [['yanShip', 'dongShip'], []], `${label(f)}: bonds / 特质`);
       assert.ok(!u.s.flags.liftoff && !u.s.flags.camou && !u.s.flags.stealth && !u.s.flags.untargetable, `${label(f)}: ground enemies target her`);
       done(h);
     }

@@ -84,7 +84,8 @@ test('弑君者 in every 自选 form: her operator kit (all three skills authore
         [form.stats.maxHp + (m?.attr.maxHp ?? 0), form.stats.atk + (m?.attr.atk ?? 0), form.stats.def + (m?.attr.def ?? 0), 18, 9], `${label(f)}: stats`);
       assert.deepEqual([u.profile.attack, u.profile.dmgType, u.profile.canHitFly], ['melee', 'phys', false], `${label(f)}: 处决者`);
       assert.deepEqual(u.liveRangeGrid, form.rangeGrid, `${label(f)}: 1-1 (S3 too)`);
-      assert.deepEqual([u.def.bonds, u.def.raw.garrisonIds], [['siracusaShip'], []], `${label(f)}: bonds / 特质`);
+      // `siracusaShip` on upstream; this fork also files her under 乌萨斯 (ursus).
+      assert.deepEqual([u.def.bonds, u.def.raw.garrisonIds], [['siracusaShip', 'ursusShip'], []], `${label(f)}: bonds / 特质`);
       assert.deepEqual([rec.skillType, rec.spType, u.skill.kind, u.skill.rule, u.skill.active, u.skill.activations], ['PASSIVE', 'ON_DEPLOY', 'duration', 'NEVER', true, 1], `${label(f)}: S${skill + 1} from the deployment`);
       approx(u.skill.timeLeft, [rec.duration, rec.bb.duration, rec.duration][skill], `${label(f)}: S${skill + 1} duration`, 0.01);
       assert.equal(u.s.blockCnt, skill === 2 ? 0 : 1, `${label(f)}: blocks ${skill === 2 ? 0 : 1}`);
