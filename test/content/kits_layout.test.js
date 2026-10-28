@@ -49,13 +49,20 @@ test('a stand-in kit file standin-<codename>.js registers the kit of that stand-
   }
 });
 
-test('a 自选 kit file op-<codename>.js registers the kit of that owned-6★ pick (data/backups.json diy.ownedPool), every skill under `skills`', async () => {
+test('a 自选 kit file op-<codename>.js registers the kit of that owned-6★ pick (data/backups.json diy.operators), every skill under `skills`', async () => {
+  // The pick does not have to be in `diy.ownedPool`: build-data strips every operator who is already a chess piece from
+  // it (tools/build-data.mjs, the 2026-10-23 same-operator-twice fix), and this fork fields 14 of these operators — 赫拉格,
+  // 维什戴尔, 伊芙利特 … — as expansion chess. Their kit file still belongs to the 自选 registry (the four-form matrix
+  // only exists at the 自选 slots, see test/helpers/diyPoolSource.js), so the code name is resolved against
+  // `diy.operators` and the chess records as well; only an operator nobody knows is a failure.
   const pool = BACKUPS.diy.ownedPool;
+  const known = new Set([...pool, ...Object.keys(BACKUPS.diy.operators ?? {}),
+    ...Object.values(CHESS).map((c) => c && c.charId).filter(Boolean)]);
   for (const file of OPERATOR_KIT_FILES) {
     const m = /^op-([a-z0-9]+)\.js$/.exec(file);
     assert.ok(m, `${file}: name`);
-    const charId = pool.find((id) => id.replace(/^char_\d+_/, '') === m[1]);
-    assert.ok(charId, `${file}: no owned-6★ pick with the code name ${m[1]}`);
+    const charId = [...known].find((id) => id.replace(/^char_\d+_/, '') === m[1]);
+    assert.ok(charId, `${file}: no operator with the code name ${m[1]}`);
     const mod = await import(`../../server/sim/content/kits/ops/${file}`);
     assert.deepEqual(Object.keys(mod.default), [charId], `${file}: default export`);
     assert.equal(typeof mod.default[charId], 'function', `${file}: kit builder`);
@@ -63,9 +70,16 @@ test('a 自选 kit file op-<codename>.js registers the kit of that owned-6★ pi
     assert.equal(KITS[charId], mod.default[charId], `${file}: in the merged registry`);
     // every skill of every slot form is authored (a 自选 piece has no default skill: the pick chooses any), built from the
     // composed record and its def as the sim does (shared/diy.js diyRecord, simdata normalizeChess)
-    for (const slot of ['chess_char_5_diy1_a', 'chess_char_6_diy1_a']) {
+    // the shipped pool strips this operator when she is also a chess piece; compose the record as if she were picked
+    const backups = { ...BACKUPS, diy: { ...BACKUPS.diy, ownedPool: [...BACKUPS.diy.ownedPool, charId] } };
+    // A pick belongs to one tier: the owned 6★ picks fill a tier-6 slot, the fork's 4★ reserves (赫拉格 …) a tier-5 one.
+    // Compose at the slot that owns this pick and at the two statuses the operator's own records carry.
+    const slots = ['chess_char_5_diy1_a', 'chess_char_6_diy1_a'].filter((s) =>
+      diyRecord(s, { charId, skillIndex: 0 }, { data: { chess: CHESS, backups } }));
+    assert.ok(slots.length >= 1, `${file}: a legal pick of a 自选 tier`);
+    for (const slot of slots) {
       for (const elite of [false, true]) {
-        const rec = diyRecord(slot, { charId, skillIndex: 0 }, { elite, data: { chess: CHESS, backups: BACKUPS } });
+        const rec = diyRecord(slot, { charId, skillIndex: 0 }, { elite, data: { chess: CHESS, backups } });
         assert.ok(rec, `${file}: a legal pick of ${slot}`);
         const kit = mod.default[charId](rec.skill.bb, rec, normalizeChess(rec));
         assert.deepEqual(Object.keys(kit.skills || {}).sort(), rec.skills.map((s) => s.skillId).sort(), `${file}@${slot}${elite ? ' elite' : ''}: skills`);
@@ -121,7 +135,9 @@ test('the registry is the tier groups, then the stand-ins, then the 自选 opera
   ]);
   // ver-diy.js is one file and 24 keys; every other kit file is one key
   assert.equal(Object.keys(KITS).length, KIT_FILES.flat().length + STANDIN_KIT_FILES.length + OPERATOR_KIT_FILES.length + VERSION_KIT_FILES.length + DIY_BORROW_CHARS.length);
-  assert.equal(CONTENT_KITS, KITS);
+  // content/index.js merges the expansion registries (kazdel / rhine / rem) on top of this one, so it is a superset
+  // and a different object — the identity that has to hold is per key, the other groups must not be shadowed
+  for (const key of Object.keys(KITS)) assert.equal(CONTENT_KITS[key], KITS[key], `content/index.js KITS[${key}]`);
 });
 
 test('kit files stay browser-safe and deterministic: no Node-only or server-only import, no clock, no Math.random', () => {
