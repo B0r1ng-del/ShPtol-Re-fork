@@ -14,7 +14,7 @@
    img_toogle_char_icon / img_toogle_item_icon. Kept: the potential dots (the recording shows ★ rarity there, which this
    card does not carry) and the header's 筛选 / 已调整 / 干员持有 controls. ---- */
 .lo { --p: min(calc((100vw - var(--sa-l, 0px) - var(--sa-r, 0px)) / 1280), calc((100vh - var(--sa-t, 0px) - var(--sa-b, 0px)) / 720)); }
-.lo .lo-tgrid { gap: calc(10 * var(--p)) calc(10 * var(--p)); padding: calc(13 * var(--p)) 0 0 calc(40 * var(--p)); grid-template-rows: repeat(2, calc(245 * var(--p))); }
+.lo .lo-tgrid { gap: calc(10 * var(--p)) calc(10 * var(--p)); padding: calc(13 * var(--p)) 0 0 calc(6 * var(--p)); grid-template-rows: repeat(2, calc(245 * var(--p))); }
 .lo .lo-op__card { display: block; width: calc(140 * var(--p)); height: calc(245 * var(--p)); padding: 0; border: 0; box-shadow: none;
   background: url(../../img/official/hub/ac/outer/shop/img_char_chess_normal_bg.png) 0 0 / 100% 100% no-repeat; }
 .lo .lo-op.is-sel .lo-op__card { border: 0; box-shadow: none; }
@@ -27,7 +27,10 @@
 .lo .lo-op__lvrow b { font-size: calc(17 * var(--p)); color: #e8eaea; }
 .lo .lo-op__lvrow.is-elite b { color: #f2c94c; }
 .lo .lo-op__chev { width: calc(14 * var(--p)); height: calc(9 * var(--p)); }
-.lo .lo-op__pick { position: absolute; left: calc(52 * var(--p)); top: calc(5 * var(--p)); width: calc(84 * var(--p)); height: calc(163 * var(--p)); border: 0; background: #d9dcdb; }
+.lo .lo-op__pick { position: absolute; left: calc(52 * var(--p)); top: calc(5 * var(--p)); width: calc(84 * var(--p)); height: calc(163 * var(--p)); border: 0; background: #d9dcdb;
+  /* 需求方 2026-11-01: 2 of 113 picks had content 217 px tall inside a 204 px box (the level + pot rail is one line
+     taller for those operators) and got cut. Let the box keep its height but never clip. */
+  overflow: visible; }
 .lo .lo-op__pick::after { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none;
   background: url(../../img/official/hub/ac/outer/shop/img_cahr_card_frame.png) 0 0 / 100% 100% no-repeat; }
 .lo .lo-op__art { inset: 0; }
@@ -57,7 +60,7 @@
 .lo .lo-bbar__seg { padding: calc(4 * var(--p)); border: 0; border-radius: 0; background: none;
   border-style: solid; border-width: calc(20 * var(--p)); border-image: url(../../img/official/hub/ac/outer/shop/img_toogle_bg_unselect.png) 24 fill / calc(20 * var(--p)) stretch; margin: calc(-16 * var(--p)) 0; }
 .lo .lo-bbar__seg button { position: relative; height: calc(40 * var(--p)); padding: 0 calc(22 * var(--p)); margin: calc(-16 * var(--p)) 0; font-size: calc(18 * var(--p)); background: none; color: #e9ecec; }
-.lo .lo-bbar__seg button.is-on { background: none; color: #121614; }
+.lo .lo-bbar__seg button.is-on { background: none; color: #121614; border-bottom-color: transparent; }
 .lo .lo-bbar__seg button.is-on::before { content: ''; position: absolute; z-index: -1; left: calc(-12 * var(--p)); right: calc(-12 * var(--p)); top: calc(-12 * var(--p)); bottom: calc(-13 * var(--p));
   background: url(../../img/official/hub/ac/outer/shop/img_toogle_bg_select.png) 0 0 / 100% 100% no-repeat; }
 .lo .lo-bbar__seg button { z-index: 0; isolation: isolate; }
@@ -176,7 +179,7 @@
   -webkit-mask: url(../../img/official/hub/ac/ach/elite_1.png) center / 118% auto no-repeat; mask: url(../../img/official/hub/ac/ach/elite_1.png) center / 118% auto no-repeat; mask-mode: luminance; }
 .lo .lo-op__lvrow.is-elite .lo-op__chev { background: #f4d77a; -webkit-mask-image: url(../../img/official/hub/ac/ach/elite_2.png); mask-image: url(../../img/official/hub/ac/ach/elite_2.png); }
 .lo .lo-op__lvrow b { font-size: calc(18 * var(--p)); }
-.lo .lo-op__name { font-size: calc(19 * var(--p)); font-weight: 700; }
+.lo .lo-op__name { font-size: calc(17 * var(--p)); font-weight: 700; }
 .lo--deck .lo-bbar__tier { height: calc(36 * var(--p)); min-width: calc(110 * var(--p)); justify-content: center; font-size: calc(19 * var(--p)); }
 .lo--deck .lo-bbar__tiers { gap: calc(8 * var(--p)); }
 /* the module art fills its tile as in the screenshot (its glyph and MAR X letters about 85% of the tile; the art's own
@@ -198,7 +201,11 @@
 /* bkg.png centred at ×1.02 of its own size at 1280 (its two STIMULATING labels at (682, 42) / (772, 626) in the screenshot,
    (824, 167) / (913, 737) in the art), not `cover` (that would draw it at ×0.82) */
 .lo--deck .lo__bg { background: url(../../img/official/hub/ac/outer/deck/bkg.png) center / calc(1591 * var(--p)) calc(979 * var(--p)) no-repeat, #0a0a0a; }
-.lo--deck .lo-tmark { overflow: visible; padding: 0; border: 0; background: none; box-shadow: none; }
+.lo--deck .lo-tmark { overflow: visible; padding: 0; border: 0; background: none; box-shadow: none;
+  /* 需求方 2026-11-01「等阶标识太细了」: the art below is 150 * --p wide and absolutely positioned at -31 * --p, but the
+     column was 72 px — the emblem was clipped to a strip of its middle. Size the column from the art, not from the
+     old loadout.css guess. */
+  width: calc(150 * var(--p)); }
 .lo--deck .lo-tmark::after { display: none; }
 .lo-tmark__art { position: absolute; z-index: 0; left: calc(-31 * var(--p)); top: calc(-28 * var(--p)); width: calc(150 * var(--p)); height: calc(595 * var(--p));
   background: var(--tag) 0 0 / 100% 100% no-repeat; pointer-events: none; }
@@ -214,8 +221,9 @@
 .lo-tmark--items .lo-tmark__desc { background-image: url(../../img/official/hub/ac/outer/deck/img_item_level_tag_desc.png); }
 .lo--deck .lo-tmark__cnt { position: absolute; z-index: 1; left: calc(43 * var(--p)); top: calc(546 * var(--p)); transform: translateX(-50%); margin: 0;
   font-size: calc(12 * var(--p)); color: rgba(220, 224, 224, .45); }
-/* 道具: its tiles start where the operators' cards do (40 past the mark, as .lo-tgrid), clear of the tier art's plate */
-.lo--deck .lo-igrid { padding-left: calc(40 * var(--p)); }
+/* 道具: its tiles start where the operators' cards do (需求方 2026-11-01「右侧留白太多」: was 40 * --p = 50 px of
+   empty band beside the tier mark, now the same 6 * --p the operator grid uses, so both tabs line up) */
+.lo--deck .lo-igrid { padding-left: calc(6 * var(--p)); }
 
 /* ---- 19. 道具页（需求方 2026-10-31：干员调配页里的道具页也全部移植覆盖过来）-----------------------
    本仓 loadout.css 的道具页是「每级 2 列 × 460px 横排」，官方是**每级 3 行、横向排开、列宽 230**。
@@ -350,3 +358,24 @@
 .edrawer .ibond { background: rgba(11, 16, 14, .78); border-color: rgba(255, 255, 255, .13); }
 .edrawer .ibond.is-off { color: #cdd5d2; background: rgba(13, 19, 17, .86); border-color: rgba(255, 255, 255, .18); }
 .edrawer .ibond.is-off .bglyph img { filter: grayscale(1) brightness(.95); opacity: .92; }
+
+
+/* 需求方 2026-11-01「右侧留白太多」（图一干员页 / 图二道具页）: the emblem column now has its true width (150 * --p), and the
+   deck's .2rem gap on top of the art's own -31 * --p left inset was doubling the empty band between the tier marks and
+   the cards. Pull the two columns together here, for both tabs. */
+.lo--deck .lo-deck { gap: 0; }
+.lo--deck .lo-tgroup { margin-left: 0; gap: calc(4 * var(--p)); }
+/* the art is drawn from -31 * --p, i.e. 31 * --p of it sits to the LEFT of its column: give the deck back exactly that
+   much so the first emblem is not cut by the scroll edge, and nothing more. */
+.lo--deck .lo-deck { padding-left: calc(31 * var(--p)); }
+
+
+/* 需求方 2026-11-01「25 处错误」之一：113 张干员卡里 13 张名字被截（缄默德克萨斯 143px 挤进 104px）。
+   原因是 .lo-op__meta 是 flex-column + align-items:flex-end —— 有潜能点数的卡上，名字只拿到自己内容的宽度，
+   max-width:100% 里那个 100% 是 meta 的宽，不是卡片的。让名字横跨 meta 整行，再靠居中收住。 */
+.lo .lo-op__meta { align-items: stretch; }
+.lo .lo-op__name { width: 100%; text-align: center; }
+
+/* 113 张卡里只有「缄默德克萨斯」6 个字放不进 104 px（实测 17 px 字号下仍超 24 px）。给它换来第二行，
+   而不是为了一个名字把 113 张的字号都压到看不清。 */
+.lo .lo-op__name { white-space: normal; line-height: 1.05; word-break: break-all; }
