@@ -1241,7 +1241,8 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
    名片底图 (移植自 Stronghold-Protocol, 需求方 2026-11-01: Q2 ①+② / Q3 ② 同盟可见)
    底图垫在名牌后面（容器的 .has-nc + 里面一个 .nc-layer），左边压暗给名字让位；选择器 .nc-pick，调范围 .nc-adjust。
    ★ 与源仓的差异：源仓这一段还带 .ach-card / .acct-me / .acct-title-card / .frow 等载体，本 fork 没有那些容器，
-     所以那几条没有搬；skin 卡片（.nc-pick__art--skin 等）也没搬 —— 我方 assets.json 没有 illustration 字段。
+     所以那几条没有搬。skin 卡片原先也没搬（当时 assets.json 没有 illustration）；2026-11-01 补了 302 套立绘后
+     已在文件末尾补齐，见 .nc-pick__card--skin。
    ========================================================================================== */
 .has-nc { position: relative; isolation: isolate; text-shadow: 0 1px 2px rgba(0, 0, 0, .8); }
 /* a faction emblem is a mark, not a photograph: it sits at the right on the faction's colour, never cropped */
@@ -1313,3 +1314,12 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
   color: #eef0ef; background: rgba(0, 0, 0, .45); border: 1px solid rgba(255, 255, 255, .25); border-radius: 3px; cursor: pointer; opacity: .7; }
 .rseat__bg:hover, .rseat__bg:focus-visible { opacity: 1; border-color: #5df0c6; }
 .rseat__bg .icon { width: 70%; height: 70%; }
+
+/* 需求方 2026-11-01: a skin's tile shows its full illustration. The common .nc-pick__art forces 600/186 (a wide plate),
+   which would crop a tall illustration to a strip of hair — so the skin tile gets its own portrait ratio and a name band. */
+/* two rows fit on one screen: the tile is 1/6 of the dialog height, not the whole illustration */
+.nc-pick__card--skin .nc-pick__art { aspect-ratio: auto; height: clamp(140px, 21vh, 240px); padding: 0; display: block; overflow: hidden; }
+.nc-pick__art--skin img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 12%; pointer-events: none;
+  -webkit-mask-image: linear-gradient(180deg, #000 62%, transparent 96%); mask-image: linear-gradient(180deg, #000 62%, transparent 96%); }
+.nc-pick__card--skin .nc-pick__name { position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; padding: .06rem .08rem; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; font-size: calc(.13 * var(--t)); color: #eef0ef; background: linear-gradient(0deg, rgba(6, 9, 9, .92), transparent 88%); }

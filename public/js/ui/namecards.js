@@ -69,24 +69,77 @@ const CAMPS = [
   { key: 'rim', name: N_('雷姆必拓'), tint: '#4a3420' },
 ];
 
+/** 组织徽记 (源仓 public/js/ui/namecards.js ORGS，官方 handbook_team_table 的名字)。徽记素材在 ui['campLogo/logo_*']。 */
+const ORGS = [
+  { key: 'babel', name: '巴别塔', tint: '#3a3026' },
+  { key: 'rhine', name: '莱茵生命', tint: '#1e3a4a' },
+  { key: 'penguin', name: '企鹅物流', tint: '#3f3a1c' },
+  { key: 'blacksteel', name: '黑钢国际', tint: '#2c2f33' },
+  { key: 'karlan', name: '喀兰贸易', tint: '#2a4050' },
+  { key: 'glasgow', name: '格拉斯哥帮', tint: '#3a2a2e' },
+  { key: 'abyssal', name: '深海猎人', tint: '#14343f' },
+  { key: 'siesta', name: '汐斯塔', tint: '#4a3a22' },
+  { key: 'dublinn', name: '深池', tint: '#2c3f2a' },
+  { key: 'followers', name: '使徒', tint: '#2e2a4a' },
+  { key: 'lgd', name: '龙门近卫局', tint: '#512a22' },
+  { key: 'pinus', name: '红松骑士团', tint: '#4a2420' },
+  { key: 'chiave', name: '贾维团伙', tint: '#2a4438' },
+  { key: 'lee', name: '鲤氏侦探事务所', tint: '#3f3320' },
+  { key: 'rainbow', name: '彩虹小队', tint: '#2c3440' },
+  { key: 'student', name: '乌萨斯学生自治团', tint: '#3c3c44' },
+  { key: 'sui', name: '炎-岁', tint: '#5a2a20' },
+  { key: 'sweep', name: 'S.W.E.E.P.', tint: '#2a3a36' },
+  { key: 'elite', name: '罗德岛-精英干员', tint: '#22323e' },
+  { key: 'action4', name: '行动组A4', tint: '#2a3640' },
+  { key: 'reserve1', name: '行动预备组A1', tint: '#2a3a44' },
+  { key: 'reserve4', name: '行动预备组A4', tint: '#2a3a44' },
+  { key: 'reserve6', name: '行动预备组A6', tint: '#2a3a44' },
+];
+const ORG_IDS = new Set(ORGS.map((c) => `camp:${c.key}`));
+
 const campCard = (c) => Object.freeze({ id: `camp:${c.key}`, kind: 'camp', name: c.name, tint: c.tint, assetKey: `campLogo/logo_${c.key}` });
 
 /** Every card: { id, kind, name, assetKey, tint? }. */
 export const NAMECARDS = Object.freeze([
   ...LOADING.map((c) => Object.freeze({ id: `loading:${c.key}`, kind: 'loading', name: c.name, assetKey: `loading/loading_ac_${c.key}` })),
   ...CAMPS.map(campCard),
+  ...ORGS.map(campCard),
 ]);
+
+/** 干员皮肤立绘卡：id `skin:<我方皮肤 id>`。素材挂在 chars[charId].skins[id].illustration（315 套里 302 套有）。 */
+const SKIN_CARDS = () => {
+  const out = [];
+  const m = data.get('assets');
+  for (const cid of Object.keys(m?.chars || {})) {
+    const sk = m.chars[cid]?.skins;
+    if (!sk || typeof sk !== 'object') continue;
+    for (const sid of Object.keys(sk)) {
+      const rec = sk[sid];
+      if (!rec || typeof rec.illustration !== 'string' || !rec.illustration) continue;
+      out.push(Object.freeze({ id: `skin:${sid}`, kind: 'skin', name: rec.name || sid, skinId: sid, charId: cid }));
+    }
+  }
+  return new Map(out.map((c) => [c.id, c]));
+};
 const BY_ID = new Map(NAMECARDS.map((c) => [c.id, c]));
 
 /** The card of an id, or null (unknown / empty). @param {unknown} id */
 export function namecardOf(id) {
-  return typeof id === 'string' ? BY_ID.get(id) || null : null;
+  if (typeof id !== 'string') return null;
+  // A skin card is built on demand: the catalogue lives in the loaded asset index, not in a module constant.
+  if (id.startsWith('skin:')) return SKIN_CARDS().get(id) || null;
+  return BY_ID.get(id) || null;
 }
 
 const safeUrl = (src) => (typeof src === 'string' && src && !/["\\)]/.test(src) ? src : null);
 
 /** The picture of a card in the loaded asset index, or null. */
-export function namecardSrc(card, m = data.get('assets')) {
+export function namecardSrc(card, m = data.get('assets'), half = false) {
+  if (card?.kind === 'skin') {
+    // half: the picker's tile shows the half-body portrait (lazy), the plate the full illustration
+    const rec = m?.chars?.[card.charId]?.skins?.[card.skinId];
+    return safeUrl(half ? rec?.portrait : rec?.illustration);
+  }
   return safeUrl(card && m?.ui && typeof m.ui === 'object' ? m.ui[card.assetKey] : null);
 }
 
@@ -155,6 +208,16 @@ export function NameCardPicker({ current, y = null, onPick, onAdjust = null, onC
     addEventListener('keydown', onKey);
     return () => removeEventListener('keydown', onKey);
   }, []);
+  // a skin's card: the picker shows its half-body art, the plate its full illustration
+  const skinCard = (c) => {
+    const src = namecardSrc(c, data.get('assets'), true);
+    const on = current === c.id;
+    return html`<button key=${c.id} type="button" class=${'nc-pick__card nc-pick__card--skin' + (on ? ' is-on' : '')}
+        onClick=${() => pick(c.id)} title=${t(c.name)} data-testid=${'nc-skin-' + c.skinId}>
+      <span class="nc-pick__art nc-pick__art--skin">${src ? html`<img src=${src} alt="" loading="lazy" draggable=${false} />` : null}
+        <span class="nc-pick__name">${t(c.name)}</span></span>
+      ${on ? html`<span class="nc-pick__on">${t('使用中')}</span>` : null}</button>`;
+  };
   const pick = (id) => {
     onPick(id);
     if (onAdjust && adjustable(namecardOf(id))) setAdjusting(true);
@@ -173,7 +236,11 @@ export function NameCardPicker({ current, y = null, onPick, onAdjust = null, onC
         <h4 class="nc-pick__theme">${t('模拟场景')}</h4>
         ${NAMECARDS.filter((c) => c.kind === 'loading').map(card)}
         <h4 class="nc-pick__theme">${t('阵营徽记')}</h4>
-        ${NAMECARDS.filter((c) => c.kind === 'camp').map(card)}
+        ${NAMECARDS.filter((c) => c.kind === 'camp' && !ORG_IDS.has(c.id)).map(card)}
+        <h4 class="nc-pick__theme">${t('组织徽记')}</h4>
+        ${NAMECARDS.filter((c) => ORG_IDS.has(c.id)).map(card)}
+        <h4 class="nc-pick__theme">${t('干员皮肤立绘')}</h4>
+        ${[...SKIN_CARDS().values()].map(skinCard)}
       </div>`}
       <footer class="nc-pick__foot"><small>${t('名片底图显示在同盟席位的名牌后面，同盟里的博士都能看到')}</small>
         ${!adjusting && onAdjust && adjustable(namecardOf(current)) ? html`<button type="button" class="nc-adjust__btn" data-testid="nc-adjust-open" onClick=${() => setAdjusting(true)}>${t('调整显示范围')}</button>` : null}

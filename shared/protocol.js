@@ -27,7 +27,9 @@ const isCardCharId = (v) => v === '' || (isStr(v, CARD_LIMITS.idLength) && /^cha
 export const isOfficialAvatar = (v) => isStr(v, CARD_LIMITS.idLength) && /^avatar_[0-9A-Za-z_]+$/.test(v);
 const isCardAvatar = (v) => isCardCharId(v) || isOfficialAvatar(v);
 const isCardLook = (v) => v === '' || v === 'e1' || (isStr(v, CARD_LIMITS.idLength) && /^char_[0-9a-z_]+$/.test(v));
-const isCardBg = (v) => v === '' || (isStr(v, CARD_LIMITS.idLength) && /^[a-z0-9][a-z0-9_:\-\/]*$/i.test(v));
+// A plate background is `loading:<key>` / `camp:<key>` / `skin:<skin id>`; a skin id carries the fork's own
+// `<charId>@<brand>#<n>` form, so @ and # are part of a valid id (a plain [a-z0-9_:-] class would reject every skin).
+const isCardBg = (v) => v === '' || (isStr(v, CARD_LIMITS.idLength) && /^[a-z0-9][a-z0-9_:@#\-\/]*$/i.test(v));
 const isBool = (v) => typeof v === 'boolean';
 const isId = (v) => typeof v === 'string' && v.length > 0 && v.length <= 64 && /^[A-Za-z0-9_\-.:]+$/.test(v);
 const isUid = (v) => isInt(v, 1, 2 ** 31);
