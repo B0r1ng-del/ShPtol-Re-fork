@@ -1246,11 +1246,33 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
    ========================================================================================== */
 .has-nc { position: relative; isolation: isolate; text-shadow: 0 1px 2px rgba(0, 0, 0, .8); }
 /* a faction emblem is a mark, not a photograph: it sits at the right on the faction's colour, never cropped */
-.nc-layer--camp { background: var(--nc-shade, linear-gradient(90deg, rgba(8, 11, 11, .86), rgba(8, 11, 11, .5) 55%, rgba(8, 11, 11, .12))),
-  var(--nc) right 6% center / auto 150% no-repeat, var(--nc-tint, #1d2624); }
 .nc-layer { position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit;
   background: var(--nc-shade, linear-gradient(90deg, rgba(8, 11, 11, .9), rgba(8, 11, 11, .62) 50%, rgba(8, 11, 11, .2))), var(--nc) center var(--nc-y, 50%) / cover no-repeat, #101514; }
+
+/* ★ 顺序要紧：.nc-layer--camp 与 .nc-layer 特异性相同，源仓把它排在后面才赢（lobby.css:199304 vs 177389）。
+   排在前面会被通用的 cover 规则压掉 —— 表现正是徽记被拉伸铺满、没有阵营底色（需求方 2026-11-01 图三）。 */
+.nc-layer--camp { background: var(--nc-shade, linear-gradient(90deg, rgba(8, 11, 11, .86), rgba(8, 11, 11, .5) 55%, rgba(8, 11, 11, .12))),
+  var(--nc) right 6% center / auto 150% no-repeat, var(--nc-tint, #1d2624); }
+
+/* 皮肤立绘没有阵营色，24% 的默认焦点让脸落在名牌里 */
+.nc-layer--skin { background: var(--nc-shade, linear-gradient(90deg, rgba(8, 11, 11, .86), rgba(8, 11, 11, .45) 50%, rgba(8, 11, 11, .1))),
+  var(--nc) center var(--nc-y, 24%) / cover no-repeat, #101514; }
 .me-chip.has-nc { border-color: rgba(255, 255, 255, .22); }
+
+/* 顶栏的博士名片 (需求方 2026-11-01「图二」). The source fork's .me-chip carried no layout of its own either — it sat on
+   its generic button + AvatarFrame styles — so these are ours: one row (avatar, the name over DOCTOR #, the chart
+   glyph) inside the plate that .has-nc turns into the name card's own container. */
+.me-chip { position: relative; display: flex; align-items: center; gap: .12rem; padding: .06rem .12rem .06rem .06rem;
+  border: 1px solid rgba(255, 255, 255, .14); border-radius: 4px; background: rgba(13, 18, 17, .82); cursor: pointer;
+  color: #e6ecea; text-align: left; }
+.me-chip:hover, .me-chip:focus-visible { border-color: rgba(78, 216, 175, .55); outline: none; }
+.me-chip .avatar { flex: none; }
+.me-chip__text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.me-chip__name { display: flex; align-items: center; gap: .06rem; font-size: calc(.2 * var(--t)); font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.me-chip__text .micro { font-size: calc(.13 * var(--t)); color: #a9b4b0; white-space: nowrap; }
+.me-chip__stats { flex: none; width: 16px; height: 16px; color: #cfd8d4; }
+.me-chip.has-nc { overflow: hidden; }
 .dorder__card.has-nc { --nc-shade: linear-gradient(90deg, rgba(8, 11, 11, .84), rgba(8, 11, 11, .45) 40%, rgba(8, 11, 11, .25)); }
 .splate__info.has-nc { --nc-shade: linear-gradient(90deg, rgba(8, 30, 25, .78), rgba(8, 20, 18, .4) 60%, rgba(8, 11, 11, .1)); }
 

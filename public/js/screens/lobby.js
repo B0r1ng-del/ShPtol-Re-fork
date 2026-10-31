@@ -38,10 +38,13 @@ import { TestMark } from '../ui/testConsole.js';
 import { ResumeMatchButton } from '../ui/resumeMatch.js';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from '../../vendor/hooks.module.js';
 import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, MAX_SPECTATORS, modeIdFor, ERR, ULTIMATE_SEATS, ULTIMATE_DIFFICULTY } from '../../../shared/constants.js';
-import { html, confirmDialog, Button, Icon, MicroLabel, Modal, PingPill, Spinner, DifficultyIcon, TextField } from '../ui/components.js';
+import { html, confirmDialog, Button, Icon, MicroLabel, AvatarFrame, doctorNo, Modal, PingPill, Spinner, DifficultyIcon, TextField } from '../ui/components.js';
 import { Sprite, Img } from '../ui/gameComponents.js';
 import { uiUrl } from '../ui/assetUrls.js';
 import { peekStatsRecords, trophyMedalOf, aggregateStats, recordsOfSeason } from '../ui/stats.js';
+import { TrophyBadge } from '../ui/trophies.js';
+import { NameCardLayer, namecardOf } from '../ui/namecards.js';
+import { cardStore, cardMessage } from '../ui/seatArt.js';
 import { levelProgress, levelOf } from './settle.js';
 import { OwnBackdrop, LobbyScene, LobbyMediaButton } from '../ui/lobbyMedia.js';
 import { toast, toastError } from '../ui/toasts.js';
@@ -438,6 +441,33 @@ export function HubEntry({ card, onOpen, timePoint = null, timeShort = null }) {
 }
 
 /**
+ * 顶栏的博士名片 (需求方 2026-11-01「图二」, ported from the source fork's lobby.js MeChip): the picked avatar, the name with
+ * its trophy badge, DOCTOR #, and the name card behind all of it — the same card the room's seat plate shows. Opens
+ * 成就统计 (the only place this browser keeps the trophies). Its own card, not the seat's: the hub has no seat.
+ */
+function MeChip({ me, onOpen }) {
+  useData('assets');
+  const card = useStore((s) => s, shallowEqual, cardStore);
+  const m = data.get('assets');
+  // 头像：别人的皮肤外观优先，其次干员自己的头像（与 assets.js avatarUrl 同义，但那条链路是懒加载的，
+  // 不能进 main.js 的静态 import 图 —— plugins-client.test.js:445 钉住了这一点）
+  const rec = card.avatar ? m?.chars?.[card.avatar] : null;
+  const skinRec = rec && card.avatarLook ? rec.skins?.[card.avatarLook] : null;
+  const face = (skinRec && (skinRec.avatar || skinRec.avatarE2)) || (rec && (rec.avatarE2 || rec.avatar)) || null;
+  const label = t('成就统计（本机记录）');
+  const has = !!namecardOf(card.bg);
+  return html`<button type="button" class=${'me-chip' + (has ? ' has-nc' : '')} onClick=${onOpen} title=${label} aria-label=${label}>
+    ${has ? html`<${NameCardLayer} card=${card.bg} y=${card.bgY} />` : null}
+    <${AvatarFrame} size="sm" name=${me.name} src=${face} seat=${0} self=${true} />
+    <span class="me-chip__text">
+      <span class="me-chip__name"><${TrophyBadge} count=${card.trophies} class="tbadge--inline" />${me.name || t('博士')}</span>
+      <${MicroLabel}>${me.playerId != null ? `DOCTOR #${doctorNo(me.playerId)}` : 'DOCTOR'}<//>
+    </span>
+    <${Icon} name="chart" class="me-chip__stats" />
+  </button>`;
+}
+
+/**
  * The hub's top-left 成就统计 card (#643's, from the event video) — the lobby's statistics entry: a dusk scene with the
  * emblem, the trophy medal and count, and the label strip with the LV, all from this browser's records (ui/stats.js
  * peekStatsRecords, read only; no account). The LV is counted as the settlement counts it (screens/settle.js
@@ -733,6 +763,7 @@ export function AllianceSelect({ onClose, onCreate, difficulty = 'FUNNY', mode =
 /** Lobby screen component. */
 export function LobbyScreen() {
   const conn = useStore((s) => s.connection, shallowEqual);
+  const me = useStore((s) => s.me, shallowEqual);
   useData('config', 'assets');
   // Forge 工坊按钮的地址（服务端给；本机带 key）。第一次渲染时还没问到 ⇒ 这一帧不画，问到了下一帧就有。
   const [studioHref, setStudioHref] = useState(() => studioLinkUrl());
@@ -883,6 +914,7 @@ export function LobbyScreen() {
              game-rule switches are NOT here — they live in 房主配置 → 对局选项. `-X theirs` dropped this render (the
              import survived), which is why the hub lost the button after the v0.3.2 merge (需求方 2026-10-25 报). */ ''}
         <${ModMenuButton} class="lobby-modmenu" />
+        <${MeChip} me=${me} onOpen=${() => setAchOpen(true)} />
       </div>
     </header>
 

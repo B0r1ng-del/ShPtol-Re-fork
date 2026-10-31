@@ -247,7 +247,12 @@ test('成就统计 card: the lobby’s only statistics entry (no top-bar 统计�
   assert.match(lobbySrc, /<\$\{AchievementCard\} onOpen=\$\{\(\) => setAchOpen\(true\)\} \/>/);
   assert.match(lobbySrc, /achOpen \? html`<\$\{AchievementDialog\} onClose=/);
   assert.doesNotMatch(lobbySrc, /openStats/, 'the 统计数据 page opens from the window’s 查看完整统计 only');
-  assert.doesNotMatch(lobbySrc, /stats-entry|me-chip/, 'the top-bar chip is gone');
+  // 需求方 2026-11-01 反悔了这条：「把图二的也移植过来，位置在主页的右上角」 —— the source fork's MeChip (avatar, name,
+  // trophy badge, DOCTOR #) is back in the top bar, showing the player's own 名片. It still OPENS 成就统计 (never
+  // 统计数据 directly, which stays behind the window's 查看完整统计), so the two assertions above still hold.
+  assert.match(lobbySrc, /function MeChip\(\{ me, onOpen \}\)/, 'the top-bar name chip (需求方 2026-11-01)');
+  assert.match(lobbySrc, /<\$\{MeChip\} me=\$\{me\} onOpen=\$\{\(\) => setAchOpen\(true\)\} \/>/, 'it opens 成就统计');
+  assert.doesNotMatch(lobbySrc, /stats-entry/, 'no 统计数据 chip: that page is the window’s 查看完整统计 only');
   // (the season of the version shown: DESIGN §35.23 — every record on a server without versions)
   assert.match(lobbySrc, /const records = recordsOfSeason\(peekStatsRecords\(\), season\);\s*return \{ prog: levelProgress\(records/);
   assert.match(lobbySrc, /trophies: aggregateStats\(records\)\.trophies/, 'the same trophy count as the window’s 获得奖杯');
