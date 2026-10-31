@@ -210,9 +210,10 @@ export class PlayerState {
      * loadout these are PUBLIC (a teammate sees your skin), so they travel in Match.publicView().players[]. */
     this.skins = Object.freeze({});
     if (!this.isBot && seat.skins) this.setSkins(seat.skins);
-    /** 名片干员 (ui/seatArt.js): the operator this doctor shows on their seat card, '' = 默认 (chosen by player id).
+    /** 名片 (ui/playerCard.js): the whole display card this doctor shows on their seat card (名片干员 / 头像 / 底图 / 奖杯 /
+     * looks), the seat's room.card object, '' = none.
      * Cosmetic and public, like `skins`, so it travels in Match.publicView().players[]. */
-    this.card = this.isBot ? '' : (seat.card || '');
+    this.card = this.isBot ? '' : (seat.card && typeof seat.card === 'object' ? seat.card : '');
     this.shop = { level: 1, upgradePrice: this.gd.upgradeBase(1) ?? 0, slots: [], frozen: false, freeRefreshes: 0 };
     /** reward offers queue (merge rewards, special refreshes): { tier, source, label, slots: [{ kind, id, price, sold }] } */
     this.offers = [];

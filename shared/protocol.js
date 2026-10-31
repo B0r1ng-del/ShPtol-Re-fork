@@ -19,6 +19,15 @@ export { MOD_LIMITS, isModId, isModEntry, isModList, isModDigest, modDigest, mod
 // ---- tiny validators -------------------------------------------------------
 const isInt = (v, lo = -Infinity, hi = Infinity) => Number.isInteger(v) && v >= lo && v <= hi;
 const isStr = (v, max = 64) => typeof v === 'string' && v.length <= max;
+
+/** 名片底图 / 头像 / 奖杯 (room.card): the bounds the server enforces (display only, never gameplay). */
+export const CARD_LIMITS = Object.freeze({ idLength: 48, trophies: 1_000_000 });
+const isCardCharId = (v) => v === '' || (isStr(v, CARD_LIMITS.idLength) && /^char_[0-9a-z_]+$/.test(v));
+/** An official avatar key (ui/seatArt.js officialAvatars): `avatar_<id>`. */
+export const isOfficialAvatar = (v) => isStr(v, CARD_LIMITS.idLength) && /^avatar_[0-9A-Za-z_]+$/.test(v);
+const isCardAvatar = (v) => isCardCharId(v) || isOfficialAvatar(v);
+const isCardLook = (v) => v === '' || v === 'e1' || (isStr(v, CARD_LIMITS.idLength) && /^char_[0-9a-z_]+$/.test(v));
+const isCardBg = (v) => v === '' || (isStr(v, CARD_LIMITS.idLength) && /^[a-z0-9][a-z0-9_:\-\/]*$/i.test(v));
 const isBool = (v) => typeof v === 'boolean';
 const isId = (v) => typeof v === 'string' && v.length > 0 && v.length <= 64 && /^[A-Za-z0-9_\-.:]+$/.test(v);
 const isUid = (v) => isInt(v, 1, 2 ** 31);
@@ -643,9 +652,13 @@ export const C2S = {
   // 干员皮肤 (docs/SKINS.md): the appearances the player wears, keyed by operator charId; PUBLIC, so it is accepted in
   // any room phase (the loadout locks at INFO_CHECK because it changes what a unit does; a skin changes only the model)
   'room.skins': { skins: isSkinSelection },
-  // 名片干员 (PR #643 split 6): the operator whose portrait fills the player's seat card in the waiting room — an
-  // operator charId ('' for none; the server keeps only a visible charId of the room's chess.json); cosmetic, any room phase
-  'room.card': { charId: (v) => v === '' || isCharId(v) },
+  // 名片 (PR #643 split 6 + 名片底图 2026-11-01): what a doctor shows on the room's seat card — 名片干员 (charId), 头像
+  // (an official avatar key), 名片底图 (bg / bgY), 奖杯等级 (trophies) and the looks of the portrait and the avatar
+  // (精二 '' / 精一 'e1' / a skin id). Cosmetic and display only; the server keeps a visible charId of the room's
+  // chess.json and bounds the rest (CARD_LIMITS). PUBLIC: accepted in any room phase, copied to the player's seat.
+  'room.card': { charId: isCardCharId, avatar: isCardAvatar, bg: isCardBg, bgY: (v) => isInt(v, -1, 100),
+    trophies: (v) => isInt(v, 0, CARD_LIMITS.trophies), look: isCardLook, avatarLook: isCardLook,
+    $optional: ['charId', 'avatar', 'bg', 'bgY', 'trophies', 'look', 'avatarLook'] },
   // operator ownership (干员持有, 0.2.0 补位): stored per session / seat; a match takes the list its seat had when it
   // started (an out-of-match setting — during a match it is stored for the next one: ROOM_STARTED)
   'room.ownership': { notOwned: isNotOwnedList },

@@ -801,7 +801,8 @@
 .lo-tgroup { flex: none; display: flex; align-items: stretch; gap: .18rem; }
 /* the group's marker: the official sprite (150 × 595 design px: 'NO.', the numeral, the event's vertical line; at its
    design size [ASSUMED], shrunk to fit a short deck, the count below it) or the CSS marker when that art is missing */
-.lo-tmark { position: relative; flex: none; display: flex; flex-direction: column; align-items: center; min-height: 0; }
+.lo-tmark { position: relative; flex: none; display: flex; flex-direction: column; align-items: center; gap: .04rem; min-height: 0;
+  width: max(.86rem, 44px); }
 .lo-tmark__art { display: block; width: 1.5rem; height: 5.95rem; max-height: calc(100% - max(.3rem, calc(18px * var(--sp-ui, 1)))); object-fit: contain; object-position: 50% 0; }
 .lo-tmark__css { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: .04rem; width: max(.86rem, 32px, calc(44px * var(--sp-ui, 1)));
   padding: .12rem 0 max(.34rem, calc(20px * var(--sp-ui, 1))); overflow: hidden; background: linear-gradient(180deg, #2a2f2d, #151918 60%, #101312);
@@ -952,8 +953,10 @@
   --itw: max(4.6rem, 460px);
   --ith: max(2.2rem, 220px);
 }
-/* 每一级 = 一块，宽度由卡片撑开，不参与收缩 */
-.lo-deck--items .lo-tgroup { flex: none; align-items: flex-start; }
+/* 每一级 = 一块，宽度由卡片撑开，不参与收缩。
+   align-items 必须 stretch：官方皮肤的 .lo-tmark__art 改成绝对定位后不占内容高度，
+   flex-start 会把等阶标记压成 0 高（道具页的等阶分类因此整片消失）。 */
+.lo-deck--items .lo-tgroup { flex: none; align-items: stretch; }
 /* 级内固定 2 列 */
 .lo-deck--items .lo-igrid {
   grid-template-columns: repeat(2, var(--itw));

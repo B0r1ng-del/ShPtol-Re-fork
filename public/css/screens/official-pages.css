@@ -222,7 +222,9 @@
    这里按 zip 1026-1071 行覆盖，选择器加 .lo 前缀压过 .lo-deck--items 的旧规则。 ---- */
 .lo { --itw: max(4.3rem, 230px); }
 .lo .lo-deck--items { --itw: max(4.3rem, 230px); }
-.lo .lo-deck--items .lo-tgroup { flex: none; align-items: flex-start; }
+/* align-items 必须 stretch：下一行把 .lo-tmark__art 改成绝对定位，它不再贡献内容高度，
+   flex-start 会让整个等阶标记塌成 0 高（旧版道具页看不出问题，因为当时 art 还在流内）。 */
+.lo .lo-deck--items .lo-tgroup { flex: none; align-items: stretch; }
 .lo .lo-deck--items .lo-igrid { display: grid; grid-auto-flow: column; grid-template-columns: none;
   grid-template-rows: repeat(3, minmax(0, 1fr)); grid-auto-columns: var(--itw); grid-auto-rows: auto;
   gap: .14rem .16rem; min-height: 0; }

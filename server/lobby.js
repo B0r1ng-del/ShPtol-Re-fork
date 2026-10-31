@@ -1878,7 +1878,7 @@ export class Lobby {
       if (s.playerId !== room.hostId) s.ready = false;
       s.loadout = null; s.ops = null; s.notOwned = null; s.diy = null;
       s.loadoutCs = null; s.notOwnedCs = null; s.diyCs = null;
-      if (s.card && !operators.has(s.card)) s.card = null;
+      if (s.card && !operators.has(s.card.charId)) s.card = null;
     }
     this.log.info(`[lobby] ${room.code} version → ${version} (${how})`);
     this.broadcastState(room);
@@ -2137,17 +2137,37 @@ export class Lobby {
   }
 
   /**
-   * 名片干员 (room.card): the operator whose portrait fills the player's seat card — a visible charId of the room's
-   * chess.json (the server's outside a room), '' for none. Kept on the session and the seat; a change is broadcast to the room.
-   * Cosmetic: accepted in any phase, never touches a match.
+   * 名片 (room.card, 名片底图 2026-11-01): what a doctor shows on the room's seat card — 名片干员 (charId: a visible
+   * charId of the room's chess.json, the server's outside a room), 头像 (avatar), 名片底图 (bg / bgY), 奖杯等级 (trophies)
+   * and the looks (look / avatarLook). Kept on the session and the seat; a change is broadcast to the room, so teammates
+   * see the same card (PUBLIC: room.state seats[].card). Cosmetic: accepted in any phase, never touches a match.
+   *
+   * The card is a plain object now, so a field the sender left out keeps its stored value (an older client that sends
+   * only charId keeps its background). An empty string clears its field; a dropped charId drops the whole card.
    */
-  card(session, { charId }) {
+  card(session, msg) {
     const room = this.roomOf(session);
+    const charId = msg?.charId ?? '';
     if (charId && !chessCharIds(this.dataFor(room)).has(charId)) return fail(ERR.BAD_MSG, 'unknown operator');
-    session.card = charId || null;
+    const prev = session.card && typeof session.card === 'object' ? session.card : null;
+    const keep = (k, v) => (msg && Object.hasOwn(msg, k) ? v : prev?.[k] ?? null);
+    // The card is the whole plate, not just 名片干员: a background / avatar / trophy level stands on its own, so the
+    // object survives a cleared charId and is dropped only when every field is empty (the server then shows 默认).
+    const fields = {
+      charId: charId || null,
+      avatar: keep('avatar', msg.avatar || '') || null,
+      bg: keep('bg', msg.bg || '') || null,
+      bgY: keep('bgY', Number.isInteger(msg.bgY) ? msg.bgY : -1),
+      trophies: keep('trophies', Number.isInteger(msg.trophies) ? msg.trophies : 0) ?? 0,
+      look: keep('look', msg.look || '') || null,
+      avatarLook: keep('avatarLook', msg.avatarLook || '') || null,
+    };
+    const empty = !fields.charId && !fields.avatar && !fields.bg && !fields.trophies;
+    const next = empty ? null : fields;
+    session.card = next;
     const seat = room ? room.seatOf(session.playerId) : null;
-    if (seat && seat.card !== session.card) {
-      seat.card = session.card;
+    if (seat && JSON.stringify(seat.card ?? null) !== JSON.stringify(next)) {
+      seat.card = next;
       this.broadcastState(room);
     }
     return OK;
@@ -2749,7 +2769,12 @@ export class Lobby {
    * @returns {Seat}
    */
   humanSeat(idx, session, room) {
-    const card = session.card && chessCharIds(this.dataFor(room)).has(session.card) ? session.card : null;
+    // The card rides on the seat whenever it has anything to show. 名片干员 must be an operator of THIS room's data;
+    // a 名片底图 / 头像 / 奖杯 stands on its own (a doctor may pick a plate before an operator), so only that one field
+    // is dropped when the room cannot draw it — never the whole card.
+    const raw = session.card && typeof session.card === 'object' ? session.card : null;
+    const ops = raw ? chessCharIds(this.dataFor(room)) : null;
+    const card = raw && ops.has(raw.charId) ? raw : (raw && !raw.charId ? raw : null);
     return {
       seat: idx, playerId: session.playerId, name: session.name, isBot: false, ready: false, connected: session.connected, left: false,
       loadout: session.loadout || null,

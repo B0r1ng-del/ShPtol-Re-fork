@@ -48,7 +48,7 @@ import { OWNERSHIP_PREF, parseStoredOwnership, parseStoredOwnershipChars, toStor
   notOwnedView, rebaseChars } from './ownershipModel.js';
 import { parseStoredDiy, toStoredDiy, cleanPicks, sanitizeDiyPicks, diyPrefKey } from './diyModel.js';
 import { skinsStore, SKINS_KEY, SKINS_SYNC_KEY, parseStoredSkins } from './skins.js';
-import { cardStore, CARD_KEY, CARD_SYNC_KEY, cardOperators } from './seatArt.js';
+import { cardStore, CARD_KEY, CARD_SYNC_KEY, cardOperators, cardMessage } from './seatArt.js';
 import { needsContent, serverDefaultVersion } from '../versions.js';
 import { DEFAULT_VERSION } from '../../../shared/versions.js';
 import { toast } from './toasts.js';
@@ -730,14 +730,22 @@ export function installCardSync({ net, timers, target = cardStore, getChessReady
   const ready = getChessReady || (() => data.load('chess'));
   const list = listChess || (() => data.list('chess'));
   return installPrefSync({
-    net, timers, target, notify, key: CARD_KEY, stateKey: CARD_SYNC_KEY, msgType: 'room.card', field: null, tag: 'card',
+    // the whole card is the payload (名片干员 / 头像 / 底图 / 奖杯 / 外观), so every one of its fields wakes the sync —
+    // watching only CARD_KEY sent nothing when the player picked a 名片底图 before an operator.
+    net, timers, target, msgType: 'room.card', field: null, tag: 'card',
+    key: [CARD_KEY, 'avatar', 'bg', 'bgY', 'look', 'avatarLook'], stateKey: CARD_SYNC_KEY,
     lockedText: null, // room.card has no phase gate: never WRONG_PHASE / ROOM_STARTED
     content, app, gate, seatBound: false,
     async prepare() {
-      const want = target.get()[CARD_KEY];
-      if (!want) return { charId: '' };
-      if (await ready() == null) return null;
-      return { charId: cardOperators(list()).some((c) => c.charId === want) ? want : '' };
+      const state = target.get();
+      const want = state[CARD_KEY];
+      // 名片 (名片底图 2026-11-01): the whole card, not just 名片干员 — avatar / bg / bgY / look / avatarLook travel
+      // with it so teammates see the same plate (server/lobby.js card). An unknown operator falls back to 默认 (''),
+      // which clears the card; the other fields only matter while there IS a 名片干员.
+      if (await ready() == null) return want ? null : cardMessage({ ...state, [CARD_KEY]: '' });
+      const known = !!want && cardOperators(list()).some((c) => c.charId === want);
+      // An unknown operator only drops the 名片干员 — the background / avatar / trophies still go out.
+      return cardMessage({ ...state, [CARD_KEY]: known ? want : '' });
     },
   });
 }

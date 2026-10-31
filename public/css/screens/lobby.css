@@ -1236,3 +1236,69 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 .proto-list__wait { display: flex; align-items: center; gap: .08rem; margin: 0; color: var(--text-lo); font-size: calc(.15 * var(--t)); }
 .proto-list__wait.is-failed { flex-wrap: wrap; color: var(--amber); }
 .proto-list__wait.is-failed .icon { flex: none; width: 1.1em; height: 1.1em; }
+
+/* ==========================================================================================
+   名片底图 (移植自 Stronghold-Protocol, 需求方 2026-11-01: Q2 ①+② / Q3 ② 同盟可见)
+   底图垫在名牌后面（容器的 .has-nc + 里面一个 .nc-layer），左边压暗给名字让位；选择器 .nc-pick，调范围 .nc-adjust。
+   ★ 与源仓的差异：源仓这一段还带 .ach-card / .acct-me / .acct-title-card / .frow 等载体，本 fork 没有那些容器，
+     所以那几条没有搬；skin 卡片（.nc-pick__art--skin 等）也没搬 —— 我方 assets.json 没有 illustration 字段。
+   ========================================================================================== */
+.has-nc { position: relative; isolation: isolate; text-shadow: 0 1px 2px rgba(0, 0, 0, .8); }
+.nc-layer { position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit;
+  background: var(--nc-shade, linear-gradient(90deg, rgba(8, 11, 11, .9), rgba(8, 11, 11, .62) 50%, rgba(8, 11, 11, .2))), var(--nc) center var(--nc-y, 50%) / cover no-repeat, #101514; }
+.me-chip.has-nc { border-color: rgba(255, 255, 255, .22); }
+.dorder__card.has-nc { --nc-shade: linear-gradient(90deg, rgba(8, 11, 11, .84), rgba(8, 11, 11, .45) 40%, rgba(8, 11, 11, .25)); }
+.splate__info.has-nc { --nc-shade: linear-gradient(90deg, rgba(8, 30, 25, .78), rgba(8, 20, 18, .4) 60%, rgba(8, 11, 11, .1)); }
+
+.nc-pick { position: fixed; inset: 0; z-index: 420; display: grid; place-items: center; padding: 12px; background: rgba(3, 8, 6, .6); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
+.nc-pick__panel { width: min(780px, 100%); max-height: min(620px, calc(var(--sp-vh, 1vh) * 100 - 24px)); display: flex; flex-direction: column; color: #e6ecea;
+  background: #0d1211; border: 1px solid rgba(78, 216, 175, .35); box-shadow: 0 12px 40px rgba(0, 0, 0, .6); font-size: 14px; }
+.nc-pick__head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid rgba(255, 255, 255, .08); }
+.nc-pick__head strong { font-family: var(--font-display); font-size: 12px; letter-spacing: .12em; color: var(--mint-400); }
+.nc-pick__title { font-size: 16px; font-weight: 700; }
+.nc-pick__x { margin-left: auto; width: 32px; height: 32px; padding: 0; border: 0; background: none; color: #cfd8d5; font-size: 24px; line-height: 1; cursor: pointer; }
+.nc-pick__x:hover { color: var(--mint-400); }
+.nc-pick__status { margin: 0; padding: 8px 14px 0; color: #9aa6a2; }
+.nc-pick__status:empty { display: none; }
+.nc-pick__status.is-error { color: #ff8a7a; }
+.nc-pick__grid { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  grid-auto-rows: max-content; align-content: start; gap: 8px; padding: 10px 14px 14px; }
+.nc-pick__theme { grid-column: 1 / -1; margin: 8px 0 0; font-size: 13px; font-weight: 700; color: #b9c2bf; }
+.nc-pick__theme:first-child { margin-top: 0; }
+.nc-pick__card { position: relative; padding: 0; border: 2px solid transparent; border-radius: 4px; background: #101514; cursor: pointer; }
+.nc-pick__card img { width: 100%; height: auto; aspect-ratio: 600 / 186; object-fit: cover; display: block; border-radius: 2px; }
+.nc-pick__card:hover, .nc-pick__card:focus-visible { border-color: rgba(78, 216, 175, .6); outline: none; }
+.nc-pick__card.is-on { border-color: var(--mint-400); }
+.nc-pick__card.is-busy { opacity: .55; }
+.nc-pick__on { position: absolute; right: 4px; bottom: 4px; padding: 1px 6px; font-size: 11px; font-weight: 700; color: #06231b; background: var(--mint-400); border-radius: 2px; }
+.nc-pick__foot { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid rgba(255, 255, 255, .08); }
+.nc-pick__foot small { flex: 1; min-width: 0; color: #8c9894; }
+@media (max-width: 560px), (max-height: 520px) {
+  .nc-pick__grid { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); }
+  .nc-pick__foot small { display: none; }
+}
+.nc-pick__card { display: flex; flex-direction: column; text-align: left; }
+/* a skin's card (feedback #24): the picker shows its half-body art (lazy), the plate its full illustration */
+/* 调整显示范围 (feedback #61): the plate follows the pointer; the shape of a room seat's name plate */
+.nc-adjust { display: flex; flex-direction: column; gap: 10px; padding: 12px; overflow: auto; }
+.nc-adjust__plate { width: min(100%, 600px); aspect-ratio: 9 / 2; margin: 0 auto; border-radius: 2px; overflow: hidden; background: #101514; cursor: ns-resize; touch-action: none; user-select: none; -webkit-user-select: none; }
+.nc-adjust__hint { position: absolute; left: 10px; bottom: 8px; display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 13px; color: #e6ecea; background: rgba(0, 0, 0, .5); border-radius: 2px; pointer-events: none; }
+.nc-adjust__range { width: min(100%, 600px); margin: 0 auto; accent-color: #4fe8c0; }
+.nc-adjust__foot { display: flex; justify-content: center; gap: 10px; }
+.nc-adjust__btn { min-height: 34px; padding: 4px 14px; font: inherit; font-size: 14px; color: #e6ecea; background: rgba(0, 0, 0, .4); border: 1px solid rgba(255, 255, 255, .25); border-radius: 2px; cursor: pointer; }
+.nc-adjust__btn:hover, .nc-adjust__btn:focus-visible { border-color: #4fe8c0; }
+.nc-adjust__btn--go { color: #08221b; background: #4fe8c0; border-color: #4fe8c0; }
+.nc-pick__art { position: relative; display: flex; align-items: center; gap: .08rem; width: 100%; aspect-ratio: 600 / 186; padding: 0 12px; border-radius: 2px; overflow: hidden;
+  color: #eef3f1; font-size: 13px; font-weight: 700; background: #101514; }
+.nc-pick__card--none .nc-pick__art { justify-content: center; color: #9aa6a2; border: 1px dashed rgba(255, 255, 255, .18); }
+.nc-pick__card--none .icon { width: 18px; height: 18px; }
+/* 成就奖杯等级 (ui/trophies.js): 累计奖杯对应的官方棋子徽章；素材缺失时退成 SVG 车，按等级换色 */
+.tbadge { display: inline-grid; place-items: center; flex: none; object-fit: contain; width: .3rem; height: .3rem; }
+.tbadge--svg .icon { width: 100%; height: 100%; }
+.tbadge--svg.tbadge--1 { color: #e8efec; }
+.tbadge--svg.tbadge--2 { color: #7fd6c4; }
+.tbadge--svg.tbadge--3 { color: #d9c08a; }
+.tbadge--svg.tbadge--4 { color: #f2c14e; }
+.tbadge--svg.tbadge--5 { color: #f08a3a; }
+.tbadge--inline { width: 1.35em; height: 1.35em; margin-right: .2em; vertical-align: middle; filter: drop-shadow(0 0 2px rgba(0, 0, 0, .6)); }
+.splate__rank > .tbadge { width: .44rem; height: .44rem; }

@@ -161,7 +161,7 @@ export class MatchViews {
         ...(Object.keys(ps.skins).length ? { skins: ps.skins } : {}),
         // 名片干员 (ui/seatArt.js): PUBLIC like the skins — this is how a teammate sees your seat card. Omitted when
         // unset, which is the normal case (the card then falls back to one chosen by the player id).
-        ...(ps.card ? { card: ps.card } : {}),
+        ...(ps.card && typeof ps.card === 'object' ? { card: ps.card } : {}),
         // the LP this round's own battle will cost at settlement so far (COMBAT / 联防 only, omitted when 0)
         ...this._pendingLpView(ps),
       })),

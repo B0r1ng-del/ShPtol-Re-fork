@@ -11,6 +11,7 @@
 
 import { createStore, loadPref, savePref } from '../store.js';
 import { ownerSkin } from './skins.js';
+import { namecardOf } from './namecards.js';
 
 /** 名片干员: the player's own pick (a localStorage pref, sent as room.card). */
 export const CARD_PREF = 'room.card';
@@ -35,6 +36,79 @@ export function setCard(charId) {
   const next = parseStoredCard(charId);
   try { savePref(CARD_PREF, next); } catch { /* private mode: the session keeps it */ }
   cardStore.set({ [CARD_KEY]: next });
+}
+
+// ---- 名片其余字段 (名片底图 2026-11-01): 头像 / 底图 / 奖杯 / 两个外观 ---------------------------------------------
+// 全部存在同一个 cardStore 里（`CARD_KEY` 仍是名片干员，其余字段各占一个 key），由 ui/loadoutSync.js 的
+// installCardSync 一起作为 room.card 发出去。服务端只做范围校验，不改玩法（shared/protocol.js CARD_LIMITS）。
+
+/** 头像: the operator whose official avatar stands for the player ('' = none: the strategy icon / the name's glyph). */
+export const AVATAR_PREF = 'room.avatar';
+/** The looks ('' 精二, 'e1' 精一, a skin id) of the 名片干员 and of the 头像 operator. */
+export const CARD_LOOK_PREF = 'room.card.look';
+export const AVATAR_LOOK_PREF = 'room.avatar.look';
+
+const str = (v) => (typeof v === 'string' ? v : '');
+
+/** A stored vertical position: an integer 0–100, else null. */
+const storedY = (v) => (Number.isInteger(v) && v >= 0 && v <= 100 ? v : null);
+const loadY = (key) => { try { return storedY(JSON.parse(loadPref(key, 'null'))); } catch { return null; } };
+const saveY = (key, v) => { try { savePref(key, JSON.stringify(v)); } catch { /* private mode */ } };
+
+// 把其余字段并进同一个 store（上面的 createStore 已建好，这里补字段）
+cardStore.set({
+  avatar: str(loadPref(AVATAR_PREF, '')),
+  bg: str(loadPref('room.namecard', '')),
+  bgY: loadY('room.namecard.y'),
+  look: str(loadPref(CARD_LOOK_PREF, '')),
+  avatarLook: str(loadPref(AVATAR_LOOK_PREF, '')),
+});
+
+/** @param {string} charId '' = none */
+export function setCardAvatar(charId) {
+  const id = str(charId);
+  if (id !== cardStore.get().avatar) setAvatarLook('');
+  try { savePref(AVATAR_PREF, id); } catch { /* private mode */ }
+  cardStore.set({ avatar: id });
+}
+/** @param {string} look '' 精二 / 'e1' 精一 / a skin id of the 名片干员 */
+export function setCardLook(look) {
+  const v = str(look);
+  try { savePref(CARD_LOOK_PREF, v); } catch { /* private mode */ }
+  cardStore.set({ look: v });
+}
+/** @param {string} look '' / 'e1' / a skin id of the 头像 operator */
+export function setAvatarLook(look) {
+  const v = str(look);
+  try { savePref(AVATAR_LOOK_PREF, v); } catch { /* private mode */ }
+  cardStore.set({ avatarLook: v });
+}
+/** @param {number|null} y the background's vertical position in percent; null = the card's default */
+export function setCardBackgroundY(y) {
+  const v = storedY(y);
+  saveY('room.namecard.y', v);
+  cardStore.set({ bgY: v });
+}
+/** @param {string} bg '' = none (another background starts at its default position) */
+export function setCardBackground(bg) {
+  const id = namecardOf(bg) ? bg : '';
+  if (id !== cardStore.get().bg) setCardBackgroundY(null);
+  try { savePref('room.namecard', id); } catch { /* private mode */ }
+  cardStore.set({ bg: id });
+}
+
+/**
+ * The room.card message of a card: empty fields as '' (the server drops them), trophies bounded.
+ * @param {any} card cardStore's state
+ */
+export function cardMessage(card) {
+  const trophies = Number.isSafeInteger(card?.trophies) ? Math.max(0, Math.min(1_000_000, card.trophies)) : 0;
+  const charId = str(card?.[CARD_KEY]), avatar = str(card?.avatar);
+  const bg = namecardOf(card?.bg) ? card.bg : '';
+  // A background / avatar / trophy level stands on its own (a doctor may pick a plate before an operator), so only the
+  // two LOOKS depend on their own target being set.
+  return { charId, avatar, bg, bgY: bg ? storedY(card?.bgY) ?? -1 : -1, trophies,
+    look: charId ? str(card?.look) : '', avatarLook: avatar ? str(card?.avatarLook) : '' };
 }
 
 /** FNV-1a of a string (the default portrait: the same operator for a player on every client). */
