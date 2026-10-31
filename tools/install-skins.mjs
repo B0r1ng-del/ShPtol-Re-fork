@@ -222,6 +222,11 @@ export async function installSkins(ids, { log = console.log, force = false, onPr
     if (portraitUrl) entry.portrait = portraitUrl;
     entry.name = skin.name;
     entry.group = skin.group;
+    // 立绘 (the name card's full illustration, ui/namecards.js) comes from prts.wiki via a separate pass, not from the
+    // spine source this tool reads. Re-installing a skin must not drop the illustration it already has, or every plate
+    // that picked it would go blank.
+    const priorIllust = manifest.chars?.[charId]?.skins?.[id]?.illustration;
+    if (priorIllust) entry.illustration = priorIllust;
     const c = manifest.chars[charId] || (manifest.chars[charId] = {});
     c.skins = c.skins || {};
     c.skins[id] = entry;
