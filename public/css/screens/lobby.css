@@ -1244,6 +1244,9 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
      所以那几条没有搬；skin 卡片（.nc-pick__art--skin 等）也没搬 —— 我方 assets.json 没有 illustration 字段。
    ========================================================================================== */
 .has-nc { position: relative; isolation: isolate; text-shadow: 0 1px 2px rgba(0, 0, 0, .8); }
+/* a faction emblem is a mark, not a photograph: it sits at the right on the faction's colour, never cropped */
+.nc-layer--camp { background: var(--nc-shade, linear-gradient(90deg, rgba(8, 11, 11, .86), rgba(8, 11, 11, .5) 55%, rgba(8, 11, 11, .12))),
+  var(--nc) right 6% center / auto 150% no-repeat, var(--nc-tint, #1d2624); }
 .nc-layer { position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit;
   background: var(--nc-shade, linear-gradient(90deg, rgba(8, 11, 11, .9), rgba(8, 11, 11, .62) 50%, rgba(8, 11, 11, .2))), var(--nc) center var(--nc-y, 50%) / cover no-repeat, #101514; }
 .me-chip.has-nc { border-color: rgba(255, 255, 255, .22); }
@@ -1302,3 +1305,11 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 .tbadge--svg.tbadge--5 { color: #f08a3a; }
 .tbadge--inline { width: 1.35em; height: 1.35em; margin-right: .2em; vertical-align: middle; filter: drop-shadow(0 0 2px rgba(0, 0, 0, .6)); }
 .splate__rank > .tbadge { width: .44rem; height: .44rem; }
+
+/* 需求方 2026-11-01: same as H:\Stronghold-Protocol-master — the plate itself carries a 「更换名片底图」 button in its
+   top-right corner (not a tab inside the operator picker), and a faction emblem sits to the right of the plate on the
+   faction's own colour instead of being cropped like a photograph. */
+.rseat__bg { position: absolute; right: .04rem; top: .04rem; z-index: 1; display: grid; place-items: center; width: max(.3rem, 22px); height: max(.3rem, 22px); padding: 0;
+  color: #eef0ef; background: rgba(0, 0, 0, .45); border: 1px solid rgba(255, 255, 255, .25); border-radius: 3px; cursor: pointer; opacity: .7; }
+.rseat__bg:hover, .rseat__bg:focus-visible { opacity: 1; border-color: #5df0c6; }
+.rseat__bg .icon { width: 70%; height: 70%; }

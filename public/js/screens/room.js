@@ -74,7 +74,7 @@ import { net } from '../net.js';
 import { store, useStore, shallowEqual, emptyMatch, isSpectating, savePref } from '../store.js';
 import { data, useData, getConfig } from '../data.js';
 import { chessAvatarUrl, chessPortraitUrl } from '../ui/assetUrls.js';
-import { CARD_KEY, cardStore, setCard, setCardBackground, cardOperators, cardContext, seatOperator, seatCardSkin, seatArtSrc } from '../ui/seatArt.js';
+import { CARD_KEY, cardStore, setCard, setCardBackground, setCardBackgroundY, cardOperators, cardContext, seatOperator, seatCardSkin, seatArtSrc } from '../ui/seatArt.js';
 import { NameCardLayer, NameCardPicker } from '../ui/namecards.js';
 import { TrophyBadge } from '../ui/trophies.js';
 import { skinsStore, SKINS_KEY, ownerSkin } from '../ui/skins.js';
@@ -308,8 +308,7 @@ function CardThumb({ src, name }) {
  * the current choice takes the focus (no on-screen keyboard on a phone). A local picker: each tile wears this browser's
  * outfit for that operator (`localSkins`, docs/SKINS.md), as the card will.
  */
-function CardPicker({ current, list, m, localSkins = {}, onPick, onClose, bg = '', onPickBg = null, bgY = null }) {
-  const [tab, setTab] = useState('op');
+function CardPicker({ current, list, m, localSkins = {}, onPick, onClose }) {
   const [q, setQ] = useState('');
   const [star, setStar] = useState(0);
   const stars = useMemo(() => [...new Set(list.map((c) => c.rarity).filter((r) => r > 0))].sort((a, b) => b - a), [list]);
@@ -317,20 +316,8 @@ function CardPicker({ current, list, m, localSkins = {}, onPick, onClose, bg = '
   const needle = q.trim().toLowerCase();
   const shown = list.filter((c) => (!star || c.rarity === star)
     && (!needle || [c.name, c.appellation].some((v) => String(v || '').toLowerCase().includes(needle))));
-  // 名片底图 (需求方 2026-11-01: Q2 ①+②): the same dialog picks the plate's background; the operator grid stays the
-  // default tab, so an existing picker keeps working exactly as before.
-  if (tab === 'bg') {
-    return html`<${Modal} open=${true} class="cardpick" micro="NAME CARD" title=${t('名片底图')} width="min(13rem, 96vw)"
-        onClose=${onClose} actions=${html`<${Button} variant="ghost" onClick=${onClose}>${t('关闭')}<//>`}>
-      <${NameCardPicker} current=${bg} y=${bgY} onPick=${onPickBg || (() => {})} onAdjust=${null} onClose=${onClose} />
-    <//>`;
-  }
   return html`<${Modal} open=${true} class="cardpick" micro="SEAT CARD OPERATOR" title=${t('名片干员')} width="min(10.4rem, 96vw)"
       onClose=${onClose} actions=${html`<${Button} variant="ghost" onClick=${onClose}>${t('关闭')}<//>`}>
-    <div class="cardpick__tabs" role="tablist">
-      <button type="button" role="tab" aria-selected=${tab === 'op'} class=${tab === 'op' ? 'is-on' : ''} onClick=${() => setTab('op')}>${t('名片干员')}</button>
-      <button type="button" role="tab" aria-selected=${tab === 'bg'} class=${tab === 'bg' ? 'is-on' : ''} onClick=${() => setTab('bg')} data-testid="cardpick-bg-tab">${t('名片底图')}</button>
-    </div>
     <div class="cardpick__bar">
       <${TextField} class="cardpick__search" size="sm" icon="search" value=${q} onInput=${setQ} placeholder=${t('搜索干员')} />
       <div class="cardpick__stars" role="radiogroup" aria-label=${t('稀有度')}>
@@ -369,7 +356,7 @@ function CardPicker({ current, list, m, localSkins = {}, onPick, onClose, bg = '
  */
 /** The display card a seat carries (room.state seats[].card, an object since 名片底图), or null. */
 const seatCardOf = (seat) => (seat && typeof seat.card === 'object' && seat.card ? seat.card : null);
-function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot, onKick, onInvite, portrait = null, portraitDefault = null, operator = null, onPickCard = null, fresh = false }) {
+function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot, onKick, onInvite, portrait = null, portraitDefault = null, operator = null, onPickCard = null, onPickBg = null, fresh = false }) {
   const [badArt, setBadArt] = useState([]);
   const coop = room.mode !== 'solo';
   // the 转场 flash: a seat that turns ready (or becomes the host's), and an AI teammate added while the room is open
@@ -442,6 +429,8 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
       <${AvatarFrame} size="sm" name=${seat.name} seat=${index} bot=${seat.isBot} self=${isMe} />
       <span class="rseat__who">${seatCardOf(seat)?.trophies ? html`<${TrophyBadge} count=${seatCardOf(seat).trophies} class="tbadge--inline" />` : null}<b class="seat__name">${botPrefix ? html`<span class="seat__name-pre">${botPrefix[0]}</span>${botPrefix[1]}` : seat.name || t('博士')}</b>${isMe ? html`<span class="seat__you" aria-hidden="true">${t('你')}</span>` : null}</span>
       <small class="rseat__doc">${seat.isBot ? 'AUTONOMOUS UNIT' : `DOCTOR #${doctorNo(seat.playerId)}`}</small>
+      ${isMe && onPickBg ? html`<button type="button" class="rseat__bg" data-testid="seat-bg-pick" onClick=${onPickBg}
+        title=${t('更换名片底图')} aria-label=${t('更换名片底图')}><${Icon} name="edit" /></button>` : null}
     </div>
   </article>`;
 }
@@ -733,7 +722,8 @@ export function RoomScreen() {
   const myBgY = useStore((s) => s.bgY, Object.is, cardStore);
   const localSkins = useStore((s) => s[SKINS_KEY], Object.is, skinsStore);
   const otherSkins = useStore((s) => s.otherSkins !== false, Object.is, settingsStore);
-  const [picking, setPicking] = useState(false);
+  // 'op' | 'bg' | null — the plate's own ✎ button opens the background picker, the art's 更换立绘 the operator one
+  const [picking, setPicking] = useState(null);
   // the room whose seats are on screen: a seat card that mounts after its first render is new (an AI teammate added)
   const shownRoom = useRef('');
   useEffect(() => { shownRoom.current = room?.code || ''; });
@@ -770,7 +760,7 @@ export function RoomScreen() {
   }, [room?.code, room?.version]);
   // the room sees one's pick once the server has it (seats[].card): ui/loadoutSync.js installCardSync sends it after
   // every pick, welcome and content change and retries a RATE / TIMEOUT / OFFLINE refusal (review of PR #813)
-  const pickCard = (charId) => { setCard(charId); setPicking(false); };
+  const pickCard = (charId) => { setCard(charId); setPicking(null); };
 
   if (!room) return null;
   const online = conn.status === 'online';
@@ -1010,7 +1000,7 @@ export function RoomScreen() {
         return html`<${SeatCard} key=${s ? `p${s.playerId}` : `e${i}`} seat=${s} index=${i} room=${room} facts=${facts}
           myId=${me.playerId} busy=${busy} onAddBot=${addBot} onRemoveBot=${removeBot} onKick=${kick} onInvite=${() => copy('code')}
           portrait=${op ? chessPortraitUrl(data.get('assets'), op.chess, { skin }) : null}
-          portraitDefault=${op && skin ? chessPortraitUrl(data.get('assets'), op.chess) : null} operator=${op?.chess} onPickCard=${() => setPicking(true)}
+          portraitDefault=${op && skin ? chessPortraitUrl(data.get('assets'), op.chess) : null} operator=${op?.chess} onPickCard=${() => setPicking('op')} onPickBg=${() => setPicking('bg')}
           fresh=${shownRoom.current === room.code} />`;
       })}
       ${coop ? null : html`<aside class="solo-brief rs-brief brackets">
@@ -1058,7 +1048,9 @@ export function RoomScreen() {
             <//>`}
       </div>
     </footer>
-    ${picking ? html`<${CardPicker} current=${myCard} list=${cardList} m=${data.get('assets')} localSkins=${localSkins} onPick=${pickCard} bg=${myBg} bgY=${myBgY} onPickBg=${setCardBackground} onClose=${() => setPicking(false)} />` : null}
+    ${picking === 'bg' ? html`<${NameCardPicker} current=${myBg} y=${myBgY} onPick=${setCardBackground} onAdjust=${setCardBackgroundY}
+      onClose=${() => setPicking(null)} />` : null}
+    ${picking === 'op' ? html`<${CardPicker} current=${myCard} list=${cardList} m=${data.get('assets')} localSkins=${localSkins} onPick=${pickCard} onClose=${() => setPicking(null)} />` : null}
     ${protoOpen ? facts.isHost
       ? html`<${ProtocolSelect} roomMode=${room.mode} difficulty=${protoPick || room.difficulty} onDifficulty=${setProtoPick} onClose=${closeProto}
           onCreate=${confirmDifficulty} busy=${busy === 'diff' ? 'create' : null} online=${online} action=${t('确认')} hint=${protoHint} difficulties=${protoDifficulties} />`

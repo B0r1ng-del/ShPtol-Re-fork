@@ -78,3 +78,6 @@ public/dev/simcheck/data/
 /*.docx
 /*.pdf
 /*.png
+
+# PowerShell 变量没展开时按字面名建出来的目录（Windows 缓存 db），不是项目文件
+%SystemDrive%/

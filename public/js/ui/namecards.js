@@ -100,7 +100,8 @@ export function NameCardLayer({ card, y = null }) {
   const src = namecardSrc(nc);
   if (!nc || !src) return null;
   const pos = namecardY(y);
-  return html`<span class=${'nc-layer'}
+  // the kind goes on the class: a faction emblem is laid out as a mark (nc-layer--camp), a scene as a photograph
+  return html`<span class=${'nc-layer nc-layer--' + nc.kind}
     style=${'--nc:url("' + src + '")' + (nc.tint ? '; --nc-tint:' + nc.tint : '') + (pos == null ? '' : '; --nc-y:' + pos + '%')} />`;
 }
 
