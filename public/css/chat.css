@@ -39,7 +39,7 @@
   flex: 1; min-width: 0; display: flex; align-items: center; gap: .07rem;
   height: .36rem; padding: 0 .12rem;
   background: transparent; border: 0; color: var(--text-md);
-  font-size: .126rem; font-weight: 700; letter-spacing: .04em;
+  font-size: calc(.126 * var(--t)); font-weight: 700; letter-spacing: .04em;
   cursor: pointer; text-align: left;
 }
 .chat__title:hover { color: var(--mint-400); }
@@ -54,20 +54,20 @@
   max-height: 1.75rem; min-height: .72rem; overflow-y: auto; overscroll-behavior: contain;
   padding: .09rem .12rem; display: flex; flex-direction: column; gap: .08rem;
 }
-.chat__empty { margin: 0; padding: .18rem 0; color: var(--text-dim); font-size: .115rem; text-align: center; }
+.chat__empty { margin: 0; padding: .18rem 0; color: var(--text-dim); font-size: calc(.115 * var(--t)); text-align: center; }
 
 .chat__line { display: flex; align-items: flex-start; gap: .08rem; }
 .chat__line .avatar { flex: none; margin-top: .01rem; }
 .chat__speech { min-width: 0; flex: 1; }
 .chat__meta { display: flex; align-items: baseline; gap: .06rem; }
 .chat__name {
-  color: var(--mint-400); font-size: .115rem; font-weight: 700; letter-spacing: .02em;
+  color: var(--mint-400); font-size: calc(.115 * var(--t)); font-weight: 700; letter-spacing: .02em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%;
 }
 .chat__line.is-self .chat__name { color: var(--gold); }
-.chat__stamp { color: var(--text-dim); font-size: .1rem; flex: none; }
+.chat__stamp { color: var(--text-dim); font-size: calc(.1 * var(--t)); flex: none; }
 .chat__text {
-  margin: 0; color: var(--text-hi); font-size: .122rem; line-height: 1.45;
+  margin: 0; color: var(--text-hi); font-size: calc(.122 * var(--t)); line-height: 1.45;
   word-break: break-word; white-space: pre-wrap;
 }
 
@@ -86,7 +86,7 @@
 .chat__input {
   flex: 1; min-width: 0; height: .32rem; padding: 0 .1rem;
   background: rgba(8, 11, 10, .75); border: 1px solid var(--line-2); border-radius: .03rem;
-  color: var(--text-hi); font-family: var(--font-cjk); font-size: .122rem; line-height: 1;
+  color: var(--text-hi); font-family: var(--font-cjk); font-size: calc(.122 * var(--t)); line-height: 1;
 }
 .chat__input::placeholder { color: var(--text-dim); }
 .chat__input:focus { outline: none; border-color: var(--mint-700); box-shadow: 0 0 0 1px var(--mint-a20); }
@@ -116,7 +116,7 @@
 .gm__corner.is-chat-folded { bottom: calc(.24rem + .34rem + .06rem); }
 @media (max-width: 767px) {
   /* a phone keeps the window's own bottom (.2rem, below) and its touch-taller title bar (34 px) */
-  .gm__corner.is-chat-folded { bottom: calc(.2rem + max(.34rem, 34px) + .06rem); }
+  .gm__corner.is-chat-folded { bottom: calc(.2rem + max(.34rem, calc(34px * var(--sp-ui, 1))) + .06rem); }
 }
 
 /* ---- 聊天弹幕 (设置「聊天弹幕」) — the room's lines cross the screen --------------------------------------------- */
@@ -131,7 +131,7 @@
   display: flex; align-items: center; gap: .07rem; white-space: nowrap;
   padding: .03rem .12rem .03rem .1rem;
   background: rgba(8, 11, 10, .55); border-left: 2px solid var(--mint-600);
-  color: var(--text-hi); font-size: .15rem; line-height: 1.5;
+  color: var(--text-hi); font-size: calc(.15 * var(--t)); line-height: 1.5;
   text-shadow: 0 1px 2px rgba(0, 0, 0, .9);
   animation: chat-cross var(--cb-sec, 11s) linear forwards;
 }

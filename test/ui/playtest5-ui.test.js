@@ -94,8 +94,11 @@ describe('8: the settings gear is a clean, regular icon', () => {
     const css = read('public/css/devices.css');
     const phone = css.slice(css.indexOf('@media (max-height: 600px) and (pointer: coarse)'));
     const block = phone.slice(0, phone.indexOf('\n}\n'));
-    assert.match(block, /\.gm__tools \.gm__gear \{ width: max\(\.5rem, 28px\); height: max\(\.5rem, 28px\); \}/);
-    assert.match(block, /\.gm__tools \.gm__gear \.icon \{ width: max\(\.26rem, 14px\); height: max\(\.26rem, 14px\); \}/);
+    // (the values below are the design ones: `read()` writes every --sp-ui floor back as its bare px, test/helpers/uiSize.js)
+    assert.match(block, /\.gm__gear \{ width: max\(\.56rem, 34px\); height: max\(\.56rem, 34px\); \}/);
+    assert.match(block, /\.gm__tools \.gm__gear \.icon \{ width: max\(\.28rem, 17px\); height: max\(\.28rem, 17px\); \}/);
+    // the phone glyph stays half the phone button (.28 : .56, the desktop ratio)
+    assert.equal(/max\(\.28rem, 17px\)/.test(block) && /max\(\.56rem, 34px\)/.test(block), true);
     // desktop: .28rem in a .56rem button — the same half
     assert.match(read('public/css/screens/game.css'), /\.gm__gear \.icon \{ width: \.28rem; height: \.28rem; \}/);
   });
@@ -122,10 +125,11 @@ describe('9: the prep camera keeps the bench clear of the shop bar on phones in 
     const game = read('public/css/screens/game.css');
     const shop = read('public/css/screens/game-shop.css');
     // #678: clip padding is offset by margins; the 44 px arrows can still raise the band on phones.
-    assert.match(game, /\.gm__bonds \{ position: absolute; left: 1\.56rem; top: 1\.36rem;/);
+    assert.match(game, /\.gm__bonds \{ position: absolute; left: 0; right: 0; top: 1\.36rem;/);
     assert.match(game, /\.bslot \.bond \{ --disc: \.52rem; \}/);
     assert.match(game, /\.gm__bonds \.bstrip-scroll \.bstrip \{[^}]*padding: \.08rem 0; margin: -\.08rem 0;/);
-    assert.match(game, /\.gm__bonds \.bstrip-scroll__arrow \{[^}]*height: 44px;/);
+    // (the ‹ › arrows went on 2026-10-25 — game.css keeps their note only; the constant stays as the band's headroom for
+    //  a taller measured scroller, see hudBands)
     assert.equal(HUD_REM.bondStripTop, 1.36);
     assert.equal(HUD_REM.bondStripBottom, 2.16);
     assert.equal(HUD_REM.bondArrowPx, 44);

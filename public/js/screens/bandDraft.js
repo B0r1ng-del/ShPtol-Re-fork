@@ -50,6 +50,7 @@ import { onBootArt, preloadBootArt } from '../ui/protocolBoot.js';
 import { reducedMotion } from '../ui/device.js';
 import { useRise } from '../ui/transitions.js';
 import { CARD_KEY, cardStore, cardOperators, cardContext, seatOperator, seatCardSkin, seatArtSrc } from '../ui/seatArt.js';
+import { NameCardLayer } from '../ui/namecards.js';
 import { skinsStore, SKINS_KEY } from '../ui/skins.js';
 import { settingsStore } from '../ui/settingsStore.js';
 import { chessPortraitUrl, uiUrl } from '../ui/assetUrls.js';
@@ -241,13 +242,14 @@ function BandText({ band, class: cls }) {
  * @param {{ p: any, i: number, picked: string|null, cur: boolean, self: boolean, arts: (string|null)[]|null, medal: string|null,
  *   gd: any, onPeek: (bandId: string) => void }} props
  */
-function OrderRow({ p, i, picked, cur, self, arts, medal, gd, onPeek }) {
+function OrderRow({ p, i, picked, cur, self, arts, card, medal, gd, onPeek }) {
   const flash = useRise(!!picked, 1100);
   const [badArt, setBadArt] = useState([]);
   const art = seatArtSrc(arts, badArt);
   const pband = picked ? gd.band(picked) : null;
   return html`<div class=${cx('dorder', cur && 'is-cur', picked && 'is-done', self && 'is-self', flash && 'is-flash')} style=${`--i:${i}`}>
-    <div class="dorder__card">
+    <div class=${'dorder__card' + (card ? ' has-nc' : '')}>
+      ${card ? html`<${NameCardLayer} card=${card.bg} y=${card.bgY} />` : null}
       ${art ? html`<img key=${art} class="dorder__art" src=${art} alt="" aria-hidden="true" draggable=${false}
         onError=${() => setBadArt((b) => (b.includes(art) ? b : [...b, art]))} />` : null}
       <span class="dorder__face"><${PlayerAvatar} player=${p} self=${self} />${self ? html`<span class="dorder__me" title=${t('你')}><${Icon} name="user" /></span>` : null}</span>
@@ -401,6 +403,13 @@ export function BandDraftScreen({ held = null } = {}) {
     const skin = op ? seatCardSkin(p, op.chess.charId, { myId, localSkins, players, otherSkins }) : null;
     return op ? [chessPortraitUrl(data.get('assets'), op.chess, { skin }), skin ? chessPortraitUrl(data.get('assets'), op.chess) : null] : null;
   };
+  // 名片底图 on the order rows (需求方 2026-11-01 图一：选策略界面也要显示底图，不只是房间里的名牌)。
+  // 与 artOf 同一套 seat 取法：自己取本地、队友取服务器 seats[].card —— 房间里的名牌就是这么取的。
+  const cardOf = (p) => {
+    if (p.isBot) return null;
+    const seat = (Array.isArray(roomSeats) && roomSeats.find((x) => x && x.playerId === p.playerId)) || null;
+    return seat && typeof seat.card === 'object' && seat.card ? seat.card : null;
+  };
   // this browser's records (up to the stats store's size): read once, after the screen and its entry are up, not while
   // it mounts
   const [local, setLocal] = useState(NO_RECORDS);
@@ -448,7 +457,7 @@ export function BandDraftScreen({ held = null } = {}) {
             const picked = draft.picks.get(p.playerId) || (p.playerId === myId ? myPick : p.bandId) || null;
             const cur = !picked && !allPicked && (solo || draft.turnPid === p.playerId);
             return html`<${OrderRow} key=${p.playerId} p=${p} i=${i} picked=${picked} cur=${cur} self=${p.playerId === myId}
-              arts=${artOf(p)} medal=${p.playerId === myId ? myMedal : null} gd=${gd} onPeek=${peekBand} />`;
+              arts=${artOf(p)} card=${cardOf(p)} medal=${p.playerId === myId ? myMedal : null} gd=${gd} onPeek=${peekBand} />`;
           })}
         </div>
         ${!solo ? html`<p class="draft-order__tip" data-testid="draft-tip">${draftTip({ timed, turnSeconds: turnLen, autoName: myPick ? null : autoName, selected: open && autoId === sel })}</p>` : null}

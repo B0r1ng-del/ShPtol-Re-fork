@@ -228,8 +228,8 @@
 /* ---- 19. 道具页（需求方 2026-10-31：干员调配页里的道具页也全部移植覆盖过来）-----------------------
    本仓 loadout.css 的道具页是「每级 2 列 × 460px 横排」，官方是**每级 3 行、横向排开、列宽 230**。
    这里按 zip 1026-1071 行覆盖，选择器加 .lo 前缀压过 .lo-deck--items 的旧规则。 ---- */
-.lo { --itw: max(4.3rem, 230px); }
-.lo .lo-deck--items { --itw: max(4.3rem, 230px); }
+.lo { --itw: max(4.3rem, 32px, calc(230px * var(--sp-ui, 1))); }
+.lo .lo-deck--items { --itw: max(4.3rem, 32px, calc(230px * var(--sp-ui, 1))); }
 /* align-items 必须 stretch：下一行把 .lo-tmark__art 改成绝对定位，它不再贡献内容高度，
    flex-start 会让整个等阶标记塌成 0 高（旧版道具页看不出问题，因为当时 art 还在流内）。 */
 .lo .lo-deck--items .lo-tgroup { flex: none; align-items: stretch; }
@@ -240,10 +240,10 @@
   grid-template-columns: min(1.45rem, 40%) minmax(0, 1fr); align-items: start; gap: .14rem;
   padding: .14rem .12rem .1rem .2rem; }
 .lo .lo-deck--items .lo-item__icon { width: 100%; height: auto; aspect-ratio: 1; align-self: start; }
-.lo .lo-deck--items .lo-item__name { font-size: max(.19rem, 12px); }
-.lo .lo-deck--items .lo-item__desc { font-size: max(.14rem, 10px); -webkit-line-clamp: 4; }
+.lo .lo-deck--items .lo-item__name { font-size: max(calc(.19 * var(--t)), 12px); }
+.lo .lo-deck--items .lo-item__desc { font-size: max(calc(.14 * var(--t)), 10px); -webkit-line-clamp: 4; }
 .lo .lo-deck--items .lo-item__tag { top: .08rem; bottom: auto; right: .08rem; max-width: none;
-  padding: 1px 5px; font-size: max(.11rem, 8px); }
+  padding: 1px 5px; font-size: max(calc(.11 * var(--t)), 8px); }
 .lo .lo-item { border: 1px solid rgba(255, 255, 255, .08); }
 .lo .lo-item::before { left: .05rem; top: .1rem; bottom: .1rem; width: 3px; background: rgba(255, 255, 255, .7); }
 .lo .lo-item__icon { background: linear-gradient(180deg, #e2e5e3, #c3c8c5); border: 1px solid #f0f2f1; }
@@ -254,14 +254,14 @@
   background: radial-gradient(120% 90% at 20% 0%, #2a2f2d, #151918 60%, #101312);
   border: 2px solid rgba(232, 236, 234, .7);
   box-shadow: 0 0 0 1px rgba(0, 0, 0, .6), 0 .2rem .6rem rgba(0, 0, 0, .7); }
-.lo .lo-idetail__head h3 { font-size: max(.3rem, 17px); font-weight: 900; letter-spacing: .06em; }
-.lo .lo-idetail__main { grid-template-columns: max(2rem, 96px) minmax(0, 1fr); gap: .3rem; margin-top: .22rem; }
+.lo .lo-idetail__head h3 { font-size: max(calc(.3 * var(--t)), 17px); font-weight: 900; letter-spacing: .06em; }
+.lo .lo-idetail__main { grid-template-columns: max(2rem, 32px, calc(96px * var(--sp-ui, 1))) minmax(0, 1fr); gap: .3rem; margin-top: .22rem; }
 .lo .lo-idetail__icon { border: 3px solid rgba(232, 236, 234, .85); }
-.lo .lo-idetail__chip { padding: .02rem .1rem; font-size: max(.14rem, 10px); color: #1a1f1d; background: #a9b0ad; }
+.lo .lo-idetail__chip { padding: .02rem .1rem; font-size: max(calc(.14 * var(--t)), 10px); color: #1a1f1d; background: #a9b0ad; }
 .lo .lo-idetail__chip.is-adv { margin-top: .06rem; background: #e2c041; }
-.lo .lo-idetail__eff { font-size: max(.17rem, 12px); line-height: 1.6; }
-.lo .lo-idetail__flavor { margin: .1rem 0 0; font-size: max(.14rem, 10px); line-height: 1.6; font-style: italic; color: var(--text-lo); }
-.lo .lo-idetail__foot { margin-top: .16rem; text-align: right; font-size: max(.12rem, 9px); color: var(--text-dim); letter-spacing: .1em; }
+.lo .lo-idetail__eff { font-size: max(calc(.17 * var(--t)), 12px); line-height: 1.6; }
+.lo .lo-idetail__flavor { margin: .1rem 0 0; font-size: max(calc(.14 * var(--t)), 10px); line-height: 1.6; font-style: italic; color: var(--text-lo); }
+.lo .lo-idetail__foot { margin-top: .16rem; text-align: right; font-size: max(calc(.12 * var(--t)), 9px); color: var(--text-dim); letter-spacing: .1em; }
 
 /* ---- 20. 盟约详细：亚克力底（需求方 2026-10-31 图二「盟约详细背景换成亚克力」）------------------
    game-panels.css 已经给 .bpop 上过一层 .66 的亚克力 + blur(.12rem)，但 zip 那份把它压回 rgba(34,38,40,.93)

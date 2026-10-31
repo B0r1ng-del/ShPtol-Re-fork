@@ -111,7 +111,13 @@ describe('the stylesheet side', () => {
   const SIZE = new Set(['width', 'height', 'min-width', 'min-height', 'flex', 'flex-basis', 'grid-template-columns', 'grid-template-rows',
     'grid-auto-rows', 'grid-auto-columns', 'inline-size', 'block-size', 'min-inline-size', 'min-block-size']);
   // Listed exemptions beyond the readability properties: none today. Add `file:property:argument` with a reason.
-  const LISTED = new Set([]);
+  const LISTED = new Set([
+    // .sw 的 44×24 是 cheat-ui 测试逐字钉住的共享开关尺寸（"components.css .sw still holds the 44×24 shared size"），
+    // 它跟着 --t 缩、不跟 --sp-ui 缩；两处守卫只能靠这条登记同时满足。
+    'public\\css\\components.css:--sw-w:44px',
+    // 作弊球面板按内容定宽，150px 是它「标签不断行」的最小宽度，同样是测试逐字钉的值。
+    'public\\css\\screens\\game-panels.css:min-width:150px',
+  ]);
   function* cssFiles(dir) {
     for (const f of readdirSync(dir)) {
       const p = path.join(dir, f);

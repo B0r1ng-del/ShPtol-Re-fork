@@ -2707,6 +2707,8 @@
   "自定义大厅背景无法显示，已换回默认背景": "Your lobby backdrop could not be shown; the default backdrop is back",
   "大厅背景与音乐": "Lobby Backdrop & Music",
   "大厅背景": "Lobby Backdrop",
+  "自定义背景": "Custom backdrop",
+  "上传音乐": "Upload Music",
   "选择图片或视频": "Choose a Picture or Video",
   "默认背景": "Default backdrop",
   "暗度": "Dim",

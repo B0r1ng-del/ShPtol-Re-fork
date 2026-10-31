@@ -238,7 +238,9 @@ test('official art only: every key the hub and 选择模拟协议 ask for is in 
   // 合并前（fork-before-v032）这里就是 `<${Emblem} />`，恢复成它 —— Emblem 的 13×14 点阵正是城堡轮廓。
   assert.deepEqual(keys.sort(), ['entry/entry_bkg_01', 'entry/entry_bkg_02']);
   for (const k of keys) assert.ok(ui[k], k);
-  assert.match(lobbySrc, /<div class="hub-center__mark"><\$\{HubRadar\} \/><\$\{Emblem\} \/><\/div>/, '主页标志用 Emblem，不用位图');
+  // ★ 2026-10-25: Emblem 现在带 class="vt-emblem"（screens/title.js 的位置补间用的那个类），
+  //   断言钉死了 `${Emblem} />` 的旧写法就失配了 —— 组件没换，仍是用 Emblem 不用位图。
+  assert.match(lobbySrc, /<div class="hub-center__mark"><\$\{HubRadar\} \/><\$\{Emblem\} class="vt-emblem" \/><\/div>/, '主页标志用 Emblem，不用位图');
   assert.doesNotMatch(lobbySrc, /entry\/season_logo"/, '不再引用那张空图');
   for (const d of ['funny', 'normal', 'hard', 'abyss']) assert.ok(ui[`modeChoice/${d}_rhodes_island`], d);
 });

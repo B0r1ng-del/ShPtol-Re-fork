@@ -859,10 +859,10 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
       is wide enough for the longest of them at every text step (`--t` can reach 88 px, so the label's own `max-content`
       sets the floor and the panel never gets narrower than its content), and `white-space: nowrap` makes a wrap
       impossible rather than merely unlikely. The panel therefore sizes to its content instead of a fixed 150 px. */
-.cheatball { position: fixed; right: max(.16rem, 14px); bottom: max(.16rem, 14px); z-index: 60; }
+.cheatball { position: fixed; right: max(.16rem, calc(14px * var(--sp-ui, 1))); bottom: max(.16rem, calc(14px * var(--sp-ui, 1))); z-index: 60; }
 .cheatball__btn {
   display: flex; align-items: center; justify-content: center;
-  width: max(.44rem, 40px); height: max(.44rem, 40px); padding: 0;
+  width: max(.44rem, 32px, calc(40px * var(--sp-ui, 1))); height: max(.44rem, 32px, calc(40px * var(--sp-ui, 1))); padding: 0;
   color: var(--text-hi); cursor: grab; touch-action: none;
   background: rgba(10, 16, 14, .92); border: 1px solid var(--mint-800); border-radius: .1rem;
   box-shadow: 0 .04rem .16rem rgba(0, 0, 0, .5);
@@ -920,7 +920,7 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
    it fell back to the full-height `.btn` and measured 58.6×37.5 next to a 12 px label. Its height tracks its own font
    (1.8 × the label size, so it stays proportionate at every 文字大小 step) rather than the row's floor, which exists for
    the switch's pointer target; the min-width keeps room for the two glyphs. */
-.cheatball__row .cheatball__act { height: max(calc(.29 * var(--t)), 12px); min-width: max(calc(.62 * var(--t)), 34px); padding: 0 .1rem; font-size: calc(.15 * var(--t)); }
+.cheatball__row .cheatball__act { height: max(calc(.29 * var(--t)), 12px); min-width: max(calc(.62 * var(--t)), 32px, calc(34px * var(--sp-ui, 1))); padding: 0 .1rem; font-size: calc(.15 * var(--t)); }
 /* Both right-hand controls keep the row's full height as their POINTER target (the switch's overlay is above; the +5
    button gets the same), so the visual can be proportional to the text without the tap target shrinking with it.
    `::before`, not `::after`: the base `.btn::after` is the hover bracket corners, and it must keep them. */
@@ -978,13 +978,13 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .relic-card__revive > .relic-panel__note { flex-basis: 100%; }
 /* 图鉴与局内收藏列表复用左图右文布局。 */
 .relic-card--illustrated {
-  display: grid; grid-template-columns: max(.64rem, 48px) minmax(0, 1fr);
+  display: grid; grid-template-columns: max(.64rem, 32px, calc(48px * var(--sp-ui, 1))) minmax(0, 1fr);
   grid-template-rows: auto auto auto; column-gap: .14rem; align-content: center;
 }
 .relic-card__art {
   position: relative;
   grid-column: 1; grid-row: 1 / 4; align-self: center;
-  display: grid; place-items: center; width: max(.64rem, 48px); height: max(.64rem, 48px); box-sizing: border-box;
+  display: grid; place-items: center; width: max(.64rem, 32px, calc(48px * var(--sp-ui, 1))); height: max(.64rem, 32px, calc(48px * var(--sp-ui, 1))); box-sizing: border-box;
   background: rgba(0, 0, 0, .2); border: 1px solid var(--line);
 }
 .relic-card__art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }

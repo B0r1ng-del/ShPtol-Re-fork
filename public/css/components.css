@@ -1163,8 +1163,8 @@
 .topbar__right { justify-self: end; display: flex; align-items: center; gap: .16rem; min-width: 0; }
 /* The lobby's right group is one row with the ⚙ / 📖 squares: 干员调配 and the player chip take the same height on touch
    screens (≥ 36 px, user report 图 3), and the label keeps a legible floor at the clamped 40 px phone scale. */
-.sp-coarse .lobby-screen .lobby-loadout { height: max(.5rem, 36px); font-size: max(calc(.18 * var(--t)), 11px); }
-.sp-coarse .lobby-screen .me-chip { min-height: max(.5rem, 36px); }
+.sp-coarse .lobby-screen .lobby-loadout { height: max(.5rem, 32px, calc(36px * var(--sp-ui, 1))); font-size: max(calc(.18 * var(--t)), 11px); }
+.sp-coarse .lobby-screen .me-chip { min-height: max(.5rem, 32px, calc(36px * var(--sp-ui, 1))); }
 
 /* Optional resume/install controls and translated XL titles must share actual space instead of overlapping the
    centered 1fr/auto/1fr title. On narrow displays the title has its own row; the controls stay in their two groups. */

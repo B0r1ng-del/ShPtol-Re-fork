@@ -251,7 +251,9 @@ test('the 普通 / 精锐 toggle: 精锐 is the shown variant, the tabs say so, 
 test('place in the detail: after the skills, before the modules; the first .lo-seg stays the skill level toggle (e2e selector)', () => {
   const src = read('public/js/screens/loadout.js');
   const sections = read('public/js/screens/loadoutSections.js');
-  const detail = src.slice(src.indexOf('function Detail('), src.indexOf('// ---- filters'));
+  // ★ 2026-10-25: 函数已改名 DetailImpl（loadout.js:537），屏幕用的是末尾 `modComponent('loadout.detail', DetailImpl)`
+  //   包出来的 `<${Detail}>`；顺序本身没变，变的是这条切片的锚点。
+  const detail = src.slice(src.indexOf('function DetailImpl('), src.indexOf('// ---- filters'));
   const skills = detail.indexOf('<${SkillSection}');
   const stats = detail.indexOf('<${LoadoutStats} base=${chess}');
   const mods = detail.indexOf('<${ModuleSection}');

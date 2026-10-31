@@ -424,7 +424,7 @@
 .rs-foot.room-bar { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: end; gap: .2rem;
   height: auto; padding: .1rem .3rem .2rem .22rem; background: none; border-top: 0; }
 .rs-foot.room-bar::before { content: none; }
-.rs-hint.room-bar__status { font-size: max(.18rem, 12px); }
+.rs-hint.room-bar__status { font-size: calc(.18 * var(--t)); }
 .rs-hint.room-bar__status .icon { width: 1.1em; height: 1.1em; margin-right: 4px; vertical-align: -2px; }
 
 /* 观战席 (观战席, community report #26) -------------------------------------------------------------- */

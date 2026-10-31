@@ -85,6 +85,7 @@ export function sanitizeSettings(raw) {
     quality: QUALITIES.includes(r.quality) ? r.quality : DEFAULT_SETTINGS.quality,
     officialFx: OFFICIAL_FX_MODES.includes(r.officialFx) ? r.officialFx : DEFAULT_SETTINGS.officialFx,
     otherSkins: r.otherSkins !== false,
+    workshopSkins: r.workshopSkins !== false,
     textSize: TEXT_SIZES.includes(r.textSize) ? r.textSize : DEFAULT_SETTINGS.textSize,
     keys: sanitizeHotkeys(r.keys),
   };

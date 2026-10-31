@@ -87,7 +87,7 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
   .toolbtn { min-height: max(.5rem, 30px); }
   .gm__gear { width: max(.56rem, 32px, calc(34px * var(--sp-ui, 1))); height: max(.56rem, 32px, calc(34px * var(--sp-ui, 1))); }
   /* ⚙ / 📖 / ⛶ keep their desktop proportion (half the button) instead of an 11 px glyph in the grown button */
-  .gm__corner .gm__gear .icon { width: max(.28rem, 17px); height: max(.28rem, 17px); }
+  .gm__tools .gm__gear .icon { width: max(.28rem, 17px); height: max(.28rem, 17px); }
   .gtop__exit { min-width: max(.56rem, 32px, calc(34px * var(--sp-ui, 1))); min-height: max(.56rem, 32px, calc(34px * var(--sp-ui, 1))); }
   .gtop__iconbtn.has-sprite, .enemybtn.has-sprite { height: max(.46rem, 26px); width: calc(max(.46rem, 26px) * 35 / 29); }
   .gtop__iconbtn.has-sprite.is-wide, .enemybtn.has-sprite.is-wide { width: calc(max(.46rem, 26px) * 61 / 29); }
@@ -153,9 +153,9 @@ html:not(.sp-in-match) .toast-host { margin-top: var(--sa-t); }
 }
 @media (max-width: 767px) and (pointer: coarse), (max-width: 767px) and (any-pointer: coarse) {
   /* touch: the input and the send button take the 44 px hit minimum (devices.css §3), so typing is not a lottery */
-  .chat__input, .chat__send { height: max(.32rem, 34px); }
-  .chat__send { width: max(.32rem, 34px); }
-  .chat__title { height: max(.36rem, 34px); }
+  .chat__input, .chat__send { height: max(.32rem, 32px, calc(34px * var(--sp-ui, 1))); }
+  .chat__send { width: max(.32rem, 32px, calc(34px * var(--sp-ui, 1))); }
+  .chat__title { height: max(.36rem, 32px, calc(34px * var(--sp-ui, 1))); }
 }
 /* … but not under the 机变 overlay, which starts at the corner's wrapped width (§35.51) */
 @media (max-width: 767px) {

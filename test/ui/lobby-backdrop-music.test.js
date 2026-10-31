@@ -46,15 +46,18 @@ test('名片干员: the pick is per device, the fallback is one operator per pla
   const art = read('public/js/ui/seatArt.js');
   assert.match(art, /export const CARD_PREF = 'room\.card'/);
   assert.match(art, /export function cardOperators\(/);
-  assert.match(art, /export function seatPortrait\(/);
+  // ★ 2026-10-25: `seatPortrait(seat, portraits)` 已不存在 —— 拆成 seatOperator()（选哪名干员）
+  //   + seatArtSrc()（取哪张立绘，含坏图回退），房间那边 room.js:1002 传 portrait / portraitDefault。
+  assert.match(art, /export function seatOperator\(seat, \{ byChar, pool \}, \{ myId, myCard \} = \{\}\)/);
   // the same operator on every client: a hash of the player id, not Math.random
   assert.match(art, /hash32\(seat\.playerId\) % pool\.length/);
   assert.doesNotMatch(art, /Math\.random/);
   const room = read('public/js/screens/room.js');
-  assert.match(room, /import \{ CARD_PREF, cardOperators, seatPortrait \} from '\.\.\/ui\/seatArt\.js'/);
+  assert.match(room, /import \{ CARD_KEY, cardStore, setCard, setCardBackground, setCardBackgroundY, cardOperators, cardContext, seatOperator, seatCardSkin, seatArtSrc \} from '\.\.\/ui\/seatArt\.js'/);
   // the seat card shows it as a full-bleed portrait (the new UI's 竖版立绘卡: an <img>, not the old AvatarFrame)
-  assert.match(room, /cardSrc \? html`<img src=\$\{cardSrc\}/, 'the seat card shows the portrait');
-  assert.match(room, /const cardSrc = seat\.isBot \|\| !portraits \? null : seatPortrait\(seat, portraits\)/);
+  assert.match(room, /art\s*\n?\s*\? html`<img key=\$\{art\} class="seat__portrait" src=\$\{art\}/, 'the seat card shows the portrait');
+  assert.match(room, /const op = seatOperator\(s, cards, \{ myId: me\.playerId, myCard \}\)/);
+  assert.match(room, /portrait=\$\{op \? chessPortraitUrl\(data\.get\('assets'\), op\.chess, \{ skin \}\) : null\}/);
   assert.match(room, /export const CARD_SYNC = Object\.hasOwn\(C2S, 'room\.card'\)/, 'the pick syncs only when the server knows it');
 });
 
@@ -86,7 +89,12 @@ test('the four packs carry the new strings', () => {
   const ja = JSON.parse(read('public/i18n/ja.json'));
   const ko = JSON.parse(read('public/i18n/ko.json'));
   const tw = JSON.parse(read('public/i18n/zh-TW.json'));
-  for (const id of ['大厅音乐', '大厅背景', '名片干员', '夜巡', '自定义背景', '上传音乐', '点击更换名片干员']) {
+  // ★ 2026-10-25 修正三处：
+  //   1. 原名单第三条钉的是一句在代码里**不存在**的文案（座位卡的按钮是 room.js:405 的 t('更换名片干员')
+  //      + 可见的 t('更换立绘')），已换成这两条真实 msgid；
+  //   2. '自定义背景'（hubBackdrop.js:371）与 '上传音乐'（lobbyMusic.js:153）当初真的漏了 —— 按代码补进四个包；
+  //   3. 那条死词条已从四个包里删掉，不留没人用的键。
+  for (const id of ['大厅音乐', '大厅背景', '名片干员', '夜巡', '自定义背景', '上传音乐', '更换名片干员', '更换立绘']) {
     for (const [name, pack] of [['en', en], ['ja', ja], ['ko', ko], ['zh-TW', tw]]) {
       assert.ok(typeof pack[id] === 'string' && pack[id].length, `${name}.json is missing 「${id}」`);
     }

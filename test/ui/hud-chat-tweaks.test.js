@@ -17,9 +17,10 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { CHAT_BARRAGE_MS, CHAT_BARRAGE_KEEP, CHAT_BARRAGE_LANES } from '../../shared/constants.js';
+import { unscaled } from '../helpers/uiSize.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
+const read = (p) => unscaled(readFileSync(path.join(ROOT, p), 'utf8'));
 const GAME = read('public/js/screens/game.js');
 const GAME_CSS = read('public/css/screens/game.css');
 const CHAT_CSS = read('public/css/chat.css');
@@ -58,7 +59,7 @@ test('1: 作战统计 button rides in the top bar row, and its panel hangs BELOW
 });
 
 test('2: 盟约条 is centred without a transform', () => {
-  assert.match(GAME_CSS, /\.gm__bonds \{ position: absolute; left: 0; top: 1\.36rem; right: 0; pointer-events: none;\n {2}display: flex; align-items: flex-start; justify-content: center; gap: max\(\.1rem, 8px\); \}/);
+  assert.match(GAME_CSS, /\.gm__bonds \{ position: absolute; left: 0; right: 0; top: 1\.36rem; pointer-events: none;\n {2}display: flex; align-items: flex-start; justify-content: center; gap: max\(\.1rem, 8px\); \}/);
   // no transform: it would make the strip the containing block of the position:fixed tooltip layer
   const block = GAME_CSS.slice(GAME_CSS.indexOf('.gm__bonds {'), GAME_CSS.indexOf('}', GAME_CSS.indexOf('.gm__bonds {')));
   assert.doesNotMatch(block, /transform/, 'centring uses flex, never translate');

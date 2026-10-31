@@ -117,8 +117,11 @@ test('HEX_TITLES: 六条评语，官方顺序', () => {
 });
 
 test('大厅左栏接上了入口卡，点开是面板', () => {
+  // 现在的接线：入口卡是 lobby.js 自己的 AchievementCard（左栏那张 .hub-ach「成就统计」），点开的是
+  // screens/stats.js 的 AchievementDialog —— ui/achievements.js 那一对（AchievementEntry/Panel）已不再被大厅引用。
   const lobby = read('public/js/screens/lobby.js');
-  assert.match(lobby, /import \{ AchievementEntry, AchievementPanel \} from '\.\.\/ui\/achievements\.js'/);
-  assert.match(lobby, /<\$\{AchievementEntry\} onOpen=\$\{\(\) => setAchOpen\(true\)\}/);
-  assert.match(lobby, /achOpen \? html`<\$\{Modal\}[^`]*<\$\{AchievementPanel\}/s);
+  assert.match(lobby, /function AchievementCard\(\{ onOpen \}\)/);
+  assert.match(lobby, /<\$\{AchievementCard\} onOpen=\$\{\(\) => setAchOpen\(true\)\}/);
+  assert.match(lobby, /import \{ AchievementDialog, useStatsOpen \} from '\.\/stats\.js';/);
+  assert.match(lobby, /achOpen \? html`<\$\{AchievementDialog\} onClose=\$\{/);
 });

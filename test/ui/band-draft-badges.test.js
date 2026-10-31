@@ -21,10 +21,14 @@ function record(seed, { bandId = 'band_amiya', victory = true, difficulty = 'HAR
   }, { myId: 'self', now: seed + 1 });
 }
 
-test('every official strategy needs 3 clears for its badge (data/bands.json victorCount, from activity_table)', () => {
+test('every strategy needs 3 clears for its badge (data/bands.json victorCount, from activity_table)', () => {
   const list = Object.values(BANDS);
-  assert.equal(list.length, 40);
-  assert.ok(list.every((b) => b.victorCount === 3), 'victorCount 3 for all 40');
+  // 40 条官方策略 + 5 条自制策略（东国 / 乌萨斯，build-data 给它们写了 iconChar —— 官方没有对应 bandicon）。
+  // 自制行同样来自 bandDataListDict，victorCount 也是 3，所以断言按总数走，官方那 40 条单独数一遍。
+  assert.equal(list.length, 45);
+  assert.equal(list.filter((b) => b.iconChar).length, 5, 'the 5 self-made strategies carry iconChar');
+  assert.equal(list.filter((b) => !b.iconChar).length, 40, 'the 40 official strategies');
+  assert.ok(list.every((b) => b.victorCount === 3), 'victorCount 3 for all 45');
 });
 
 test('draftRecords: one win counts (已通过模拟 1 次) but gives no badge; the third clear does; training and quits never do', () => {
