@@ -139,3 +139,77 @@
 @media (prefers-reduced-motion: reduce) {
   .mpop *, .mpop.is-leaving .mpop__panel, .mpop.is-leaving .mpop__line, .mpop.is-leaving .mpop__bot { animation: none; }
 }
+
+/* ==========================================================================================
+   回合开始 plate — the official layout (ported from UI整理-20261029 §32, measured off the
+   game's footage): a fixed 7.44 × 2.52rem plate, the robot assembled from masked parts on the
+   left, [回合 NN] and [获得 ⁂ +N] in two cells to its right. Sizes are design px ÷ 100; the
+   sprite URLs arrive as custom properties (ui/matchPopups.js roundArtVars).
+   ========================================================================================== */
+.mpop--round { --rbot: rgb(44, 191, 140); --rrim: rgb(31, 31, 29); }
+.mpop--round .mpop__panel { display: block; width: 7.44rem; height: 2.52rem; min-width: 0; min-height: 0; padding: 0;
+  background: linear-gradient(90deg, rgba(7, 9, 8, .86) 0 46%, rgba(7, 9, 8, .78) 100%); box-shadow: none; }
+.mpop--round .mpop__lines { left: 0; top: 0; width: 7.44rem; height: 2.52rem; transform: none; opacity: .1; }
+.mpop--round .mpop__art { position: absolute; z-index: 1; left: .39rem; top: .345rem; width: 2.55rem; height: 1.86rem; margin: 0; }
+.mpop--round .mpop__x { width: .21rem; height: .21rem; color: rgb(52, 226, 181); opacity: 1; animation: none; }
+.mpop--round .mpop__x--tl { left: -.105rem; top: -.105rem; }
+.mpop--round .mpop__x--tr { right: -.105rem; top: -.105rem; }
+.mpop--round .mpop__x--bl { left: -.105rem; bottom: -.105rem; }
+.mpop--round .mpop__x--br { right: -.105rem; bottom: -.105rem; }
+.mpop--round .mpop__brk { top: .32rem; width: .09rem; height: 1.155rem; margin-top: 0; color: rgb(72, 178, 141); opacity: 1; animation: none; }
+.mpop--round .mpop__brk--l { left: -.09rem; }
+.mpop--round .mpop__brk--r { right: -.075rem; }
+
+/* the robot: masked parts in one colour, the book and the hand ringed in the panel's colour */
+.mpop__rbot { position: absolute; inset: 0; transform-origin: 1.77rem 1.125rem; animation: mpop-rbotin 133ms linear backwards; }
+.mpop__rpart { position: absolute; background: var(--rbot);
+  -webkit-mask: var(--m) 0 0 / 100% 100% no-repeat; mask: var(--m) 0 0 / 100% 100% no-repeat; }
+.mpop__rpart--head { --m: var(--round-head); left: .815rem; top: .3075rem; width: 1.04rem; height: .81rem; }
+.mpop__rpart--body { --m: var(--round-body); left: 1.1025rem; top: .9225rem; width: .48rem; height: .56rem; }
+.mpop__rrim { position: absolute; filter: drop-shadow(.045rem 0 0 var(--rrim)) drop-shadow(-.045rem 0 0 var(--rrim))
+  drop-shadow(0 .045rem 0 var(--rrim)) drop-shadow(0 -.045rem 0 var(--rrim)); }
+.mpop__rrim .mpop__rpart { left: 0; top: 0; width: 100%; height: 100%; }
+.mpop__rrim--book { left: .5625rem; top: .7975rem; width: .48rem; height: .64rem; transform: rotate(-9deg); }
+.mpop__rpart--book { --m: var(--round-book); }
+.mpop__rrim--hand { left: 1.57rem; top: 1.095rem; width: .32rem; height: .24rem; }
+.mpop__rpart--hand { --m: var(--round-hand); }
+.mpop__rdot { position: absolute; width: .09rem; height: .09rem; background: var(--rbot); }
+.mpop__rdot--0 { left: .78rem; top: .165rem; }
+.mpop__rdot--1 { left: .51rem; top: .3rem; }
+.mpop__rdot--2 { left: .66rem; top: .54rem; }
+.mpop__rdot--3 { left: 1.92rem; top: .285rem; }
+.mpop__rdot--4 { left: 2.04rem; top: .48rem; }
+/* the square the robot grows out of */
+.mpop__rseed { position: absolute; left: 1.035rem; top: .705rem; width: .495rem; height: .435rem; background: var(--rbot); opacity: 0;
+  animation: mpop-rseed 66ms step-end; }
+/* round_text_01 under the robot */
+.mpop__utag { position: absolute; left: .7575rem; top: 1.77rem; width: .825rem; height: .15rem; background: rgb(40, 200, 160);
+  -webkit-mask: var(--round-tag) 0 0 / 100% 100% no-repeat; mask: var(--round-tag) 0 0 / 100% 100% no-repeat; }
+
+/* the two cells */
+.mpop--round .mpop__cell { position: absolute; z-index: 1; top: .465rem; display: block; width: 1.665rem; height: 1.605rem;
+  min-width: 0; min-height: 0; padding: 0; gap: 0; background: none; }
+.mpop--round .mpop__cell::before { content: ''; position: absolute; inset: 0; background: rgba(255, 255, 255, .022);
+  box-shadow: inset 0 0 0 .015rem rgba(255, 255, 255, .045); }
+.mpop--round .mpop__cell--round { left: 3.465rem; }
+.mpop--round .mpop__cell--gold { left: 5.415rem; }
+.mpop--round.is-watching .mpop__cell--round { left: 4.44rem; }
+.mpop--round .mpop__k { position: absolute; left: .255rem; top: .3rem; padding: 0 .2475rem 0 .2625rem; font-size: calc(.315 * var(--t));
+  line-height: 1; letter-spacing: 0; color: rgb(219, 219, 217); text-shadow: 0 1px 2px rgba(0,0,0,.7); }
+.mpop--round .mpop__k::before, .mpop--round .mpop__k::after { top: 50%; bottom: auto; width: .06rem; height: .36rem; margin-top: -.18rem; }
+.mpop--round .mpop__cell--round .mpop__k::before, .mpop--round .mpop__cell--round .mpop__k::after { color: rgb(158, 158, 156); }
+.mpop--round .mpop__cell--gold .mpop__k { padding: 0 .24rem 0 .255rem; color: rgb(208, 173, 61); }
+.mpop--round .mpop__cell--gold .mpop__k::before, .mpop--round .mpop__cell--gold .mpop__k::after { color: rgb(196, 160, 92); }
+.mpop--round .mpop__roll { position: absolute; left: 0; right: 0; top: .69rem; height: .6rem; overflow: visible;
+  font-size: calc(.58 * var(--t)); line-height: .6rem; color: rgb(205, 203, 204); }
+.mpop--round .mpop__gain { position: absolute; left: 0; right: 0; top: .835rem; justify-content: center; gap: 0; height: .4rem;
+  translate: .015rem 0; font-size: inherit; color: rgb(228, 188, 53); }
+.mpop--round .mpop__coin { width: .52rem; height: .4rem; animation: none; }
+.mpop--round .mpop__plus { padding-left: .03rem; translate: 0 -.015rem; font-size: calc(.385 * var(--t)); line-height: 1; letter-spacing: 0;
+  color: rgb(211, 174, 49); animation: none; }
+.mpop--round.is-leaving .mpop__rbot { animation: mpop-rhide 280ms step-end forwards; }
+.mpop--round.is-leaving .mpop__rseed { animation: mpop-rseedout 280ms step-end forwards; }
+@keyframes mpop-rbotin { 0%, 49.6% { opacity: 0; scale: .815 .76; } 49.7% { opacity: 1; scale: .815 .76; } 74.4% { scale: .93 .92; } 100% { scale: 1; } }
+@keyframes mpop-rseed { 0% { opacity: 1; scale: .18 .17; } 50% { opacity: 1; scale: 1; } }
+@keyframes mpop-rhide { 0% { opacity: 1; } 29.5%, 100% { opacity: 0; } }
+@keyframes mpop-rseedout { 0% { opacity: 0; } 29.5% { opacity: 1; scale: .94; } 44% { opacity: 1; scale: .45 .41; } 59% { opacity: 1; scale: .18 .14; } 74%, 100% { opacity: 0; } }

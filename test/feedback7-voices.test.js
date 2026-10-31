@@ -81,7 +81,7 @@ test('data/assets.json: every voiced operator has its JP tree (the ported operat
   // 六.C / 六.F 的植入干员（tools/fork-extra6.mjs、tools/rhine-data.mjs）在官方语音表里**只有日文**，中文线未发布，
   // 所以日文树覆盖中文树并多出这几个 id。
   // 六.C 的两名联动干员在官方语音表里只有日文；六.F 的六名则中日都有。
-  const jpOnly = ['char_4182_oblvns', 'char_4217_makoto'];
+  const jpOnly = ['char_4182_oblvns'];   // 结城理 deleted 2026-10-29
   assert.deepEqual(Object.keys(jp).filter((id) => !cn[id]).sort(), jpOnly, 'only the packExtra6 operators are JP-only');
   // 日配树 = 中文树的全部 + 那两个仅日配的。这里不写死上游的字符数：内容包把新干员带进 `audio.voice` 之后，那个数字
   // 每加一个移植干员就变一次（PR #61 之后是 205），写死只会让这条断言在**什么都没坏**的时候变红 —— 它要证明的是

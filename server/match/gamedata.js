@@ -485,6 +485,13 @@ export class GameData {
   get layerCap() { return layerCapFor(this.mods); }
   /** Is the 「解除叠层上限」 Mod 开关 on? Passed to a battle as the wire-safe `flags.uncapLayers` boolean. */
   get uncapLayers() { return this.mods.uncapLayers === true; }
+  /**
+   * Is the 「联防不禁叠层」 Mod 开关 on? 联防 keeps `flags.layerGainsEnabled` off by default (the official rule: a helper's
+   * stack stops growing while it defends). ON lifts exactly that one restriction for the 联防 field — boss / hidden /
+   * final-assault fields keep theirs. Both ends read this one getter (the spec carries the resolved boolean), so the
+   * client's own simulation and the server's re-run agree.
+   */
+  get uniteLayers() { return this.mods.uniteLayers === true; }
   get maxShopLevel() { return posIntOr(this.mode.maxShopLevel, DEFAULTS.maxShopLevel); }
 
   /**

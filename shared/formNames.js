@@ -22,7 +22,6 @@
 export const FIRST_PARTY_FORM_NAMES = Object.freeze({
   char_1023_ghost2:    Object.freeze(['doll']),
   char_4016_kazema:    Object.freeze(['doll']),
-  char_4217_makoto:    Object.freeze(['body', 'makoto_s1', 'makoto_s2', 'makoto_s3a', 'makoto_s3b']),
   enemy_10081_mpplai:  Object.freeze(['translator_fuchou', 'translator_shushi', 'translator_youling']),
   enemy_1040_bombd:    Object.freeze(['bombed']),
   enemy_1116_liprr:    Object.freeze(['liberty', 'warning']),

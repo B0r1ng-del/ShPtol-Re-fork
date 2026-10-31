@@ -1,0 +1,350 @@
+/* ==========================================================================================
+   official-pages.css — 官方复刻版 UI，**只含干员调配页**（来源：UI整理-20261029.zip）
+   ★ 2026-10-31 需求方定：只保留干员调配页；局内顶栏 / 盟约圆盘 / 作战开始结束 / 回合获得 /
+     协议失效 / 悬赏一律不移植（它们的类名本仓没有，且圆盘段会把盟约图标放大错位）。
+   ========================================================================================== */
+/* ---- 3. 干员调配 (screens/loadout.js 物资调配处 deck, css/screens/loadout.css), auto_chess_shop_atlas — the out-of-match
+   card system. Measured off 3:25 (f_205; 1280-wide px, one --p = one px): cards 140 × 245 every 150 across and 255
+   down from (133, 96); inside, img_char_chess_normal_bg as the card's ground (stretched), the long card art (the
+   180 × 360 portrait) in a 84 × 163 window at (52, 5) under img_cahr_card_frame 1:1, the tier chip 34 at (9, 21), the
+   level pill img_char_level_normal_bg 30 × 98 at (12, 72), skill / module on img_skill_level_bg / img_module_unselect_bg
+   along the art's foot, name right-aligned at y 193, bonds on bkg_char_card_bond under it; selected:
+   img_char_card_select_outline (172 × 292 stretched round the card — OUR fit). 快捷配置 on btn_quick_set_bg (its QUICK
+   ASSEMBLE and icon are in the sprite), 干员 / 道具 on img_toogle_bg_unselect (OUR 9-slice) with img_toogle_bg_select and
+   img_toogle_char_icon / img_toogle_item_icon. Kept: the potential dots (the recording shows ★ rarity there, which this
+   card does not carry) and the header's 筛选 / 已调整 / 干员持有 controls. ---- */
+.lo { --p: min(calc((100vw - var(--sa-l, 0px) - var(--sa-r, 0px)) / 1280), calc((100vh - var(--sa-t, 0px) - var(--sa-b, 0px)) / 720)); }
+.lo .lo-tgrid { gap: calc(10 * var(--p)) calc(10 * var(--p)); padding: calc(13 * var(--p)) 0 0 calc(40 * var(--p)); grid-template-rows: repeat(2, calc(245 * var(--p))); }
+.lo .lo-op__card { display: block; width: calc(140 * var(--p)); height: calc(245 * var(--p)); padding: 0; border: 0; box-shadow: none;
+  background: url(../../img/official/hub/ac/outer/shop/img_char_chess_normal_bg.png) 0 0 / 100% 100% no-repeat; }
+.lo .lo-op.is-sel .lo-op__card { border: 0; box-shadow: none; }
+.lo .lo-op.is-sel .lo-op__card::after { content: ''; position: absolute; z-index: 5; inset: calc(-16 * var(--p)); pointer-events: none;
+  background: url(../../img/official/hub/ac/outer/shop/img_char_card_select_outline.png) 0 0 / 100% 100% no-repeat; }
+.lo .lo-op__rail { position: absolute; left: 0; top: 0; width: calc(52 * var(--p)); height: 100%; display: block; padding: 0; }
+.lo .lo-op__tier.tier { position: absolute; left: calc(9 * var(--p)); top: calc(21 * var(--p)); width: calc(34 * var(--p)); height: calc(34 * var(--p)); }
+.lo .lo-op__lv { position: absolute; left: calc(12 * var(--p)); top: calc(72 * var(--p)); width: calc(30 * var(--p)); height: calc(98 * var(--p)); padding: calc(8 * var(--p)) 0;
+  justify-content: space-around; gap: 0; border: 0; border-radius: 0; background: url(../../img/official/hub/ac/outer/shop/img_char_level_normal_bg.png) 0 0 / 100% 100% no-repeat; }
+.lo .lo-op__lvrow b { font-size: calc(17 * var(--p)); color: #e8eaea; }
+.lo .lo-op__lvrow.is-elite b { color: #f2c94c; }
+.lo .lo-op__chev { width: calc(14 * var(--p)); height: calc(9 * var(--p)); }
+.lo .lo-op__pick { position: absolute; left: calc(52 * var(--p)); top: calc(5 * var(--p)); width: calc(84 * var(--p)); height: calc(163 * var(--p)); border: 0; background: #d9dcdb; }
+.lo .lo-op__pick::after { content: ''; position: absolute; inset: 0; z-index: 3; pointer-events: none;
+  background: url(../../img/official/hub/ac/outer/shop/img_cahr_card_frame.png) 0 0 / 100% 100% no-repeat; }
+.lo .lo-op__art { inset: 0; }
+.lo .lo-op__art img { object-position: 50% 0; }
+.lo .lo-op__sub { left: calc(2 * var(--p)); top: calc(2 * var(--p)); width: calc(18 * var(--p)); height: calc(18 * var(--p)); z-index: 2; }
+.lo .lo-op__kit { z-index: 2; height: calc(38 * var(--p)); padding: 0 calc(2 * var(--p)) calc(2 * var(--p)); gap: calc(2 * var(--p)); align-items: flex-end; background: none; }
+.lo .lo-op__slot { width: calc(38 * var(--p)); height: calc(36 * var(--p)); border: 0; background: url(../../img/official/hub/ac/outer/shop/img_skill_level_bg.png) 0 0 / 100% 100% no-repeat; }
+.lo .lo-op__slot + .lo-op__slot { background-image: url(../../img/official/hub/ac/outer/shop/img_module_unselect_bg.png); filter: brightness(.25); }
+.lo .lo-op__slot + .lo-op__slot > * { filter: brightness(4); }
+.lo .lo-op__meta { position: absolute; left: calc(52 * var(--p)); right: calc(5 * var(--p)); top: calc(174 * var(--p)); padding: 0; gap: calc(3 * var(--p)); }
+.lo .lo-op__pot i { width: calc(5 * var(--p)); height: calc(5 * var(--p)); }
+.lo .lo-op__name { font-size: calc(16 * var(--p)); font-weight: 700; color: #f0f2f2; }
+.lo .lo-op__bonds { position: absolute; left: 0; right: calc(5 * var(--p)); top: calc(214 * var(--p)); min-height: 0; padding: 0; gap: calc(3 * var(--p)); }
+.lo .lo-op__bond { width: calc(24 * var(--p)); height: calc(24 * var(--p)); border: 0; background: url(../../img/official/hub/ac/outer/shop/bkg_char_card_bond.png) 0 0 / 100% 100% no-repeat; }
+
+/* 快捷配置 */
+.lo .lo-quickbtn { position: relative; width: calc(165 * var(--p)); height: calc(55 * var(--p)); padding: 0 0 0 calc(14 * var(--p)); justify-content: flex-start; background: none; color: #121614; box-shadow: none; border: 0; }
+.lo .lo-quickbtn::before { content: ''; position: absolute; left: calc(-16 * var(--p)); top: calc(-14 * var(--p)); width: calc(197 * var(--p)); height: calc(83 * var(--p)); pointer-events: none;
+  background: url(../../img/official/hub/ac/outer/shop/btn_quick_set_bg.png) 0 0 / 100% 100% no-repeat; }
+.lo .lo-quickbtn:hover:not(:disabled) { background: none; filter: brightness(1.04); }
+.lo .lo-quickbtn > * { position: relative; }
+.lo .lo-quickbtn__txt { align-self: flex-start; padding-top: calc(6 * var(--p)); }
+.lo .lo-quickbtn__txt > span { font-size: calc(20 * var(--p)); }
+.lo .lo-quickbtn__txt small, .lo .lo-quickbtn__icon { visibility: hidden; }
+
+/* 干员 / 道具 */
+.lo .lo-bbar__seg { padding: calc(4 * var(--p)); border: 0; border-radius: 0; background: none;
+  border-style: solid; border-width: calc(20 * var(--p)); border-image: url(../../img/official/hub/ac/outer/shop/img_toogle_bg_unselect.png) 24 fill / calc(20 * var(--p)) stretch; margin: calc(-16 * var(--p)) 0; }
+.lo .lo-bbar__seg button { position: relative; height: calc(40 * var(--p)); padding: 0 calc(22 * var(--p)); margin: calc(-16 * var(--p)) 0; font-size: calc(18 * var(--p)); background: none; color: #e9ecec; }
+.lo .lo-bbar__seg button.is-on { background: none; color: #121614; }
+.lo .lo-bbar__seg button.is-on::before { content: ''; position: absolute; z-index: -1; left: calc(-12 * var(--p)); right: calc(-12 * var(--p)); top: calc(-12 * var(--p)); bottom: calc(-13 * var(--p));
+  background: url(../../img/official/hub/ac/outer/shop/img_toogle_bg_select.png) 0 0 / 100% 100% no-repeat; }
+.lo .lo-bbar__seg button { z-index: 0; isolation: isolate; }
+.lo .lo-bbar__seg button .icon { visibility: hidden; width: calc(22 * var(--p)); height: calc(22 * var(--p)); }
+.lo .lo-bbar__seg button::after { content: ''; position: absolute; left: calc(22 * var(--p)); top: 50%; width: calc(22 * var(--p)); height: calc(22 * var(--p)); transform: translateY(-50%);
+  background: url(../../img/official/hub/ac/outer/shop/img_toogle_char_icon.png) center / contain no-repeat; }
+.lo .lo-bbar__seg button + button::after { background-image: url(../../img/official/hub/ac/outer/shop/img_toogle_item_icon.png); }
+
+/* 快速配置 (3:35 f_215): the column beside each card on img_fast_edit_bg's dark (stretched), choices 38 square, the chosen
+   one under img_fast_edit_item_select (blue frame + ✓), an empty slot img_fast_edit_item_no; 技能 / 模组 on
+   img_fast_edit_toogle_select_bg / _unselect_bg; 确认配置 on btn_fast_edit_confirm_bg 238 × 75 (its ✓ box is in the
+   sprite) at the bottom right */
+.lo .lo-op__quick { width: calc(48 * var(--p)); padding: calc(5 * var(--p)) 0; gap: calc(14 * var(--p)); border: 0; background: rgba(20, 22, 23, .92); }
+.lo .lo-op__quick .lo-q { position: relative; width: calc(38 * var(--p)); height: calc(38 * var(--p)); flex: none; }
+.lo .lo-op__quick .lo-q .lo-sicon__outline { display: none; }
+.lo .lo-op__quick .lo-q.is-on::after { content: ''; position: absolute; left: calc(-3 * var(--p)); top: calc(-3 * var(--p)); width: calc(46 * var(--p)); height: calc(41 * var(--p)); pointer-events: none;
+  background: url(../../img/official/hub/ac/outer/shop/img_fast_edit_item_select.png) 0 0 / 100% 100% no-repeat; }
+.lo .lo-op__quick .lo-q--empty { background: url(../../img/official/hub/ac/outer/shop/img_fast_edit_item_no.png) center / 100% 100% no-repeat; border: 0; }
+.lo .lo-qseg { padding: 0; border: 0; background: url(../../img/official/hub/ac/outer/shop/img_fast_edit_toogle_unselect_bg.png) 0 0 / 100% 100% no-repeat; }
+.lo .lo-qseg button { height: calc(30 * var(--p)); padding: 0 calc(20 * var(--p)); font-size: calc(16 * var(--p)); background: none; color: #e9ecec; }
+.lo .lo-qseg button.is-on { color: #121614; background: url(../../img/official/hub/ac/outer/shop/img_fast_edit_toogle_select_bg.png) 0 0 / 100% 100% no-repeat; }
+.lo .lo-confirm { position: relative; width: calc(170 * var(--p)); height: calc(54 * var(--p)); padding: 0 0 0 calc(62 * var(--p)); justify-content: flex-start; border: 0; background: none; box-shadow: none;
+  font-size: calc(22 * var(--p)); font-weight: 700; color: #141818; }
+.lo .lo-confirm::before { content: ''; position: absolute; z-index: 0; left: calc(-14 * var(--p)); top: calc(-11 * var(--p)); width: calc(238 * var(--p)); height: calc(75 * var(--p)); pointer-events: none;
+  background: url(../../img/official/hub/ac/outer/shop/btn_fast_edit_confirm_bg.png) 0 0 / 100% 100% no-repeat; }
+.lo .lo-confirm > * { position: relative; }
+.lo .lo-confirm .icon { visibility: hidden; }
+.lo .lo-confirm { isolation: isolate; }
+.lo .lo-confirm::before { z-index: -1; }
+.lo .lo-confirm { white-space: nowrap; padding-left: calc(58 * var(--p)); margin-right: calc(20 * var(--p)); font-size: calc(21 * var(--p)); }
+
+/* ---- 12. 干员调配 快速编辑 (五项·3, 2026-10-28; screens/loadout.js OpCard / QuickColumn / DeckModuleTile), the user's
+   original screenshot scaled to 1280 wide: the column beside each card 82 × 245 (cards now every 232 — the original's
+   pitch), ▲ img_module_up_arrow and ▼ img_module_down_arrow at half size, three tiles 58 square every 70 between them (more
+   scroll). 模组: ORIGINAL (不装备) and every module not equipped on img_module_unselect_bg darkened to the screenshot's grey,
+   their art (uniequip/original, uniequip/<type>) as a dark glyph (a luminance mask: the art's white glyph and type
+   letters, not its red glow); the equipped one on img_module_select_bg (white, blue frame) over img_module_select_shadow,
+   img_fast_edit_item_select's ✓ corner on it, the module's level in the black chip; empty slots img_fast_edit_item_no,
+   a chess without an elite img_fast_edit_item_lock ×3. 技能: the skill icons on the same tiles (OUR: the screenshot
+   shows the module column only). The card: its star row is the operator's rarity (rarity_0–5; 潜能 moves to the row's
+   tooltip — a change of the old card, which drew 潜能 pips there), the blue operator_preset bookmark at the portrait's top
+   right marks an operator whose loadout was changed (OUR binding: the original's preset mark). ---- */
+.lo .lo-op__quick.lo-qcol { width: calc(82 * var(--p)); height: calc(245 * var(--p)); padding: calc(2 * var(--p)) 0 0; gap: calc(6 * var(--p)); overflow: hidden; justify-content: flex-start;
+  background: rgba(36, 38, 40, .92); }
+.lo-qcol__arrow { flex: none; width: calc(30 * var(--p)); height: calc(15 * var(--p)); padding: 0; border: 0; cursor: pointer;
+  background: url(../../img/official/hub/ac/outer/shop/img_module_up_arrow.png) center / calc(16.5 * var(--p)) calc(13 * var(--p)) no-repeat; }
+.lo-qcol__arrow--down { background-image: url(../../img/official/hub/ac/outer/shop/img_module_down_arrow.png); }
+.lo-qcol__arrow:hover { filter: brightness(1.3); }
+.lo-qcol__list { flex: none; display: flex; flex-direction: column; align-items: center; gap: calc(12 * var(--p)); height: calc(198 * var(--p)); width: 100%;
+  overflow-y: auto; scrollbar-width: none; scroll-snap-type: y mandatory; }
+.lo-qcol__list::-webkit-scrollbar { display: none; }
+.lo .lo-qcol .lo-q { flex: none; width: calc(58 * var(--p)); height: calc(58 * var(--p)); scroll-snap-align: start; opacity: 1; }
+.lo .lo-qcol .lo-q--lock { background: url(../../img/official/hub/ac/outer/shop/img_fast_edit_item_lock.png) center / 100% 100% no-repeat; }
+.lo .lo-qcol .lo-q--empty { background: url(../../img/official/hub/ac/outer/shop/img_fast_edit_item_no.png) center / 100% 100% no-repeat; border: 0; }
+
+/* module tiles */
+.lo .lo-qt { position: relative; display: block; padding: 0; border: 0; border-radius: 0; box-shadow: none;
+  background: linear-gradient(rgba(0, 0, 0, .42), rgba(0, 0, 0, .42)), url(../../img/official/hub/ac/outer/shop/img_module_unselect_bg.png) 0 0 / 100% 100% no-repeat; }
+.lo .lo-qcol .lo-qt:not(.is-on) { opacity: 1; }
+.lo .lo-qcol .lo-qt:not(.is-on):hover { filter: brightness(1.15); }
+.lo-qt__uni { position: absolute; inset: calc(2 * var(--p)); background: #2a2c2d;
+  -webkit-mask: var(--uni) center / 100% auto no-repeat; mask: var(--uni) center / 100% auto no-repeat; mask-mode: luminance; }
+/* uniequip/original has no glow (its square and ORIG are white at 40 %): black through its alpha */
+.lo .lo-qt--orig .lo-qt__uni { background: #000; mask-mode: alpha; }
+.lo .lo-qt.is-on { background: url(../../img/official/hub/ac/outer/shop/img_module_select_bg.png) 0 0 / 100% 100% no-repeat; }
+.lo .lo-qt.is-on .lo-qt__uni { background: #000; }
+.lo .lo-qt.is-on::before { content: ''; position: absolute; z-index: -1; inset: calc(-6 * var(--p)) calc(-6 * var(--p)) calc(-10 * var(--p)); pointer-events: none;
+  background: url(../../img/official/hub/ac/outer/shop/img_module_select_shadow.png) 0 0 / 100% 100% no-repeat; }
+/* img_fast_edit_item_select: a 60 × 60 frame (and its ✓ corner) in a 68 × 60 canvas — laid over the tile frame on frame */
+.lo .lo-qcol .lo-q.is-on::after { left: 0; top: 0; width: calc(58 * 68 / 60 * var(--p)); height: calc(58 * var(--p)); }
+.lo .lo-qcol .lo-qt { isolation: isolate; }
+.lo-qt__lv { position: absolute; z-index: 2; left: calc(3 * var(--p)); top: calc(3 * var(--p)); min-width: calc(15 * var(--p)); height: calc(17 * var(--p)); display: grid; place-items: center;
+  background: #111314; color: #f4f6f6; font-size: calc(14 * var(--p)); line-height: 1; }
+
+/* skill tiles */
+.lo .lo-qcol .lo-q--skill { display: grid; place-items: center; padding: 0; background: rgba(12, 14, 15, .9); border: calc(1 * var(--p)) solid rgba(255, 255, 255, .14); }
+.lo .lo-qcol .lo-q--skill .lo-sicon--q { width: 100%; height: 100%; }
+.lo .lo-qcol .lo-q--skill:not(.is-on) .lo-sicon { opacity: .55; }
+.lo .lo-qcol .lo-q--skill.is-on { border-color: transparent; }
+
+/* the card's pitch with the column open, its rarity row and the changed bookmark */
+.lo .lo-op.is-quick .lo-op__card { flex: none; }
+.lo .lo-op__rarity { display: block; height: calc(11 * var(--p)); width: auto; margin-bottom: calc(1 * var(--p)); }
+.lo .lo-op__card .lo-op__pot { display: none; }
+.lo .lo-op__mark { position: absolute; z-index: 6; left: calc(115 * var(--p)); top: calc(5 * var(--p)); width: calc(21 * var(--p)); height: calc(21 * var(--p)); margin: 0; transform: none; box-shadow: none;
+  background: url(../../img/official/hub/ac/outer/operator_preset.png) 0 0 / 100% 100% no-repeat; }
+
+/* ---- 17. 干员调配 (round 9) against the user's original 快速编辑 screenshot (1101 wide, scaled ×1.163 to 1280):
+   the top-left navigation from the event's own sprites, 1:1 — btn_topmenu_back (autochessouter's, 157 × 69: the plate, its
+   ‹ and the black divider) at x 6 and btn_topmenu_home (common's, 220 × 69: the network sphere and the house) against it,
+   both from y 3; ⓘ a 50 square dark plate 7 to their right (no sprite in the packs: OUR plate). 主页 closes the loadout
+   (its only "home": the lobby or the match it was opened from — OUR binding). The words at the original's sizes: the
+   quick-edit note 18.5 white (no QUICK ASSEMBLE caption over it), 快速编辑 18.5 grey, the tabs 19 on a 36 tall pill; the
+   level rail's ⚔ / wings are the event's elite_1 (grey, the normal form's level) and elite_2 (gold, the elite's) —
+   matched by eye against the screenshot (elite_0, outlined, does not match); the numbers 18; the names 19; the tier
+   tabs at the bottom 19 every 118. ---- */
+.lo--deck .lo-top { align-items: start; padding: calc(3 * var(--p)) calc(24 * var(--p)) 0 calc(6 * var(--p)); border-bottom: 0; }
+.lo--deck .lo-top::after { display: none; }
+.lo--deck .lo-top__left { gap: 0; align-items: flex-start; }
+.lo--deck .lo-back, .lo--deck .lo-home { flex: none; height: calc(69 * var(--p)); margin: 0 0 calc(-19 * var(--p)); padding: 0; border: 0; border-radius: 0; box-shadow: none;
+  font-size: 0; color: transparent; cursor: pointer; }
+.lo--deck .lo-back { width: calc(157 * var(--p)); background: url(../../img/official/hub/ac/outer/btn_topmenu_back.png) 0 0 / 100% 100% no-repeat; }
+.lo--deck .lo-back > * { visibility: hidden; }
+.lo--deck .lo-home { width: calc(220 * var(--p)); background: url(../../img/official/hub/ac/outer/btn_topmenu_home.png) 0 0 / 100% 100% no-repeat; }
+.lo--deck .lo-back:hover, .lo--deck .lo-home:hover { background-color: transparent; filter: brightness(1.15); }
+.lo--deck .lo-info { width: calc(50 * var(--p)); height: calc(50 * var(--p)); margin-left: calc(7 * var(--p)); border: 0; border-radius: 0; background: #333536; color: #e6e8e8; }
+.lo--deck .lo-info .icon { width: 70%; height: 70%; }
+.lo--deck .lo-top__center { align-self: center; margin-top: calc(-6 * var(--p)); }
+.lo--quick .lo-top__center .micro { display: none; }
+.lo--quick .lo-top__note, .lo--quick .lo-top__note.is-locked { font-size: calc(18.5 * var(--p)); color: #eceeee; max-width: none; }
+.lo--deck .lo-top__right { align-self: center; margin-top: calc(-6 * var(--p)); }
+.lo--quick .lo-qbar__k { font-size: calc(18.5 * var(--p)); color: #9da1a1; }
+.lo--quick .lo-qseg button { height: calc(36 * var(--p)); padding: 0 calc(30 * var(--p)); font-size: calc(19 * var(--p)); }
+
+.lo .lo-op__chev { width: calc(22 * var(--p)); height: calc(15 * var(--p)); clip-path: none; background: #c3c6c6;
+  -webkit-mask: url(../../img/official/hub/ac/ach/elite_1.png) center / 118% auto no-repeat; mask: url(../../img/official/hub/ac/ach/elite_1.png) center / 118% auto no-repeat; mask-mode: luminance; }
+.lo .lo-op__lvrow.is-elite .lo-op__chev { background: #f4d77a; -webkit-mask-image: url(../../img/official/hub/ac/ach/elite_2.png); mask-image: url(../../img/official/hub/ac/ach/elite_2.png); }
+.lo .lo-op__lvrow b { font-size: calc(18 * var(--p)); }
+.lo .lo-op__name { font-size: calc(19 * var(--p)); font-weight: 700; }
+.lo--deck .lo-bbar__tier { height: calc(36 * var(--p)); min-width: calc(110 * var(--p)); justify-content: center; font-size: calc(19 * var(--p)); }
+.lo--deck .lo-bbar__tiers { gap: calc(8 * var(--p)); }
+/* the module art fills its tile as in the screenshot (its glyph and MAR X letters about 85% of the tile; the art's own
+   transparent margin is cropped by the larger mask) */
+.lo .lo-qt__uni { inset: 0; -webkit-mask-size: 122%; mask-size: 122%; }
+/* the wider navigation leaves the deck page's middle less room: its note ends in … (full text on hover) rather than
+   running under the right-hand buttons */
+.lo--deck .lo-top__center { min-width: 0; max-width: 100%; overflow: hidden; }
+.lo--deck .lo-top__note { max-width: 100%; }
+
+/* ---- 18. 调配页 阶数侧栏 + 背景 (round 10, the reviewer's find: [uc]autochessouter shop_level_tag_1–6, the shop atlas's
+   img_char_level_tag_desc / img_item_level_tag_desc and bkg.png; SHA-256 checked against the pack). The user's original
+   screenshot (1093 wide) template-matched: the tier art at 0.86 there = 1:1 at 1280, its left 127 and its top 53 (×1.171,
+   1280 px) before the first card's tier box — so it hangs off the tier mark at (-31, -28), its own size, never stretched
+   with the rows (2 / 3 阶 are 152 × 600 on a canvas 1 left / 4 up of the others: shifted so the plates line up). Its NO.,
+   numeral, colour and vertical EVALUATION FRAMEWORK… are the art's (the drawn ones go). The desc overlay 27 × 133 at
+   (70, 399) of the art, its own alpha (fitted: the original shows it at the PNG's opacity). The count, ours, apart under the
+   plate. The page on bkg.png (its stripes, RHODES ISLAND, STIMULATING, the figure panels are in it; no extra scan layer). ---- */
+/* bkg.png centred at ×1.02 of its own size at 1280 (its two STIMULATING labels at (682, 42) / (772, 626) in the screenshot,
+   (824, 167) / (913, 737) in the art), not `cover` (that would draw it at ×0.82) */
+.lo--deck .lo__bg { background: url(../../img/official/hub/ac/outer/deck/bkg.png) center / calc(1591 * var(--p)) calc(979 * var(--p)) no-repeat, #0a0a0a; }
+.lo--deck .lo-tmark { overflow: visible; padding: 0; border: 0; background: none; box-shadow: none; }
+.lo--deck .lo-tmark::after { display: none; }
+.lo-tmark__art { position: absolute; z-index: 0; left: calc(-31 * var(--p)); top: calc(-28 * var(--p)); width: calc(150 * var(--p)); height: calc(595 * var(--p));
+  background: var(--tag) 0 0 / 100% 100% no-repeat; pointer-events: none; }
+.lo-tmark.tier--1 { --tag: url(../../img/official/hub/ac/outer/deck/shop_level_tag_1.png); }
+.lo-tmark.tier--2 { --tag: url(../../img/official/hub/ac/outer/deck/shop_level_tag_2.png); }
+.lo-tmark.tier--3 { --tag: url(../../img/official/hub/ac/outer/deck/shop_level_tag_3.png); }
+.lo-tmark.tier--4 { --tag: url(../../img/official/hub/ac/outer/deck/shop_level_tag_4.png); }
+.lo-tmark.tier--5 { --tag: url(../../img/official/hub/ac/outer/deck/shop_level_tag_5.png); }
+.lo-tmark.tier--6 { --tag: url(../../img/official/hub/ac/outer/deck/shop_level_tag_6.png); }
+.lo-tmark.tier--2 .lo-tmark__art, .lo-tmark.tier--3 .lo-tmark__art { left: calc(-32 * var(--p)); top: calc(-32 * var(--p)); width: calc(152 * var(--p)); height: calc(600 * var(--p)); }
+.lo-tmark__desc { position: absolute; z-index: 1; left: calc(39 * var(--p)); top: calc(371 * var(--p)); width: calc(27 * var(--p)); height: calc(133 * var(--p));
+  background: url(../../img/official/hub/ac/outer/deck/img_char_level_tag_desc.png) 0 0 / 100% 100% no-repeat; pointer-events: none; }
+.lo-tmark--items .lo-tmark__desc { background-image: url(../../img/official/hub/ac/outer/deck/img_item_level_tag_desc.png); }
+.lo--deck .lo-tmark__cnt { position: absolute; z-index: 1; left: calc(43 * var(--p)); top: calc(546 * var(--p)); transform: translateX(-50%); margin: 0;
+  font-size: calc(12 * var(--p)); color: rgba(220, 224, 224, .45); }
+/* 道具: its tiles start where the operators' cards do (40 past the mark, as .lo-tgrid), clear of the tier art's plate */
+.lo--deck .lo-igrid { padding-left: calc(40 * var(--p)); }
+
+/* ---- 19. 道具页（需求方 2026-10-31：干员调配页里的道具页也全部移植覆盖过来）-----------------------
+   本仓 loadout.css 的道具页是「每级 2 列 × 460px 横排」，官方是**每级 3 行、横向排开、列宽 230**。
+   这里按 zip 1026-1071 行覆盖，选择器加 .lo 前缀压过 .lo-deck--items 的旧规则。 ---- */
+.lo { --itw: max(4.3rem, 230px); }
+.lo .lo-deck--items { --itw: max(4.3rem, 230px); }
+.lo .lo-deck--items .lo-tgroup { flex: none; align-items: flex-start; }
+.lo .lo-deck--items .lo-igrid { display: grid; grid-auto-flow: column; grid-template-columns: none;
+  grid-template-rows: repeat(3, minmax(0, 1fr)); grid-auto-columns: var(--itw); grid-auto-rows: auto;
+  gap: .14rem .16rem; min-height: 0; }
+.lo .lo-deck--items .lo-item { width: auto; height: auto; min-height: 0;
+  grid-template-columns: min(1.45rem, 40%) minmax(0, 1fr); align-items: start; gap: .14rem;
+  padding: .14rem .12rem .1rem .2rem; }
+.lo .lo-deck--items .lo-item__icon { width: 100%; height: auto; aspect-ratio: 1; align-self: start; }
+.lo .lo-deck--items .lo-item__name { font-size: max(.19rem, 12px); }
+.lo .lo-deck--items .lo-item__desc { font-size: max(.14rem, 10px); -webkit-line-clamp: 4; }
+.lo .lo-deck--items .lo-item__tag { top: .08rem; bottom: auto; right: .08rem; max-width: none;
+  padding: 1px 5px; font-size: max(.11rem, 8px); }
+.lo .lo-item { border: 1px solid rgba(255, 255, 255, .08); }
+.lo .lo-item::before { left: .05rem; top: .1rem; bottom: .1rem; width: 3px; background: rgba(255, 255, 255, .7); }
+.lo .lo-item__icon { background: linear-gradient(180deg, #e2e5e3, #c3c8c5); border: 1px solid #f0f2f1; }
+.lo .lo-item__zoom { right: .1rem; bottom: .08rem; }
+.lo .lo-item__tag { color: var(--amber); border: 1px solid rgba(246, 163, 41, .5); background: rgba(0, 0, 0, .4); }
+.lo .lo-idetail { background: rgba(4, 6, 6, .72); }
+.lo .lo-idetail__box { width: min(8.8rem, calc(100% - 1.4rem)); padding: .28rem .34rem .2rem;
+  background: radial-gradient(120% 90% at 20% 0%, #2a2f2d, #151918 60%, #101312);
+  border: 2px solid rgba(232, 236, 234, .7);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .6), 0 .2rem .6rem rgba(0, 0, 0, .7); }
+.lo .lo-idetail__head h3 { font-size: max(.3rem, 17px); font-weight: 900; letter-spacing: .06em; }
+.lo .lo-idetail__main { grid-template-columns: max(2rem, 96px) minmax(0, 1fr); gap: .3rem; margin-top: .22rem; }
+.lo .lo-idetail__icon { border: 3px solid rgba(232, 236, 234, .85); }
+.lo .lo-idetail__chip { padding: .02rem .1rem; font-size: max(.14rem, 10px); color: #1a1f1d; background: #a9b0ad; }
+.lo .lo-idetail__chip.is-adv { margin-top: .06rem; background: #e2c041; }
+.lo .lo-idetail__eff { font-size: max(.17rem, 12px); line-height: 1.6; }
+.lo .lo-idetail__flavor { margin: .1rem 0 0; font-size: max(.14rem, 10px); line-height: 1.6; font-style: italic; color: var(--text-lo); }
+.lo .lo-idetail__foot { margin-top: .16rem; text-align: right; font-size: max(.12rem, 9px); color: var(--text-dim); letter-spacing: .1em; }
+
+/* ---- 20. 盟约详细：亚克力底（需求方 2026-10-31 图二「盟约详细背景换成亚克力」）------------------
+   game-panels.css 已经给 .bpop 上过一层 .66 的亚克力 + blur(.12rem)，但 zip 那份把它压回 rgba(34,38,40,.93)
+   这种不透明底。这里把「亚克力」定死：更透的底 + 更重的模糊，并保证无 backdrop-filter 时的退路。 ---- */
+.bpop { background: rgba(16, 20, 19, .42);
+  -webkit-backdrop-filter: blur(.18rem) saturate(1.5); backdrop-filter: blur(.18rem) saturate(1.5); }
+.bpop.is-over { background: rgba(16, 20, 19, .55); }
+@supports not (backdrop-filter: blur(1px)) {
+  .bpop { background: rgba(11, 15, 13, .97); }
+  .bpop.is-over { background: rgba(11, 15, 13, .97); }
+}
+
+/* ---- 21. 机变阶段：亚克力遮罩（需求方 2026-10-31 图四「机变阶段背景改成亚克力，全部覆盖」）--------
+   .spov__veil 原来是「左浓右淡的渐变 + blur(2px)」，右侧仍能看见棋盘发亮；改成整幅亚克力：更深、更匀、
+   模糊加重，并把 overlay 覆盖到顶栏以左的全部区域（devices.css 只改了 left/right，此处不动它）。 ---- */
+.spov__veil { background: rgba(10, 13, 12, .62);
+  -webkit-backdrop-filter: blur(.22rem) saturate(1.35); backdrop-filter: blur(.22rem) saturate(1.35);
+  border-left: 1px solid var(--line); }
+@supports not (backdrop-filter: blur(1px)) {
+  .spov__veil { background: rgba(8, 10, 10, .94); }
+}
+
+/* ---- 图二（需求方 2026-10-31）：右上角「快速配置」恢复本仓原样 —— 官方那张 btn_quick_set_bg 底板（白底 +
+   黑图标）被否，退回 loadout.css 的浅色按钮（.lo-quickbtn 本身，无底板贴图）。第 3 段的底板规则整段撤掉。 ---- */
+.lo .lo-quickbtn { width: auto; height: max(.7rem, 32px, calc(40px * var(--sp-ui, 1))); padding: 0; justify-content: flex-start;
+  background: #eef1ef; color: #111614; }
+.lo .lo-quickbtn::before { content: none; }
+.lo .lo-quickbtn:hover:not(:disabled) { background: #fff; filter: none; }
+.lo .lo-quickbtn > * { position: static; }
+.lo .lo-quickbtn__txt { align-self: stretch; padding-top: 0; }
+.lo .lo-quickbtn__txt > span { font-size: max(calc(.2 * var(--t)), 13px); }
+.lo .lo-quickbtn__txt small, .lo .lo-quickbtn__icon { visibility: visible; }
+
+/* ---- 图一（需求方 2026-10-31）：「返回」按钮 hover 时的方框没和底板对齐 —— 底板是 btn_topmenu_back.png
+   （157×69 拉伸），而按钮自身 196×86，比底板大一圈，于是 hover 的边框露在底板外面。把按钮收紧到底板尺寸。 ---- */
+.lo--deck .lo-back, .lo--deck .lo-home { box-sizing: content-box; height: calc(69 * var(--p)); }
+.lo--deck .lo-back { width: calc(157 * var(--p)); padding: 0; border: 0; }
+.lo--deck .lo-home { width: calc(220 * var(--p)); padding: 0; border: 0; }
+/* hover 时那圈薄荷绿角标是 .btn--ghost::after 画的，它默认往外撑 -4px —— 底板贴图正好铺满按钮本体，
+   于是角标整圈露在底板外沿 4px，看着就是「框没对齐」。把角标收回到按钮边界上，底板与框就重合了。 */
+.lo--deck .lo-back::after, .lo--deck .lo-home::after { inset: 0; }
+.lo--deck .lo-back:hover, .lo--deck .lo-home:hover,
+.lo--deck .lo-back:focus-visible, .lo--deck .lo-home:focus-visible {
+  outline: 0; border: 0; box-shadow: none; filter: brightness(1.15); }
+
+/* ---- 图五（需求方 2026-10-31）：「本局信息」与右侧「道具 / 策略详细」的底色都换成亚克力 ----------
+   本局信息 = game-panels.css 的 .edrawer（原来是 rgba(11,15,13,.97) 近乎不透明）；
+   道具详细 = .lo-idetail 的遮罩 + 它的 .lo-idetail__box 那块不透明径向底。两处都改成半透 + 模糊，
+   并各留一条 @supports 退路（不支持 backdrop-filter 时回到原来那种压暗底）。 ---- */
+.edrawer {
+  background: rgba(12, 16, 14, .46);
+  -webkit-backdrop-filter: blur(.2rem) saturate(1.4); backdrop-filter: blur(.2rem) saturate(1.4);
+  border-color: rgba(232, 236, 234, .16);
+  box-shadow: 0 .14rem .4rem rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(255, 255, 255, .04);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .edrawer { background: rgba(11, 15, 13, .95); }
+}
+.lo-idetail { background: rgba(6, 9, 8, .38);
+  -webkit-backdrop-filter: blur(.12rem) saturate(1.2); backdrop-filter: blur(.12rem) saturate(1.2); }
+.lo-idetail__box { background: rgba(20, 25, 23, .52);
+  -webkit-backdrop-filter: blur(.24rem) saturate(1.45); backdrop-filter: blur(.24rem) saturate(1.45);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .45), 0 .2rem .6rem rgba(0, 0, 0, .55); }
+@supports not (backdrop-filter: blur(1px)) {
+  .lo-idetail { background: rgba(4, 6, 6, .78); }
+  .lo-idetail__box { background: radial-gradient(120% 90% at 20% 0%, #2a2f2d, #151918 60%, #101312); }
+}
+
+/* 干员调配页右侧那块详情（道具 / 策略，.lo-detail）原本是 180deg 的 rgba(24,30,28,.97)→rgba(10,13,12,.98)
+   近乎不透明的渐变。同样改成亚克力：半透底 + 模糊，留住边框与投影，不支持时退回原来的深色渐变。 ---- */
+.lo .lo-detail {
+  background: linear-gradient(180deg, rgba(24, 30, 28, .52), rgba(10, 13, 12, .6));
+  -webkit-backdrop-filter: blur(.18rem) saturate(1.35); backdrop-filter: blur(.18rem) saturate(1.35);
+  border-color: rgba(232, 236, 234, .14);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .lo .lo-detail { background: linear-gradient(180deg, rgba(24, 30, 28, .97), rgba(10, 13, 12, .98)); }
+}
+
+/* 右侧那种「悬浮在道具 / 策略上的详细说明」本仓是通用 .tooltip（components.css，rgba(10,13,12,.97)）。
+   图五也把它算进「右边的道具策略详细背景」——同样改亚克力，保留左侧薄荷绿那道边。 */
+.tooltip {
+  background: rgba(12, 16, 14, .55);
+  -webkit-backdrop-filter: blur(.16rem) saturate(1.4); backdrop-filter: blur(.16rem) saturate(1.4);
+  box-shadow: 0 .06rem .2rem rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(255, 255, 255, .04);
+}
+@supports not (backdrop-filter: blur(1px)) {
+  .tooltip { background: rgba(10, 13, 12, .97); }
+}
+
+/* 图一本局信息的「禁用盟约」小牌子（.ibond.is-off）原来几乎是全透明的（rgba(255,255,255,.02)），
+   底色一改成亚克力，后面的亮棋盘透上来，灰字 + 灰图标就看不清了。给它们单独压一块深色底 ——
+   是偏绿的墨色（#0b100e 一类），不是纯黑，和面板的亚克力调子一致；文字与图标也提亮一档。 */
+.edrawer .ibond { background: rgba(11, 16, 14, .78); border-color: rgba(255, 255, 255, .13); }
+.edrawer .ibond.is-off { color: #cdd5d2; background: rgba(13, 19, 17, .86); border-color: rgba(255, 255, 255, .18); }
+.edrawer .ibond.is-off .bglyph img { filter: grayscale(1) brightness(.95); opacity: .92; }

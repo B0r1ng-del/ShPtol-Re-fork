@@ -143,7 +143,7 @@ const ARTS_GROUPS = Object.freeze({
  * @param {string|string[]} urls
  * @param {number} [bytes] expected size
  */
-function alt(rel, urls, bytes) {
+export function alt(rel, urls, bytes) {
   const a = { rel, urls: [].concat(urls).filter((u) => typeof u === 'string' && u), kind: kindOf(rel) };
   if (Number.isInteger(bytes) && bytes > 0) a.bytes = bytes;
   return a;
@@ -213,6 +213,39 @@ function bytesOf(rec, url) {
 /** Local file stem for a skeleton URL or file name ('…/char_102_texas.skel' → 'char_102_texas'). */
 function skelStem(urlOrName) {
   return safeName(urlBase(urlOrName).replace(/\.skel$/i, ''));
+}
+
+/**
+ * The tall 立绘 of a skin (干员皮肤, docs/SKINS.md), derived from its 180×180 avatar URL: the same file name in the
+ * source's `portrait/` folder. 见 refs/pr/652。导出是为了让 tools/install-skins.mjs 造出与全量 plan 完全相同的 URL。
+ * @param {{avatar?: {url?: string}}} skin research record
+ * @returns {string|null}
+ */
+export function skinPortraitUrl(skin) {
+  const u = skin?.avatar?.url;
+  if (typeof u !== 'string') return null;
+  const i = u.indexOf('/avatar/');
+  return i < 0 ? null : `${u.slice(0, i)}/portrait/${u.slice(i + '/avatar/'.length)}`;
+}
+
+/**
+ * One Spine model definition, built exactly the way `buildPlan`'s inner `fexliModel` builds it — 导出给
+ * tools/install-skins.mjs 按需装一套皮肤时用（两边漂移的话，装进来的文件集就和重建 plan 期望的不一致）。
+ * @param {string} key @param {string} kind @param {string} dir @param {{skel?:any, atlas?:any, png?:any}} rec
+ * @param {number[]} skillIndices @returns {object|null}
+ */
+export function fexliModelDef(key, kind, dir, rec, skillIndices) {
+  const us = (x) => (Array.isArray(x) ? x : [typeof x === 'string' ? x : x?.url]).filter((v) => typeof v === 'string' && v);
+  const b = (x) => (x && typeof x === 'object' && !Array.isArray(x) ? x.bytes : undefined);
+  if (!us(rec?.skel).length || !us(rec?.atlas).length || !us(rec?.png).length) return null;
+  const stem = skelStem(us(rec.skel)[0]);
+  return {
+    key, kind, dir, pma: false, skillIndices,
+    baseUrl: urlDir(us(rec.atlas)[0]),
+    skel: alt(`${dir}${stem}.skel`, us(rec.skel), b(rec.skel)),
+    atlas: { ...alt(`${dir}${stem}.atlas`, us(rec.atlas), b(rec.atlas)), mutable: true },
+    pngs: [alt(dir + safeName(urlBase(us(rec.png)[0])), us(rec.png), b(rec.png))],
+  };
 }
 
 /** Collect every enemy key referenced under a wave/branch structure. */
@@ -396,7 +429,9 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
   voiceLangs = null,
   voiceJp = true, voiceSlots = VOICE_BATTLE_SLOTS, optionalVoice = false,
   extraEnemyIds = [], extraTokenIds = [], extraHandbook = {}, localEnemySpines = {}, localTokenSpines = {}, extraOperators = {},
-  moduleTypes = [], statsTemplate = [], charModes = null, extraBands = {}, extraItems = {}, extraBonds = {} }) {
+  moduleTypes = [], statsTemplate = [], charModes = null, extraBands = {}, extraItems = {}, extraBonds = {},
+  // 干员皮肤 (docs/SKINS.md, 移植自 refs/pr/652)：皮肤总表与「本机装了哪些」。只规划装了的，清单才不会指向没下过文件的皮肤。
+  skins08 = null, skinsInstalled = null }) {
   const notes = [];
   /** @type {Map<string, any>} */
   const models = new Map();
@@ -454,7 +489,33 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     if (front) c.spine.front = front; else notes.push(`${id}: no Front battle Spine in research data`);
     const back = fexliModel(`op:${id}:back`, 'op', `spine/op/${id}/back/`, o.battleSpine?.back, idx);
     if (back) c.spine.back = back;
+
     chars[id] = c;
+    // 干员皮肤 (docs/SKINS.md)：按官方 skinId 分组，每套是一对 Front/Back Spine 加 180×180 头像。
+    // 每套模型都登记进 `models`：tools/assets/spine.mjs 在那里离线解析动画角色，客户端 validSpine() 也要求 anims。
+    const skinList = skins08?.skins?.[id];
+    if (skinList?.length) {
+      const skins = {};
+      for (const sk of skinList) {
+        // 默认不装皮肤：只有 data/skins-installed.json 里列出的才规划，全新安装因此一套都不下。
+        // 其余留在 docs/research/08-skins.json，由 tools/install-skins.mjs 按需安装。
+        if (!skinsInstalled || !skinsInstalled.has(sk.skinId)) continue;
+        const entry = {};
+        const dir = `spine/op/${sk.stem}/`;
+        const sfront = fexliModel(`skin:${sk.stem}:front`, 'op', `${dir}front/`, sk.battleSpine?.front, idx);
+        if (!sfront) { notes.push(`${sk.skinId}: no Front skin Spine in research data`); continue; }
+        const sback = fexliModel(`skin:${sk.stem}:back`, 'op', `${dir}back/`, sk.battleSpine?.back, idx);
+        entry.spine = { front: sfront };
+        if (sback) entry.spine.back = sback;
+        if (sk.avatar?.url) entry.avatar = leaf(alt(`char/avatar/skin/${sk.stem}.png`, sk.avatar.url, sk.avatar.bytes));
+        const purl = skinPortraitUrl(sk);
+        if (purl) entry.portrait = leaf(alt(`char/portrait/skin/${sk.stem}.png`, purl));
+        entry.name = sk.name;
+        entry.group = sk.group;
+        skins[sk.skinId] = entry;
+      }
+      if (Object.keys(skins).length) c.skins = skins;
+    }
     // skill icons (+ skill SFX) of every skill index; normal-mode attack / impact sounds only (a ranged operator's own
     // projectile banks projectile_chr_<name> as fallbacks — user playtest #4 item 6, audio.mjs pickUnitSfx)
     const short = id.replace(/^char_\d+_/, '');

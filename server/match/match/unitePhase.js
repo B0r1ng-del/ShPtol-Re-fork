@@ -61,7 +61,8 @@ export class MatchUnite {
       spawns: this._sanitizeSpawns(wave.spawns),
       routes: wave.routes,
       sharedBoss: null,
-      flags: { layerGainsEnabled: false, uncapLayers: this.gd.uncapLayers, ...this.gd.dp },
+      // 联防默认不叠层（官方）；「联防不禁叠层」Mod 开关打开时才放行。这一格进 spec，两端与结算校验读的都是它。
+      flags: { layerGainsEnabled: this.gd.uniteLayers, uncapLayers: this.gd.uncapLayers, ...this.gd.dp },
       fieldId: 'u',
       // leaked enemies re-enter with the stats they had: the round template's stat overrides apply again
       enemyOverrides: this.wave && this.wave.overrides ? this.wave.overrides : {},

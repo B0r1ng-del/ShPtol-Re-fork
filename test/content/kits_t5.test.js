@@ -19,10 +19,10 @@ const clean = (h) => { assert.deepEqual(h.b.errors.map((e) => `${e.label}: ${e.m
 
 test('tier-5 registry: every non-DIY tier-5 chess has a hand-authored kit', () => {
   const ids = Object.keys(KITS).sort();
-  // 23 official + 结城理 (内容包 packExtra6, 六.C — tools/fork-extra6.mjs; a PRESET card, so it is not one of the 官方
-  // numbered slots the loop below walks) + the fork's 东/乌萨斯 picks 5_97 / 5_98 / 5_99.
-  assert.equal(ids.length, 27);
-  assert.ok(KITS.chess_char_5_makoto_a, 'the ported packExtra6 operator has a kit');
+  // 23 official + the fork's 东/乌萨斯 picks 5_97 / 5_98 / 5_99. (结城理, the packExtra6 PRESET card, was the 27th
+  // until the owner deleted him on 2026-10-29.)
+  assert.equal(ids.length, 26);
+  assert.equal(KITS.chess_char_5_makoto_a, undefined, 'the deleted ported operator has no kit');
   for (let i = 1; i <= 23; i++) assert.ok(KITS[`chess_char_5_${String(i).padStart(2, '0')}_a`], `kit for 5_${i}`);
   for (const id of ids) {
     const h = makeBattle({ units: [{ chessId: id, row: 10, col: 5 }], autoFinish: false, timeLimit: 3 });

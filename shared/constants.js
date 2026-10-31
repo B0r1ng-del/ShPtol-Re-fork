@@ -224,12 +224,12 @@ export const enemyBuffMul = (src) => {
  *                             off — no vote button anywhere the mode itself does not ask for it (the official draft).
  */
 export const MOD_KEYS = Object.freeze([
-  'noBondBan', 'untimedSp', 'randomSpVote', 'extraRounds', 'targetedPick', 'uncapLayers',
+  'noBondBan', 'untimedSp', 'randomSpVote', 'extraRounds', 'targetedPick', 'uncapLayers', 'uniteLayers',
   'packRhine', 'packBeanstalk', 'packRelic', 'packKazdel', 'packRem', 'packDong', 'packUrsus',
 ]);
 /** Defaults of MOD_KEYS: the official behaviour of each switch (all off). */
 export const MOD_DEFAULTS = Object.freeze({
-  noBondBan: false, untimedSp: false, randomSpVote: false, extraRounds: false, targetedPick: false, uncapLayers: false,
+  noBondBan: false, untimedSp: false, randomSpVote: false, extraRounds: false, targetedPick: false, uncapLayers: false, uniteLayers: false,
   packRhine: false, packBeanstalk: false, packRelic: false, packKazdel: false, packRem: false, packDong: false, packUrsus: false,
 });
 /**

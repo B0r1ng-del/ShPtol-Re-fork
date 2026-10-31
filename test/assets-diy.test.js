@@ -28,7 +28,7 @@ test('dataExtras: every backups.json unit (skills by index, once), the ported pa
   // their own operator, so no 补位 unit names them and their art has to be read off the chess record instead.
   const extra = Object.keys(x.extraOperators).filter((id) => !BACKUPS.units[id]).sort();
   assert.deepEqual(Object.keys(x.extraOperators).sort(), [...Object.keys(BACKUPS.units), ...extra].sort());
-  assert.deepEqual(extra, ['char_4182_oblvns', 'char_4217_makoto'], 'exactly the two ported operators, no more');
+  assert.deepEqual(extra, ['char_4182_oblvns'], 'exactly the ported operator, no more (结城理 deleted 2026-10-29)');
   for (const id of extra) assert.ok(x.extraOperators[id].skills.length >= 1, `${id}: its skill icons are planned`);
   assert.deepEqual(x.extraOperators.char_112_siege, {
     name: '推进之王', subProfessionId: 'pioneer', nationId: 'victoria',

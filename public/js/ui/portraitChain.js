@@ -27,7 +27,12 @@
 //
 // **优先级（这段是「头像与立绘分开受控」的落点，逐条可断言）**：
 //
-//   调用方显式点名的变体 > 提供者的选择 > 官方回落
+//   调用方点名的皮肤 > 调用方显式点名的变体 > 提供者的选择 > 官方回落
+//
+// 「调用方点名的皮肤」是 2026-10-31 补的一档（需求方：「他们的预览头像没有随着皮肤去一起更改」）：
+// 选皮肤的选择本来由调用方算好（ui/gameComponents.js OperatorImage 的 `skin`），一路传到 `opts.skin`，
+// 而这条链**从来不读它** —— 于是牌面 / 详情页 / 结算页全都画原版，只有抽屉里那排皮肤格自己换了图。
+// `opts.skin` 落在哪里、由谁算（ownerSkin）都不变，这一档只负责「查到了就用它」。
 //
 // 三档各有明确边界：
 //   * **调用方显式点名的变体**：`opts.variant === 'elite'`，或 `id` 以 `_1` / `_2` 结尾（`_2` = E2、
@@ -61,6 +66,23 @@ const FIELDS = {
 };
 
 /**
+ * 一套皮肤（`chars[<charId>].skins[<skinId>]`）在这一条 kind 上的图，或 null。
+ *
+ * 与 `assets.js portraitUrl` / `ui/assetUrls.js skinPicture` 同一套取法（精锐优先 E2 字段，立绘再回落 illust），
+ * 只是这里按 `FIELDS[kind]` 取 —— 一条 kind 只认自己那两个字段，皮肤给了另一条 kind 的图不算数。
+ * 皮肤自己没有这一条 kind 的图时返回 null，让链继续走它原来的分支（回落干员本体，绝不画占位）。
+ * @param {any} chars @param {string|null} charId @param {unknown} skinId @param {any} f @param {any} chess
+ */
+function skinPicture(chars, charId, skinId, f, chess) {
+  const id = strOf(skinId);
+  const rec = id && charId ? chars[charId] : null;
+  const skin = rec && rec.skins && typeof rec.skins === 'object' ? rec.skins[id] : null;
+  if (!skin || typeof skin !== 'object') return null;
+  const elite = !!(chess && chess.isGolden) || /_2$/.test(strOf(chess && chess.assets ? chess.assets[f.plain] : null) || '');
+  return strOf(elite && skin[f.elite]) || strOf(skin[f.plain]) || (f === FIELDS.portrait ? strOf(skin.illust) : null);
+}
+
+/**
  * 解析一个干员的立绘 / 头像。
  *
  * @param {any} m 资源清单（`data/assets.json`）
@@ -89,6 +111,13 @@ export function portraitEntry(m, chess, opts = {}) {
 
   const charId = strOf(chess && chess.charId);
   const id = strOf(chess && chess.assets ? chess.assets[kind] : null);
+  // 步骤 −1：**调用方点名的皮肤先说话**（`opts.skin` 是一套外观的 id，由 ui/skins.js ownerSkin 算出来）。
+  // 查不到、或这套外观没有这一条 kind 的图 ⇒ 返回 null，整条链与没有这一格时逐字相同。
+  // 与步骤 0 同一道门：皮肤也是「工坊外观」，设置里关掉（或这个调用点写死 `skins: false`）就整段不存在。
+  if (appearanceFirstOn && opts.skins !== false) {
+    const worn = skinPicture(chars, charId, opts.skin, f, chess);
+    if (worn) return worn;
+  }
   // 步骤 0：**提供者先说话**（只有开关打开、且提供者真的在、且调用方没有点名版本时才存在这一步）
   const first = appearanceFirst(charId, id, opts, kind, chess);
   if (first) return first;

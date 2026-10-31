@@ -389,7 +389,8 @@ function MatchScreen() {
   const hasOffers = !!pub?.offers?.length;
   const editable = !offerBlocksPrep(pub?.offers) && phase === PHASE.PREP && !!priv && alive && !priv.ready && !watchingOther && !hasPersonalChoice;
   const showShop = !!priv && alive && (phase === PHASE.PREP || phase === PHASE.SP_DRAFT || phase === PHASE.ROUND_START) && !watchingOther;
-  const layersDisabled = phase === PHASE.UNITE || isBossPhase(phase);
+  // 联防默认不叠层（官方）；「联防不禁叠层」Mod 开关打开时，联防那一段不再置灰（m.public.mods，与 unitePhase.js 同一个开关）。
+  const layersDisabled = (phase === PHASE.UNITE && !pub?.mods?.uniteLayers) || isBossPhase(phase);
   // 共享悬赏 off (房主配置, m.public.hostConfig.sharedBounty): a teammate's 悬赏 pick does not consume the card for me
   const sp = phase === PHASE.SP_DRAFT ? normalizeSp(pub?.sp, players, { shared: pub?.hostConfig?.sharedBounty !== false, myId }) : null;
   const total = phaseTotalSeconds(pub, gd.config, myId);
@@ -921,6 +922,9 @@ function MatchScreen() {
       setRoundPop({ round: pub.round, left: roundsToBoss(pub), sub: b.sub, watching: spectator || !alive, key: phaseKey });
     } else if (plate) setBanner({ ...plate, plate: true, key: phaseKey });
     else if (b) setBanner({ ...b, key: phaseKey });
+    // 提示只属于它自己的阶段 (需求方 2026-10-31 图五): 一条提示的时长可能比阶段长 — 阶段一换就收掉,
+    else setBanner(null);
+    // 否则 回合开始 的回合板会和它挂在同一屏, 看着像两种提示
     if (phase === PHASE.ROUND_START) audio.sfx('roundStart');
     else if (phase === PHASE.PREP) audio.sfx('rest', { volume: 0.7 });
     else if (phase === PHASE.COMBAT) audio.sfx('battleStart');
@@ -950,6 +954,9 @@ function MatchScreen() {
       setWatching(null);
       setWatchWho(null);
     }
+    // 结算框只属于结算阶段 (需求方 2026-10-31 图五): 回合开始 的回合板来临时它还挂在屏幕上,
+    // 两个提示叠在一起 —— 离开 SETTLE 就收掉它，不等它自己的 duration 走完
+    if (phase !== PHASE.SETTLE) setResultBox(null);
     // the pen is a 休整期 view: leaving prep returns the camera (the next setCam would, too)
     if (phase !== PHASE.PREP && penRef.current.on) togglePenRef.current(false);
     // a battle unit's panel (live HP of a unit of the fight that just ended) never outlives its battle
@@ -2089,7 +2096,6 @@ function MatchScreen() {
         ${/* ★ `.is-chat-folded`（chat.css）把这一行整体抬高，给**收起的**聊天窗腾出位置。这一格与下面 corner 轮盘的
              条件（`!chatOn || !chatOpen`）**必须同步**：只有「窗口开着且收起」才需要让位。 */ null}
         <${AiTakeoverPanel} />
-        ${showMetrics && metricsOpen ? html`<${CombatMetricsPanel} myId=${myId} onClose=${() => setMetricsOpen(false)} />` : null}
         ${/* 交流键 (fork 2026-10-17): 两个家、同时只有一个。聊天窗开着但收起时（`chatOn && !chatOpen`）用这一份 corner
              副本；聊天功能整体关掉时聊天窗根本不渲染，同一条件也覆盖了它（`!chatOn ⇒ !chatOpen`），所以轮盘永远有一个家。 */
           spectator ? null : chatOn && !chatOpen ? html`<${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen}

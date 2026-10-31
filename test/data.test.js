@@ -77,12 +77,13 @@ test('numbers: every stats/bb/enemyScale object holds only finite numbers (no nu
   assert.deepEqual(bad.slice(0, 10), [], `${bad.length} bad numeric fields`);
 });
 
-test('chess: 350 records, 150 visible non-DIY (21/24/26/27/27/25 per tier)', () => {
-  assert.equal(Object.keys(chess).length, 350);
-  assert.equal(visible.length, 150);
+test('chess: 348 records, 149 visible non-DIY (21/24/26/27/26/25 per tier)', () => {
+  assert.equal(Object.keys(chess).length, 348);
+  assert.equal(visible.length, 149);
   const perTier = {};
   for (const c of visible) perTier[c.tier] = (perTier[c.tier] || 0) + 1;
-  // tier 5 / 6 gained one each: the ported packExtra6 operators (tools/fork-extra6.mjs, 六.C)
+  // tier 5 / 6 gained one each: the ported packExtra6 operators (tools/fork-extra6.mjs, 六.C) — tier 5 went back
+  // down one when 结城理 was deleted (2026-10-29), leaving 丰川祥子 at tier 6
   // tier 1 / 2 / 4 / 5 gained one each and tier 3 two: the ported packRhine operators (tools/rhine-data.mjs, 六.F),
   // with 塞雷娅 5→3 and 白面鸮 4→3 moving with them
   // 八: the ported 卡兹戴尔 operators (tools/kazdel.mjs) — 6 new at tiers II–VI, and 芬 (chess_char_1_05) became
@@ -90,7 +91,7 @@ test('chess: 350 records, 150 visible non-DIY (21/24/26/27/27/25 per tier)', () 
   // 九: the ported 雷姆必拓 operators (tools/rem.mjs) — 9 new: 2 at tier I, 2 at II, 1 at III, 2 at IV, 2 at V.
   // 二.1 地灵 (2026-10-23): tier 1 +1 —  lifts the official hidden 地灵 into the pool.
   // 二.3 东国 / 乌萨斯 (2026-10-23): +13 (tier 2 +2, 3 +3, 4 +2, 5 +3, 6 +3).
-  assert.deepEqual(perTier, { 1: 21, 2: 24, 3: 26, 4: 27, 5: 27, 6: 25 });
+  assert.deepEqual(perTier, { 1: 21, 2: 24, 3: 26, 4: 27, 5: 26, 6: 25 });
   // 4 official DIY slots + the fork's 6 extra ones (二.8, 5 per tier; tools/fork-overrides.mjs applyForkChess)
   assert.equal(normalChess.filter((c) => c.isDiy).length, 10);
   // 二.1 地灵 (2026-10-23): 16 → 15 — the pack clears her  so  lets her in.

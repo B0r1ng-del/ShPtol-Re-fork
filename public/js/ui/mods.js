@@ -74,6 +74,7 @@ export const MOD_ROWS = Object.freeze([
   { col: 'rule', key: 'extraRounds', label: N_('额外 4 回合'), tip: N_('所有模式的回合数由 14 回合变为 18 回合，新增的 4 回合都是普通回合，Boss 回合相应后移到第 18 回合') },
   { col: 'rule', key: 'targetedPick', label: N_('定向甄选'), tip: N_('三个相同干员合为进阶干员时，奖励的高阶干员三选一里，当前已激活最高层数盟约旗下的干员各多占 20% 的出现概率（其余干员照常出现）') },
   { col: 'rule', key: 'uncapLayers', label: N_('解除叠层上限'), tip: N_('盟约叠层上限由 999 层解除，可以叠到 999 层以上；只解除上限，其他盟约规则不变') },
+  { col: 'rule', key: 'uniteLayers', label: N_('联防不禁叠层'), tip: N_('联防阶段原本不获得盟约层数，开启后联防里的干员照常叠层；Boss / 最终攻势 / 隐秘核心不受影响，仍按官方规则禁用') },
   { col: 'pack', key: 'packRhine', label: N_('莱茵生命'), tip: N_('开启后游戏内可使用移植内容：莱茵生命盟约与科研装置、联合科研干员。关闭（默认）时完全不加载，回到原版内容。') },
   { col: 'pack', key: 'packBeanstalk', label: N_('地灵'), tip: N_('开启后地灵进入卫戍协议卡池：盟约 奇迹 / 远见，特质为「获得时自身所属盟约层数+4（无需激活盟约）」。关闭（默认）时她仍是官方隐藏干员。') },
   { col: 'pack', key: 'packRelic', label: N_('收藏品玩法'), tip: N_('开启后游戏内可使用移植内容：收藏品玩法（每回合三选一、护盾与图鉴）。关闭（默认）时不加载任何收藏品。') },

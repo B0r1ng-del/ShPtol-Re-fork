@@ -111,7 +111,7 @@ const EXPECT = Object.freeze({
   data: {
     // This fork's 12 preset kits (chess_char_3_96 … 6_99) and its expansion chess raise `own`; its 18 extra items raise
     // `battleEffect`; `kitted` drops because the 自选 pool is pinned by the expansions' own pools (shared/diy.js).
-    kits: { own: 165, tier: 0, op: 0, pending: 0 }, diy: { kitted: 67, generic: 6, pending: 0 }, standIns: { kitted: 82, generic: 28 },
+    kits: { own: 164, tier: 0, op: 0, pending: 0 }, diy: { kitted: 67, generic: 6, pending: 0 }, standIns: { kitted: 82, generic: 28 },
     items: 54, handlers: 27, battleEffect: 100,
     hammers: ['chess_item_4_09_e', 'chess_item_3_09_e', 'chess_item_3_10_e', 'chess_item_2_03_e'], meta: DEFAULT_META,
     cells: ['chess_item_5_08_e_a'],
@@ -373,8 +373,9 @@ for (const dir of DIRS) {
 
 test('kits of data/: the new lookup equals the by-id lookup for every record', () => {
   const all = defsOf(dataOf(DEFAULT_DIR));
-  // 266 on upstream; this fork adds its 12 preset kits, the 14 fork-only operators and the 12 + 12 + 18 expansion chess.
-  assert.equal(all.length, 350);
+  // 266 on upstream; this fork adds its 12 preset kits, the 14 fork-only operators and the 12 + 12 + 18 expansion chess,
+  // minus 结城理 (deleted 2026-10-29: one operator, two chess entries).
+  assert.equal(all.length, 348);
   for (const { id, def } of all) assert.equal(officialKitKey(def), oldKitKey(def), id);
 });
 

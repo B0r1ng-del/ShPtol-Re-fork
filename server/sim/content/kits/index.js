@@ -73,8 +73,6 @@ export const KIT_FILES = Object.freeze([
     'chess_char_5_13-ghost2.js', 'chess_char_5_14-svash2.js', 'chess_char_5_15-thorn2.js', 'chess_char_5_16-plosis.js',
     'chess_char_5_17-f12yin.js', 'chess_char_5_18-gvial2.js', 'chess_char_5_19-mlynar.js', 'chess_char_5_20-aglina.js',
     'chess_char_5_21-sntlla.js', 'chess_char_5_22-nymph.js', 'chess_char_5_23-reckpr.js',
-    // 内容包 packExtra6 (六.C): the ported operators, invisible while their switch is off (they carry `packId`)
-    'chess_char_5_makoto-makoto.js',
     // 二.3 东国 / 乌萨斯（内容包 packDong / packUrsus）
     'chess_char_5_97-saga.js', 'chess_char_5_98-turdus.js', 'chess_char_5_99-veen.js'],
   // tier 6 (and 盟约·辅助干员 chess_char_1_15, a hidden tier-1 chess always registered with the tier-6 kits)
@@ -309,7 +307,6 @@ export const KIT_CHAR_IDS = Object.freeze({
   chess_char_5_21_a: 'char_341_sntlla', // 寒檀
   chess_char_5_22_a: 'char_4146_nymph', // 妮芙
   chess_char_5_23_a: 'char_4196_reckpr', // 录武官
-  chess_char_5_makoto_a: 'char_4217_makoto', // 真琴
   chess_char_5_97_a: 'char_362_saga', // 嵯峨
   chess_char_5_98_a: 'char_4224_turdus', // 乌鸫
   chess_char_5_99_a: 'char_4226_veen', // 维伊

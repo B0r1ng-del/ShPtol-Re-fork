@@ -3285,15 +3285,15 @@ function validateAll(f) {
   const visible = Object.values(chess).filter((c) => !c.isGolden && c.visible);
   // The counts are the committed ones. The DEFAULT version carries the fork layer, so its numbers are the official
   // ones plus every pack (see the block's comment): 23 bonds + 莱茵生命 + 东/乌萨斯, 40 bands + 5 自制策略, and 112
-  // visible non-DIY chess + 2 packExtra6 + 地灵. The earlier versions are pinned to upstream's pre-fork data
+  // visible non-DIY chess + 1 packExtra6 (丰川祥子; 结城理 deleted 2026-10-29) + 地灵. The earlier versions are pinned to upstream's pre-fork data
   // (test/data-versions.test.js pins them byte for byte), so they keep their profile's plain official counts.
   const want = PROFILE.expect; // the per-version counts and trigger-deviation mode
   const fBonds = IS_DEFAULT ? 24 + DU_BOND_COUNT : want.bonds;
   const fBands = IS_DEFAULT ? 40 + DU_BAND_COUNT : want.bands;
-  const fVisible = IS_DEFAULT ? 115 + DU_VISIBLE_CHESS : want.visibleNonDiy;
+  const fVisible = IS_DEFAULT ? 114 + DU_VISIBLE_CHESS : want.visibleNonDiy;
   if (Object.keys(bonds).length !== fBonds) err(`expected ${fBonds} bonds, got ${Object.keys(bonds).length}`);
   if (Object.keys(bands).length !== fBands) err(`expected ${fBands} bands, got ${Object.keys(bands).length}`);
-  // the fork's two ported 额外干员 operators ride on top of the official 112 (tools/fork-overrides.mjs packExtra6), and
+  // the fork's ported 额外干员 operator rides on top of the official 112 (tools/fork-extra6.mjs packExtra6), and
   // 二.1 地灵 (2026-10-23) adds one more: the official hidden operator `chess_char_1_11_a`, made visible by the
   // `packBeanstalk` applier (its `packRestore` puts `visible: false` back when the switch is off).
   // The per-record loop that used to follow (baseId / goldenId / bonds / garrisons / tokens / talents, the DESIGN §16

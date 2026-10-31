@@ -22,6 +22,16 @@ export const RELIC_TIERS = Object.freeze([
  * @property {boolean} [multiplayerOnly]
  * @property {boolean} [redistributeEnemies]
  * @property {Readonly<{lp: number, operators: number}>} [reviveOnce]
+ * @property {boolean} [deathNote]
+ * @property {boolean} [hideEnemyNames]
+ * @property {boolean} [normalDrop]
+ * @property {string} [requiredBond]
+ * @property {number} [battleChoiceBonus]
+ * @property {number} [skillEndSp]
+ * @property {number} [difficultyReduction]
+ * @property {number} [soloDifficultyReduction]
+ * @property {boolean} [normalRoundsOnly]
+ * @property {boolean} [scratchTicket]
  */
 /**
  * @param {string} number

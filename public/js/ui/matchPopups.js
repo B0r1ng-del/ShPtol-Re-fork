@@ -88,15 +88,15 @@ function PopArt({ faces = false }) {
     ${faces ? html`<span class="mpop__bot mpop__bot--faces">
       ${FACES.map((k, i) => html`<${Sprite} key=${k} k=${k} class=${cx('mpop__face', i && 'mpop__face--2')}
         fallback=${html`<i class=${cx('mpop__face', i && 'mpop__face--2', 'mpop__face--css')}></i>`} />`)}
-    </span>` : html`<span class="mpop__bot">
-      <${Sprite} k=${rsd('round_emoji_book')} class="mpop__part mpop__part--book" />
-      <${Sprite} k=${rsd('round_emoji_body')} class="mpop__part mpop__part--body" />
-      <${Sprite} k=${rsd('round_emoji_head')} class="mpop__part mpop__part--head"
-        fallback=${html`<i class="mpop__part mpop__part--head mpop__head--css"><i></i><i></i></i>`} />
-      <${Sprite} k=${rsd('round_emoji_hand')} class="mpop__part mpop__part--hand" />
-      ${[0, 1, 2, 3, 4].map((i) => html`<i key=${i} class=${`mpop__dot mpop__dot--${i}`}></i>`)}
+    </span>` : html`<span class="mpop__rbot">
+      <i class="mpop__rseed"></i>
+      <i class="mpop__rpart mpop__rpart--body"></i>
+      <span class="mpop__rrim mpop__rrim--book"><i class="mpop__rpart mpop__rpart--book"></i></span>
+      <i class="mpop__rpart mpop__rpart--head"></i>
+      <span class="mpop__rrim mpop__rrim--hand"><i class="mpop__rpart mpop__rpart--hand"></i></span>
+      ${[0, 1, 2, 3, 4].map((i) => html`<i key=${i} class=${"mpop__rdot mpop__rdot--" + i}></i>`)}
     </span>`}
-    <${Sprite} k=${rsd('round_text_01')} class="mpop__tag" fallback=${html`<span class="mpop__tag mpop__tag--css">STRONGHOLD PROTOCOL</span>`} />
+    <${Sprite} k=${rsd('round_text_01')} class="mpop__utag" fallback=${html`<span class="mpop__utag mpop__utag--css">STRONGHOLD PROTOCOL</span>`} />
   </div>`;
 }
 
@@ -109,7 +109,13 @@ function frameMask() {
   const assets = data.get('assets');
   const frame = uiUrl(assets, rsd('round_frame'));
   const cross = uiUrl(assets, rsd('round_cross'));
-  return frame && cross ? { cls: 'has-frame', style: `--mpop-frame:url("${frame}");--mpop-cross:url("${cross}")` } : { cls: null, style: null };
+  const base = frame && cross ? { cls: 'has-frame', style: `--mpop-frame:url("${frame}");--mpop-cross:url("${cross}")` } : { cls: null, style: null };
+  // the round plate's robot is masked, not four <img> (css/screens/match-popups.css .mpop__rpart): the parts and the brand
+  // line arrive as custom properties; an absent sprite leaves its part unpainted instead of a broken box
+  const px = (n, v) => { const u = uiUrl(assets, rsd(n)); return u ? `--round-${v}:url("${u}");` : ''; };
+  const parts = px('round_emoji_head', 'head') + px('round_emoji_body', 'body') + px('round_emoji_book', 'book')
+    + px('round_emoji_hand', 'hand') + px('round_text_01', 'tag');
+  return parts ? { cls: base.cls, style: (base.style ? base.style + ';' : '') + parts } : base;
 }
 
 /** The plate itself: the contour lines of the official background over a dark translucent panel. */

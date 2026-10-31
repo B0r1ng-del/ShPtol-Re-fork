@@ -467,6 +467,11 @@ async function main() {
   const localEnemySpines = await syncLocalSpines(opts, 'enemy');
   const localTokenSpines = await syncLocalSpines(opts, 'token');
   const statsTemplate = await statsTemplateJobs(ROOT, { offline: opts.offline || opts.dryRun, log });
+  // 干员皮肤 (docs/SKINS.md, 移植自 refs/pr/652)：皮肤总表与「本机装了哪些」。缺文件 ⇒ 清单里没有皮肤，与从前一致。
+  // 不接这里的话，任何一次重建都会把 tools/install-skins.mjs 拼进 data/assets.json 的皮肤抹掉。
+  const skins08 = await readJson('docs/research/08-skins.json').catch(() => null);
+  const skinsInstalledRaw = await readJson('data/skins-installed.json').catch(() => null);
+  const skinsInstalled = new Set(Array.isArray(skinsInstalledRaw?.installed) ? skinsInstalledRaw.installed : []);
   const plan = buildPlan({
     // 六.F 莱茵生命 (tools/rhine-data.mjs): its six operators field PRESET chess of their own, so research 07/03 do
     // not name them and they would ship with no avatar / portrait / Spine (assets/rhine-plan.mjs).
@@ -490,6 +495,7 @@ async function main() {
     moduleTypes: all.moduleTypes,
     statsTemplate,
     charModes,
+    skins08, skinsInstalled,
   });
   const leaves = collectLeaves(plan.template);
   log(`[plan] ${leaves.length} files + ${plan.models.size} Spine models ` +

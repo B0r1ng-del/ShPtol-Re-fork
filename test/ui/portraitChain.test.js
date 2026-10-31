@@ -438,6 +438,78 @@ describe('消费点都接了链（源码级守卫）', () => {
 });
 
 // ---------------------------------------------------------------------------------------------------
+// 调用方点名的皮肤（`opts.skin`）：需求方 2026-10-31「他们的预览头像没有随着皮肤去一起更改」。
+//
+// 这一格坏掉的方式非常具体：`OperatorImage` 一路把选好的皮肤算好了传进来，而这条链**不读** `opts.skin`，
+// 于是牌面 / 详情页 / 结算页全画原版、只有抽屉里那排皮肤格自己换了图 —— 看起来像「皮肤没生效」，
+// 其实是「预览没跟着走」。所以两件事都要钉：链认这个参数，以及它**不认**的时候逐字回到原版。
+// ---------------------------------------------------------------------------------------------------
+describe('调用方点名的皮肤（opts.skin）', () => {
+  const SK = {
+    chars: {
+      char_a: {
+        portrait: 'a/p1.png', portraitE2: 'a/p2.png', avatar: 'a/v1.png', avatarE2: 'a/v2.png',
+        skins: {
+          s1: { portrait: 's/p1.png', avatar: 's/v1.png' },
+          e2: { portrait: 's/p1.png', portraitE2: 's/p2.png', avatar: 's/v1.png', avatarE2: 's/v2.png' },
+          onlyAvatar: { avatar: 's/v1.png' },
+          illustOnly: { illust: 's/i.png' },
+          meta: { name: '无图' },
+        },
+      },
+    },
+  };
+  const chess = (extra = {}) => ({ charId: 'char_a', assets: { portrait: 'char_a_1', avatar: 'char_a' }, ...extra });
+
+  test('立绘与头像各认自己那一条，换回 null 就是原版', () => {
+    assert.equal(portraitUrlOf(SK, chess(), { skin: 's1' }), 's/p1.png');
+    assert.equal(avatarUrlOf(SK, chess(), { skin: 's1' }), 's/v1.png');
+    assert.equal(portraitUrlOf(SK, chess(), { skin: null }), 'a/p1.png', '不传皮肤 = 原版立绘');
+    assert.equal(avatarUrlOf(SK, chess(), { skin: null }), 'a/v1.png');
+  });
+
+  test('精锐优先皮肤自己的 E2 字段，没有 E2 就是普通那张', () => {
+    assert.equal(portraitUrlOf(SK, chess({ isGolden: true }), { skin: 'e2' }), 's/p2.png');
+    assert.equal(avatarUrlOf(SK, chess({ isGolden: true }), { skin: 'e2' }), 's/v2.png');
+    assert.equal(portraitUrlOf(SK, chess({ isGolden: true }), { skin: 's1' }), 's/p1.png');
+  });
+
+  test('皮肤缺这一条 kind 的图 ⇒ 回落干员本体，绝不画占位', () => {
+    assert.equal(avatarUrlOf(SK, chess(), { skin: 'onlyAvatar' }), 's/v1.png');
+    assert.equal(portraitUrlOf(SK, chess(), { skin: 'onlyAvatar' }), 'a/p1.png', '只有头像的皮肤不冒充立绘');
+    assert.equal(portraitUrlOf(SK, chess(), { skin: 'illustOnly' }), 's/i.png', '立绘可以回落 illust');
+    assert.equal(avatarUrlOf(SK, chess(), { skin: 'illustOnly' }), 'a/v1.png', '头像不拿 illust 冒充');
+    assert.equal(portraitUrlOf(SK, chess(), { skin: 'nope' }), 'a/p1.png', '不认识的皮肤 id = 原版');
+    assert.equal(portraitUrlOf(SK, chess(), { skin: 'meta' }), 'a/p1.png', '只有元数据的皮肤 = 原版');
+  });
+
+  test('皮肤压过外观提供者（玩家亲手选的那一套先说话）', () => {
+    setAppearanceLookup(() => ({ portrait: 'provider/p.png', avatar: 'provider/v.png' }));
+    try {
+      assert.equal(portraitUrlOf(SK, chess(), { skin: 's1' }), 's/p1.png');
+      assert.equal(avatarUrlOf(SK, chess(), { skin: 's1' }), 's/v1.png');
+      // 提供者那一步的前置条件是「调用方没有点名版本」：`char_a_1` 是 `_1` 后缀 ⇒ 点名了，直接走链自己的分派
+      assert.equal(portraitUrlOf(SK, chess()), 'a/p1.png', '点名了 _1 版本 ⇒ 提供者不参与（既有优先级）');
+      const unsigned = { charId: 'char_a', assets: { portrait: 'summer' } };
+      assert.equal(portraitUrlOf(SK, unsigned), 'provider/p.png', '没选皮肤时提供者照旧先说话');
+      assert.equal(portraitUrlOf(SK, unsigned, { skin: 's1' }), 's/p1.png', '选了皮肤则皮肤在上');
+    } finally { clearAppearanceLookup(); }
+  });
+
+  test('皮肤与提供者同一道门：工坊外观关掉就整段不存在', () => {
+    assert.equal(portraitUrlOf(SK, chess(), { skin: 's1', skins: false }), 'a/p1.png');
+    assert.equal(avatarUrlOf(SK, chess(), { skin: 's1', skins: false }), 'a/v1.png');
+  });
+
+  test('消费点真的把它传进来了（源码级守卫）', () => {
+    const src = readFileSync(new URL('../../public/js/ui/gameComponents.js', import.meta.url), 'utf8');
+    assert.ok(/skin: selected/.test(src), 'OperatorImage 必须把算好的皮肤传给链');
+    const chosen = readFileSync(new URL('../../public/js/ui/skins.js', import.meta.url), 'utf8');
+    assert.ok(/ownerSkin/.test(chosen), '皮肤的选择由 ui/skins.js ownerSkin 算');
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------
 // 设置 →「工坊外观」这条线（源码级守卫）：开关**必须有唯一一个写入面**，而且它接的是链上那一个门控。
 //
 // 为什么是源码守卫而不是行为测试：`ui/settings.js` 会拖进 Preact 与一整套界面（audio / data / 语言包），

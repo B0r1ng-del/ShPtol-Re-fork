@@ -1,7 +1,7 @@
-// tools/fork-extra6.mjs — 内容包 packExtra6 (额外干员, 原作者 remember-4): the two ported operators' rows in the season's
+// tools/fork-extra6.mjs — 内容包 packExtra6 (额外干员, 原作者 remember-4): the ported operator's rows in the season's
 // own tables.
 //
-// WHY THIS FILE EXISTS. 丰川祥子 (char_4182_oblvns) and 结城理 (char_4217_makoto) are official characters —
+// WHY THIS FILE EXISTS. 丰川祥子 (char_4182_oblvns) is an official character —
 // `character_table.json` has their stats, traits, talents, skills, modules and ranges, and the fork's `buildChess`
 // resolves all of that on its own. What the official data does NOT have is a 卫戍协议 row for them: act2autochess never
 // shipped them as shop chess, so `charShopChessDatas` / `charChessDataDict` / `chessNormalIdLookupDict` have no entry and
@@ -10,7 +10,7 @@
 //
 // That is the whole port: because every downstream builder (`buildChess` / `buildBackups` / `buildGarrisons` /
 // `buildBonds`) reads the season tables, and nothing in `build-data.mjs` special-cases a chess id, injecting the rows is
-// enough for the two operators to be built, validated and written like any other. The alternative — hand-pinning a copy
+// enough for the operator to be built, validated and written like any other. The alternative — hand-pinning a copy
 // of the character/skill/module tables in the repo, as the source expansion does — would duplicate megabytes of data
 // the build already has and drift from it on the next client update.
 //
@@ -25,33 +25,20 @@ export const FORK_EXTRA6_PACK = 'packExtra6';
  * source expansion's own assignment, and this fork's builder derives nothing else (a 补位 / 自选 operator gets its bonds
  * from its powers, but a PRESET shop chess carries them in its own row: `charChessDataDict[].bondIds`).
  *
- * Both are 联动 operators (`mujica` / `sees`, DIY_EXCLUDED_TEAMS), which is why they reach neither the 自选 pool nor the
- * 补位 tables, and both are PRESET: `chessType` PRESET is what the fork's own 卫戍协议 rows use, and it is what keeps the
+ * It is a 联动 operator (`mujica`, DIY_EXCLUDED_TEAMS), which is why it reaches neither the 自选 pool nor the
+ * 补位 tables, and it is PRESET: `chessType` PRESET is what the fork's own 卫戍协议 rows use, and it is what keeps the
  * 17 补位 stand-ins out of this port — a NORMAL row would have to name another operator's charId as its `backup`
  * (`data/backups.json`, shared/standIn.js) and drag the whole stand-in machinery in with it.
  */
 export const FORK_EXTRA6_CHARS = Object.freeze([
-  { charId: 'char_4217_makoto', tier: 5, bonds: Object.freeze(['lateranoShip', 'indomShip']) },
   { charId: 'char_4182_oblvns', tier: 6, bonds: Object.freeze(['emptyShip']) },
 ]);
 
 /**
- * The 独有特质 (garrison) the source expansion gives 结城理: 被击倒 or 替身切换 stacks 【拉特兰】/【不屈】. The official
- * season has no such row, so it is authored here in the `garrisonDataDict` blackboard shape `buildGarrisons` reads
- * (`flattenBB`), with `effectKey` naming a dispatcher the sim already has — `act1autochess_gar_event_selfdead`
- * (`server/sim/content/garrisons/battle.js`), which fires on `death` and, for a 替身 garrison, on every `trait.doll`
- * toggle. The three `0 + valueStr` entries are the official idiom for a string blackboard value.
- *
- * `[ASSUMED]` the wording and the 3/6 count: the effect reads as the 拉特兰 garrison (「每消耗7发弹药 … +1」) does, `+3`
- * normal / `+6` elite, taken from the source expansion's own text. No official row settles it.
+ * The 独有特质 (garrison) rows the port uses, keyed by charId — empty while 结城理 (char_4217_makoto, deleted
+ * 2026-10-29) was the only operator the source expansion gave one.
  */
-export const FORK_EXTRA6_GARRISONS = Object.freeze({
-  char_4217_makoto: {
-    bonds: 'lateranoShip,indomShip',
-    count: Object.freeze({ a: 3, b: 6 }),
-    desc: (n) => `<战斗中>自身被击倒或替身与本体进行切换时，使已激活的【拉特兰】层数+${n}、【不屈】层数+${n}`,
-  },
-});
+export const FORK_EXTRA6_GARRISONS = Object.freeze({});
 
 /** The base chess id of a ported operator: `char_4217_makoto` at tier 5 → `chess_char_5_makoto_a`. */
 export const forkExtra6BaseId = (char) => `chess_char_${char.tier}_${char.charId.replace(/^char_\d+_/, '')}_a`;

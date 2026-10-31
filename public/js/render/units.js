@@ -403,16 +403,6 @@ export const FORMS = Object.freeze({
   char_1023_ghost2: Object.freeze({
     doll: Object.freeze({ change: 'Start_B', end: 'Die_B', leave: 'Start_2', roles: dollRoles('Idle_B', 'Die_B_2') }),
   }),
-  // 内容包 packExtra6 (六.C) — 结城理: every persona has its own clip set, and the <替身> change clip differs per skill
-  // (Doll_Skill_1/2/3_SwitchIn). The kit maps its persona to these keys (kits/ops/chess_char_5_makoto-makoto.js
-  // `personaForm`), so one operator draws five different bodies.
-  char_4217_makoto: Object.freeze({
-    body: Object.freeze({ roles: dollRoles('Idle', 'SwitchOut', 'Attack_A') }),
-    makoto_s1: Object.freeze({ change: 'Doll_Skill_1_SwitchIn', leave: 'Doll_Skill_1_SwitchOut', roles: dollRoles('Doll_Skill_1_Idle', 'Doll_Skill_1_Die', 'Doll_Skill_1_Attack') }),
-    makoto_s2: Object.freeze({ change: 'Doll_Skill_2_SwitchIn', leave: 'Doll_Skill_2_SwitchOut', roles: dollRoles('Doll_Skill_2_Loop', 'Doll_Skill_2_Die') }),
-    makoto_s3a: Object.freeze({ change: 'Doll_Skill_3_P1_SwitchIn', leave: 'Doll_Skill_3_P1_SwitchOut', roles: dollRoles('Doll_Skill_3_P1_Idle', 'Doll_Skill_2_Die', 'Doll_Skill_3_P1_Attack_A') }),
-    makoto_s3b: Object.freeze({ change: 'Doll_Skill_3_P1toP2_ChangeBegin', leave: 'Doll_Skill_3_P2_SwitchOut', roles: dollRoles('Doll_Skill_3_P2_Loop', 'Doll_Skill_3_P2_Die') }),
-  }),
   char_4016_kazema: Object.freeze({
     doll: Object.freeze({ change: 'Start_B', leave: 'Start', roles: dollRoles('Idle_B', 'Die_B', 'Attack_B') }),
   }),

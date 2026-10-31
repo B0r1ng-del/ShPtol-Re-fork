@@ -884,7 +884,14 @@
 .lo-diy__n b { color: var(--text-hi); font-size: max(calc(.4 * var(--t)), 20px); }
 
 /* ---- the detail drawer ---- */
-.lo-drawer { position: absolute; left: 0; top: 0; bottom: 0; z-index: 4; width: var(--drawer-w); display: flex; flex-direction: column;
+/* 需求方 2026-10-31：点开的干员详情被牌面上的边框元素盖住 ——
+   牌面 chrome 与抽屉在同一层叠上下文里，而 chrome 的 z 更高：
+     .lo-op__mark（"已调整"蓝色书签，official-pages.css:145）z-index 6
+     .lo-op.is-sel .lo-op__card::after（选中描边，official-pages.css:21）z-index 5
+   抽屉原来是 4 ⇒ 卡面滑到抽屉底下时，书签和描边压在详情上面（用户截图：详情右半边一大块灰白框 + 右上角蓝书签）。
+   实测对照：在同一上下文放一个 z-index 6 的探针，drawer z=4 时 elementFromPoint 命中探针，z=7 时命中抽屉内部。
+   7 高于所有牌面 chrome（5/6），仍低于顶栏弹层（.lo-pop 20）与模态（--z-modal 80）。 */
+.lo-drawer { position: absolute; left: 0; top: 0; bottom: 0; z-index: 7; width: var(--drawer-w); display: flex; flex-direction: column;
   background: #0e1211; border-right: 1px solid var(--line-2); box-shadow: .1rem 0 .4rem rgba(0, 0, 0, .55);
   animation: lo-drawer-slide 320ms cubic-bezier(.16, .84, .3, 1) backwards; }
 @keyframes lo-drawer-slide { from { transform: translateX(-.6rem); opacity: 0; } }
