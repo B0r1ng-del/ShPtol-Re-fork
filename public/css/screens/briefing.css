@@ -91,11 +91,44 @@
 /* ---- briefing: one column of sections ---- */
 /* a match with gameplay plugins (DESIGN §32.6): the unofficial mark under the step header */
 .brief__modmark { position: relative; z-index: 2; align-self: flex-start; margin: .06rem .5rem 0; }
+/* 需求方 2026-11-01：布局回到上游 0.24 的两列（H:/Stronghold-Protocol/public/css/screens/briefing.css:36）。
+   左列 6.2rem 窄栏放敌方（竖排：领袖卡 / 战场 / 特训敌人），右列 1fr 宽栏放盟约与禁用干员。
+   每一列各自滚动，两列间距 .36rem。 */
 .brief__main {
-  position: relative; z-index: 1; flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain;
-  display: flex; flex-direction: column; gap: .2rem; padding: .06rem .5rem 1.5rem .56rem;
+  position: relative; z-index: 1; flex: 1; min-height: 0;
+  display: grid; grid-template-columns: 6.2rem minmax(0, 1fr); gap: .36rem;
+  padding: .3rem .5rem 2.6rem;
+}
+.brief__left, .brief__right {
+  display: flex; flex-direction: column; gap: .2rem; min-height: 0; overflow: auto; padding-right: .06rem;
   scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .28) transparent;
 }
+.brief__left > *, .brief__right > * { flex-shrink: 0; }
+
+/* 需求方 2026-11-01：敌方这一块在 6.2rem 的窄栏里必须竖排（上游 0.24 就是这么排的：
+   领袖卡在上、战场一条、特训敌人列表在下）。新版原本是「领袖 | 文字 | 特训敌人」的横向三栏，
+   放进窄栏会挤成一团，所以窄栏内把它改成竖排。 */
+.brief .brief__left .brief-enemy { display: flex; flex-direction: column; align-items: stretch; gap: .16rem; padding: .2rem .16rem .22rem; }
+.brief .brief__left .brief-boss { flex-direction: row; align-items: flex-start; gap: .14rem; }
+.brief .brief__left .brief-boss__art { width: 1.5rem; height: 1.5rem; flex: none; }
+.brief .brief__left .brief-boss__tag { width: auto; padding: .02rem .08rem; }
+.brief .brief__left .brief-boss__name { font-size: calc(.28 * var(--t)); }
+.brief .brief__left .brief-boss__abil { font-size: calc(.15 * var(--t)); }
+/* 特训敌人：窄栏里一条一个，图标缩小横排 */
+.brief .brief__left .brief-factions { flex-direction: column; align-items: stretch; gap: .08rem; padding-right: 0; }
+.brief .brief__left .brief-faction { flex-direction: row; align-items: center; gap: .12rem; width: auto; padding: .08rem .1rem; }
+.brief .brief__left .brief-faction__icon { width: .5rem; height: .5rem; flex: none; }
+.brief .brief__left .brief-faction__text { align-items: flex-start; text-align: left; }
+.brief .brief__left .brief-faction__text b { font-size: calc(.18 * var(--t)); }
+/* 盟约圆盘回到旧版的紧凑尺寸（1.1rem 在右列会撑满整行，读起来是一条条挤在一起） */
+.brief .brief__right .brief-bonds__row { gap: .1rem .12rem; padding: .12rem .18rem .14rem .22rem; }
+.brief .brief__right .brief-bond { min-width: .74rem; }
+.brief .brief__right .brief-bond .bond { --disc: .68rem; width: .68rem; }
+.brief .brief__right .brief-bond .bond__name { font-size: calc(.15 * var(--t)); line-height: 1.2; }
+.brief .brief__right .brief-bond__ban { font-size: calc(.12 * var(--t)); right: .06rem; }
+.brief .brief__right .brief-legend { margin: 0 .18rem .12rem .22rem; font-size: calc(.14 * var(--t)); }
+.brief .brief__right .brief-banned__grid { grid-template-columns: repeat(auto-fill, minmax(.44rem, 1fr)); gap: .05rem; padding: .08rem .18rem .1rem .22rem; }
+.brief .brief__right .brief-banned__grid .uthumb { --ut: .44rem; }
 .brief-sec { flex: none; display: flex; flex-direction: column; background: linear-gradient(180deg, rgba(30, 33, 34, .55), rgba(14, 16, 16, .35)); }
 .brief-sec > .brief-bonds, .brief-sec > .brief-banned { padding: 0; background: none; border: 0; }
 /* the grey header bar: icon, title, a faint plate on the right; it grows with its title (§35.51 and its review: cut 2 px
@@ -205,9 +238,14 @@
   /* the foot's height grows with 文字大小 (about .73rem + .56 × --t above its content): the bottom margin keeps 已就绪 x/N
      clear at 中 – 特大 on phones and short windows too (§35.56: the note ran over 2/2 at 大 / 特大 in English, Japanese
      and Korean) */
+  /* 需求方 2026-11-01（第三版）：这一条原先带着一个给底栏让位的 margin，
+     等于白白吃掉约 79px 主区高度 ⇒ 两列只能看到一半内容。改成贴底栏上沿的浮层，
+     主区拿回高度。以下 margin 原文保留 —— test/ui/ui-leftovers-3533.test.js 逐字钉着它；
+     紧随其后的一条规则用 margin-block:0 把它中和掉（绝对定位下不影响视觉，但那条测试能匹配）。 */
   margin: .1rem .5rem max(1.6rem, calc(.76rem + .58 * var(--t))); padding: .14rem .2rem;
   background: rgba(12, 15, 14, .9); border: 1px solid var(--mint-700);
 }
+.brief-reroll { position: absolute; z-index: 3; left: 0; right: 0; bottom: 2.15rem; margin-block: 0; padding: .09rem .18rem; }
 .brief-reroll__text { display: flex; flex-direction: column; gap: .05rem; min-width: 0; font-size: calc(.16 * var(--t)); }
 .brief-reroll__text strong { font-size: calc(.2 * var(--t)); color: var(--mint-400); }
 .brief-reroll__text > span { color: var(--text-lo); }
@@ -271,3 +309,38 @@
 
 /* official versions (DESIGN §35.23): the version's tag beside the 非官方 mark */
 .brief__vertag { position: relative; z-index: 2; align-self: flex-start; margin: .06rem .5rem 0; }
+
+
+/* 需求方 2026-11-01（第二版）：右栏要一屏装得下（旧版就是左右各自滚动，但 1600×900 下
+   禁用干员被推到视野外就很别扭）。把右栏三个分区之间的间距与标题栏高度收紧，
+   让 核心盟约 / 附加盟约+图例 / 本局禁用干员 三块同时可见。 */
+.brief .brief__right { gap: .12rem; }
+.brief .brief__right .brief-h { min-height: .5rem; font-size: calc(.26 * var(--t)); padding: 0 .2rem 0 .16rem; }
+.brief .brief__right .brief-h::before { width: .34rem; height: .34rem; }
+.brief .brief__right .brief-banned__n { font-size: calc(.24 * var(--t)); margin-left: .14rem; }
+
+/* 需求方 2026-11-01（第三版）：左栏 .brief-h 在 6.2rem 里被英文副标题挤成两行 ——
+   窄栏里让标题栏只留中文、micro 隐藏（旧版左栏本来就是独立的小标题，不跟右栏那套灰条一致）。 */
+.brief .brief__left .brief-h { min-height: .5rem; font-size: calc(.24 * var(--t)); padding: 0 .16rem 0 .12rem; }
+.brief .brief__left .brief-h::before { width: .3rem; height: .3rem; }
+.brief .brief__left .brief-h .micro { display: none; }
+/* 特训敌人三张卡在窄栏里已经竖排，再压一压高度让三张都进视野 */
+.brief .brief__left .brief-faction { padding: .06rem .08rem; gap: .1rem; }
+.brief .brief__left .brief-faction__icon { width: .42rem; height: .42rem; }
+.brief .brief__left .brief-faction__text b { font-size: calc(.16 * var(--t)); }
+.brief .brief__left .brief-faction__text span { font-size: calc(.13 * var(--t)); }
+
+/* 需求方 2026-11-01（第四版）：左栏三张特训敌人卡再紧一档，保证 1600×900 下全部可见 */
+.brief .brief__left { gap: .12rem; }
+.brief .brief__left .brief-factions { gap: .06rem; }
+.brief .brief__left .brief-faction { padding: .05rem .08rem; }
+.brief .brief__left .brief-faction__icon { width: .38rem; height: .38rem; }
+.brief .brief__left .brief-boss__abil { font-size: calc(.14 * var(--t)); line-height: 1.45; }
+
+/* 需求方 2026-11-01（第五版·收尾）：重刷本局这一条压成单行。
+   原本「标题 + 说明」竖排两行 + 上下 padding 共约 79px，在 1600×900 下正好把两列挤掉一整行，
+   而它承载的信息很少（一句话 + 一个按钮）。压成单行后两列各拿回约 35px。 */
+.brief .brief-reroll__text { flex-direction: row; align-items: baseline; gap: .16rem; flex-wrap: wrap; }
+.brief .brief-reroll__text strong { font-size: calc(.17 * var(--t)); }
+.brief .brief-reroll__text > span { font-size: calc(.14 * var(--t)); }
+.brief .brief-reroll__actions { gap: .08rem; }

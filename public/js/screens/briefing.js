@@ -62,17 +62,22 @@ export function BriefingScreen() {
     <${StepHeader} step=${1} of=${2} title=${t('确认本局信息')} micro="BRIEFING // INFO CHECK" pub=${pub}
       total=${phaseTotalSeconds(pub, gd.config)} onExit=${() => setExit(true)} />
     <${UnofficialMark} room=${room} class="brief__modmark" /><${VersionTag} room=${room} class="brief__vertag" />
+    <!-- 需求方 2026-11-01：布局回到上游 0.24 的两列，只换外壳，组件仍用新版的 MatchEnemies / MatchBondRow -->
     <main class="brief__main">
-      <section class="brief-sec brief-sec--enemy" style="--i:1">
-        <${MatchEnemies} pub=${pub} gd=${gd} />
+      <section class="brief__left">
+        <section class="brief-sec brief-sec--enemy" style="--i:1">
+          <${MatchEnemies} pub=${pub} gd=${gd} />
+        </section>
       </section>
 
-      <section class="brief-sec brief-sec--core" style="--i:2"><${MatchBondRow} title=${t('核心盟约')} micro="CORE BONDS" bonds=${info.core} model=${info} /></section>
-      <section class="brief-sec brief-sec--addon" style="--i:3">
-        <${MatchBondRow} title=${t('附加盟约')} micro="ADD-ON BONDS" bonds=${info.addon} model=${info} />
-        <${MatchLegend} model=${info} />
+      <section class="brief__right">
+        <section class="brief-sec brief-sec--core" style="--i:2"><${MatchBondRow} title=${t('核心盟约')} micro="CORE BONDS" bonds=${info.core} model=${info} /></section>
+        <section class="brief-sec brief-sec--addon" style="--i:3">
+          <${MatchBondRow} title=${t('附加盟约')} micro="ADD-ON BONDS" bonds=${info.addon} model=${info} />
+          <${MatchLegend} model=${info} />
+        </section>
+        <section class="brief-sec brief-sec--banned" style="--i:4"><${BannedOperators} model=${info} /></section>
       </section>
-      <section class="brief-sec brief-sec--banned" style="--i:4"><${BannedOperators} model=${info} /></section>
     </main>
     <${SetupReroll} pub=${pub} />
     <footer class="brief__foot">
