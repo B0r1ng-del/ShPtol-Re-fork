@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { collectAssetUrls, createAssetDownload } from '../../public/js/assetDownload.js';
+import { collectAssetUrls, createAssetDownload, DOWNLOADED_KEY } from '../../public/js/assetDownload.js';
 
 const json = (value) => new Response(JSON.stringify(value), { headers: { 'content-type': 'application/json' } });
 const file = () => new Response('asset', { headers: { 'content-type': 'application/octet-stream' } });
@@ -171,4 +171,41 @@ test('the official battle effects manifest (/data/local-fx.json, DESIGN §33) is
   assert.equal(queue.get().phase, 'complete');
   assert.ok(got.includes('/assets/~fedcba0987654321/local/fx/prefabs/common_hit_01.json'));
   assert.ok(got.includes('/assets/~1234567890abcdef/a.png'));
+});
+
+test('a manifest version downloaded once is not re-checked file by file', async () => {
+  // 需求方 2026-11-01：几千个文件逐个重新校验太慢；正常网游一次更新之后不再重复读取。
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: (k) => store.delete(k),
+  };
+  let files = 0;
+  const server = (version) => async (url) => url === '/data/assets.json' ? json({ version, a: '/assets/a' })
+    : url === '/data/local-assets.json' ? json({ groups: {} })
+      : url === '/data/local-fx.json' ? new Response('', { status: 404 })
+        : (files++, file());
+  try {
+    const first = createAssetDownload({ fetch: server('v1') });
+    await first.start();
+    assert.equal(first.get().phase, 'complete');
+    assert.equal(files, 1);
+    assert.equal(store.get('sp.pref.' + DOWNLOADED_KEY), '"v1"', 'the finished version is remembered');
+
+    const before = files;
+    const second = createAssetDownload({ fetch: server('v1') });
+    await second.start();
+    assert.equal(second.get().phase, 'complete');
+    assert.equal(second.get().upToDate, true);
+    assert.equal(files, before, 'the same version requests no asset file again');
+
+    // 清单换了版本 ⇒ 照常重新校验
+    const third = createAssetDownload({ fetch: server('v2') });
+    await third.start();
+    assert.equal(third.get().upToDate, false);
+    assert.equal(files, before + 1, 'a new version downloads again');
+  } finally {
+    delete globalThis.localStorage;
+  }
 });

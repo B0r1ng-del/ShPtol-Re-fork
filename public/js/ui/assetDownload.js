@@ -23,13 +23,15 @@ export function AssetDownloadButton() {
     assetDownload.pause();
     setOpen(false);
   };
-  const status = state.phase === 'complete' ? t('本次素材下载完成')
+  // upToDate 复用已有的「素材已下载」，不新增 i18n 词条（四种语言包都已有它）。
+  const status = state.upToDate ? t('素材已下载')
+    : state.phase === 'complete' ? t('本次素材下载完成')
     : state.phase === 'preparing' ? t('正在读取素材清单…')
       : state.phase === 'paused' ? t('素材下载已暂停')
         : state.phase === 'error' ? t('无法读取素材清单，请检查网络后重试。')
           : state.phase === 'partial' ? t('有 {n} 个素材下载失败', { n: state.failures.length })
             : t('正在下载素材…');
-  const label = state.phase === 'complete' ? t('素材已下载')
+  const label = state.upToDate || state.phase === 'complete' ? t('素材已下载')
     : state.phase === 'paused' ? t('继续下载素材') : t('下载完整素材');
 
   // done includes both imported files and fully read downloads; cached counts imports only.
@@ -38,7 +40,7 @@ export function AssetDownloadButton() {
   return html`<div class="title-assets__item">
     <${Button} variant="secondary" block=${true} size="sm" data-testid="asset-download" aria-describedby="title-asset-download-hint" onClick=${() => {
       setOpen(true);
-      if (state.phase !== 'complete') void assetDownload.start();
+      if (!state.upToDate && state.phase !== 'complete') void assetDownload.start();
     }}>${label}<//>
     <small id="title-asset-download-hint">${t('含模型、贴图和音频，建议使用 Wi-Fi 下载。')}</small>
     <${Modal} open=${open} onClose=${close} title=${t('下载完整素材')} class="asset-download" actions=${html`

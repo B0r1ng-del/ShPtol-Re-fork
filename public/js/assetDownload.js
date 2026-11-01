@@ -3,6 +3,10 @@
 // A URL already stored by a local import (assetPack.js) is marked done and not requested again.
 import { mediaUrl } from './media.js';
 import { listImportedPaths } from './assetCache.js';
+import { loadPref, savePref } from './store.js';
+
+/** localStorage key: which manifest version this browser already finished downloading. */
+export const DOWNLOADED_KEY = 'assets.downloaded';
 
 /**
  * Collect only same-origin art files, including all Spine pages and optional local scenes.
@@ -28,8 +32,10 @@ export function collectAssetUrls(...manifests) {
 /** A bounded, pausable download queue. A file counts only after its entire body arrives. */
 export function createAssetDownload({ fetch: doFetch = (...args) => globalThis.fetch(...args),
   concurrency = 4, timeoutMs = 60000, retries = 2, lookupImported = listImportedPaths } = {}) {
-  let state = { phase: 'idle', total: 0, done: 0, bytes: 0, failures: [], localMissing: false, cached: 0 };
+  let state = { phase: 'idle', total: 0, done: 0, bytes: 0, failures: [], localMissing: false, cached: 0, upToDate: false };
   let urls = null, running = null, controller = null, paused = false, lastNotice = 0;
+  /** 清单版本号（块内读到、块外要用）—— 见 DOWNLOADED_KEY。 */
+  let manifestVersion = null;
   const complete = new Set(), failures = new Map(), listeners = new Set();
   const emit = (force = false) => {
     if (!force && Date.now() - lastNotice < 100) return;
@@ -107,6 +113,13 @@ export function createAssetDownload({ fetch: doFetch = (...args) => globalThis.f
         if (!list.length) throw new Error('Empty asset manifest');
         urls = list;
         state = { ...state, total: urls.length, localMissing: local === null };
+        // 这份清单的版本号下过一次，就不再逐文件重新校验（几千次请求）。
+        // 清单 version 由内容哈希算出（tools/assets/manifest.mjs），内容一变就变，所以它天然是缓存键。
+        manifestVersion = typeof assets.version === 'string' ? assets.version : null;
+        if (manifestVersion && loadPref(DOWNLOADED_KEY, null) === manifestVersion) {
+          state = { ...state, phase: 'complete', done: urls.length, cached: urls.length, upToDate: true };
+          return;
+        }
       }
       if (paused) return;
       let imported = null;
@@ -144,6 +157,8 @@ export function createAssetDownload({ fetch: doFetch = (...args) => globalThis.f
       };
       await Promise.all(Array.from({ length: Math.max(1, Math.min(8, concurrency)) }, worker));
       if (!paused) state = { ...state, phase: failures.size ? 'partial' : 'complete' };
+      // 只有「一个没漏」才记版本：partial 记了就等于谎报完成。
+      if (!paused && !failures.size && manifestVersion) savePref(DOWNLOADED_KEY, manifestVersion);
     } catch (error) {
       if (!paused) state = { ...state, phase: 'error', error: { url: error.url, status: error.status || 'manifest' } };
     } finally {
@@ -162,7 +177,7 @@ export function createAssetDownload({ fetch: doFetch = (...args) => globalThis.f
       // A new check after completion revalidates the manifest and all files through the HTTP cache.
       if (state.phase === 'complete') {
         urls = null; complete.clear();
-        state = { phase: 'idle', total: 0, done: 0, bytes: 0, failures: [], localMissing: false, cached: 0 };
+        state = { phase: 'idle', total: 0, done: 0, bytes: 0, failures: [], localMissing: false, cached: 0, upToDate: false };
       }
       running = run().finally(() => { running = null; });
       return running;
