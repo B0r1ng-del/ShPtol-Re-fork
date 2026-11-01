@@ -95,8 +95,10 @@ test('4: the emote panel plate is the acrylic recipe, with the opaque fallback',
 });
 
 test('5: with the chat window folded, the 交流 wheel is rendered in the corner again', () => {
-  // exactly one home at a time: the corner copy is gated on the fold state…
-  assert.ok(GAME.includes('chatOn && !chatOpen ? html`<${EmoteWheel}'), 'the corner copy is gated on the fold state');
+  // ★ 2026-11-01 需求方拍板：「聊天关掉时交流键该显示」。原有两条测试正面冲突 —— 这里曾要求
+  //   `chatOn && !chatOpen`（聊天关闭 ⇒ 角落不渲染），而 emote-wheel-placement.test.js:43 明令禁止这串
+  //   （聊天关闭 ⇒ 轮盘就没有家）。裁定以 emote-wheel-placement 为准，本断言随之改为同一条判据。
+  assert.ok(GAME.includes('!chatOn || !chatOpen ? html`<${EmoteWheel}'), 'the corner wheel renders when the option is OFF or the window is folded');
   // …and the window only receives one while it is open, so the two can never both be on screen
   assert.ok(GAME.includes('emote=${spectator ? null : html`<${EmoteWheel}'));
   assert.doesNotMatch(GAME, /emote=\$\{spectator \|\| !chatOpen/, 'the wheel is not hidden by the fold state');

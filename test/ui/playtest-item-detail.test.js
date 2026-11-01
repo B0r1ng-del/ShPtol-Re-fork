@@ -15,6 +15,10 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const load = (f) => JSON.parse(readFileSync(path.join(ROOT, 'data', f), 'utf8'));
 const chess = load('chess.json');
+// ★ 2026-11-01(戊组)：卸下按钮由 gameActions 的页面开关控制，缺省 false（gameActions.js:24）；本文件从没打开过它，
+//   所以按 data-testid 找按钮恒为 0。按裁定在测试里打开（功能不动）。
+import { setUnequipAllowed } from '../../public/js/ui/gameActions.js';
+setUnequipAllowed(true);
 const WEARER = 'chess_char_1_01_a'; // 隐现
 const ISO = 'chess_item_6_09_e_a'; // 变形同构体
 const HAMMER = 'chess_item_1_01_e_a'; // 维式重锤 → 维多利亚
@@ -28,7 +32,7 @@ test('renderInfo passes UnitInfo.items through (the teammate-unit equipment into
   const body = app.slice(start, app.indexOf('\n}', start));
   assert.match(
     body,
-    /items: Array\.isArray\(u\.items\) \? u\.items\.filter\(\(x\) => typeof x === 'string'\) : undefined/,
+    /items: Array\.isArray\(u\.items\) \? u\.items\.filter\(\(x\) => typeof x === 'string' && x\.length > 0\) : undefined/,
     'the equipped item ids must survive the info whitelist (DESIGN §16: a teammate\'s unit shows its owner\'s loadout)',
   );
 });

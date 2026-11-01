@@ -128,6 +128,9 @@ test('the client renders no research texts of the data (spec / implFormula / how
   }
   // the one allowed: 突变细胞's rule line (data/items.json `note`, tools/build-data.mjs ITEM_RULES — a corrected Chinese rule,
   // the same in every version's build), shown on the detail card on purpose
-  const allowed = (h) => /^public\/js\/ui\/detailPanel\.js:\d+: \$\{item\.note \?/.test(h);
+  const allowed = (h) => /^public\/js\/ui\/detailPanel\.js:\d+: \$\{item\.note \?/.test(h)
+    // ★ 2026-11-01(己组)：鸣谢面板的版权署名（notices.js:102 `note: noticeText(raw.note, 200)`）不是数据表的研究文本，
+    //   是第三方素材作者的 attribution 字段。按裁定放行（扫描规则本意只拦 spec / implFormula / howToPlay 那类研究稿）。
+    || /^public\/js\/ui\/notices\.js:\d+: credits\.push\(\{ name, note: noticeText\(raw\.note, 200\), url \}\);$/.test(h);
   assert.deepEqual(hits.filter((h) => /\.(implFormula|howToPlay|note)\b/.test(h) && !allowed(h)), [], 'no research text is read');
 });

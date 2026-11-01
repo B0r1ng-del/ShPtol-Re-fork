@@ -38,6 +38,9 @@ const { LineupThumb } = await import('../../public/js/screens/result.js');
 const { standInPieces } = await import('../../public/js/screens/game/standInTags.js');
 const { OwnCard } = await import('../../public/js/screens/ownership.js');
 const { data } = await import('../../public/js/data.js');
+// ★ 2026-11-01 需求方拍板（丁组 A）：下面「53 张卡按档次 7/13/16/17」的断言是「莱茵生命包开启」的视图
+//   （注释自己也写着「分布取决于视图」）。测试此前跑在全关视图（6/13/17/17）—— 按裁定在测试里开包，功能不动。
+data.setPacks({ packRhine: true });
 const { DATA } = await import('../match/harness.js');
 
 await data.loadAll('chess', 'bonds', 'assets', 'garrisons', 'items', 'backups');

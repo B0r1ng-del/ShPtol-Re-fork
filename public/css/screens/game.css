@@ -972,6 +972,13 @@
 .set-seg button:last-child { border-right: 0; }
 .set-seg button.is-on { background: var(--mint-500); color: var(--text-on-mint); font-weight: 700; }
 .set-hint { margin-top: .06rem; font-size: calc(.14 * var(--t)); color: var(--text-dim); line-height: 1.8; }
+/* 激活码 (ui/settings.js:570, 作弊菜单 gate): the input had a class but no rule — an unstyled bare <input> in a settings
+   row (需求方 2026-11-01 review). It sits in the row's control column like .set-toggle / .set-seg do. */
+.set-input { grid-column: 2 / 4; justify-self: stretch; min-width: 0; height: .38rem; padding: 0 .12rem; background: #0a0d0c;
+  border: 1px solid var(--line-2); color: var(--text-hi); font-family: var(--font-num); font-size: calc(.16 * var(--t)); letter-spacing: .06em; }
+.set-input:focus, .set-input:focus-visible { outline: none; border-color: var(--mint-500); }
+/* a wrong code (ui/settings.js:576): .set-hint is --text-dim, so the warning needs its own colour to read as a fault */
+.set-hint--warn { color: var(--red-premium); }
 .set-hint__help { display: inline-flex; align-items: center; gap: .03rem; padding: 0; border: 0; background: none; color: var(--text-lo); font: inherit; cursor: help; text-decoration: underline dotted; text-underline-offset: .03rem; }
 .set-hint__help .icon { width: .14rem; height: .14rem; }
 .set-hint__help:hover, .set-hint__help:focus-visible { color: var(--mint-400); }

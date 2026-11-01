@@ -244,7 +244,7 @@ function ItemRow({ itemId, carried = null, off = null, uid = null, onUnequip = n
     <${UnitThumb} kind="item" id=${itemId} size="sm" />
     <div class="ditem__text"><b>${it?.name || itemId}</b><${RichText} text=${it?.descRaw || it?.desc || ''} class="ditem__desc" />
       ${it?.canGiveBond ? html`<${MorphPairings} off=${off} carried=${carried || []} />` : it?.giveBondId ? html`<${MorphGrantLine} item=${it} off=${off} carried=${carried} />` : null}</div>
-    ${canDetach ? html`<button type="button" class="ditem__unequip tapx" title=${t('卸下')} aria-label=${t('卸下')}
+    ${canDetach ? html`<button type="button" class="ditem__unequip tapx" data-testid="unequip" title=${t('卸下')} aria-label=${t('卸下')}
       onClick=${() => onUnequip(uid)}><${Icon} name="back" /></button>` : null}
   </div>`;
 }

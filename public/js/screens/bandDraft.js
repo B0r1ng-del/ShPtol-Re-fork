@@ -398,6 +398,9 @@ export function BandDraftScreen({ held = null } = {}) {
   const otherSkins = useStore((s) => s.otherSkins !== false, Object.is, settingsStore);
   const artOf = (p) => {
     if (p.isBot) return null;
+    // 需求方 2026-11-01：「选择策略的页面背景不显示干员立绘，只显示名片底图」。有底图时这一行不给立绘 ——
+    // 底图铺满整行，立绘再叠上去会把底图盖住（上一轮图一看到的样子）。
+    if (cardOf(p)) return null;
     const seat = (Array.isArray(roomSeats) && roomSeats.find((x) => x && x.playerId === p.playerId)) || { playerId: p.playerId };
     const op = seatOperator(seat, cards, { myId, myCard });
     const skin = op ? seatCardSkin(p, op.chess.charId, { myId, localSkins, players, otherSkins }) : null;

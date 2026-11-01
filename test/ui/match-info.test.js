@@ -33,6 +33,9 @@ const { enemyIconUrl, factionIconUrl } = await import('../../public/js/ui/assetU
 const { setLang, setMessages } = await import('../../shared/i18n.js');
 const { draftInfoStatus } = await import('../../public/js/screens/bandDraft.js');
 const { data, getMode } = await import('../../public/js/data.js');
+// ★ 2026-11-01 需求方拍板（丁组 A）：本文件的断言写的是「莱茵生命包开启」的视图（核心盟约 9 条含莱茵生命、
+//    bonded 总数 28）。测试此前跑在全关视图下（8 / 23），两套口径对不上 —— 按裁定在测试里把包打开，
+//    功能与界面保持现状不动。
 const { DATA, makeMatch } = await import('../match/harness.js');
 
 await data.loadAll('chess', 'bonds', 'assets', 'config', 'bosses', 'enemies', 'stages', 'factions');
@@ -56,6 +59,7 @@ const PUB = {
   bannedChess: ['chess_char_5_02_a', 'chess_char_1_17_a', 'chess_nope_a', 'chess_char_3_09_a', 'chess_char_1_02_a'],
 };
 const MODE = { inactiveBondIds: ['arcaneShip'] };
+data.setPacks({ packRhine: true });
 const model = () => matchInfoModel(PUB, { bonds: data.list('bonds'), chess: (id) => data.lookup('chess', id), mode: MODE });
 
 test('matchInfoModel: the two greyed kinds, the briefing order, banned operators by tier (known only), banned members per bond', () => {
@@ -69,7 +73,7 @@ test('matchInfoModel: the two greyed kinds, the briefing order, banned operators
   // 阵营 bond like the official eight (its identifier 24 sorts it after 卡西米尔's 8*3-offset … it is last of the core row)
   assert.deepEqual(m.core.map((b) => b.name), ['炎', '萨尔贡', '维多利亚', '谢拉格', '拉特兰', '阿戈尔', '叙拉古', '卡西米尔', '莱茵生命']);
   assert.equal(m.addon[0].name, '调和');
-  assert.equal(m.core.length + m.addon.length, Object.keys(DATA.bonds).length, 'every bond, once');
+  assert.equal(m.core.length + m.addon.length, data.list('bonds').length, 'every bond, once');
   assert.ok(m.core.every((b) => b.isCore) && m.addon.every((b) => !b.isCore));
   // tiers 1, 1, 3, 5 — ties keep the server's order; the unknown id is dropped
   assert.deepEqual(m.banned, ['chess_char_1_17_a', 'chess_char_1_02_a', 'chess_char_3_09_a', 'chess_char_5_02_a']);

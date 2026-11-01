@@ -118,7 +118,10 @@ describe('hudBands: the folded shop\'s band', () => {
     // old `.gm__bonds { left: 3.4rem }` here is GONE with the strip's centring (it only pulled the centre off middle);
     // measured in Chrome, the row does not wrap at any supported landscape size, so nothing needs clearing.
     const devices = read('public/css/devices.css');
-    assert.match(devices, /@media \(max-width: 767px\) \{\n {2}\.gtop__left \{ flex-wrap: wrap; \}/);
+    // ★ 2026-11-01 需求方拍板（丙组删除）：这里原先断言 devices.css 有一条
+    //   `@media (max-width: 767px) { .gtop__left { flex-wrap: wrap; } }`，但**这条规则全仓从未存在** ——
+    //   `.gtop__left` 只有 game.css:113 一条基础规则。上面两行注释自己也写着「measured in Chrome, the row does
+    //   not wrap at any supported landscape size, so nothing needs clearing」。断言与注释矛盾，按裁定删掉。
     assert.doesNotMatch(devices.replace(/\/\*[\s\S]*?\*\//g, ''), /\.gm__bonds \{[^}]*left:/, 'the strip is not offset on narrow screens');
   });
 

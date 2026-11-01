@@ -160,7 +160,9 @@ test('room.css: the seat cards and the picker follow 文字大小, no !important
   assert.match(plain, /\.seat__art\.rseat__art > \.avatar--xl \{ --av: clamp\(1rem, calc\(3rem - var\(--t\)\), 2rem\); \}/);
   assert.doesNotMatch(plain, /--av: 1rem/);
   assert.match(plain, /\.rs-key__copy \{[^}]*font: inherit;[^}]*line-height: 1;/);
-  assert.match(plain, /@media \(max-width: 900px\) \{[^@]*\.rs-foot__center \{ justify-self: start;/);
+  // ★ 2026-11-01 需求方拍板（丙组删除）：这里原先断言 @media (max-width: 900px) 里 .rs-foot__center 为
+  //   `justify-self: start`，而 room.css:805 一直是 `center` —— 该 @media 块同样从未存在。断言与实现不符，
+  //   按裁定删掉（外观保持现状：底栏居中）。
   assert.match(plain, /\.rs--solo \.rseat \{ --w: min\(calc\(2\.7 \* var\(--t\)\), 34vw\); \}/);
   // the review of those fixes: Japanese never starts a line with a small kana or ー (「シミュレーシ|ョン開始」); on a short
   // screen 独立模拟's card no wider than a co-op one (2.7 × --t had made it 173–238 px above 小), its briefing wider and
@@ -199,7 +201,8 @@ test('room.css: the seat cards and the picker follow 文字大小, no !important
   // the corner mark is what screen readers hear as 你 (the tag, hidden on a phone, is aria-hidden everywhere)
   const roomJs = readFileSync(path.join(ROOT, 'public/js/screens/room.js'), 'utf8');
   assert.match(roomJs, /<span class="rseat__me" role="img" aria-label=\$\{t\('你'\)\}/);
-  assert.match(roomJs, /<span class="rseat__who"><b class="seat__name">[^\n]*<span class="seat__you" aria-hidden="true">/);
+  // 2026-11-01: 奖杯徽章 (TrophyBadge) 在名字前面，名字不再是 .rseat__who 的第一个子元素 —— 断言随之放宽
+  assert.match(roomJs, /<span class="rseat__who">[^\n]*<b class="seat__name">[^\n]*<span class="seat__you" aria-hidden="true">/);
   // review of 6f34f380: on a phone an AI teammate's plate without its 「AI·」 prefix (「AI·华…」 at 特大; the badge and
   // the AI 队友 tag say it), the prefix in its own span (botNameParts); desktops keep it
   assert.match(short, /\.seat__name-pre \{ display: none; \}/);

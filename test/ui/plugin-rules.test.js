@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ruleLine, roomPluginFacts, pluginTagText } from '../../public/js/ui/pluginTag.js';
-import { pieceBondIds, grantedBonds } from '../../public/js/ui/gameLogic/bonds.js';
+import { pieceBondIds, grantedBonds, setMorphPairing } from '../../public/js/ui/gameLogic/bonds.js';
 import { equipReplaces } from '../../public/js/ui/gameLogic/placement.js';
 import { replaceRequest } from '../../public/js/ui/equipReplace.js';
 import { describeError } from '../../public/js/ui/toasts.js';
@@ -46,7 +46,11 @@ test('client plus pairing and replacement options follow the same slot policy', 
   const get = (id) => records[id];
   const items = [{ id: 'morph', uid: 1 }, { id: 'hammer', uid: 2 }, { id: 'shield', uid: 3 }];
   assert.deepEqual(grantedBonds(items, get), ['one', 'two']);
-  assert.deepEqual(pieceBondIds({ bonds: ['base'] }, items, get, 'plus'), ['base', 'one']);
+    // ★ 2026-11-01(戊组)：plus 档由**全局** morphPairing 决定（bonds.js:17 的 setMorphPairing，roomMods.js:65 写它），
+  //   本文件从没设过 ⇒ 拿到默认档，于是多出 'two'。按裁定在断言前显式切到 plus 档（功能不动）。
+  setMorphPairing('plus');
+  assert.deepEqual(pieceBondIds({ bonds: ['base'] }, items, get), ['base', 'one']);
+  setMorphPairing(null);
   const target = { uid: 9, kind: 'chess', id: 'wearer', items };
   const incoming = { uid: 4, kind: 'item', id: 'incoming' };
   const pieces = new Map([[9, { piece: target }], [4, { piece: incoming }], [5, { piece: { id: 'morph' } }]]);
