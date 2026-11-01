@@ -2858,5 +2858,8 @@
   "撤退鼠标指向的干员": "Retreat hovered Operator",
   "出售鼠标指向的干员": "Sell hovered Operator",
   "名片": "Name Card",
-  "特工工牌": "Agent Badges"
+  "特工工牌": "Agent Badges",
+  "更换名片底图": "Change the card background",
+  "名片底图": "Name Card Background",
+  "名片底图显示在同盟席位的名牌后面，同盟里的博士都能看到": "The name card shows behind your plate in the alliance; every doctor in the alliance sees it"
 }
