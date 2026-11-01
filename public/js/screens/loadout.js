@@ -698,7 +698,10 @@ function LoadoutScreen({ st, leaving }) {
   const m = data.get('assets');
   const getChess = (id) => data.lookup('chess', id);
   const getBond = (id) => data.lookup('bonds', id);
-  const roster = useMemo(() => rosterOf(data.list('chess')), [ready, data.locale(), data.contentId()]); // names follow a language switch; the list follows the room's content and a version switch (§35.36, §35.23)
+  // 内容包开关要重算花名册（需求方之前修过 b7c5fa0f2，合上游时又被顶掉）：
+  // data.setPacks() 只发 null 通知、不改 contentId，所以 memo 必须并上 packsSig，否则开关内容包花名册不动。
+  const packsSig = data.packsSig();
+  const roster = useMemo(() => rosterOf(data.list('chess')), [ready, data.locale(), packsSig]); // names follow a language switch; the list follows the room's content and a version switch (§35.36, §35.23)
   const bonds = useMemo(() => {
     const used = new Set(roster.flatMap((c) => c.bonds || []));
     return (data.list('bonds') || []).filter((b) => b && used.has(b.bondId))

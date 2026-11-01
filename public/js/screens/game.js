@@ -2098,7 +2098,7 @@ function MatchScreen() {
         <${AiTakeoverPanel} />
         ${/* 交流键 (fork 2026-10-17): 两个家、同时只有一个。聊天窗开着但收起时（`chatOn && !chatOpen`）用这一份 corner
              副本；聊天功能整体关掉时聊天窗根本不渲染，同一条件也覆盖了它（`!chatOn ⇒ !chatOpen`），所以轮盘永远有一个家。 */
-          spectator ? null : chatOn && !chatOpen ? html`<${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen}
+          spectator ? null : !chatOn || !chatOpen ? html`<${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen}
             onSend=${(id, o) => (o && o.burst ? actions.emoteBurst(id) : actions.emote(id))} disabled=${conn.status !== 'online'} />` : null}
         ${/* 设置 / 玩法说明 / 全屏 / 作战统计 have exactly ONE home: the top bar's `tools` row (see the TopBar above).
              This corner used to carry a second copy of all four; with the chat window open it sat underneath it, and the
