@@ -80,8 +80,9 @@ export function BriefingScreen() {
         <section class="brief-sec brief-sec--banned" style="--i:4"><${BannedOperators} model=${info} /></section>
       </section>
       </div>
-      <${SetupReroll} pub=${pub} />
-      <footer class="brief__foot">
+    </main>
+    <${SetupReroll} pub=${pub} />
+    <footer class="brief__foot">
       <${LoadoutButton} from="briefing" size="lg" class="brief-loadout" />
       <div class="brief-ready">
         <span class="brief-ready__txt">${t('已就绪')}<b class="num">${readyN}</b><span class="num">/${players.length}</span></span>
@@ -89,8 +90,7 @@ export function BriefingScreen() {
       </div>
       <${Button} variant="primary" size="xl" class="brief-go" icon=${me?.ready ? 'check' : me ? 'play' : 'eye'} active=${!!me?.ready} loading=${busy}
         disabled=${!!me?.ready || !me || !!pub.rerollVote} onClick=${ready}>${me?.ready ? t('已就绪') : me ? t('准备就绪') : t('观战中')}<//>
-      </footer>
-    </main>
+    </footer>
     <${ExitModal} open=${exit} onClose=${() => setExit(false)} solo=${solo} />
   </div>`;
 }

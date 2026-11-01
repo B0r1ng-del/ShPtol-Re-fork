@@ -100,6 +100,7 @@
      可用高度决定，右列再高也会被压成一行高、内容被裁（实测行 285px vs 右列 785px）。flex 让两列各自
      按内容撑开，整页滚动高度取两者最大值。 */
   display: flex; flex-direction: column; gap: .2rem;
+  /* 需求方 2026-11-01：上半部分（两列内容）独立滚动，重刷条与底栏固定在下方不滚 */
   padding: .3rem .5rem .2rem;
 }
 .brief__cols { display: flex; align-items: flex-start; gap: .36rem; }
