@@ -1020,7 +1020,7 @@ export function RoomScreen() {
           myId=${me.playerId} busy=${busy} onAddBot=${addBot} onRemoveBot=${removeBot} onKick=${kick} onInvite=${() => copy('code')}
           portrait=${op ? chessPortraitUrl(data.get('assets'), op.chess, { skin }) : null}
           portraitDefault=${op && skin ? chessPortraitUrl(data.get('assets'), op.chess) : null} operator=${op?.chess} onPickCard=${() => setPicking('op')} onPickBg=${() => setPicking('bg')}
-          badge=${s.playerId === me.playerId ? myBadge : s.card?.badge || ''}
+          badge=${!s ? '' : s.playerId === me.playerId ? myBadge : s.card?.badge || ''}
           fresh=${shownRoom.current === room.code} />`;
       })}
       ${coop ? null : html`<aside class="solo-brief rs-brief brackets">

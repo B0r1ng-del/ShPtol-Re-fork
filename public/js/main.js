@@ -508,10 +508,19 @@ function App() {
   const roomPacks = useStore((s) => (s.match?.public?.mods || s.room?.mods || null));
   useEffect(() => { if (roomPacks) data.setPacks(roomPacks); }, [roomPacks]);
   const [error, resetError] = useErrorBoundary((err) => console.error('[ui] screen crashed', err));
-  const Screen = SCREENS[viewRoute] || LobbyScreen;
+  // 「重新加载界面」 originally only cleared the error and re-rendered the SAME screen, which throws again at once —
+  // the button looked dead (需求方 2026-11-01). Two things make it real: a new key forces the broken tree to be
+  // rebuilt from scratch (every hook state reset, no half-mounted leftovers), and a screen that crashes twice in a
+  // row falls back to the lobby, where the player can re-enter. The first retry is the common case (a transient
+  // state that the remount clears); only a screen that is broken on its own data drops them out of it.
+  const [reloadKey, setReloadKey] = useState(0);
+  const [crashCount, setCrashCount] = useState(0);
+  useEffect(() => { if (error) setCrashCount((n) => n + 1); }, [error]);
+  const reload = () => { resetError(); setReloadKey((k) => k + 1); };
+  const Screen = crashCount >= 2 && viewRoute !== 'lobby' ? LobbyScreen : SCREENS[viewRoute] || LobbyScreen;
   return html`<div class="app-root">
     <div class="app-bg" aria-hidden="true"></div>
-    ${error ? html`<${ScreenCrashed} error=${error} reset=${resetError} />` : html`<${Screen} key=${viewRoute} />`}
+    ${error ? html`<${ScreenCrashed} error=${error} reset=${reload} />` : html`<${Screen} key=${viewRoute + ':' + reloadKey} />`}
     <${TrustedNotice} />
     <${ConnectionBanner} />
     <${ToastHost} />
