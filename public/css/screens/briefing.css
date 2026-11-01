@@ -95,14 +95,17 @@
    左列 6.2rem 窄栏放敌方（竖排：领袖卡 / 战场 / 特训敌人），右列 1fr 宽栏放盟约与禁用干员。
    每一列各自滚动，两列间距 .36rem。 */
 .brief__main {
-  position: relative; z-index: 1; flex: 1; min-height: 0;
-  display: grid; grid-template-columns: 6.2rem minmax(0, 1fr); gap: .36rem;
-  padding: .3rem .5rem 2.6rem;
+  position: relative; z-index: 1; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  /* 需求方 2026-11-01：整页纵向滚动。两列用 flex 而不是 grid —— grid 的两列在同一行，行高由 main 的
+     可用高度决定，右列再高也会被压成一行高、内容被裁（实测行 285px vs 右列 785px）。flex 让两列各自
+     按内容撑开，整页滚动高度取两者最大值。 */
+  display: flex; flex-direction: column; gap: .2rem;
+  padding: .3rem .5rem .2rem;
 }
-.brief__left, .brief__right {
-  display: flex; flex-direction: column; gap: .2rem; min-height: 0; overflow: auto; padding-right: .06rem;
-  scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .28) transparent;
-}
+.brief__cols { display: flex; align-items: flex-start; gap: .36rem; }
+.brief__left { flex: none; width: 6.2rem; }
+.brief__right { flex: 1 1 auto; min-width: 0; }
+.brief__left, .brief__right { display: flex; flex-direction: column; gap: .2rem; padding-right: .06rem; overflow: visible; height: auto; max-height: none; }
 .brief__left > *, .brief__right > * { flex-shrink: 0; }
 
 /* 需求方 2026-11-01：敌方这一块在 6.2rem 的窄栏里必须竖排（上游 0.24 就是这么排的：
@@ -121,14 +124,14 @@
 .brief .brief__left .brief-faction__text { align-items: flex-start; text-align: left; }
 .brief .brief__left .brief-faction__text b { font-size: calc(.18 * var(--t)); }
 /* 盟约圆盘回到旧版的紧凑尺寸（1.1rem 在右列会撑满整行，读起来是一条条挤在一起） */
-.brief .brief__right .brief-bonds__row { gap: .1rem .12rem; padding: .12rem .18rem .14rem .22rem; }
-.brief .brief__right .brief-bond { min-width: .74rem; }
-.brief .brief__right .brief-bond .bond { --disc: .68rem; width: .68rem; }
-.brief .brief__right .brief-bond .bond__name { font-size: calc(.15 * var(--t)); line-height: 1.2; }
+.brief .brief__right .brief-bonds__row { gap: .2rem .22rem; padding: .2rem .26rem .22rem .3rem; }
+.brief .brief__right .brief-bond { min-width: 1.05rem; }
+.brief .brief__right .brief-bond .bond { --disc: .92rem; width: .92rem; }
+.brief .brief__right .brief-bond .bond__name { font-size: calc(.17 * var(--t)); line-height: 1.3; }
 .brief .brief__right .brief-bond__ban { font-size: calc(.12 * var(--t)); right: .06rem; }
-.brief .brief__right .brief-legend { margin: 0 .18rem .12rem .22rem; font-size: calc(.14 * var(--t)); }
-.brief .brief__right .brief-banned__grid { grid-template-columns: repeat(auto-fill, minmax(.44rem, 1fr)); gap: .05rem; padding: .08rem .18rem .1rem .22rem; }
-.brief .brief__right .brief-banned__grid .uthumb { --ut: .44rem; }
+.brief .brief__right .brief-legend { margin: 0 .26rem .14rem .3rem; font-size: calc(.15 * var(--t)); }
+.brief .brief__right .brief-banned__grid { grid-template-columns: repeat(auto-fill, minmax(.72rem, 1fr)); gap: .1rem; padding: .16rem .26rem .18rem .3rem; }
+.brief .brief__right .brief-banned__grid .uthumb { --ut: .72rem; }
 .brief-sec { flex: none; display: flex; flex-direction: column; background: linear-gradient(180deg, rgba(30, 33, 34, .55), rgba(14, 16, 16, .35)); }
 .brief-sec > .brief-bonds, .brief-sec > .brief-banned { padding: 0; background: none; border: 0; }
 /* the grey header bar: icon, title, a faint plate on the right; it grows with its title (§35.51 and its review: cut 2 px
@@ -207,9 +210,10 @@
 
 /* 已就绪 x/N over the bracketed pips, 准备就绪 */
 .brief__foot {
-  position: absolute; z-index: 2; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: flex-end; gap: .36rem;
-  padding: .3rem .4rem .26rem; pointer-events: none;
-  background: linear-gradient(180deg, transparent, rgba(6, 8, 8, .78) 45%, rgba(6, 8, 8, .92));
+  /* 需求方 2026-11-01：整页可上下滚动后，底栏与重刷条一起进滚动区（原先 absolute 会压住最后一排内容） */
+  position: relative; z-index: 2; flex: none; display: flex; align-items: center; justify-content: flex-end; gap: .36rem;
+  padding: .2rem .4rem .1rem; pointer-events: none;
+  background: rgba(6, 8, 8, .92);
 }
 .brief__foot > * { pointer-events: auto; }
 .brief-ready { display: flex; flex-direction: column; align-items: center; gap: .06rem; }
@@ -245,7 +249,7 @@
   margin: .1rem .5rem max(1.6rem, calc(.76rem + .58 * var(--t))); padding: .14rem .2rem;
   background: rgba(12, 15, 14, .9); border: 1px solid var(--mint-700);
 }
-.brief-reroll { position: absolute; z-index: 3; left: 0; right: 0; bottom: 2.15rem; margin-block: 0; padding: .09rem .18rem; }
+.brief-reroll { margin-block: 0; margin-inline: .5rem; padding: .09rem .18rem; }
 .brief-reroll__text { display: flex; flex-direction: column; gap: .05rem; min-width: 0; font-size: calc(.16 * var(--t)); }
 .brief-reroll__text strong { font-size: calc(.2 * var(--t)); color: var(--mint-400); }
 .brief-reroll__text > span { color: var(--text-lo); }

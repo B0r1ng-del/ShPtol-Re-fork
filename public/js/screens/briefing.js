@@ -64,6 +64,7 @@ export function BriefingScreen() {
     <${UnofficialMark} room=${room} class="brief__modmark" /><${VersionTag} room=${room} class="brief__vertag" />
     <!-- 需求方 2026-11-01：布局回到上游 0.24 的两列，只换外壳，组件仍用新版的 MatchEnemies / MatchBondRow -->
     <main class="brief__main">
+      <div class="brief__cols">
       <section class="brief__left">
         <section class="brief-sec brief-sec--enemy" style="--i:1">
           <${MatchEnemies} pub=${pub} gd=${gd} />
@@ -78,9 +79,9 @@ export function BriefingScreen() {
         </section>
         <section class="brief-sec brief-sec--banned" style="--i:4"><${BannedOperators} model=${info} /></section>
       </section>
-    </main>
-    <${SetupReroll} pub=${pub} />
-    <footer class="brief__foot">
+      </div>
+      <${SetupReroll} pub=${pub} />
+      <footer class="brief__foot">
       <${LoadoutButton} from="briefing" size="lg" class="brief-loadout" />
       <div class="brief-ready">
         <span class="brief-ready__txt">${t('已就绪')}<b class="num">${readyN}</b><span class="num">/${players.length}</span></span>
@@ -88,7 +89,8 @@ export function BriefingScreen() {
       </div>
       <${Button} variant="primary" size="xl" class="brief-go" icon=${me?.ready ? 'check' : me ? 'play' : 'eye'} active=${!!me?.ready} loading=${busy}
         disabled=${!!me?.ready || !me || !!pub.rerollVote} onClick=${ready}>${me?.ready ? t('已就绪') : me ? t('准备就绪') : t('观战中')}<//>
-    </footer>
+      </footer>
+    </main>
     <${ExitModal} open=${exit} onClose=${() => setExit(false)} solo=${solo} />
   </div>`;
 }
