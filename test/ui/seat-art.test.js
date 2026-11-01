@@ -112,7 +112,7 @@ test('a picture that fails to load: the outfit gives way to the default portrait
   assert.equal(seatArtSrc(undefined), null);
   // screens/room.js: the card gets both pictures and walks them on each failed load
   const room = readFileSync(path.join(ROOT, 'public/js/screens/room.js'), 'utf8');
-  assert.match(room, /const art = seat\.isBot \? null : seatArtSrc\(\[portrait, portraitDefault\], badArt\);/);
+  assert.match(room, /const art = seat\.isBot \? null : seatArtSrc\(\[badgeSrc, portrait, portraitDefault\], badArt\);/);
   assert.match(room, /onError=\$\{\(\) => setBadArt\(\(b\) => \(b\.includes\(art\) \? b : \[\.\.\.b, art\]\)\)\}/);
   assert.match(room, /portraitDefault=\$\{op && skin \? chessPortraitUrl\(data\.get\('assets'\), op\.chess\) : null\}/);
 });

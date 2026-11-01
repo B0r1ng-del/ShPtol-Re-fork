@@ -2149,12 +2149,17 @@ export class Lobby {
     const room = this.roomOf(session);
     const charId = msg?.charId ?? '';
     if (charId && !chessCharIds(this.dataFor(room)).has(charId)) return fail(ERR.BAD_MSG, 'unknown operator');
+    // 特工工牌 (需求方 2026-11-01): a plate that stands in for the operator portrait, whitelisted by SHAPE — the catalogue
+    // is the client's (ui/namecards.js BADGES; the art is downloaded outside the asset plan).
+    const badge = typeof msg?.badge === 'string' && /^badge:[a-z0-9_]{1,24}$/.test(msg.badge) ? msg.badge : '';
     const prev = session.card && typeof session.card === 'object' ? session.card : null;
     const keep = (k, v) => (msg && Object.hasOwn(msg, k) ? v : prev?.[k] ?? null);
     // The card is the whole plate, not just 名片干员: a background / avatar / trophy level stands on its own, so the
     // object survives a cleared charId and is dropped only when every field is empty (the server then shows 默认).
+    // At most one of charId / badge: the client enforces it too, the server does not trust that.
     const fields = {
-      charId: charId || null,
+      charId: badge ? null : charId || null,
+      badge: badge || null,
       avatar: keep('avatar', msg.avatar || '') || null,
       bg: keep('bg', msg.bg || '') || null,
       bgY: keep('bgY', Number.isInteger(msg.bgY) ? msg.bgY : -1),
@@ -2162,7 +2167,7 @@ export class Lobby {
       look: keep('look', msg.look || '') || null,
       avatarLook: keep('avatarLook', msg.avatarLook || '') || null,
     };
-    const empty = !fields.charId && !fields.avatar && !fields.bg && !fields.trophies;
+    const empty = !fields.charId && !fields.badge && !fields.avatar && !fields.bg && !fields.trophies;
     const next = empty ? null : fields;
     session.card = next;
     const seat = room ? room.seatOf(session.playerId) : null;

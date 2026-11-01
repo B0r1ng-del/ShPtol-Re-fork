@@ -30,6 +30,9 @@ const isCardLook = (v) => v === '' || v === 'e1' || (isStr(v, CARD_LIMITS.idLeng
 // A plate background is `loading:<key>` / `camp:<key>` / `skin:<skin id>`; a skin id carries the fork's own
 // `<charId>@<brand>#<n>` form, so @ and # are part of a valid id (a plain [a-z0-9_:-] class would reject every skin).
 const isCardBg = (v) => v === '' || (isStr(v, CARD_LIMITS.idLength) && /^[a-z0-9][a-z0-9_:@#\-\/]*$/i.test(v));
+// 特工工牌 (需求方 2026-11-01): a namecard id of kind 'badge' — the catalogue is the client's (ui/namecards.js BADGES),
+// so the wire rule is the SHAPE only: 'badge:' + a short slug. '' clears it.
+const isCardBadge = (v) => v === '' || (isStr(v, CARD_LIMITS.idLength) && /^badge:[a-z0-9_]{1,24}$/.test(v));
 const isBool = (v) => typeof v === 'boolean';
 const isId = (v) => typeof v === 'string' && v.length > 0 && v.length <= 64 && /^[A-Za-z0-9_\-.:]+$/.test(v);
 const isUid = (v) => isInt(v, 1, 2 ** 31);
@@ -658,9 +661,9 @@ export const C2S = {
   // (an official avatar key), 名片底图 (bg / bgY), 奖杯等级 (trophies) and the looks of the portrait and the avatar
   // (精二 '' / 精一 'e1' / a skin id). Cosmetic and display only; the server keeps a visible charId of the room's
   // chess.json and bounds the rest (CARD_LIMITS). PUBLIC: accepted in any room phase, copied to the player's seat.
-  'room.card': { charId: isCardCharId, avatar: isCardAvatar, bg: isCardBg, bgY: (v) => isInt(v, -1, 100),
+  'room.card': { charId: isCardCharId, badge: isCardBadge, avatar: isCardAvatar, bg: isCardBg, bgY: (v) => isInt(v, -1, 100),
     trophies: (v) => isInt(v, 0, CARD_LIMITS.trophies), look: isCardLook, avatarLook: isCardLook,
-    $optional: ['charId', 'avatar', 'bg', 'bgY', 'trophies', 'look', 'avatarLook'] },
+    $optional: ['charId', 'badge', 'avatar', 'bg', 'bgY', 'trophies', 'look', 'avatarLook'] },
   // operator ownership (干员持有, 0.2.0 补位): stored per session / seat; a match takes the list its seat had when it
   // started (an out-of-match setting — during a match it is stored for the next one: ROOM_STARTED)
   'room.ownership': { notOwned: isNotOwnedList },

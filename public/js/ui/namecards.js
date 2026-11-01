@@ -97,6 +97,36 @@ const ORGS = [
 ];
 const ORG_IDS = new Set(ORGS.map((c) => `camp:${c.key}`));
 
+
+/**
+ * 特工工牌 (需求方 2026-11-01): 19 tall VALORANT player-card plates, downloaded into public/assets/ui/valBadge/.
+ * They are a single vertical plate (268 × 640), so they crop like a 立绘, not like a scene — kind 'badge'.
+ * The files are not in git (public/assets/ is ignored, AGENTS.md「No game art in git」): tools/fetch-assets.mjs
+ * cannot reach them either, so a machine without them simply shows no 特工工牌 section.
+ */
+const BADGES = [
+  ['jett', N_('奇乐工牌')],
+  ['skye', N_('斯凯工牌')],
+  ['reyna', N_('芮娜工牌')],
+  ['yoru', N_('夜露工牌')],
+  ['astra', N_('星礈工牌')],
+  ['kayo', N_('K/O工牌')],
+  ['chamber', N_('尚勃勒工牌')],
+  ['neon', N_('霓虹工牌')],
+  ['fade', N_('黑梦工牌')],
+  ['iso', N_('壹决工牌')],
+  ['gekko', N_('盖可工牌')],
+  ['deadlock', N_('暮蝶工牌')],
+  ['raze', N_('钢锁工牌')],
+  ['vyse', N_('维斯工牌')],
+  ['harbor', N_('海神工牌')],
+  ['tejo', N_('钛狐工牌')],
+  ['waylay', N_('幻棱工牌')],
+  ['neon2', N_('禁灭工牌')],
+  ['clove', N_('迷核工牌')],
+];
+const badgeCard = ([key, name]) => Object.freeze({ id: `badge:${key}`, kind: 'badge', name, assetKey: `valBadge/${key}` });
+
 const campCard = (c) => Object.freeze({ id: `camp:${c.key}`, kind: 'camp', name: c.name, tint: c.tint, assetKey: `campLogo/logo_${c.key}` });
 
 /** Every card: { id, kind, name, assetKey, tint? }. */
@@ -104,6 +134,7 @@ export const NAMECARDS = Object.freeze([
   ...LOADING.map((c) => Object.freeze({ id: `loading:${c.key}`, kind: 'loading', name: c.name, assetKey: `loading/loading_ac_${c.key}` })),
   ...CAMPS.map(campCard),
   ...ORGS.map(campCard),
+  ...BADGES.map(badgeCard),
 ]);
 
 /** 干员皮肤立绘卡：id `skin:<我方皮肤 id>`。素材挂在 chars[charId].skins[id].illustration（315 套里 302 套有）。 */
@@ -123,6 +154,9 @@ const SKIN_CARDS = () => {
 };
 const BY_ID = new Map(NAMECARDS.map((c) => [c.id, c]));
 
+/** 特工工牌 cards, in catalogue order (the seat card's portrait picker lists them after the operators). */
+export const BADGE_CARDS = Object.freeze(NAMECARDS.filter((c) => c.kind === 'badge'));
+
 /** The card of an id, or null (unknown / empty). @param {unknown} id */
 export function namecardOf(id) {
   if (typeof id !== 'string') return null;
@@ -140,6 +174,10 @@ export function namecardSrc(card, m = data.get('assets'), half = false) {
     const rec = m?.chars?.[card.charId]?.skins?.[card.skinId];
     return safeUrl(half ? rec?.portrait : rec?.illustration);
   }
+  // 特工工牌 (需求方 2026-11-01): the files are not in assets.json — they are downloaded by hand into
+  // public/assets/ui/valBadge/ and are not part of the official material plan (tools/assets/plan.mjs cannot reach
+  // them). The path is built here so the manifest stays the manifest; a machine without the files draws nothing.
+  if (card?.kind === 'badge') return safeUrl(card.assetKey ? `/assets/ui/${card.assetKey}.png` : null);
   return safeUrl(card && m?.ui && typeof m.ui === 'object' ? m.ui[card.assetKey] : null);
 }
 
@@ -218,6 +256,16 @@ export function NameCardPicker({ current, y = null, onPick, onAdjust = null, onC
         <span class="nc-pick__name">${t(c.name)}</span></span>
       ${on ? html`<span class="nc-pick__on">${t('使用中')}</span>` : null}</button>`;
   };
+  // 特工工牌: a tall plate (268 × 640) like a 立绘, so its tile reuses the skin tile's portrait ratio and name band
+  const badgeTile = (c) => {
+    const src = namecardSrc(c, data.get('assets'), true);
+    const on = current === c.id;
+    return html`<button key=${c.id} type="button" class=${'nc-pick__card nc-pick__card--skin nc-pick__card--badge' + (on ? ' is-on' : '')}
+        onClick=${() => pick(c.id)} title=${t(c.name)} data-testid=${'nc-badge-' + c.id.slice(6)}>
+      <span class="nc-pick__art nc-pick__art--skin">${src ? html`<img src=${src} alt="" loading="lazy" draggable=${false} />` : null}
+        <span class="nc-pick__name">${t(c.name)}</span></span>
+      ${on ? html`<span class="nc-pick__on">${t('使用中')}</span>` : null}</button>`;
+  };
   const pick = (id) => {
     onPick(id);
     if (onAdjust && adjustable(namecardOf(id))) setAdjusting(true);
@@ -241,6 +289,7 @@ export function NameCardPicker({ current, y = null, onPick, onAdjust = null, onC
         ${NAMECARDS.filter((c) => ORG_IDS.has(c.id)).map(card)}
         <h4 class="nc-pick__theme">${t('干员皮肤立绘')}</h4>
         ${[...SKIN_CARDS().values()].map(skinCard)}
+
       </div>`}
       <footer class="nc-pick__foot"><small>${t('名片底图显示在同盟席位的名牌后面，同盟里的博士都能看到')}</small>
         ${!adjusting && onAdjust && adjustable(namecardOf(current)) ? html`<button type="button" class="nc-adjust__btn" data-testid="nc-adjust-open" onClick=${() => setAdjusting(true)}>${t('调整显示范围')}</button>` : null}

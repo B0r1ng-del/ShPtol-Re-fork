@@ -53,7 +53,7 @@ test('名片干员: the pick is per device, the fallback is one operator per pla
   assert.match(art, /hash32\(seat\.playerId\) % pool\.length/);
   assert.doesNotMatch(art, /Math\.random/);
   const room = read('public/js/screens/room.js');
-  assert.match(room, /import \{ CARD_KEY, cardStore, setCard, setCardBackground, setCardBackgroundY, cardOperators, cardContext, seatOperator, seatCardSkin, seatArtSrc \} from '\.\.\/ui\/seatArt\.js'/);
+  assert.match(room, /import \{ CARD_KEY, cardStore, setCard, setCardBadge, setCardBackground, setCardBackgroundY, cardOperators, cardContext, seatOperator, seatCardSkin, seatArtSrc \} from '\.\.\/ui\/seatArt\.js'/);
   // the seat card shows it as a full-bleed portrait (the new UI's 竖版立绘卡: an <img>, not the old AvatarFrame)
   assert.match(room, /art\s*\n?\s*\? html`<img key=\$\{art\} class="seat__portrait" src=\$\{art\}/, 'the seat card shows the portrait');
   assert.match(room, /const op = seatOperator\(s, cards, \{ myId: me\.playerId, myCard \}\)/);

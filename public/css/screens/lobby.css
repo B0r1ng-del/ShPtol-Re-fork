@@ -1257,6 +1257,9 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
 /* 皮肤立绘没有阵营色，24% 的默认焦点让脸落在名牌里 */
 .nc-layer--skin { background: var(--nc-shade, linear-gradient(90deg, rgba(8, 11, 11, .86), rgba(8, 11, 11, .45) 50%, rgba(8, 11, 11, .1))),
   var(--nc) center var(--nc-y, 24%) / cover no-repeat, #101514; }
+/* 特工工牌: the same crop as a 立绘 (24% puts the face in the plate), the plate's own dark backdrop */
+.nc-layer--badge { background: var(--nc-shade, linear-gradient(90deg, rgba(8, 11, 11, .86), rgba(8, 11, 11, .45) 50%, rgba(8, 11, 11, .1))),
+  var(--nc) center var(--nc-y, 18%) / cover no-repeat, #101514; }
 .me-chip.has-nc { border-color: rgba(255, 255, 255, .22); }
 
 /* 顶栏的博士名片 (需求方 2026-11-01「图二」). The source fork's .me-chip carried no layout of its own either — it sat on
@@ -1345,3 +1348,10 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
   -webkit-mask-image: linear-gradient(180deg, #000 62%, transparent 96%); mask-image: linear-gradient(180deg, #000 62%, transparent 96%); }
 .nc-pick__card--skin .nc-pick__name { position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; padding: .06rem .08rem; white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; font-size: calc(.13 * var(--t)); color: #eef0ef; background: linear-gradient(0deg, rgba(6, 9, 9, .92), transparent 88%); }
+
+/* 特工工牌 (需求方 2026-11-01): a 268 × 640 plate — taller than a 立绘's tile. It reuses the skin tile's ratio and name
+   band, but crops from the TOP: the operator's face and the id window sit in the upper half, the lower half is the plate's
+   tail. The .nc-layer (the seat card behind the name plate) crops from the middle like a 立绘 — that is what a badge
+   looks like blown up behind a plate, and 调整显示范围 lets the owner move it. */
+.nc-pick__card--badge .nc-pick__art { height: clamp(150px, 23vh, 260px); }
+.nc-pick__card--badge .nc-pick__art--skin img { object-position: 50% 18%; }

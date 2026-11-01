@@ -74,8 +74,8 @@ import { net } from '../net.js';
 import { store, useStore, shallowEqual, emptyMatch, isSpectating, savePref } from '../store.js';
 import { data, useData, getConfig } from '../data.js';
 import { chessAvatarUrl, chessPortraitUrl } from '../ui/assetUrls.js';
-import { CARD_KEY, cardStore, setCard, setCardBackground, setCardBackgroundY, cardOperators, cardContext, seatOperator, seatCardSkin, seatArtSrc } from '../ui/seatArt.js';
-import { NameCardLayer, NameCardPicker } from '../ui/namecards.js';
+import { CARD_KEY, cardStore, setCard, setCardBadge, setCardBackground, setCardBackgroundY, cardOperators, cardContext, seatOperator, seatCardSkin, seatArtSrc } from '../ui/seatArt.js';
+import { NameCardLayer, NameCardPicker, namecardOf, namecardSrc, BADGE_CARDS } from '../ui/namecards.js';
 import { TrophyBadge } from '../ui/trophies.js';
 import { skinsStore, SKINS_KEY, ownerSkin } from '../ui/skins.js';
 import { settingsStore } from '../ui/settingsStore.js';
@@ -308,15 +308,15 @@ function CardThumb({ src, name }) {
  * the current choice takes the focus (no on-screen keyboard on a phone). A local picker: each tile wears this browser's
  * outfit for that operator (`localSkins`, docs/SKINS.md), as the card will.
  */
-function CardPicker({ current, list, m, localSkins = {}, onPick, onClose }) {
+function CardPicker({ current, list, m, localSkins = {}, badge = '', onPick, onPickBadge, onClose }) {
   const [q, setQ] = useState('');
   const [star, setStar] = useState(0);
   const stars = useMemo(() => [...new Set(list.map((c) => c.rarity).filter((r) => r > 0))].sort((a, b) => b - a), [list]);
-  const known = !!current && list.some((c) => c.charId === current);
+  const known = !badge && !!current && list.some((c) => c.charId === current);
   const needle = q.trim().toLowerCase();
   const shown = list.filter((c) => (!star || c.rarity === star)
     && (!needle || [c.name, c.appellation].some((v) => String(v || '').toLowerCase().includes(needle))));
-  return html`<${Modal} open=${true} class="cardpick" micro="SEAT CARD OPERATOR" title=${t('名片干员')} width="min(10.4rem, 96vw)"
+  return html`<${Modal} open=${true} class="cardpick" micro="SEAT CARD OPERATOR" title=${t('名片')} width="min(10.4rem, 96vw)"
       onClose=${onClose} actions=${html`<${Button} variant="ghost" onClick=${onClose}>${t('关闭')}<//>`}>
     <div class="cardpick__bar">
       <${TextField} class="cardpick__search" size="sm" icon="search" value=${q} onInput=${setQ} placeholder=${t('搜索干员')} />
@@ -326,7 +326,7 @@ function CardPicker({ current, list, m, localSkins = {}, onPick, onClose }) {
       </div>
     </div>
     <div class="cardpick__grid" data-testid="card-picker">
-      <button type="button" class=${`cardpick__op cardpick__op--auto${known ? '' : ' is-on'}`} aria-pressed=${known ? 'false' : 'true'}
+      <button type="button" class=${`cardpick__op cardpick__op--auto${known || badge ? '' : ' is-on'}`} aria-pressed=${known || badge ? 'false' : 'true'}
           data-char="" data-autofocus=${known ? undefined : ''} title=${t('按博士编号自动分配')} onClick=${() => onPick('')}>
         <span class="cardpick__img"><${Icon} name="refresh" /></span><span class="cardpick__name">${t('默认')}</span>
       </button>
@@ -341,6 +341,20 @@ function CardPicker({ current, list, m, localSkins = {}, onPick, onClose }) {
       })}
     </div>
     ${shown.length ? null : html`<p class="cardpick__empty">${t('没有符合条件的干员')}</p>`}
+    ${/* 特工工牌 (需求方 2026-11-01): the plates stand in for the portrait, so they belong in this picker, not the
+          名片底图 one — one section of their own, below the operators. A picked badge clears 默认/干员 (setCardBadge). */''}
+    <h4 class="cardpick__theme">${t('特工工牌')}</h4>
+    <div class="cardpick__grid cardpick__grid--badge" data-testid="badge-picker">
+      ${BADGE_CARDS.map((c) => {
+        const on = c.id === badge;
+        const src = namecardSrc(c, m);
+        return html`<button key=${c.id} type="button" class=${`cardpick__op cardpick__op--badge${on ? ' is-on' : ''}`} aria-pressed=${on ? 'true' : 'false'}
+            data-testid=${'card-badge-' + c.id.slice(6)} title=${t(c.name)} onClick=${() => onPickBadge(c.id)}>
+          <span class="cardpick__img">${src ? html`<img src=${src} alt="" loading="lazy" draggable=${false} />` : null}</span>
+          <span class="cardpick__name">${t(c.name)}</span>
+        </button>`;
+      })}
+    </div>
     <p class="cardpick__note"><${Icon} name="info" />${t('选择后，同盟里的博士都会看到这张立绘')}</p>
   <//>`;
 }
@@ -356,7 +370,7 @@ function CardPicker({ current, list, m, localSkins = {}, onPick, onClose }) {
  */
 /** The display card a seat carries (room.state seats[].card, an object since 名片底图), or null. */
 const seatCardOf = (seat) => (seat && typeof seat.card === 'object' && seat.card ? seat.card : null);
-function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot, onKick, onInvite, portrait = null, portraitDefault = null, operator = null, onPickCard = null, onPickBg = null, fresh = false }) {
+function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot, onKick, onInvite, portrait = null, portraitDefault = null, operator = null, onPickCard = null, onPickBg = null, badge = null, fresh = false }) {
   const [badArt, setBadArt] = useState([]);
   const coop = room.mode !== 'solo';
   // the 转场 flash: a seat that turns ready (or becomes the host's), and an AI teammate added while the room is open
@@ -386,11 +400,14 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
   // The host never needs to toggle ready: starting the match readies them (server rule).
   const state = offline ? 'offline' : seat.ready || seat.isBot ? 'ready' : isHostSeat ? 'host' : 'waiting';
   const lit = state === 'ready' || state === 'host';
-  const art = seat.isBot ? null : seatArtSrc([portrait, portraitDefault], badArt);
+  // 特工工牌 (需求方 2026-11-01, 「工牌顶替立绘」): the plate stands where the operator portrait would, so it comes first in
+  // the list and the portrait is only the fallback (an unknown id draws the portrait, as before).
+  const badgeSrc = seat.isBot ? null : namecardSrc(namecardOf(badge));
+  const art = seat.isBot ? null : seatArtSrc([badgeSrc, portrait, portraitDefault], badArt);
   const canPick = isMe && !seat.isBot && !!onPickCard;
   // an AI teammate's name without its 「AI·」 prefix on a phone (room.css; botNameParts)
   const botPrefix = botNameParts(seat);
-  return html`<article class=${`seat rseat${isMe ? ' is-me' : ''}${isHostSeat ? ' is-host' : ''}${seat.isBot ? ' is-bot' : ''}${art ? ' has-art' : ''}${lit ? ' is-lit' : ''}${flash ? ' is-flash' : ''} is-${state}`}
+  return html`<article class=${`seat rseat${isMe ? ' is-me' : ''}${isHostSeat ? ' is-host' : ''}${seat.isBot ? ' is-bot' : ''}${art ? ' has-art' : ''}${badgeSrc ? ' has-badge' : ''}${lit ? ' is-lit' : ''}${flash ? ' is-flash' : ''} is-${state}`}
       style=${`--i:${index}`}>
     <span class="rseat__clip" aria-hidden="true"></span>
     <header class="rseat__strip"><i></i><span class="num">P${index + 1}</span></header>
@@ -720,6 +737,7 @@ export function RoomScreen() {
   const myCard = useStore((s) => s[CARD_KEY], Object.is, cardStore);
   const myBg = useStore((s) => s.bg, Object.is, cardStore);
   const myBgY = useStore((s) => s.bgY, Object.is, cardStore);
+  const myBadge = useStore((s) => s.badge, Object.is, cardStore);
   const localSkins = useStore((s) => s[SKINS_KEY], Object.is, skinsStore);
   const otherSkins = useStore((s) => s.otherSkins !== false, Object.is, settingsStore);
   // 'op' | 'bg' | null — the plate's own ✎ button opens the background picker, the art's 更换立绘 the operator one
@@ -761,6 +779,7 @@ export function RoomScreen() {
   // the room sees one's pick once the server has it (seats[].card): ui/loadoutSync.js installCardSync sends it after
   // every pick, welcome and content change and retries a RATE / TIMEOUT / OFFLINE refusal (review of PR #813)
   const pickCard = (charId) => { setCard(charId); setPicking(null); };
+  const pickBadge = (id) => { setCardBadge(id); setPicking(null); };
 
   if (!room) return null;
   const online = conn.status === 'online';
@@ -1001,6 +1020,7 @@ export function RoomScreen() {
           myId=${me.playerId} busy=${busy} onAddBot=${addBot} onRemoveBot=${removeBot} onKick=${kick} onInvite=${() => copy('code')}
           portrait=${op ? chessPortraitUrl(data.get('assets'), op.chess, { skin }) : null}
           portraitDefault=${op && skin ? chessPortraitUrl(data.get('assets'), op.chess) : null} operator=${op?.chess} onPickCard=${() => setPicking('op')} onPickBg=${() => setPicking('bg')}
+          badge=${s.playerId === me.playerId ? myBadge : s.card?.badge || ''}
           fresh=${shownRoom.current === room.code} />`;
       })}
       ${coop ? null : html`<aside class="solo-brief rs-brief brackets">
@@ -1050,7 +1070,7 @@ export function RoomScreen() {
     </footer>
     ${picking === 'bg' ? html`<${NameCardPicker} current=${myBg} y=${myBgY} onPick=${setCardBackground} onAdjust=${setCardBackgroundY}
       onClose=${() => setPicking(null)} />` : null}
-    ${picking === 'op' ? html`<${CardPicker} current=${myCard} list=${cardList} m=${data.get('assets')} localSkins=${localSkins} onPick=${pickCard} onClose=${() => setPicking(null)} />` : null}
+    ${picking === 'op' ? html`<${CardPicker} current=${myCard} list=${cardList} m=${data.get('assets')} localSkins=${localSkins} badge=${myBadge} onPick=${pickCard} onPickBadge=${pickBadge} onClose=${() => setPicking(null)} />` : null}
     ${protoOpen ? facts.isHost
       ? html`<${ProtocolSelect} roomMode=${room.mode} difficulty=${protoPick || room.difficulty} onDifficulty=${setProtoPick} onClose=${closeProto}
           onCreate=${confirmDifficulty} busy=${busy === 'diff' ? 'create' : null} online=${online} action=${t('确认')} hint=${protoHint} difficulties=${protoDifficulties} />`

@@ -16,6 +16,9 @@ import { namecardOf } from './namecards.js';
 /** 名片干员: the player's own pick (a localStorage pref, sent as room.card). */
 export const CARD_PREF = 'room.card';
 
+/** 特工工牌: a namecard id of kind 'badge' (namecards.js BADGES), '' = none. Replaces the operator portrait. */
+export const BADGE_PREF = 'room.badge';
+
 /** The store field of the pick (ui/loadoutSync.js installCardSync `key`) and its sync state field. */
 export const CARD_KEY = 'card';
 export const CARD_SYNC_KEY = 'cardSync';
@@ -35,7 +38,8 @@ export const cardStore = createStore({ [CARD_KEY]: parseStoredCard(loadPref(CARD
 export function setCard(charId) {
   const next = parseStoredCard(charId);
   try { savePref(CARD_PREF, next); } catch { /* private mode: the session keeps it */ }
-  cardStore.set({ [CARD_KEY]: next });
+  // 特工工牌 replaces the portrait, so an operator pick clears it (the other half of the exclusion, setCardBadge).
+  cardStore.set(next ? { [CARD_KEY]: next, badge: '' } : { [CARD_KEY]: next });
 }
 
 // ---- 名片其余字段 (名片底图 2026-11-01): 头像 / 底图 / 奖杯 / 两个外观 ---------------------------------------------
@@ -59,6 +63,9 @@ const saveY = (key, v) => { try { savePref(key, JSON.stringify(v)); } catch { /*
 cardStore.set({
   avatar: str(loadPref(AVATAR_PREF, '')),
   bg: str(loadPref('room.namecard', '')),
+  // 特工工牌 (需求方 2026-11-01): the badge REPLACES the operator portrait on the seat card (mutually exclusive with
+  // charId — the picker clears the other). The server whitelists it by shape ('badge:*'), see server/lobby.js card().
+  badge: str(loadPref(BADGE_PREF, '')),
   bgY: loadY('room.namecard.y'),
   look: str(loadPref(CARD_LOOK_PREF, '')),
   avatarLook: str(loadPref(AVATAR_LOOK_PREF, '')),
@@ -89,6 +96,18 @@ export function setCardBackgroundY(y) {
   saveY('room.namecard.y', v);
   cardStore.set({ bgY: v });
 }
+/**
+ * 特工工牌 (需求方 2026-11-01, 「工牌顶替立绘」): pick the plate that stands in for the operator portrait.
+ * Mutual exclusion with 名片干员 — a seat card shows one or the other, so picking a badge clears the charId and
+ * picking a charId (setCard) clears the badge. '' = back to the operator portrait (or the default one).
+ * @param {string} id a `badge:*` namecard id, '' for none
+ */
+export function setCardBadge(id) {
+  const v = namecardOf(id)?.kind === 'badge' ? id : '';
+  try { savePref(BADGE_PREF, v); } catch { /* private mode: the session keeps it */ }
+  cardStore.set(v ? { badge: v, [CARD_KEY]: '' } : { badge: '' });
+}
+
 /** @param {string} bg '' = none (another background starts at its default position) */
 export function setCardBackground(bg) {
   const id = namecardOf(bg) ? bg : '';
@@ -107,8 +126,12 @@ export function cardMessage(card) {
   const bg = namecardOf(card?.bg) ? card.bg : '';
   // A background / avatar / trophy level stands on its own (a doctor may pick a plate before an operator), so only the
   // two LOOKS depend on their own target being set.
-  return { charId, avatar, bg, bgY: bg ? storedY(card?.bgY) ?? -1 : -1, trophies,
-    look: charId ? str(card?.look) : '', avatarLook: avatar ? str(card?.avatarLook) : '' };
+  // 特工工牌 stands in for the operator: the server whitelists it by shape (server/lobby.js card()), and a card
+  // carries at most one of charId / badge.
+  const badge = namecardOf(card?.badge)?.kind === 'badge' ? card.badge : '';
+  return { charId: badge ? '' : charId, avatar, bg, badge,
+    bgY: bg ? storedY(card?.bgY) ?? -1 : -1, trophies,
+    look: !badge && charId ? str(card?.look) : '', avatarLook: avatar ? str(card?.avatarLook) : '' };
 }
 
 /** FNV-1a of a string (the default portrait: the same operator for a player on every client). */
