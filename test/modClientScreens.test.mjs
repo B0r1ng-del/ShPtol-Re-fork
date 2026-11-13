@@ -1,10 +1,10 @@
-// test/modClientScreens.test.mjs — DESIGN §34.55 的 `client.screens`：形状层的每条拒绝码 + 两份路由名单同源。
+// test/modClientScreens.test.mjs — DESIGN §36.55 的 `client.screens`：形状层的每条拒绝码 + 两份路由名单同源。
 //
 // 与 test/modClientPanels.test.js 同一套打法：合成 pack.json 喂 `normalizePackManifest`，逐个失败分支走一遍。
 // 路由名单那条是这一格最容易出事的地方：形状层的 `CLIENT_SCREEN_ROUTES` 与客户端的 `MOD_SCREEN_ROUTES`
 // 一旦各说各话，作者就会写出「声明了合法路由、客户端永远不调用」的死格子 —— 判据只许有一份真相。
 //
-// 节号：本格吸收自下游 fork（在那里是 §34.53），我方按能力归一到 §34.55。
+// 节号：本格吸收自下游 fork（在那里是 §36.53），我方按能力归一到 §36.55。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -71,7 +71,7 @@ test('老包（不写 screens）的归一化结果**逐字不变**：client 这�
   // 这是「新引入一个闭枚举」那条纪律的可执行判据，比上面那条强：上面只问 `screens` 在不在，这一条把整个
   // `client` 对象钉成一份**完整的期望值** —— 多一个键、少一个键、键序变了都当场红。
   // 为什么必须这么严：`identifyPack` 哈希的就是这份归一化清单的 canonicalJson，给每个包都补一个
-  // `screens: []` 会让**所有已发布包**的摘要全部改变（DESIGN §34.2 的摘要闸门会被绕过）。
+  // `screens: []` 会让**所有已发布包**的摘要全部改变（DESIGN §36.2 的摘要闸门会被绕过）。
   const panelsOnly = mk({ panels: [{ id: 'a', slot: 'root.overlays', module: 'a.js' }] });
   assert.equal(panelsOnly.ok, true, JSON.stringify(panelsOnly.detail));
   assert.deepEqual(panelsOnly.pack.client, {

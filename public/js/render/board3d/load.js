@@ -195,6 +195,9 @@ export function parseSceneChunks(doc, buf) {
     out.push({
       material: c.material, lightmap: Number.isInteger(c.lightmap) ? c.lightmap : -1, group: typeof c.group === 'string' ? c.group : '',
       bounds: Array.isArray(c.bounds) ? c.bounds : null, position, uv, uv1, normal, color, index,
+      // one object of the scene (scenes.py export_scene `split`): its name and origin (board space).
+      // scenery.js groups these into the objects the stage's board3d.models / .scenery address by name.
+      ...(typeof c.part === 'string' ? { part: c.part, origin: Array.isArray(c.origin) ? c.origin : null } : {}),
     });
   }
   return out;
@@ -358,5 +361,35 @@ export function loadScenePack(assets, stageId) {
   return pending;
 }
 
+const themeCache = new Map();
+/**
+ * A stage's own board theme (data/stages.json `board3d.theme`, e.g. 'airship' = 危机合约 #4 滞空焦点): the textures of
+ * manifest group `map/<theme>` named `TX_<theme>_D / _N_rgb / _M_rough / _E / _common_D / _common_E / _BG`.
+ * → { key, theme, images: { D, N?, R?, E?, common?, commonE?, BG? } }, null when not installed (the stage keeps the
+ * official board look). Cached per page.
+ */
+export function loadThemePack(assets, theme) {
+  if (typeof theme !== 'string' || !/^[a-z0-9_]+$/i.test(theme)) return Promise.resolve(null);
+  if (themeCache.has(theme)) return themeCache.get(theme);
+  const names = { D: 'D', N: 'N_rgb', R: 'M_rough', E: 'E', common: 'common_D', commonE: 'common_E', BG: 'BG' };
+  const pending = (async () => {
+    if (!assets || typeof assets.local !== 'function' || typeof assets.localUrl !== 'function' || typeof assets.image !== 'function') return null;
+    await assets.local().catch(() => null);
+    const images = {};
+    await Promise.all(Object.entries(names).map(async ([k, n]) => {
+      const u = assets.localUrl(`map/${theme}`, `TX_${theme}_${n}`);
+      if (typeof u !== 'string' || !u) return;
+      const img = await assets.image(encodeURI(u), { retry: true }).catch(() => null);
+      if (img && (img.width || img.naturalWidth) > 0) images[k] = img;
+    }));
+    return images.D ? { key: `map/${theme}#${Object.keys(images).sort().join(',')}`, theme, images } : null;
+  })().catch(() => null).then((p) => {
+    if (!p && themeCache.get(theme) === pending) themeCache.delete(theme);
+    return p;
+  });
+  themeCache.set(theme, pending);
+  return pending;
+}
+
 /** Forget the cached pack and the three.js import attempt (tests / hot reload). */
-export function resetBoardPack() { cached = null; threePromise = null; threeFailures = 0; sceneCache.clear(); }
+export function resetBoardPack() { cached = null; threePromise = null; threeFailures = 0; sceneCache.clear(); themeCache.clear(); }

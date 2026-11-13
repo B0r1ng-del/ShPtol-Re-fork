@@ -1,5 +1,11 @@
 // Browser/Worker engine loader. Workers receive data and never fetch it (DESIGN §32.11).
-export const SIM_DATA_FILES = Object.freeze(['chess', 'enemies', 'tokens', 'stages', 'waves', 'bonds', 'items', 'garrisons', 'bands', 'effects', 'backups']);
+// ★ 危机合约 #4「弧光作战」的两张契约表必须一起取：它的专属战场（custom_cc4_focus）在 stages-crisis.json、
+//   契约敌人在 enemies-crisis.json，两张都与赛季表**分开**存放（见 data.js getStage / enemies 的拆分理由）。
+//   漏掉它们时浏览器这一半的 sim 拿不到战场 —— 所有格都成了禁区，于是「干员拦不住敌人」且「部署不受限制」，
+//   而服务端那一半（读 data/*.json）是对的：症状只在浏览器复算里出现。
+export const SIM_DATA_FILES = Object.freeze(['chess', 'enemies', 'enemies-crisis', 'tokens', 'stages', 'stages-crisis', 'waves', 'bonds', 'items', 'garrisons', 'bands', 'effects', 'backups']);
+/** Files of SIM_DATA_FILES a load may go without (older content sets / official versions predate them). */
+export const OPTIONAL_SIM_DATA_FILES = Object.freeze(new Set(['enemies-crisis', 'stages-crisis']));
 
 function deepFreeze(root) {
   const stack = [root];
@@ -57,10 +63,13 @@ export async function loadBrowserSim({ base = '/sim/', dataBase = '/data/', fetc
     }));
   // a battle simulated without part of the data would still produce a plausible result the server accepts: never run
   // one — the loader fails (the next b.start retries it; meanwhile the server's deadline takes the field over)
-  const missing = SIM_DATA_FILES.filter((n, i) => !files[i] || typeof files[i] !== 'object');
+  // The crisis tables (危机合约 #4「弧光作战」) are SEASON ADDITIONS, not core: an official version's set and a room's
+  // content set are built before that season exists, so their absence must not fail the load. Everything else is
+  // required — a battle simulated without part of the data would still produce a result the server accepts.
+  const missing = SIM_DATA_FILES.filter((n, i) => !OPTIONAL_SIM_DATA_FILES.has(n) && (!files[i] || typeof files[i] !== 'object'));
   if (missing.length) throw new Error(`simulation data unavailable: ${missing.join(', ')}`);
   const raw = {};
-  SIM_DATA_FILES.forEach((n, i) => { raw[n] = deepFreeze(files[i]); });
+  SIM_DATA_FILES.forEach((n, i) => { if (files[i] && typeof files[i] === 'object') raw[n] = deepFreeze(files[i]); });
   // another official version's set (versions M1, DESIGN §35.23): its version marker, so the content modules find kits
   // and item behaviour by charId / effectId (support isVersionData reads config.version) like the version host does.
   // The default data and plugin sets carry no config.version: their raw stays without `config`, as before.

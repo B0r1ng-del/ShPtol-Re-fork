@@ -1280,6 +1280,113 @@ function kitDeer(ab, e) {
 
 // ---------------------------------------------------------------------------------------------------------------
 
+/**
+ * 多萝西（危机合约 #4「弧光作战」第 14 回合的固定领袖；危机合约独有，官方 autoChessData.bossInfoDict 里没有）。
+ *
+ * data/enemies.json 的机制原文：「无法被阻挡」·「部署陷阱，踩上去的友方单位受到法术伤害且晕眩一段时间」。
+ * 技能数据 `PlaceTrap`：cd 5 / initCd 0 / bb { stun 10, max_stack_cnt 50, atk 0.1, atk_scale 1.5, range_radius 0.3 }。
+ * ★ [ASSUMED] 陷阱的落点与持续时间没有官方数值：这里按「cd 到了就在自己脚下放一个」实现，陷阱常驻（`max_stack_cnt` 50
+ *   是层数上限，不是时限）。踩上去的友方单位：法术伤害 = 自身攻击 × atk(0.1) 比例（`atk_scale` 1.5 无明确指向，不用），
+ *   并晕眩 stun(10) 秒。
+ * 她**不可阻挡**（`unblockable` 原型），所以近战干员挡不住她，只能打死或在蓝门前拦下。
+ */
+function kitDorothy(ab, e) {
+  const sk = ab.sk.PlaceTrap;
+  const cd = Number(sk?.cd) || 5;
+  const stun = T(ab, 'PlaceTrap.stun') ?? sk?.bb?.stun ?? 10;
+  const dmgScale = T(ab, 'PlaceTrap.atk') ?? sk?.bb?.atk ?? 0.1;
+  const P = { next: cd };
+  return [
+    { spawn(b, e2) { e2.profile.noAttack = true; b.addBuff(e2, { key: 'ab:unblockable', flags: { unblockable: true }, persist: true }); } },
+    {
+      tick(b, e2) {
+        if (b.t < P.next) return;
+        P.next = b.t + cd;
+        // 陷阱落在她当前所在格：站在这一格的**友方单位**（干员 / 召唤物）吃法术伤害 + 晕眩。
+        // 多萝西自己不可阻挡，所以「踩上去」的判定按格坐标，不依赖阻挡关系。
+        const here = allTargets(b, e2).filter((u) => u.side === "ally" && areaSelectable(e2, u)
+          && Math.round(u.y) === Math.round(e2.y) && Math.round(u.x) === Math.round(e2.x));
+        for (const u of here) {
+          hurt(b, e2, u, e2.s.atk * dmgScale, 'arts');
+          b.addBuff(u, { key: 'ab:dorothyTrap', stun: stun, dur: stun });
+        }
+      },
+    },
+  ];
+}
+
+/**
+ * “唤醒”（弧光第 15 回合的固定隐藏领袖；危机合约独有）。data/enemies.json 的机制原文：
+ * 「无法移动」·「受到伤害时，将 50% 的伤害转移给场上其他多萝西实验体」·
+ * 「每隔一段时间施放【破碎愿景】，对场上所有单位造成一次巨大物理伤害，该伤害将由所有友方单位平均分摊」·
+ * 「每隔一段时间，向左右两个方向施放【旅程】，对首个击中的单位造成物理伤害」·
+ * 「第二形态：攻击力提升，立刻激活 R 系列动力装甲，【破碎愿景】还能使处于高台的单位晕眩，【旅程】向四个方向施放」。
+ * 天赋数据 `talents.bb`：`Reborn.duration 10`（重生 10s）/ `DamageSplit.damage_resistance 0.5` / `M2.atk 0.25`（二形态攻击 +25%）。
+ * 技能数据：`Aoe` cd 0 / prepare 3 / atk_scale 5（破碎愿景）· `AoeM2` 额外 stun 15（二形态的晕眩）·
+ * `AttackLR` / `AttackUDLR` cd 5（旅程左右 / 四向）· `Blink` cd 38。
+ * ★ [ASSUMED] 「每隔一段时间」的间隔没有直接字段：这里取 `Aoe` 的 prepare 3s 作为施放周期下限，旅程取 `AttackLR` 的 cd 5。
+ */
+function kitWake(ab, e) {
+  const split = T(ab, 'DamageSplit.damage_resistance') ?? 0.5;
+  const m2atk = T(ab, 'M2.atk') ?? 0.25;
+  const rebornDur = T(ab, 'Reborn.duration') ?? 10;
+  const aoe = ab.sk.Aoe, aoeM2 = ab.sk.AoeM2;
+  const aoeScale = aoe?.bb?.atk_scale ?? 5;
+  const prep = aoe?.bb?.aoe_prepare_duration ?? 3;
+  const stunM2 = aoeM2?.bb?.stun ?? 15;
+  const P = { form: 1, nextAoe: prep, nextJourney: 5 };
+  return [
+    { spawn(b, e2) { e2.profile.noAttack = true; e2.profile.noMove = true; e2.profile.fixedOrigin = true; } },
+    {
+      taken(c, b, e2, a) {
+        // 「受到伤害时，将 50% 的伤害转移给场上其他多萝西实验体」——转移对象是**其他**同族单位
+        // 转给**其他**同族：allTargets 只回友方，所以这里直接遍历敌方单位
+        const others = b.enemies.filter((u) => u !== e2 && u.alive && /lyacpa|lydrty/.test(u.defId || ''));
+        if (!others.length || !(a.amount > 0)) return;
+        const share = a.amount * split / others.length;
+        for (const o of others) hurt(b, e2, o, share, a.type);
+        a.amount -= a.amount * split;
+      },
+      tick(b, e2, _a, _dt) {
+        // 第二形态：血量过半以下切形态（「第二形态：攻击力提升，立刻激活 R 系列动力装甲」）
+        if (P.form === 1 && e2.hpRatio < 0.5) {
+          P.form = 2;
+          b.addBuff(e2, { key: 'boss:wakeM2', persist: true, visible: true, mods: { atkMul: 1 + m2atk } });
+          b.fx('phase', { x: e2.x, y: e2.y, id: e2.id, kind: 'wakeM2' });
+        }
+        if (b.t >= P.nextAoe) {
+          P.nextAoe = b.t + Math.max(1, prep);
+          // 【破碎愿景】：场上所有友方单位平均分摊（二形态额外晕眩高台）
+          const targets = allTargets(b, e2).filter((u) => u.side === "ally" && areaSelectable(e2, u));
+          if (targets.length) {
+            const dmg = e2.s.atk * aoeScale / targets.length;
+            for (const t of targets) {
+              hurt(b, e2, t, dmg, 'phys');
+              if (P.form === 2 && t.h > 0) b.addBuff(t, { key: 'ab:wakeStun', stun: stunM2, dur: stunM2 });
+            }
+          }
+        }
+        if (b.t >= P.nextJourney) {
+          P.nextJourney = b.t + 5;
+          // 【旅程】：一形态左右，二形态四向；首个击中的单位吃物理伤害
+          const dirs = P.form === 2 ? [[0, -1], [0, 1], [-1, 0], [1, 0]] : [[0, -1], [0, 1]];
+          for (const [dr, dc] of dirs) {
+            // 沿一个方向找**第一个**命中的友方单位（旅程「对首个击中的单位造成物理伤害」）
+            let hit = null;
+            for (let step = 1; step <= 21; step++) {   // board width (COLS); a journey beam stops at the map edge
+              const y = Math.round(e2.y) + dr * step, x = Math.round(e2.x) + dc * step;
+              hit = allTargets(b, e2).find((u) => u.side === "ally" && areaSelectable(e2, u)
+                && Math.round(u.y) === y && Math.round(u.x) === x) || null;
+              if (hit) break;
+            }
+            if (hit) hurt(b, e2, hit, e2.s.atk, 'phys');
+          }
+        }
+      },
+    },
+  ];
+}
+
 export const BOSS_KITS = Object.freeze({
   enemy_9013_acstmk: kitHelm,          // boss_1 假想敌：胄
   enemy_9013_acstmk_2: kitHelm,        // boss_8 假想敌：胄 (隐秘核心)
@@ -1303,5 +1410,8 @@ export const BOSS_KITS = Object.freeze({
   enemy_10029_vtshld: kitEquip,        // 防护背心
   enemy_10030_vtwand: kitEquip,        // 冲击式施术单元
   enemy_9033_acdeer: kitDeer,          // boss_7 “萨米的意志”
+  // 危机合约 #4「弧光作战」的两个固定领袖（危机合约独有，官方 bossInfoDict 里没有）
+  enemy_1257_lydrty: kitDorothy,       // boss_arc1 多萝西（第 14 回合）
+  enemy_1531_bbrain: kitWake,          // boss_arc2 “唤醒”（第 15 回合，隐藏）
 });
 export const BOSS_KEYS = Object.freeze(Object.keys(BOSS_KITS));

@@ -1,7 +1,13 @@
 // test/lobby-card.test.js — room.card (名片干员, PR #643 split 6) end to end over WebSocket: the wire check, the
 // whitelist (only a visible charId of chess.json — not a hidden preset, a stand-in body or a 自选-only operator), storage
 // on the session (it follows the player into the next room) and the seat, room.state seats[].card for every member (human seats with a
-// card only), '' clearing it, and no phase gate (cosmetic: a running match is neither asked nor refused).
+// card only), clearing it, and no phase gate (cosmetic: a running match is neither asked nor refused).
+//
+// Since 名片底图 2026-11-01 (commit 476a5feea) the seat's card is the whole PLATE — an object
+// { charId, badge, avatar, bg, bgY, trophies, look, avatarLook } with nulls for what the player left unset — not a bare
+// charId string, and a card is DROPPED only when every field is empty (server/lobby.js card / humanSeat). The
+// assertions below read the operator through `cardCharId` so they state the rule ("this seat shows 隐现"), not the
+// plate's shape, which the 名片底图 tests own (test/lobby-card-plate.test.js).
 import { describe, test, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -43,6 +49,13 @@ async function createRoom(c, mode = 'coop') {
   return c.waitFor('room.state', (s) => s.hostId === c.id && s.mode === mode);
 }
 const seatOf = (state, id) => state.seats.find((s) => s && s.playerId === id);
+/**
+ * The operator a seat's card shows: seats[].card is the whole plate object since 名片底图 2026-11-01, so the rule the
+ * tests below state ("this seat shows 隐现") is the plate's charId. A plate whose 特工工牌 stands in for the portrait
+ * carries charId: null — the badge is asserted on its own where it matters.
+ * @param {any} seat a room.state seat @returns {string|null}
+ */
+const cardCharId = (seat) => (seat && seat.card ? seat.card.charId ?? null : null);
 
 describe('room.card (lobby, stub match)', () => {
   let srv;
@@ -55,21 +68,24 @@ describe('room.card (lobby, stub match)', () => {
   afterEach(async () => { await pool.closeAll(); });
   after(async () => { await srv?.close(); });
 
-  test('the wire check: a charId or "" passes; a chess id, a number, junk or a missing field is BAD_MSG', async () => {
+  test('the wire check: a charId or "" passes and an empty plate is an ack; a chess id, a number, null or junk is BAD_MSG', async () => {
     const c = await pool.player('Wire');
     await ok(c, { t: 'room.card', charId: OPERATOR });
     await ok(c, { t: 'room.card', charId: '' });
     for (const charId of ['chess_char_1_01_a', 7, null, 'char_498 inside', `char_1_${'x'.repeat(70)}`]) {
       await err(c, { t: 'room.card', charId }, ERR.BAD_MSG);
     }
-    await err(c, { t: 'room.card' }, ERR.BAD_MSG);
+    // 名片底图 2026-11-01: charId became OPTIONAL — a plate of 头像 / 底图 / 奖杯 with no operator is legal (a doctor may
+    // pick a background before an operator), so a room.card with no fields at all is an ack that stores nothing, not
+    // BAD_MSG. What the wire still refuses is a field that is present and malformed (the loop above).
+    await ok(c, { t: 'room.card' });
   });
 
   test('only a visible operator of chess.json: a hidden preset, a stand-in body, a 自选-only operator or an unknown id is refused, the stored card stays', async () => {
     const host = await pool.player('Host');
     await createRoom(host);
     await ok(host, { t: 'room.card', charId: OPERATOR });
-    await host.waitFor('room.state', (s) => seatOf(s, host.id)?.card === OPERATOR);
+    await host.waitFor('room.state', (s) => cardCharId(seatOf(s, host.id)) === OPERATOR);
     for (const charId of [HIDDEN, STAND_IN, DIY_ONLY, 'char_999_nobody']) {
       const r = await err(host, { t: 'room.card', charId }, ERR.BAD_MSG);
       assert.match(JSON.stringify(r), /unknown operator/);
@@ -77,7 +93,7 @@ describe('room.card (lobby, stub match)', () => {
     // a later room.state still carries the card the refused ones did not replace
     await ok(host, { t: 'room.addBot' });
     const st = await host.waitFor('room.state', (s) => s.seats.some((x) => x && x.isBot));
-    assert.equal(seatOf(st, host.id).card, OPERATOR);
+    assert.equal(cardCharId(seatOf(st, host.id)), OPERATOR);
   });
 
   test('the server takes every operator the client picker lists (ui/seatArt.js cardOperators), in a room too', async () => {
@@ -96,7 +112,7 @@ describe('room.card (lobby, stub match)', () => {
     await ok(guest, { t: 'room.join', code: st0.code });
     await guest.waitFor('room.state', (s) => !!seatOf(s, guest.id));
     await ok(host, { t: 'room.card', charId: OPERATOR });
-    const seen = await guest.waitFor('room.state', (s) => seatOf(s, host.id)?.card === OPERATOR);
+    const seen = await guest.waitFor('room.state', (s) => cardCharId(seatOf(s, host.id)) === OPERATOR);
     assert.ok(!('card' in seatOf(seen, guest.id)), 'the guest picked none');
     await ok(host, { t: 'room.addBot' });
     const withBot = await guest.waitFor('room.state', (s) => s.seats.some((x) => x && x.isBot));
@@ -110,10 +126,10 @@ describe('room.card (lobby, stub match)', () => {
     const c = await pool.player('Early');
     await ok(c, { t: 'room.card', charId: OTHER });
     const st = await createRoom(c);
-    assert.equal(seatOf(st, c.id).card, OTHER);
+    assert.equal(cardCharId(seatOf(st, c.id)), OTHER);
     await ok(c, { t: 'room.leave' });
     const again = await createRoom(c, 'solo');
-    assert.equal(seatOf(again, c.id).card, OTHER);
+    assert.equal(cardCharId(seatOf(again, c.id)), OTHER);
   });
 
   test('cosmetic, no phase gate: accepted while the match runs and shown in room.state', async () => {
@@ -122,7 +138,7 @@ describe('room.card (lobby, stub match)', () => {
     await ok(host, { t: 'room.start' });
     await host.waitFor('m.public', (p) => p.phase === 'INFO_CHECK');
     await ok(host, { t: 'room.card', charId: OPERATOR });
-    const st = await host.waitFor('room.state', (s) => seatOf(s, host.id)?.card === OPERATOR);
+    const st = await host.waitFor('room.state', (s) => cardCharId(seatOf(s, host.id)) === OPERATOR);
     assert.equal(st.inMatch, true);
   });
 });

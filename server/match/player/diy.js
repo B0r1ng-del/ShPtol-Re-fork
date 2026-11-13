@@ -198,7 +198,13 @@ export class PlayerDiy {
       const rec = this._diyRecords.get(slotId);
       const slot = diySlot(slotId, gd.raw);
       if (!rec || !slot) continue;
-      const bonds = Array.isArray(rec.bonds) ? rec.bonds : [];
+      // ★ The fallback bond (协防, config.economy.fallbackBondId) is never banned — the header states it (:24)
+      // and test/match/diy-shop.test.js:251 pins it. Without this filter every 自选 prototype (all ten carry exactly
+      // `['emptyShip']`) is wiped the moment that bond is drawn: measured 670/2000 seeds, i.e. 33.5% of matches lost the
+      // whole DIY stock. Filtering here rather than in pool.js's draw keeps the ban RNG untouched (filtering the draw
+      // itself re-shuffled every seeded match — 12 of 23 golden scenarios moved).
+      const fallback = gd.fallbackBondId;
+      const bonds = (Array.isArray(rec.bonds) ? rec.bonds : []).filter((b) => b !== fallback);
       if (bonds.length > 0 && bonds.every((b) => off.has(b))) { banned.push(slotId); continue; }
       const cap = gd.poolCopies(slotId);
       if (!(cap > 0)) continue;

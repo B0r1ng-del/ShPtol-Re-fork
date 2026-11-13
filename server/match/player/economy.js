@@ -120,6 +120,16 @@ export class PlayerEconomy {
   addFunds(n, { reason = '' } = {}) {
     if (!Number.isFinite(n) || n === 0) return 0;
     const v = Math.trunc(n);
+    // 危机合约 G4 资本冻结 (shared/crisis.js): 休整期内的非基础资金收入延至下一休整期开始可用，不减少资金总额 —
+    // the money is not lost, it waits in `pendingFunds` (the same channel 老鲤's onIncome withholds income through, read
+    // by `startRound`). 「终局突袭（第14回合）休整期的收入不冻结」 is `crisisFundsDeferred`'s round window. An ordinary
+    // room has crisisFx = null, so this branch never runs and the arithmetic is byte-identical.
+    const inPrep = this.m && this.m.phase === PHASE.PREP;
+    if (v > 0 && inPrep && this.gd.crisisFundsDeferred(this.m.round, reason)) {
+      this.pendingFunds = Math.max(0, (this.pendingFunds || 0) + v);
+      this.dirty();
+      return 0;
+    }
     const before = this.funds;
     this.funds = Math.max(0, this.funds + v);
     if (v > 0) this.stats.fundsGained += v;
@@ -317,7 +327,13 @@ export class PlayerEconomy {
     const slot = this.shop.slots[slotIdx];
     if (!slot) return fail(ERR.BAD_TARGET);
     if (slot.sold) return fail(ERR.SOLD_OUT);
-    const price = this.priceOf(slot);
+    // 危机合约 H4 商店封存: a card sealed by the last manual refresh cannot be bought this time
+    if (slot.sealed) return fail(ERR.SOLD_OUT);
+    // 危机合约 G3 集中采购税 (shared/crisis.js): 每回合前 3 次购买干员正常计价，第 4 次起每次额外 1 资金.
+    // Only 干员 purchases are taxed — the official text says 购买干员, and an equipment purchase is not one. Ordinary
+    // rooms get `price` back unchanged, so the arithmetic of every official mode is identical.
+    const basePrice = this.priceOf(slot);
+    const price = slot.kind === 'chess' ? this.gd.crisisBuyPrice(this.round?.buys ?? 0, basePrice) : basePrice;
     if (this.funds < price) return fail(ERR.NO_FUNDS);
     const handFull = freeSlot(this.hand) < 0;
     let piece;
@@ -351,6 +367,10 @@ export class PlayerEconomy {
 
   refresh() {
     const g = this._gate(); if (g) return g;
+    // 危机合约 H1 频率限制 (shared/crisis.js): 第4回合起每回合主动刷新有上限，**免费刷新也计次** — hence the check
+    // sits before the free branch. Infinity for an ordinary room, so the guard never fires there.
+    const cap = this.gd.crisisRefreshCap(this.m?.round);
+    if (Number.isFinite(cap) && (this.round?.refreshes ?? 0) >= cap) return fail(ERR.RATE);
     const free = this.shop.freeRefreshes > 0;
     const price = free ? 0 : this.gd.refreshPrice;
     if (!free && this.funds < price) return fail(ERR.NO_FUNDS);
@@ -360,6 +380,14 @@ export class PlayerEconomy {
     // GitHub #584, DESIGN §32.14.7). A refresh that fails (funds, phase) returns above and leaves the freeze on.
     this.shop.frozen = false;
     this.rollShop({ keepFrozen: false });
+    // 危机合约 H4 商店封存 (shared/crisis.js): 主动刷新后最左侧的干员商品格本次不可购买. Sealed by SLOT OBJECT, so the seal
+    // survives until that exact card leaves the shop — `buy()` already refuses a `sold` slot and the next refresh replaces
+    // the object, which is this contract's "本次". Automatic rolls never come through here.
+    if (this.gd.crisisSealsLeftmostShop && this.gd.crisisSealsLeftmostShop()) {
+      for (const s of this.shop.slots) {
+        if (s && s.kind === 'chess' && !s.sold) { s.sealed = true; break; }
+      }
+    }
     this.stats.refreshes++;
     this.round.refreshes++;
     this.m.dispatch(this, 'onRefresh', { slots: this.shop.slots, free, price });
@@ -380,7 +408,8 @@ export class PlayerEconomy {
     if (this.m.test === true && this._testShopNext) return fail(ERR.WRONG_PHASE);
     const g = this._gate(); if (g) return g;
     if (this.shop.level >= this.gd.maxShopLevel) return fail(ERR.MAX_LEVEL);
-    const price = Math.max(0, this.shop.upgradePrice);
+    // 危机合约 H2 升格管制: the 2nd upgrade onwards costs extra (the 1st is free of the tax) — ordinary rooms unchanged
+    const price = Math.max(0, this.gd.crisisLevelUpPrice(this.shop.level, Math.max(0, this.shop.upgradePrice)));
     if (this.funds < price) return fail(ERR.NO_FUNDS);
     this.spend(price);
     this.shop.level++;

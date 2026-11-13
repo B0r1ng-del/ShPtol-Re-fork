@@ -66,6 +66,24 @@ export class MatchBoss {
       },
     });
     this.bossPool = pool;
+    // 危机合约 L2–L5 (shared/crisis.js): a dual-leader scheme fields a SECOND leader with its own HP. The engine's leader HP
+    // is this one shared pool, so the contract needs a second POOL rather than a second spawn — `bossPools` carries every
+    // pool of the round in order, and `bossPool` above stays the PRIMARY one so every pre-existing reader is unchanged.
+    // 「两者均须击败」 is `_dualCleared`: the round clears only when EVERY pool is empty. An ordinary room (or any contract
+    // without L2–L5) leaves `bossPools` at null and every line below is the original code path.
+    this.bossPools = null;
+    const dual = !hidden && typeof this.gd.crisisDualLeader === 'function'
+      ? this.gd.crisisDualLeader(bossId, null)
+      : null;
+    if (dual && dual.pools && dual.pools.length > 1) {
+      this.crisisDual = dual;
+      this.bossPools = dual.pools.map((p, i) => {
+        if (i === 0) return { ...p, pool };
+        const hp = Math.max(1, Math.round(bossPoolHp(this.gd, p.bossId, alive.length) * p.mul));
+        return { ...p, pool: new SharedBossPool(hp, { onHit: pool.onHit }) };
+      });
+      this.bossPools[0].pool = pool;
+    }
     // the round's plan (_planBossWaves: the Hidden Core's own draw, GitHub #845); a departure since keeps intact pairs
     const groups = pairPlayers(alive, createRng(deriveSeed(this.seed, bossPairSalt(this.gd, this.round))), this.bossPairs);
     this.bossPairs = groups.map(g => g.map(p => p.playerId));
@@ -73,6 +91,18 @@ export class MatchBoss {
     this.fields = groups.map((g, i) => {
       const solo = this.isSolo || g.length === 1;
       const wave = reuse ? this.bossWaves[i].wave : buildBossWave(this.gd, this.rngWaves, this.factions, this.round, { bossId, solo });
+      // 危机合约 S1/S2/S5 (shared/crisis.js): leader SKILL cooldowns. The engine already reads a wave's `overrides`
+      // table, so the contract patches that table instead of touching the sim. `crisisBossSkillOverrides` returns the
+      // SAME object when no such route is chosen, so an ordinary room's wave is untouched (`wave.overrides` is shared
+      // with `bossWaves` reuse — only the fallback build path patches, and it patches a fresh table).
+      if (!reuse && this.gd && typeof this.gd.crisisBossSkillOverrides === 'function') {
+        wave.overrides = this.gd.crisisBossSkillOverrides(wave.overrides, {});
+      }
+      // 危机合约 R1 再生护盾：假想敌：再生的护盾层数 / 重生间隔写在**天赋**里，kitRegen 构造时就闭包捕获，
+      // 只能在 enemyOverrides 这一层注入。同一个先例：没有 R1 时原样返回，普通房间逐字节不变。
+      if (!reuse && this.gd && typeof this.gd.crisisTalentOverrides === 'function') {
+        wave.overrides = this.gd.crisisTalentOverrides(wave.overrides);
+      }
       // one spawn list per field, shared by the field's players' onBattleStart handlers (edit it in place)
       const spawns = wave.spawns.map((s) => ({ ...s, mods: s.mods ? { ...s.mods } : undefined }));
       // bounties with battles left (a multi-round card lasts MULTI_ROUND_BOUNTY_BATTLES) follow their player into the
@@ -149,7 +179,10 @@ export class MatchBoss {
    */
   _openTeamLp() {
     const alive = this.alivePlayers();
-    this.teamLp = alive.reduce((s, p) => s + Math.max(0, p.lp), 0);
+    const merged = alive.reduce((s, p) => s + Math.max(0, p.lp), 0);
+    // 危机合约 O2 共同命运 (shared/crisis.js): 四人领袖轮合并目标生命后仅保留 75%，向下取整、最低 1 点.
+    // Without O2 `crisisMergedLp` returns its input, so the official merged LP is unchanged.
+    this.teamLp = this.gd && typeof this.gd.crisisMergedLp === 'function' ? this.gd.crisisMergedLp(merged) : merged;
     for (const ps of alive) ps.lpAtFinal = Math.max(0, ps.lp);
   }
 
@@ -232,10 +265,22 @@ export class MatchBoss {
     }
   }
 
-  /** A boss field's LP cost (leaks × lpr + leader LP effects): `cumulative` totals from its client, deltas from the server run. */
+  /**
+   * A boss field's LP cost (leaks × lpr + leader LP effects): `cumulative` totals from its client, deltas from the server run.
+   *
+   * O1 最后防线 (`fx.O1.cap`) caps how much LP a field may lose in total: past the cap, further leaks cost nothing. It
+   * is checked HERE because this is the single accounting point — a cap applied anywhere else would be bypassed by the
+   * other two callers. A room without the contract has `cap === Infinity`, so the branches below are unchanged.
+   */
   _creditLp(f, amount, cumulative = false) {
     let n = Number(amount);
     if (!Number.isFinite(n) || n <= 0) return;
+    const cap = this._crisisLpCap(f);
+    if (Number.isFinite(cap)) {
+      const already = cumulative ? Math.max(0, f.lpAcked | 0) : Math.max(0, f.lpCum | 0);
+      n = Math.min(n, Math.max(0, cap - already));
+      if (n <= 0) return;
+    }
     if (cumulative) {
       // a client's cumulative report: credited up to the field clock's plausibility budget (the rest later)
       if (n > f.lpReported) f.lpReported = n;
@@ -250,6 +295,18 @@ export class MatchBoss {
     f.lpCum += n;
     const credit = Math.max(0, f.lpCum - Math.max(before, f.lpAcked));
     if (credit > 0) this._teamLpLoss(credit, f.players);
+  }
+
+  /**
+   * O1 最后防线: the total LP this field may lose (`Infinity` without the contract, which is every ordinary match).
+   * Read off the compiled effects on the GameData, so the panel and the accounting cannot disagree.
+   * @param {any} f the field
+   * @returns {number} a finite cap, or Infinity
+   */
+  _crisisLpCap(f) {
+    const fx = this.gd && this.gd.crisisFx;
+    const cap = fx && fx.O1 && Number(fx.O1.cap);
+    return Number.isFinite(cap) && cap >= 0 ? cap : Infinity;
   }
 
   /**
@@ -357,8 +414,24 @@ export class MatchBoss {
   _checkFinalEnd() {
     if (this._finalEnding || !this.bossPool || !this.fields.some((f) => f.cc)) return;
     if (this.phase !== PHASE.FINAL_ASSAULT && this.phase !== PHASE.HIDDEN_CORE) return;
-    if (this.bossPool.hp <= 0) this._endFinal('cleared');
+    if (this._dualCleared()) this._endFinal('cleared');
     else if (this.teamLp != null && this.teamLp <= 0) this._endFinal('forced');
+  }
+
+  /**
+   * 危机合约 L2–L5 「两者均须击败」: with a dual scheme only an EMPTY pool set clears the round. Without one this is exactly
+   * `this.bossPool.hp <= 0`, so the official single-leader arithmetic is untouched.
+   */
+  _dualCleared() {
+    const pools = this.bossPools;
+    if (!Array.isArray(pools) || !pools.length) return !!(this.bossPool && this.bossPool.hp <= 0);
+    // a pool whose leader has not ENTERED yet (L3's second leader before 40 s / below 50 %) cannot have been beaten — but
+    // it must also not block a win it never joined: a not-yet-entered leader counts as not-yet-required.
+    for (const p of pools) {
+      if (p.entered === false) continue;
+      if (p.pool && p.pool.hp > 0) return false;
+    }
+    return true;
   }
 
   _endFinal(reason) {
@@ -463,7 +536,20 @@ export class MatchBoss {
         }, 0);
       } else for (const ps of affected) n = consumeRelicShield(ps, n);
     }
+    const before = this.teamLp;
     this.teamLp = Math.max(0, this.teamLp - n);
+    // 危机合约 O3 同生共死 (shared/crisis.js): 全队共享的保命次数 — 首次有人目标生命将归零时保留为 1，此后再有人归零
+    // 全队立即失败（三档 `saves: 0` = 没有保命，直接失败）. `crisisTeamSaves` returns -1 without the contract, so an
+    // ordinary room never enters this branch. Runs BEFORE 时光之末, which is a per-seat relic and keeps its own rule.
+    const saves = this.gd && typeof this.gd.crisisTeamSaves === 'function' ? this.gd.crisisTeamSaves() : -1;
+    if (saves >= 0 && before > 0 && this.teamLp <= 0) {
+      const left = this._crisisSavesLeft ?? saves;
+      if (left > 0) this._crisisSavesLeft = left - 1;
+      this.teamLp = 1; // 「保留为 1」
+      // no new interface string: the i18n packs carry the existing 时光之末 wording, and a contract toast is optional
+      // flavour rather than a rule — the combat log already shows the LP that was kept.
+      this.toast(this.alivePlayers()[0] ?? null, 'warn', msg('合约保命已生效，目标生命保留 1 点'));
+    }
     // 六.E: the pool is empty — a seat holding 「时光之末」 spends its one use to restore 11 LP and the fight goes on
     if (this.relicsOn && this.teamLp <= 0) {
       const owner = this.alivePlayers().find((ps) => unusedRevival(ps));
@@ -535,7 +621,7 @@ export class MatchBoss {
 
   _bossTick(runner) {
     this._applyOvertime(runner.time);
-    if (this.teamLp <= 0 && this.bossPool.hp > 0) runner.forceAll('forced');
+    if (this.teamLp <= 0 && !this._dualCleared()) runner.forceAll('forced');
     // client-side combat with every boss field on the server: humans that reconnect / watch run display replicas
     // whose LocalBossPool follows b.pool
     if (this.fields.some((f) => f.cc)) { this._broadcastPool(false); this._bossPublic(); }
@@ -551,7 +637,7 @@ export class MatchBoss {
     this._stopClientCombat();
     // the end condition the server registered first decides (client-side combat: _endFinal — pool 0 → victory, team LP 0
     // → defeat); a boss field's final result may never turn a defeat into a victory (user playtest #6 item 5)
-    const victory = this._finalEnding ? this._finalEnding === 'cleared' : this.bossPool.hp <= 0;
+    const victory = this._finalEnding ? this._finalEnding === 'cleared' : this._dualCleared();
     for (const f of this.fields) {
       const res = resultOf(f);
       this._collectSimErrors(f, res);
@@ -597,6 +683,8 @@ export class MatchBoss {
         if (eligible) {
           this.hiddenReached = true;
           this.bossPool = null;
+    this.bossPools = null;
+    this.crisisDual = null;
           this.tickerText('隐秘核心已解锁', FLOW_TICKER_PRIORITY);
           this.startRound(this.gd.hiddenRound);
         } else {

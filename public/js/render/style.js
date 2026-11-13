@@ -30,6 +30,9 @@ export const GLYPH = Object.freeze({
   g: { mat: 'smog', h: null },
   d: { mat: 'deepsea', h: null },
   i: { mat: 'infection', h: null },
+  // 危机合约 #4「滞空焦点」的重力按钮：踩下改半场重力方向（官方 tile_grvtybtn，左右两种朝向）
+  '<': { mat: 'grvtyLeft', h: null },
+  '>': { mat: 'grvtyRight', h: null },
 });
 
 /** tileKey (when a stage uses glyphs outside the legend) → glyph. */
@@ -37,6 +40,8 @@ export const TILEKEY_GLYPH = Object.freeze({
   tile_forbidden: '#', tile_road: 'r', tile_floor: 'f', tile_wall: 'h', tile_fence_bound: 'b', tile_fence: 'b',
   tile_achand: 'a', tile_start: 'S', tile_end: 'E', tile_telin: 'I', tile_telout: 'O', tile_mire: 'm',
   tile_smog: 'g', tile_deepsea: 'd', tile_infection: 'i', tile_grass: 'r', tile_hole: '#',
+  // 危机合约 #4「滞空焦点」的重力按钮（官方 tile_grvtybtn，左右两种朝向）
+  tile_grvtybtn: '<',
 });
 
 export const COLORS = Object.freeze({

@@ -9,6 +9,7 @@ import { isContentHash } from './plugins/identity.js';
 import { isPluginId } from './plugins/manifest.js';
 import { isModDigest, isModId, MOD_LIMITS } from './modIdentity.js';
 import { isTestCommand } from './testMode.js';
+import { isCrisisSeed } from './crisis.js';
 import { PLUGIN_OFFER_SLOTS } from './plugins/limits.js';
 
 // The mod-identity shapes are declared in `shared/modIdentity.js` (inside the typecheck slice; this file is excluded
@@ -47,6 +48,22 @@ const nullable = (check) => (v) => v === null || v === undefined || check(v);
  * run a match the player did not ask for. Every key is optional (a switch the player left alone is simply absent).
  */
 const isMods = (v) => isPlain(v) && Object.keys(v).every((k) => MOD_KEYS.includes(k) && isBool(v[k]));
+/**
+ * Structural check of `room.create.crisis` (危机合约, shared/crisis.js): the contract selection a contract room carries.
+ * The wire checks the SHAPE only — a mode and a bounded list of well-formed tag ids (`A1-2`, `XA1-3`). Whether the
+ * selection is LEGAL (tags the mode offers, no repeated tier of one route, no two leader schemes, a route's needs met)
+ * is checkCrisis on the server, so an illegal contract is refused with a coded error naming the offending tag.
+ * `mode` here is the CONTRACT's mode, not the room mode (`room.create.mode` is 'crisis' either way). `bans` is the
+ * 禁图 picker's stage ids (crisis.preview sends the same list); `season` 'arc' switches to 弧光作战's schedule.
+ */
+const isCrisis = (v) => isPlain(v)
+  && ['solo', 'quad'].includes(v.mode)
+  && Array.isArray(v.tags)
+  && v.tags.length <= 200
+  && v.tags.every((x) => typeof x === 'string' && /^X?[A-U][1-9]-[1-3]$/.test(x))
+  && (v.season === undefined || v.season === 'arc')
+  && (v.bans === undefined || (Array.isArray(v.bans) && v.bans.length <= 64
+    && v.bans.every((x) => typeof x === 'string' && x.length <= 64)));
 /**
  * `room.mods.modIds`（面板请房主改本房间装载的工坊包集合）：包 id 的数组，长度有界。`[]` 合法 —— 那是「一个包都不装」。
  * 一个包 id 的形状由 `shared/modIdentity.js` 的 `isModId` 说了算（它同时管清单与摘要，两边同一判据）。
@@ -602,7 +619,11 @@ export const C2S = {
   // the room; a key outside MOD_KEYS is BAD_MSG rather than a silent drop (a version mismatch, not a typo).
   // modDigest: the 工坊 content-set digest — a DIFFERENT thing from `mods` on purpose (upstream calls the digest `mods`,
   // which this fork already uses for the switches; one name with two meanings was measured to return `bad field mods`).
-  'room.create': { mode: (v) => ROOM_MODES.includes(v), difficulty: (v) => DIFFICULTIES.includes(v), mods: isMods, modDigest: isModDigest, test: (v) => v === true, version: isVersionId, soloUnlimited: isBool, $optional: ['mods', 'modDigest', 'test', 'difficulty', 'version', 'soloUnlimited'] },
+  // crisis: 危机合约 (shared/crisis.js) — a contract room. Optional; when present the server derives the seats and the
+  // difficulty from the contract (create(): mode 'crisis' ⇒ difficulty forced to CRISIS_ROOM_DIFFICULTY, seats from
+  // crisisSeatCap). The shape is checked here; the SELECTION is checkCrisis on the server, so an illegal contract is
+  // refused with a coded error naming the offending tag rather than a bare BAD_MSG.
+  'room.create': { mode: (v) => ROOM_MODES.includes(v), difficulty: (v) => DIFFICULTIES.includes(v), mods: isMods, modDigest: isModDigest, test: (v) => v === true, version: isVersionId, soloUnlimited: isBool, crisis: isCrisis, $optional: ['mods', 'modDigest', 'test', 'difficulty', 'version', 'soloUnlimited', 'crisis'] },
   'room.join': { $optional: ['modDigest', 'testAck'], testAck: (v) => v === true, modDigest: isModDigest, code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v) },
   'room.leave': {},
   'room.ready': { ready: isBool },
@@ -651,6 +672,23 @@ export const C2S = {
   'room.proposeVersion': { version: isVersionId },
   'room.versionVote': { voteId: (v) => isInt(v, 1, 2 ** 31), agree: isBool },
   'room.cancelVersionVote': { voteId: (v) => isInt(v, 1, 2 ** 31) },
+  // 危机合约 · 开局预览 (server/lobby.js crisisPreview): draws the SAME schedule the match will draw from `seed`, so the
+  // page can show the map / rounds / missing targets before the room exists. Deliberately a push: net.js answer() reduces
+  // an `{ok:true}` handler result to the bare ack, so the payload rides its own `crisis.preview` message instead.
+  //   seed   — the 开局种子 (32-bit; absent = draw one, which is `crisis.seed`)
+  //   tags   — the prospective selection; checked with the same table the room is (an illegal one is refused)
+  //   bans   — optional map bans (stage ids), as the room screen's 禁图 picker sends them
+  //   season — 'arc' for 弧光作战's own schedule (shared/crisisArc.js)
+  'crisis.preview': {
+    seed: (v) => v === undefined || isCrisisSeed(v),
+    mode: (v) => ['solo', 'quad'].includes(v),
+    tags: (v) => Array.isArray(v) && v.length <= 200 && v.every((x) => typeof x === 'string' && /^X?[A-U][1-9]-[1-3]$/.test(x)),
+    bans: (v) => v === undefined || (Array.isArray(v) && v.length <= 64 && v.every((x) => typeof x === 'string' && x.length <= 64)),
+    season: (v) => v === undefined || v === 'arc',
+    $optional: ['seed', 'bans', 'season'],
+  },
+  // 危机合约 · 要一个种子 (crisis.seed): a fresh 32-bit seed. No fields; the answer is its own `crisis.seed` message.
+  'crisis.seed': {},
   // operator loadout (DESIGN §16): stored per session/seat; accepted until the match leaves INFO_CHECK — `ops` (0.2.2):
   // the per-operator 潜能 / 练度 (absent = none set: every operator at 潜能 6, 精英2 Lv.60)
   'room.loadout': { entries: isLoadoutEntries, ops: isLoadoutOps, $optional: ['ops'] },
@@ -846,6 +884,11 @@ export const S2C = [
   'm.layer',
   // m.unitStats { seq, round, units: [unitStatsEntry] } — the answer to g.unitStats (the requester only)
   'm.unitStats',
+  // 危机合约 (shared/crisis.js): the two ANSWERS to crisis.preview / crisis.seed. Separate messages because answer()
+  // strips everything but the ack off a handler's `{ok:true}` result (see crisisPreview in server/lobby.js).
+  //   crisis.preview { preview: { seed, stageId, picks, rounds, missing, total, bans } }
+  //   crisis.seed    { seed }
+  'crisis.preview', 'crisis.seed',
   // client-side combat (DESIGN §14): b.start { battleId, fieldId, kind, spec, authoritative, startAt, serverNow, elapsed,
   // speed, watch? } · b.pool { hp, max, teamLp, acked: { [fieldId]: cumulative boss damage counted } } ·
   // b.end { battleId, fieldId, reason }

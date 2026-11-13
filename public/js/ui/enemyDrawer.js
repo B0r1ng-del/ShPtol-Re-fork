@@ -12,7 +12,7 @@ import { Img, UnitThumb, BondGlyph, BandIcon, RichText, GIcon } from './gameComp
 import { groupEnemies, factionTypes, briefingBondTip } from './gameLogic.js';
 import { matchInfoModel, DiyBannedLine } from './matchInfo.js';
 import { factionIconUrl } from './assetUrls.js';
-import { data } from '../data.js';
+import { data, getStage } from '../data.js';
 import { t, tParts, N_ } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -70,7 +70,7 @@ function InfoTab({ pub, priv, onChess, bandId = null, bandOwner = null }) {
   const disabled = new Set(bonds.filter((b) => stateOf(b.bondId)).map((b) => b.bondId));
   // while scouting a teammate's prep board the drawer shows THEIR 策略 in place of one's own (user playtest #2 item 2)
   const band = (bandId || priv?.bandId) ? data.lookup('bands', bandId || priv.bandId) : null;
-  const stage = pub?.stageId ? data.lookup('stages', pub.stageId) : null;
+  const stage = pub?.stageId ? getStage(pub.stageId) : null;
   const withBans = bonds.filter((b) => disabled.has(b.bondId) || (perBond.get(b.bondId) || 0) > 0)
     .sort((a, b) => (disabled.has(b.bondId) - disabled.has(a.bondId)) || ((perBond.get(b.bondId) || 0) - (perBond.get(a.bondId) || 0)));
   return html`<div class="edrawer__body">

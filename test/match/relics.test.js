@@ -64,9 +64,11 @@ test('原创收藏品：实际奖励池抽取与领取后下一场战斗生效',
 });
 
 test('collection: every tier is populated, early pools cannot run out during ordinary play, definitions are immutable', () => {
-  // 46, not the source pack's 47: 鸭梨手机 (relic_157) is not ported — its 「全队累计难度降低 2 级」 needs the source
-  // extension's cumulative-difficulty level (超限模拟), which this fork's four fixed difficulties have no equal for.
-  assert.equal(RELICS.length, 46);
+  // 68, not 46: 9a15ee111 (「从 Stronghold-Protocol-dlc 移植 7 个玩法实现与 22 个收藏品」) added 22 relics on top of
+  // 六.E's 46 and this literal was never raised with it. 46 was itself 47 − 1: 鸭梨手机 (relic_157) is not ported — its
+  // 「全队累计难度降低 2 级」 needs the source extension's cumulative-difficulty level (超限模拟), which this fork's
+  // four fixed difficulties have no equal for. The per-tier floor below still guards the shape that matters.
+  assert.equal(RELICS.length, 68);
   assert.equal(new Set(RELICS.map((r) => r.id)).size, RELICS.length);
   assert.ok(RELICS.filter((r) => r.tier === 1).length >= 9);
   for (const { tier } of RELIC_TIERS) assert.ok(RELICS.some((r) => r.tier === tier));
@@ -117,7 +119,11 @@ test('drops: one uninterrupted perfect match earns distinct, progress-gated coll
 test('balance: duplicate IDs, forged payloads, profession and position add without cumulative caps', () => {
   const all = RELICS.map((r) => r.id);
   const mods = relicModifiers(all, 'WARRIOR', 'MELEE');
-  const expected = { atkPct: 1.23, hpPct: 1.4, defPct: 1.22, aspd: 35, spRecoveryFlat: 0.75, hpRegen: 100, hpRegenRatio: 0.02, dodgePhys: 0.22, dodgeArts: 0.27, physDealtMul: 1.6, artsDealtMul: 1.6, healingTakenMul: 1.1, artsTakenMul: 0.1, physTakenMul: 0.1, defResClear: 1 };
+  // Summed over EVERY relic (the point: the IDs are unique and the payloads cannot stack past one copy each).
+  // ★ 9a15ee111 added 22 more relics, which moved three keys: physDealtMul 1.6 → 1.7 (one of them multiplies physical
+  // damage dealt) and two low-HP keys appear at all (lowHpAtkPct 1.5, lowHpSpRecoveryFlat 2 — the DLC relics carry
+  // conditional mods the 六.E 46 did not). The other twelve keys are byte-identical, which is the real assertion here.
+  const expected = { atkPct: 1.23, hpPct: 1.4, defPct: 1.22, aspd: 35, spRecoveryFlat: 0.75, hpRegen: 100, hpRegenRatio: 0.02, dodgePhys: 0.22, dodgeArts: 0.27, physDealtMul: 1.7, artsDealtMul: 1.6, healingTakenMul: 1.1, artsTakenMul: 0.1, physTakenMul: 0.1, defResClear: 1, lowHpAtkPct: 1.5, lowHpSpRecoveryFlat: 2 };
   assert.deepEqual(Object.keys(mods).sort(), Object.keys(expected).sort());
   for (const [key, value] of Object.entries(expected)) assert.ok(Math.abs(mods[key] - value) < 1e-9, key);
   assert.deepEqual(relicModifiers(['relic_003', 'relic_003', 'unknown', { id: 'unknown', mods: { atkPct: 999 } }]), { atkPct: 0.08 });

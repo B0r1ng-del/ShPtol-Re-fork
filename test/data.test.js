@@ -25,7 +25,7 @@ const CACHE = join(ROOT, '.cache', 'gamedata');
 const HAS_CACHE = ['excel/activity_table.json', 'excel/character_table.json', 'excel/skill_table.json', 'excel/battle_equip_table.json',
   'levels/enemydata/enemy_database.json', 'levels/activities/act1autochess/level_autochess_enemy_data.json']
   .every((rel) => existsSync(join(CACHE, rel)));
-const FILES = ['config', 'chess', 'bonds', 'garrisons', 'items', 'bands', 'effects', 'choices', 'enemies', 'factions', 'waves', 'stages', 'bosses', 'tokens', 'backups'];
+const FILES = ['config', 'chess', 'bonds', 'garrisons', 'items', 'bands', 'effects', 'choices', 'enemies', 'enemies-crisis', 'factions', 'waves', 'stages', 'stages-crisis', 'bosses', 'tokens', 'backups'];
 
 /** Load one data file (fails with a helpful message when the build has not run). */
 function load(name) {
@@ -35,6 +35,9 @@ function load(name) {
 }
 const D = Object.fromEntries(FILES.map((f) => [f, load(f)]));
 const { config, chess, bonds, garrisons, items, bands, effects, choices, enemies, factions, waves, stages, bosses, tokens } = D;
+
+/** 敌人表：enemies.json + 契约专用（enemies-crisis.json）。弧光的敌人只在后者里。 */
+const anyEnemyOf = (key) => enemies[key] || D['enemies-crisis']?.[key];
 
 const isFiniteNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const isInt = (v) => Number.isInteger(v);
@@ -231,7 +234,9 @@ test('enemies: stats are finite and motion/dmgType valid', () => {
 });
 
 test('waves: every template resolves spawns, routes and enemies', () => {
-  assert.equal(Object.keys(waves).length, 38);
+  // 38 卫戍协议本季模板 + 4 危机合约 #4 的弧光领袖模板（arc_boss_dorothy(_s) / arc_boss_wake(_s)，
+  // 由 tools/fork-arc-leaders.mjs 经 FORK_APPLIERS 写入）
+  assert.equal(Object.keys(waves).length, 42);
   for (const w of Object.values(waves)) {
     assert.ok(w.routes.length > 0, `${w.id}: routes`);
     for (const r of [...w.routes, ...w.extraRoutes]) {
@@ -244,17 +249,18 @@ test('waves: every template resolves spawns, routes and enemies', () => {
       assert.ok(isInt(sp.count) && sp.count >= 1, `${w.id}: count`);
       assert.ok(isFiniteNum(sp.interval) && sp.interval >= 0, `${w.id}: interval`);
       if (sp.action) continue;
-      assert.ok(enemies[sp.key], `${w.id}: enemy ${sp.key}`);
+      // 契约专用敌人（data/enemies-crisis.json）也是合法引用：弧光的 4 个领袖模板就用它们
+      assert.ok(anyEnemyOf(sp.key), `${w.id}: enemy ${sp.key}`);
       assert.ok(w.routes[sp.routeIndex], `${w.id}: route ${sp.routeIndex}`);
     }
     for (const [bn, phases] of Object.entries(w.branches)) {
       for (const sp of phases.flat()) {
         if (sp.action) continue;
-        assert.ok(enemies[sp.key], `${w.id}/${bn}: enemy ${sp.key}`);
+        assert.ok(anyEnemyOf(sp.key), `${w.id}/${bn}: enemy ${sp.key}`);
         assert.ok(w.extraRoutes[sp.routeIndex], `${w.id}/${bn}: extraRoute ${sp.routeIndex}`);
       }
     }
-    for (const k of Object.keys(w.overrides)) assert.ok(enemies[k], `${w.id}: override ${k}`);
+    for (const k of Object.keys(w.overrides)) assert.ok(anyEnemyOf(k), `${w.id}: override ${k}`);
     if (w.kind === 'normal') assert.ok(isFiniteNum(w.maxPlayTime) && w.maxPlayTime > 0);
   }
 });
@@ -331,13 +337,15 @@ test('stages: 19 rows × 21 cols with known glyphs; paths are contiguous', () =>
 });
 
 test('bosses, factions, tokens and choices resolve', () => {
-  assert.equal(Object.keys(bosses).length, 10);
+  // 10 卫戍协议本季领袖 + boss_arc1（多萝西）/ boss_arc2（“唤醒”）—— 危机合约 #4 独有的两个固定领袖
+  assert.equal(Object.keys(bosses).length, 12);
   for (const b of Object.values(bosses)) {
-    assert.ok(enemies[b.enemyKey], `${b.bossId}: enemy`);
+    assert.ok(anyEnemyOf(b.enemyKey), `${b.bossId}: enemy`);
     for (const v of Object.values(b.bloodPoint)) assert.ok(isFiniteNum(v) && v > 0, `${b.bossId}: bloodPoint`);
     for (const t of Object.values(b.templates)) assert.ok(waves[t.template], `${b.bossId}: ${t.template}`);
   }
-  assert.equal(Object.values(bosses).filter((b) => b.hidden).length, 3);
+  // 3 卫戍协议本季的隐藏领袖 + boss_arc2（“唤醒”，弧光第 15 回合的固定隐藏领袖）
+  assert.equal(Object.values(bosses).filter((b) => b.hidden).length, 4);
 
   assert.equal(Object.keys(factions.entries).length, 67);
   for (const e of Object.values(factions.entries)) {

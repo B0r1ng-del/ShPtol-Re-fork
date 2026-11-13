@@ -30,7 +30,11 @@ import { UnofficialMark, VersionTag, isModdedRoom } from '../ui/pluginTag.js';
 import { shownVersion, seasonOf } from '../versions.js';
 import { TestMark } from '../ui/testConsole.js';
 import { ResultView, resultBonds } from './result.js';
+import { CrisisResult } from '../ui/crisisResult.js';
+import { CrisisArcResult } from '../ui/crisisArcResult.js';
+import { copyText } from '../ui/clipboard.js';
 import { DIFFICULTY_NAMES, DIFFICULTY_COLORS } from '../../../shared/constants.js';
+import { crisisTag } from '../../../shared/crisis.js';
 import { t } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -617,6 +621,32 @@ export function SettleFlow({ res, pub = null, myId = null, content = null, backL
   </div>`;
 }
 
+/** Props for 危机合约's own result screen, read off the room's contract and the match payload. */
+function crisisResultProps(crisis, pub, res) {
+  const c = crisis || {};
+  const tags = c.tags || [];
+  const seconds = Number(pub.seconds ?? res?.seconds ?? 0) || 0;
+  const total = Number(c.total ?? tags.length) || 0;
+  const best = Number(pub.best?.[c.mode] ?? 0) || 0;
+  return {
+    tags: tags.map((id) => ({ id })),
+    total,
+    best,
+    seconds,
+    // ★ 验收口径（需求方 2026-11-13）：只有**完整通关一整把**才算 victory —— 结晶货币的发放靠它。
+    //   旧写法 `pub.winner == null ? true` 把「中途中断 / 无人获胜」也当成通关，于是失败也发货币。
+    //   现在以服务端结算的 res.victory 为准（stats 的语义：team won AND this player was still in at the end），
+    //   没有结算载荷时退回「打赢了最后一回合」判据，两者都不成立就是 false。
+    victory: res && typeof res.victory === 'boolean'
+      ? res.victory
+      : Number.isFinite(Number(res?.roundsPassed)) && Number.isFinite(Number(res?.lastRound))
+        ? Number(res.roundsPassed) >= Number(res.lastRound)
+        : Number(pub?.winner) >= 0,
+    mode: c.mode || 'solo',
+    lineup: res?.lineup || [],
+  };
+}
+
 /**
  * RESULT screen of the match on screen: reads the store; 返回同盟 / 返回大厅 drops the match.
  * The RESULT phase can reach the client before m.result: the flow starts once the payload is here, since its own row
@@ -631,6 +661,54 @@ export function ResultScreen() {
   // the official version the match played (DESIGN §35.23): the room's, or the last room's once it is gone
   const version = useStore(shownVersion);
   const back = () => store.set({ match: emptyMatch() });
+  // 放弃模拟后房间还留着（matchChrome.quitMatch 为了先出结算页没清它），完成时一并丢掉
+  const backClean = () => store.set({ room: null, match: emptyMatch() });
+  // 危机合约的行动结束页：完成 / 重新挑战都要回到**危机合约界面**（用户 2026-11-08 明确要求），不是大厅。
+  // 危机合约页面是 screens/lobby.js 的局部状态，结算页够不着，所以留一个 sessionStorage 标记，
+  // lobby 挂载时读到就自动把那两层的入口打开（'arclight' 进弧光入口页、'main' 进重燃入口页）。
+  const backToCrisis = (season) => {
+    try { sessionStorage.setItem('crisis:return', season === 'arc' ? 'arclight' : 'main'); } catch { /* 隐私模式忽略 */ }
+  };
   if (!res) return html`<div class="screen result settle" data-testid="settle-wait"><${Spinner} size="lg" /></div>`;
+  // 危机合约 gets its own 行动结束 screen (official crisisResult.js): a red-band cut then the settlement, with
+  // 指标总计 / 行动时长 / the picked tags instead of the 同盟 flow.
+  const roomCrisis = useStore((s) => s.room?.crisis ?? null);
+  if (roomCrisis) {
+    // 弧光作战（season 'arc'）有自己的行动结束页（官方 crisisArcResult.js 的 CrisisArcResult）：
+    // RESULTS 大字 → 图腾带与雷达 → 终版（分数、指标格、剩余生命值、行动时间）。两个赛季不能共用一页。
+    if (roomCrisis.season === 'arc') {
+      const cr = crisisResultProps(roomCrisis, pub, res);
+      const arc = {
+        mode: cr.mode,
+        // 官方 run.tags 是 tag 记录（带 g / lv，弧光的分组 A–M、X 系列）：本项目的 crisisTag() 给的就是这个形状
+        tags: cr.tags.map((x) => crisisTag(cr.mode === 'quad' ? 'quad' : 'solo', x.id)).filter(Boolean),
+        total: cr.total,
+        best: cr.best,
+        seconds: cr.seconds,
+        victory: cr.victory,
+        teamLp: pub.teamLp ?? res?.teamLp ?? null,
+        endedAt: res?.endedAt || Date.now(),
+        players: Array.isArray(res?.players) ? res.players : [],
+      };
+      return html`<${CrisisArcResult} run=${arc} onDone=${() => { backClean(); backToCrisis('arc'); }} onRetry=${() => { backClean(); backToCrisis('arc'); }} />`;
+    }
+    const cr = crisisResultProps(roomCrisis, pub, res);
+    // 复制作业码（用户 2026-11-08 图四要求）：本局指标 + 开局种子 + 本局 BAN 掉的地图，拼成一行人可读的文本。
+    // 只复制不回读 —— 重新挑战走 onRetry，所以这里不做「导入作业码」的解析（没有需求，别先造格式）。
+    const onShare = () => {
+      const people = roomCrisis.mode === 'quad' ? t('四人') : t('单人');
+      const parts = [
+        `${t('危机合约')} ${people}`,
+        t('指标 {total}', { total: cr.total }),
+        t('分数 {score}', { score: Number(pub.crisisScore ?? roomCrisis.score ?? cr.total) || 0 }),
+        t('种子 {seed}', { seed: roomCrisis.seed ?? '-' }),
+        cr.tags.length ? t('合约 {tags}', { tags: cr.tags.map((x) => x.id).join(',') }) : null,
+        Array.isArray(pub.crisisBannedTiles) && pub.crisisBannedTiles.length ? `BAN ${pub.crisisBannedTiles.join(',')}` : null,
+      ].filter(Boolean);
+      // 分隔符本身就是 ·，不需要翻译
+      copyText(parts.join(' · '));
+    };
+    return html`<${CrisisResult} ...${cr} seed=${roomCrisis.seed ?? null} onShare=${onShare} onDone=${() => { backClean(); backToCrisis('rn'); }} onRetry=${() => { backClean(); backToCrisis('rn'); }} />`;
+  }
   return html`<${SettleFlow} res=${res} pub=${pub} myId=${myId} content=${content} version=${version} backLabel=${hasRoom ? t('返回同盟') : t('返回大厅')} onBack=${back} />`;
 }

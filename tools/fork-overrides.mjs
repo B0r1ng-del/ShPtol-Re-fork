@@ -18,6 +18,8 @@
 
 import { FORK_EXTRA6_BOND_MEMBERS } from './fork-extra6.mjs';
 import { KAZDEL_BOND, KAZDEL_EQUIPMENT } from '../shared/kazdel.js';
+import { FORK_CC4_STAGE } from './fork-stage-cc4.mjs';
+import { FORK_ARC_ENEMIES, FORK_ARC_BOSSES, FORK_ARC_WAVES } from './fork-arc-leaders.mjs';
 
 /** modeId of the fork's third room mode (终极模拟, AC-4, up to six 博士). */
 export const FORK_MODE_ID = 'mode_ultimate_abyss';
@@ -631,6 +633,115 @@ export function applyForkPackAphris(backups, chess = null) {
 }
 
 /**
+ * `data/stages.json` with the 危机合约 #4「弧光作战」 exclusive battlefield `custom_cc4_focus`.
+ *
+ * It lives here because the file is a build product (AGENTS.md: never hand-edit `data/*.json`) AND because the stage
+ * cannot be derived from the official tables at all: `levels/activities/custom_cc4/level_custom_cc4_focus.json` does
+ * not exist in the gamedata repo (404) — the map ships inside the crisis-contract activity, not as a normal level.
+ * The record itself (terrain, 15 glyphs including the two `<` `>` gravity buttons, devices, `special.gravity`,
+ * deployTiles, groundPaths and the `board3d` airship theme) is in tools/fork-stage-cc4.mjs.
+ *
+ * Idempotent: an already-present record is returned unchanged, so test/fork-data.test.js can assert it against the
+ * committed file and `node tools/fork-data.mjs` stays a no-op the second time.
+ * @param {Record<string, any>} stages data/stages.json
+ */
+/**
+ * `data/enemies.json` with the two 弧光作战 leaders and their summons/escorts that the official tables do not build.
+ *
+ * 危机合约 #4 ships 多萝西 / “唤醒” with the contract, not with 卫戍协议: neither is in `autoChessData.bossInfoDict`,
+ * and `buildEnemies` only walks the season's own enemy lists. Their stats, skills and immunities are in
+ * tools/fork-arc-leaders.mjs (taken from the official data the reference port publishes).
+ *
+ * Only ids the file does not already carry are added, so a season that later ships them keeps its own record.
+ * @param {Record<string, any>} enemies data/enemies.json
+ */
+/** 弧光专属敌人：只给契约用的那几个（不进本季的抽取池）。 */
+// ★ 弧光**全部**敌人都是契约专用的：它们只经 enemyAny() 被波次读到，绝不进 data/enemies.json —— 否则本季的随机池
+//   （factions.poolExtras / 特训条目）会抽到它们，19 个 golden 场景直接漂移。这与 custom_cc4_focus 是同一个原则。
+export const FORK_ARC_CRISIS_ONLY = Object.freeze([
+  'enemy_1257_lydrty', 'enemy_1531_bbrain', 'enemy_1256_lyacpa', 'enemy_1252_lysytb',
+]);
+
+export function applyForkArcEnemies(enemies) {
+  if (!isPlainObject(enemies)) return enemies;
+  // ★ 弧光自己的敌人必须落进 **data/enemies-crisis.json**（enemies / enemies-crisis 的拆分见 build-data.mjs）：
+  //   `enemy_1252_lysytb` 本来就在 data/factions.json 的 poolExtras 名单里，一旦它出现在 enemies.json 且有了记录，
+  //   本季的随机池就会真的抽到它 ⇒ 19 个 golden 场景漂移。契约专用 = 只走 enemyAny()，不进抽取池。
+  const add = Object.entries(FORK_ARC_ENEMIES)
+    .filter(([k]) => !enemies[k] && !FORK_ARC_CRISIS_ONLY.includes(k))
+    .map(([k, v]) => [k, cloneJson(v)]);
+  if (!add.length) return enemies;
+  return { ...enemies, ...Object.fromEntries(add) };
+}
+
+/** `data/enemies-crisis.json` with the arc enemies that must stay out of the season's draw pools. */
+export function applyForkArcEnemiesCrisis(list) {
+  if (!isPlainObject(list)) return list;
+  const add = Object.entries(FORK_ARC_ENEMIES)
+    .filter(([k]) => !list[k] && FORK_ARC_CRISIS_ONLY.includes(k))
+    .map(([k, v]) => [k, cloneJson(v)]);
+  if (!add.length) return list;
+  return { ...list, ...Object.fromEntries(add) };
+}
+
+/**
+ * `data/bosses.json` with `boss_arc1` (多萝西, round 14) and `boss_arc2` (“唤醒”, round 15, hidden).
+ * 弧光作战 fixes both leaders — it must not draw them from `bossWeights` like an ordinary season.
+ * @param {Record<string, any>} bosses data/bosses.json
+ */
+export function applyForkArcBosses(bosses) {
+  if (!isPlainObject(bosses)) return bosses;
+  const add = Object.entries(FORK_ARC_BOSSES).filter(([k]) => !bosses[k]);
+  if (!add.length) return bosses;
+  return { ...bosses, ...Object.fromEntries(add.map(([k, v]) => [k, cloneJson(v)])) };
+}
+
+/**
+ * `data/waves.json` with the four 弧光作战 leader templates (`arc_boss_dorothy(_s)` / `arc_boss_wake(_s)`).
+ * Without them `buildBossWave` falls back to the first boss template of the round and the leader fights with the
+ * wrong escort list and the wrong routes.
+ * @param {Record<string, any>} waves data/waves.json
+ */
+export function applyForkArcWaves(waves) {
+  if (!isPlainObject(waves)) return waves;
+  const add = Object.entries(FORK_ARC_WAVES).filter(([k]) => !waves[k]);
+  if (!add.length) return waves;
+  return { ...waves, ...Object.fromEntries(add.map(([k, v]) => [k, cloneJson(v)])) };
+}
+
+export function applyForkStagesCrisis(stages) {
+  if (!isPlainObject(stages)) return stages;
+  const id = FORK_CC4_STAGE.id;
+  const next = mergeArcPen(cloneJson(FORK_CC4_STAGE));
+  if (stages[id] && JSON.stringify(stages[id]) === JSON.stringify(next)) return stages;
+  return { ...stages, [id]: next };
+}
+
+/**
+ * 敌人预览区（pen）的 board theme（需求方 2026-11-13：「让 pen 也走 theme」）。
+ * `classifyStage` 给 pen 的 'f' / 'p' 打 `glass` 标记，但按 glyph 套 theme 时会把它换成普通地板
+ * （airship 的 shipConcrete）—— 玻璃格的样子就没了。这里补一组 `board3d.pen`：
+ * pen 的**底板**仍用 theme 里的船体混凝土，**侧面**用船体肋板，警示框由 `shipHazard` 贴片带，
+ * 于是预览区与战场同材质，而不是本季 autochess 的玻璃格。
+ * 单独写在 applier 里而不是改 FORK_CC4_STAGE 那一整行 JSON：那一行是参考站的原始导出，
+ * 保持逐字可对照；这里只补本项目自己的渲染补充。
+ */
+function mergeArcPen(stage) {
+  const b = isPlainObject(stage.board3d) ? stage.board3d : null;
+  if (!b) return stage;
+  if (!b.pen) b.pen = { surf: 'shipConcrete', side: 'shipRib', decal: 'shipHazard', decalSize: 0.94, tint: [0.8, 0.82, 0.86] };
+  // ★ 增援台 / 装备台（a / A）也必须给 theme 表面（需求方 2026-11-13：「右上角出现的敌人有些材质缺失」）。
+  //   不给的话它们沿用本季的 padReinf / padEquip —— 那张 surface 的 src 是 'D'（本季图集），
+  //   于是这些格被排进 board 桶，却用 **airship 纹理**去采本季图集的 UV 坐标 ⇒ 采到错误像素，视觉上就是缺材质/发黑。
+  //   这里用船体混凝土 + 肋板侧壁，与战场同族。
+  if (!isPlainObject(b.tiles)) b.tiles = {};
+  const shipPad = { surf: 'shipConcrete', side: 'shipRib', kit: 'pad', board: false };
+  if (!b.tiles.a) b.tiles.a = { ...shipPad, tint: [0.82, 0.84, 0.86] };
+  if (!b.tiles.A) b.tiles.A = { ...shipPad, tint: [0.82, 0.84, 0.86] };
+  return stage;
+}
+
+/**
  * `data/assets.json` with the ported 盟约's icon. The file is a tracked build product of `tools/fetch-assets.mjs` (not of
  * `tools/build-data.mjs`), and `test/ui/assetUrls.test.js` requires EVERY bond in `data/bonds.json` to have one, so the
  * ported bond needs its entry here. The file itself is the author's own monochrome SVG redraw of the 莱茵生命 insignia
@@ -672,6 +783,12 @@ export function applyForkAssets(assets) {
  * it simply never reaches `assets`.
  */
 export const FORK_APPLIERS = {
+  'stages-crisis': applyForkStagesCrisis,
+  // 危机合约 #4 的两个固定领袖（多萝西 / “唤醒”）与它们的波次模板：官方 autoChessData.bossInfoDict 里没有它们
+  enemies: applyForkArcEnemies,
+  'enemies-crisis': applyForkArcEnemiesCrisis,
+  bosses: applyForkArcBosses,
+  waves: applyForkArcWaves,
   config: applyForkOverrides,
   choices: applyForkChoices,
   chess: applyForkPackMembers,

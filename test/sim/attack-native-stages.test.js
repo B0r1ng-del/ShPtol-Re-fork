@@ -147,7 +147,14 @@ test('weakness and actual calculation share Logos target addition, without specu
     { uid: 'weak', chessId: 'weak', row: 10, col: 4 },
     { uid: 'logos', diy: { slot: 6, charId: 'char_4133_logos', skillIndex: 0 }, row: 10, col: 5 }],
     defs: { chess: { weak }, enemies: { enemy_probe: enemyRec({ key: 'enemy_probe', hp: 100000, def: 25, res: 80, atk: 0, speed: 0 }) } },
-    data: diyPoolSource('char_4133_logos', { raw: { enemies: { enemy_probe: enemyRec({ key: 'enemy_probe', hp: 100000, def: 25, res: 80, atk: 0, speed: 0 }) } } }) });
+    // ★ The phantom piece has to be in the DATA VIEW too, not only in `defs`: `diyPoolSource` derives its tables from
+    // getDefaultSource(), which knows nothing about a record the test just invented, so `data.chess.weak` came back
+    // undefined and the unit was dropped in silence (allyUnits held only logos) — the damage then ran without the
+    // weak attacker and returned 75 instead of 79.5. Passing the same record through `raw.chess` puts it in both.
+    data: diyPoolSource('char_4133_logos', { raw: {
+      chess: { weak },
+      enemies: { enemy_probe: enemyRec({ key: 'enemy_probe', hp: 100000, def: 25, res: 80, atk: 0, speed: 0 }) },
+    } }) });
   h.step();
   const b = h.b, u = h.unit('weak'), logos = h.unit('logos'), e = h.spawn('enemy_probe', { pos: [10, 8] });
   b.dealDamage({ source: logos, target: e, amount: 1, type: 'true' });

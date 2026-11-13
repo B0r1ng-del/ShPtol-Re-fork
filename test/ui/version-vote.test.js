@@ -113,9 +113,17 @@ test('VersionTag: another version\'s name; nothing for 第二期下半 or an unk
 
 test('the room screen: the strip between the 观战席 and the footer, the version pill, the vote blocks 开始模拟, the banner, the invite', () => {
   const src = readFileSync(path.join(ROOT, 'public/js/screens/room.js'), 'utf8');
-  assert.match(src, /<\$\{SpectatorBar\}[^\n]*\/>\n\s*<\$\{VersionVote\} room=\$\{room\} \/>/);
+  // 观战席在页脚之上，版本投票条在它后面。中间可以有别的块（mod 层的 RoomModsPanel 就插在两者之间），
+  // 所以只钉「SpectatorBar 在前、VersionVote 在后」，不要求紧邻。
+  assert.match(src, /<\$\{SpectatorBar\}[^\n]*\/>/);
+  assert.match(src, /<\$\{VersionVote\} room=\$\{room\} \/>/);
+  assert.ok(
+    src.indexOf('<${SpectatorBar}') < src.indexOf('<${VersionVote} room=${room} />'),
+    '观战席要排在版本投票条之前',
+  );
   assert.match(src, /data-testid="room-version"/);
-  assert.match(src, /disabled=\$\{!facts\.canStart \|\| !online \|\| busy === 'start' \|\| !!vote\}/);
+  // 对齐门（mod 层的包对齐）也拦「开始模拟」：`alignBlocked` 是 W-D 唯一的门，见 room.js 的 start()。
+  assert.match(src, /disabled=\$\{!facts\.canStart \|\| !online \|\| busy === 'start' \|\| !!vote \|\| alignBlocked\}/);
   assert.match(src, /t\('请先关闭改变玩法的插件'\)/);
   assert.match(src, /data-testid="version-banner"/);
   assert.match(src, /t\('\{name\}邀请你加入卫戍协议：盟约·\{version\}【\{difficulty\}】'/);

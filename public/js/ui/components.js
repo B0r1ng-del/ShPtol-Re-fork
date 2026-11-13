@@ -1017,6 +1017,7 @@ export function ResultDialog({ title, sub, micro, tone = 'mint', duration = 2800
       ${micro ? html`<span class="rdialog__micro">${micro}</span>` : null}
       <div class="rdialog__row">
         <${Chevrons} count=${3} tone=${tone} class="rdialog__chev" />
+        <span class="rdialog__bot" aria-hidden="true"><i class="rdialog__boteye"></i></span>
         <span class="rdialog__title">${title}</span>
         <${Chevrons} count=${3} tone=${tone} dir="left" class="rdialog__chev" />
       </div>

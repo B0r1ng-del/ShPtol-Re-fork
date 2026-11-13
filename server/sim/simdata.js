@@ -564,6 +564,12 @@ export class DataSource {
       enemies: asMap(unwrap(raw.enemies, 'enemies'), 'key') ?? {},
       tokens: asMap(unwrap(raw.tokens, 'tokens'), 'tokenId') ?? {},
       stages: asMap(unwrap(raw.stages, 'stages'), 'id') ?? {},
+      // 危机合约 #4「弧光作战」的专属战场。刻意**不进** `stages`：那张表是「本季能被抽到的战场」，
+      // 多一张不属于任何模式的图会让 drawStage / golden 一起漂。它只供 getStage(id) 精确查找。
+      stagesCrisis: asMap(unwrap(raw['stages-crisis'], 'stages'), 'id') ?? {},
+      // 契约专用敌人（data/enemies-crisis.json）。同样**不进** `enemies`：那张表是本季能刷到的敌人，
+      // 多几个会让随机池抽到、golden 全漂。只供 enemyAny / getEnemy 精确查找。
+      enemiesCrisis: asMap(unwrap(raw['enemies-crisis'], 'enemies'), 'key') ?? {},
       waves: asMap(unwrap(raw.waves, 'waves'), 'id') ?? {},
       backups: raw.backups && typeof raw.backups === 'object' && raw.backups.units ? raw.backups : null,
       effects: raw.effects && typeof raw.effects === 'object' ? raw.effects : null,
@@ -581,6 +587,19 @@ export class DataSource {
   rawEnemy(key) {
     return this.raw.enemies[key] ?? this.raw.enemies['enemy_' + key] ?? this.raw.enemies[String(key).replace(/^enemy_/, '')] ?? this.fallback?.rawEnemy(key) ?? null;
   }
+  /** 契约专用敌人（data/enemies-crisis.json），与 enemies 同一套拆分。 */
+  rawEnemyCrisis(key) {
+    const m = this.raw.enemiesCrisis;
+    return m[key] ?? m['enemy_' + key] ?? m[String(key).replace(/^enemy_/, '')] ?? null;
+  }
+  /**
+   * ★ 波次构建的两个查表口。浏览器那一半的 sim 也走 `DataSource`，缺少这两个名字时 `waves.js` 的
+   * `anyEnemy(gd,key)` 会回退到 `gd.enemy` 并**直接抛错** —— 弧光的契约敌人就永远查不到。
+   * `enemy` 只查本季表（与 GameData 一致：放宽它会让普通对局的 roster / golden 漂移），
+   * `enemyAny` 连契约表一起查（弧光的波次构建用）。
+   */
+  enemy(key) { return this.rawEnemy(key) ? this.getEnemy(key) : null; }
+  enemyAny(key) { return this.rawEnemy(key) || this.rawEnemyCrisis(key) ? this.getEnemy(key) : null; }
   /**
    * A token record: data/tokens.json, else the 自选 picks' summons (data/backups.json `tokens`).
    *
@@ -599,7 +618,7 @@ export class DataSource {
     this._rawToken.set(id, record);
     return record;
   }
-  rawStage(id) { return this.raw.stages[id] ?? this.fallback?.rawStage(id) ?? null; }
+  rawStage(id) { return this.raw.stages[id] ?? this.raw.stagesCrisis[id] ?? this.fallback?.rawStage(id) ?? null; }
   rawWave(id) { return this.raw.waves[id] ?? this.fallback?.rawWave(id) ?? null; }
   /** data/backups.json (`{ units, diy }`) of this source or its fallback, or null. */
   rawBackups() { return this.raw.backups ?? (typeof this.fallback?.rawBackups === 'function' ? this.fallback.rawBackups() : null); }
@@ -704,7 +723,9 @@ export class DataSource {
   }
   getEnemy(key) {
     if (this._enemy.has(key)) return this._enemy.get(key);
-    const r = this.rawEnemy(key);
+    // 契约专用敌人在 enemies-crisis.json：查不到它会让 anyEnemy 在浏览器那半边拿 null，
+    // 于是 templateSpawns / attrPower 全部退化成「没有这个敌人」（弧光怪量被压成 1 的那条链）。
+    const r = this.rawEnemy(key) ?? this.rawEnemyCrisis(key);
     const k = String(key).startsWith('enemy_') ? key : 'enemy_' + key;
     const d = r ? freezeDef(normalizeEnemy(k, r)) : null;
     this._enemy.set(key, d);

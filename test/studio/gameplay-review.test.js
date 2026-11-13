@@ -181,7 +181,11 @@ test('review: rules trial exercises four real actions and passes equipment/loado
   assert.equal(checks.shopBias.active, true, JSON.stringify(checks.shopBias));
   assert.notDeepEqual(checks.shopBias.draws, base.shopBias.draws);
   assert.ok(checks.shopBias.outcomes.every(x => x.ok));
-  assert.equal(checks.prepLoadout.result.ok, true, JSON.stringify(checks.prepLoadout)); assert.ok(base.prepLoadout.result.error);
+  // 需求方 2026-10-23「允许玩家在局内的整备阶段修改干员的技能」: PREP is accepted by DEFAULT now (platform.js
+  // loadoutPhasesFor — only an explicit 'locked' takes it back), so the official REFERENCE no longer carries a
+  // WRONG_PHASE and its setLoadout succeeds too. The old assertion ("base must error") was written when PREP was
+  // locked; it no longer describes the behaviour. What the trial still proves is that the action itself works.
+  assert.equal(checks.prepLoadout.result.ok, true, JSON.stringify(checks.prepLoadout));
   assert.equal(checks.unequip.result.ok, true, JSON.stringify(checks.unequip)); assert.equal(checks.unequip.returned, true); assert.ok(base.unequip.result.error);
   assert.equal(checks.morphPairing.items.length, 3); assert.equal(base.morphPairing.items.length, 2);
   assert.deepEqual(r.plugin.spec.players[0].units[0].items, checks.morphPairing.items);

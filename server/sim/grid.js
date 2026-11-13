@@ -88,6 +88,9 @@ export const DEFAULT_LEGEND = Object.freeze({
   g: { height: 'LOW', build: 'ALL', pass: 'ALL', key: 'tile_smog', terrain: 'smog' },
   d: { height: 'LOW', build: 'NONE', pass: 'ALL', key: 'tile_deepsea', terrain: 'deepsea' },
   i: { height: 'LOW', build: 'ALL', pass: 'ALL', key: 'tile_infection', terrain: 'infection' },
+  // 危机合约 #4「滞空焦点」的重力按钮（官方 tile_grvtybtn）：踩下改半场重力方向，地形本身是可站的低地
+  '<': { height: 'LOW', build: 'MELEE', pass: 'ALL', key: 'tile_grvtybtn' },
+  '>': { height: 'LOW', build: 'MELEE', pass: 'ALL', key: 'tile_grvtybtn' },
 });
 
 /**

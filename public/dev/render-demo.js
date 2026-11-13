@@ -18,7 +18,7 @@
 //   refuseDrops (true ⇒ prep drops are silently ignored, like a server that rejects the move) }
 
 import { createFieldView } from '../js/render/app.js';
-import { data } from '../js/data.js';
+import { data, getStage } from '../js/data.js';
 import { assets } from '../js/assets.js';
 import { GEO } from '../../shared/constants.js';
 import { FX_KINDS } from '../js/render/fx.js';
@@ -43,7 +43,7 @@ const STAGE_IDS = ['act2autochess_m01', 'act2autochess_m02', 'act2autochess_m03'
 
 async function main() {
   if (q.get('panel') === '0') $('panel').classList.add('is-hidden');
-  await data.loadAll('chess', 'tokens', 'items', 'enemies', 'stages', 'bonds', 'config');
+  await data.loadAll('chess', 'tokens', 'items', 'enemies', 'stages', 'stages-crisis', 'bonds', 'config');
   await assets.ready();
   const index = await fetch('/dev/recordings/index.json').then((r) => (r.ok ? r.json() : []), () => []);
   const view = await createFieldView($('field'), {
@@ -58,7 +58,7 @@ async function main() {
   const scenes = [{ name: 'prep', title: '休整期 · 拖拽演示' }, ...index.map((r) => ({ name: r.name, title: r.title, rec: r })), { name: 'stress', title: '压力测试 · 120 单位' }, { name: 'fx', title: '特效图鉴 · 全部 fx' }, { name: 'numbers', title: '伤害数字 · 重叠测试' }];
   for (const s of scenes) sceneSel.append(new Option(s.title, s.name));
   const stageSel = $('stage');
-  for (const id of STAGE_IDS) { const st = data.lookup('stages', id); if (st) stageSel.append(new Option(st.name || id, id)); }
+  for (const id of STAGE_IDS) { const st = getStage(id); if (st) stageSel.append(new Option(st.name || id, id)); }
 
   let current = null;       // active scene controller
   let playing = q.get('paused') !== '1';
@@ -137,7 +137,7 @@ async function main() {
 // prep scene
 
 async function prepScene(view, stageId, index = []) {
-  const stage = data.lookup('stages', stageId);
+  const stage = getStage(stageId);
   view.setStage(stage);
   const fa = q.get('fa');
   if (fa === 'L' || fa === 'R') view.setCamera('bossPrep', { side: fa });
@@ -294,7 +294,7 @@ async function prepScene(view, stageId, index = []) {
 
 async function recordingScene(view, meta) {
   const rec = await fetch(`/dev/recordings/${meta.file}`).then((r) => r.json());
-  const stage = data.lookup('stages', rec.stageId);
+  const stage = getStage(rec.stageId);
   const frames = rec.frames;
   const t0 = frames[0].snap.t;
   const duration = frames[frames.length - 1].snap.t - t0;
@@ -363,7 +363,7 @@ async function recordingScene(view, meta) {
 // stress scene: 120 units, constant projectiles / numbers
 
 function stressScene(view, stageId) {
-  const stage = data.lookup('stages', stageId);
+  const stage = getStage(stageId);
   view.setStage(stage);
   const rect = { r0: 9, r1: 12, c0: 0, c1: 20 };
   const chess = data.list('chess').filter((c) => c.visible && !c.isGolden);
@@ -431,7 +431,7 @@ function stressScene(view, stageId) {
 // fx gallery: every fx kind, projectile kind and status on a small static field
 
 function fxScene(view, stageId) {
-  const stage = data.lookup('stages', stageId);
+  const stage = getStage(stageId);
   view.setStage(stage);
   const rect = { ...GEO.NORMAL_RECT };
   const pick = (name) => data.list('chess').find((c) => c.name === name && !c.isGolden);
@@ -531,7 +531,7 @@ function fxScene(view, stageId) {
 // '201625' overlap cases: numbers of different units side by side must never read as one)
 
 function numbersScene(view, stageId) {
-  const stage = data.lookup('stages', stageId);
+  const stage = getStage(stageId);
   view.setStage(stage);
   const rect = { ...GEO.BOSS_RECT };
   const pick = (name) => data.list('chess').find((c) => c.name === name && !c.isGolden);

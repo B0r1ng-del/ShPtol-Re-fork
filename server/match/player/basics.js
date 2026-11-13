@@ -27,7 +27,16 @@ export class PlayerBasics {
   /** The engine acts for this seat (AI teammate or "AI 托管"; a departed human is eliminated, so nothing is left to do). */
   get botControlled() { return this.isBot || this.left || this.autoplay; }
 
-  get deployCap() { return Math.max(1, this.gd.deployCap + this.deployCapBonus, this.deployCapMin); }
+  /**
+   * 危机合约 K1 编制上限 / K4 全队部署位额度 narrow this number (shared/crisis.js). `deployCapMin` is a floor an item
+   * grants ("至少 9 位"), so the contract is applied BEFORE it: an item that raises the cap must not be silently
+   * cancelled by a contract, and a contract must not silently cancel an item — `Math.max` keeps the item winning, which
+   * is the official behaviour of a cap-raising 装备. Without a contract `crisisDeployCap` returns its input unchanged.
+   */
+  get deployCap() {
+    const cap = this.gd.crisisDeployCap(this.gd.deployCap + this.deployCapBonus);
+    return Math.max(1, cap, this.deployCapMin);
+  }
   get deployCount() { let n = 0; for (const p of this.board.values()) if (p.kind === 'chess') n++; return n; }
   get tempEmpty() { return this.temp.every((x) => x == null); }
 

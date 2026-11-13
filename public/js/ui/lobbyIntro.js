@@ -13,6 +13,7 @@ import { identity } from '../net.js';
 import { audio, resolveBgm } from '../audio.js';
 import { data } from '../data.js';
 import { mountAllianceIntro, preloadSprites, setCycleOrigin, whenResourcesReady, INTRO_AUDIO, INTRO_SPAN } from './allianceScene.js';
+import { t } from '../../../shared/i18n.js';
 
 const ENTRY_SFX = '/assets/audio/sfx/customse/act1autochess/act1autochess_g_ui_load.mp3';
 // the cue against the music as the recording mixes them (cue ×0.28, music ×0.18 of their files), at the default
@@ -97,8 +98,8 @@ function run() {
   // a modal <dialog>: the top layer, so it also covers the fullscreen prompt (fullscreen-guide.js, a modal dialog too)
   const el = document.createElement('dialog');
   el.className = 'spa-entry';
-  el.setAttribute('aria-label', '卫戍协议：盟约');
-  el.innerHTML = '<span class="spa-entry__skip">点击跳过</span>';
+  el.setAttribute('aria-label', t('卫戍协议：盟约'));
+  el.innerHTML = t('<span class="spa-entry__skip">点击跳过</span>');
   const locked = !(audio.ctx && audio.ctx.state === 'running');
   const skipLabel = el.querySelector('.spa-entry__skip');
   let gate = Promise.resolve();
@@ -106,7 +107,7 @@ function run() {
     skipLabel.style.opacity = '0';
     const card = document.createElement('div');
     card.className = 'spa-entry__gate';
-    card.innerHTML = '<b>点击进入</b><i>TAP TO START</i>';
+    card.innerHTML = t('<b>点击进入</b><i>TAP TO START</i>');
     el.append(card);
     gate = new Promise((resolve) => {
       const go = () => {

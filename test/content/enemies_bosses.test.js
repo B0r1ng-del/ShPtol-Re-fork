@@ -14,7 +14,15 @@ import { grantHitShield } from '../../server/sim/content/enemies/helpers.js';
 import { spawnYanyou } from '../../server/sim/content/tokens.js';
 import { attackWindup } from '../../server/sim/ai.js';
 
-const E = JSON.parse(fs.readFileSync(new URL('../../data/enemies.json', import.meta.url), 'utf8'));
+// 弧光作战的敌人（多萝西 / “唤醒” / R-11 装甲 / Dor-2 复制体）住在 data/enemies-crisis.json —— 它们不能进
+// enemies.json，否则本季随机池会抽到（golden 漂移）。那两张表里**其余**的契约敌人是历史遗留、只走数值，
+// 这里只把「本模块写了 kit 的那几个」补进来，让「每个 key 必须表态」这条断言照常成立。
+const CRISIS_AUTHORED = ['enemy_1257_lydrty', 'enemy_1531_bbrain', 'enemy_1256_lyacpa', 'enemy_1252_lysytb'];
+const CRISIS = JSON.parse(fs.readFileSync(new URL('../../data/enemies-crisis.json', import.meta.url), 'utf8'));
+const E = {
+  ...JSON.parse(fs.readFileSync(new URL('../../data/enemies.json', import.meta.url), 'utf8')),
+  ...Object.fromEntries(CRISIS_AUTHORED.filter((k) => CRISIS[k]).map((k) => [k, CRISIS[k]])),
+};
 const W = JSON.parse(fs.readFileSync(new URL('../../data/waves.json', import.meta.url), 'utf8'));
 const { KITS, STATS_ONLY, EROSION, EROSION_BURST } = enemiesMod;
 const { BOSS_KITS, PART_TRANSFER, BLADE_TRANSFER, DRONE_LINK_BASE, droneLinkBase } = bossesMod;

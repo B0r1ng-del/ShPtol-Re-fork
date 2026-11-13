@@ -37,6 +37,7 @@
 
 import { createRng, deriveSeed } from '../sim/rng.js';
 import { PLUGIN_ACTION_UNITS } from '../../shared/plugins/limits.js';
+import { ARC_SEASON, ARC_LEADER_ID, ARC_HIDDEN_ID, arcSchedule, arcWeighted } from '../../shared/crisisArc.js';
 
 const ACLOON = 'enemy_9012_acloon';
 const DEFAULT_PLACEHOLDERS = Object.freeze({
@@ -74,6 +75,12 @@ const gen = (gd) => (gd.factions.generation && typeof gd.factions.generation ===
 const intOr = (v, d) => (Number.isInteger(v) && v > 0 ? v : d);
 
 /** Official movement class of an enemy key (randomEnemyAttributeDict.isFlyEnemy, else its motion). */
+/**
+ * 一张敌人记录，**契约专用敌人也算**（data/enemies-crisis.json）。波次构建必须走这里：
+ * 弧光作战的敌人有一半在 enemies-crisis.json 里，`gd.enemy()` 只查 enemies.json，查不到就整条替换被跳过。
+ */
+export const anyEnemy = (gd, key) => (typeof gd.enemyAny === 'function' ? gd.enemyAny(key) : gd.enemy(key));
+
 export function isFlyKey(gd, key) {
   const e = gd.enemy(key);
   if (!e) return false;
@@ -81,9 +88,13 @@ export function isFlyKey(gd, key) {
   return !!(e.stats && e.stats.motion === 'FLY');
 }
 
-/** Official attribute power P(k) (float32), enemies.json `attrPower`; derived from the stats when absent. */
+/**
+ * Official attribute power P(k) (float32), enemies.json `attrPower`; derived from the stats when absent.
+ * ★ 查表必须走 anyEnemy：契约敌人在 data/enemies-crisis.json 里，用 gd.enemy() 会得到 0，而 0 会让 replacedCount
+ *   的 ratio 落到下限 —— 弧光每回合的怪量就被压成 1（用户 2026-11-13 反馈「敌人每回合数量不对，太少了」）。
+ */
 export function attrPower(gd, key) {
-  const e = gd.enemy(key);
+  const e = anyEnemy(gd, key);
   if (!e) return 0;
   if (typeof e.attrPower === 'number' && Number.isFinite(e.attrPower)) return e.attrPower;
   const s = e.stats || {};
@@ -96,7 +107,7 @@ export function attrPower(gd, key) {
 }
 
 const beFactor = (gd, key) => {
-  const v = gd.enemy(key)?.beFactor;
+  const v = anyEnemy(gd, key)?.beFactor;
   return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 1;
 };
 
@@ -128,6 +139,57 @@ function placeholderMap(gd) {
   return out;
 }
 
+/**
+ * 弧光作战的占位映射：**它自己的模板槽**，不是卫戍协议本季的 templateSlots。
+ *
+ * 本季的 `templateSlots`（factions.json）把 N/E/S 指向 `enemy_1422_lrsldr` 等莱茵生命敌人，而弧光的波次模板
+ * （`arc_*` 与它复用的 `act1autochess_01`）里的普通槽是 `enemy_1007_slime` / `enemy_1005_yokai` 这类**不在表里**的
+ * key，于是 `templateSpawns` 的 `p = ph[key0]` 为空，pick 根本没机会替换 —— 实测第 1 回合出的就是史莱姆。
+ *
+ * 所以弧光要自己说「这些模板 key 是哪个槽」：凡是被弧光 pick 覆盖的模板（`arc_` 前缀，以及本季的普通模板），
+ * 把它里面**不是首领、不是 part、且确实是敌人**的 key 都当作按 `classOf` 分类的占位。这样 `arcSchedule` 挑的
+ * 弧光敌人才会真正出场（用户 2026-11-13 反馈：出怪完全没按种子）。
+ * @param {import('./gamedata.js').GameData} gd
+ */
+export function arcPlaceholderMap(gd) {
+  const out = {};
+  // the season's own table still applies (a template can mix both vocabularies)
+  Object.assign(out, placeholderMap(gd));
+  const slotOf = { N: 'normal', E: 'elite', S: 'special', NF: 'normal', EF: 'elite', SF: 'special' };
+  const addByKey = (key, slot) => {
+    if (typeof key !== 'string' || out[key]) return;
+    const e = gd.enemy(key);
+    if (!e) return;
+    // 模板给了槽就照槽走；没给槽（第 1 回合的 enemy_1007_slime 就是这种）就按敌人自己的 rank / fly 判类，
+    // 否则它会漏出占位表、原样出场 —— 那正是「出怪完全不按种子」的最后一个缺口。
+    const cls = slotOf[slot] || (e.rank === 'ELITE' ? 'elite' : 'normal');
+    out[key] = { slot: slot || null, cls, fly: slot ? /F$/.test(slot) : !!isFlyKey(gd, key) };
+  };
+  // ★ 弧光的普通回合**复用本季的模板**（roundCfg 的 template 来自 modeDataDict，不区分赛季），所以占位表必须覆盖
+  //   本季全部模板里出现的 key，不能只看 arc_*。第 1 回合就是 act1autochess_01，里面是 enemy_1007_slime 等。
+  const waves = gd.raw.waves && typeof gd.raw.waves === 'object' ? gd.raw.waves : {};
+  for (const w of Object.values(waves)) {
+    if (!w || typeof w !== 'object') continue;
+    for (const s of Array.isArray(w.spawns) ? w.spawns : []) {
+      if (!s || s.tag === 'boss' || s.tag === 'part') continue;
+      addByKey(s.key ?? s.enemyKey, s.slot || null);
+    }
+  }
+  // a template key that names no slot still needs a class: fall back to the enemy's own rank / fly
+  for (const w of Object.values(waves)) {
+    if (!w || typeof w !== 'object') continue;
+    for (const s of Array.isArray(w.spawns) ? w.spawns : []) {
+      if (!s || s.tag === 'boss' || s.tag === 'part') continue;
+      const key = s.key ?? s.enemyKey;
+      if (out[key]) continue;
+      const e = gd.enemy(key);
+      if (!e) continue;
+      out[key] = { slot: null, cls: e.rank === 'ELITE' ? 'elite' : 'normal', fly: !!isFlyKey(gd, key) };
+    }
+  }
+  return out;
+}
+
 const firstHalfMax = (gd) => intOr(gen(gd).firstHalfMaxRound, Math.floor(intOr(gen(gd).maxLevelCnt, 15) / 2));
 
 /** The special entry list (factions.json entries) sorted by key. */
@@ -156,6 +218,42 @@ export function pickRoundEntry(gd, rng, type, round) {
   return { round, type: e.type, key: e.key, normal: pickKey(e.N), elite: pickKey(e.E), fly: typeof e.fly === 'boolean' ? e.fly : isFlyKey(gd, e.key), firstHalf: half };
 }
 
+/**
+ * 弧光作战的**路线转写**（`data/stages-crisis.json` 的 `routeAdapt`）。
+ *
+ * 弧光的普通回合复用本季的波次模板，那些模板的 `routes` 是**本季战场**的坐标（`start [9,10] → end [9,2]` 等），
+ * 而弧光用的是滞空焦点那张图：同一个「蓝门」在那边是 `[9,1]`，在活动图上是 `[9,2]`。参考站用 `routeAdapt` 把
+ * 本季坐标搬到活动图：`points` 是端点的逐点对应，`walk` 是整条替代路径。
+ *
+ * 不转写的后果（用户 2026-11-13 反馈「敌人甚至能走进障碍物」）：路线端点落在 `[1,3]` / `[2,7]` / `[2,5]` 这类
+ * `tile_forbidden` 格上，敌人就直接踩进去。
+ *
+ * @param {any} stage data/stages-crisis.json 的 `custom_cc4_focus`
+ * @param {{ motion?: string, start?: number[], end?: number[], checkpoints?: number[][] }} route
+ * @returns {typeof route} 转写后的路线（没有 `routeAdapt` 时原样返回）
+ */
+export function adaptArcRoute(stage, route) {
+  const ra = stage && stage.routeAdapt;
+  if (!ra || !route || typeof route !== 'object') return route;
+  const pt = (p) => (Array.isArray(p) ? (ra.points?.[p.join(',')] || p) : p);
+  const start = pt(route.start);
+  const end = pt(route.end);
+  // a whole replacement walk wins over the template's own checkpoints (the template's path is on another map)
+  const walk = Array.isArray(ra.walk) ? ra.walk.find((w) => w && Array.isArray(w.start) && Array.isArray(w.via)
+    && w.start[0] === start?.[0] && w.start[1] === start?.[1]
+    && (!Array.isArray(w.end) || (Array.isArray(end) && w.end.some((e) => e[0] === end[0] && e[1] === end[1])))) : null;
+  if (walk) return { ...route, start, end, checkpoints: walk.via.map((p) => [p[0] + 0, p[1] + 0]) };
+  return { ...route, start, end, checkpoints: (Array.isArray(route.checkpoints) ? route.checkpoints : []).map(pt) };
+}
+
+/** `adaptArcRoute` over a list (`gd.arcSeason` only; every other season keeps the template's own routes). */
+function adaptRoutes(gd, list) {
+  if (!Array.isArray(list)) return [];
+  if (!gd.arcSeason) return list;
+  const arc = gd.stage(ARC_SEASON.stage);
+  return arc ? list.map((r) => adaptArcRoute(arc, r)) : list;
+}
+
 /** Round type schedule: each chosen type × its slot count, filled with SPECIAL to maxLevelCnt, shuffled. */
 export function makeTypeSchedule(gd, rng, factions) {
   const g = gen(gd);
@@ -177,22 +275,60 @@ function scheduleRng(rng) {
   return createRng(seed);
 }
 
-/**
- * @param {import('./gamedata.js').GameData} gd
- * @param {Function} rng
- * @returns {{ stageId: string|null, factions: string[], bossId: string|null, hiddenBossId: string|null, typeSlots: string[], picks: object[] }}
- *   `factions` also carries the schedule as a non-enumerable `schedule` property ({ typeSlots, picks }), so callers
- *   that keep only the factions array (Match: buildNormalWave(gd, rng, this.factions, r)) get the official rounds.
- */
-export function setupMatchWaves(gd, rng) {
-  // stage
+/** Weighted stage draw of the mode (shared by the normal and arc paths): 危机合约's BAN 地图 removes the banned ids
+ * from the pool, never the last one (the page enforces the same rule); an empty or absent list keeps the draw
+ * byte-identical, so golden scenarios that pass no bans are unchanged. */
+function drawStage(gd, rng, bans) {
   const stageIds = Array.isArray(gd.mode.stages) ? gd.mode.stages : [];
-  const stagePairs = stageIds.map((id) => [id, gd.stage(id)]).filter(([, s]) => s && s.active !== false && Number(s.weight) > 0).map(([id, s]) => [id, s.weight]);
+  const allowed = Array.isArray(bans) && bans.length ? new Set(stageIds.filter((id) => !bans.includes(id))) : null;
+  const pool = allowed && allowed.size ? stageIds.filter((id) => allowed.has(id)) : stageIds;
+  const stagePairs = pool.map((id) => [id, gd.stage(id)]).filter(([, s]) => s && s.active !== false && Number(s.weight) > 0).map(([id, s]) => [id, s.weight]);
   let stageId = stagePairs.length ? weightedPick(rng, stagePairs) : null;
   if (!stageId) {
     const any = Object.keys(gd.raw.stages || {}).filter((id) => gd.stage(id) && gd.stage(id).active);
     stageId = any.length ? any.sort()[0] : null;
   }
+  return stageId;
+}
+
+/** 弧光作战's fixed setup: arcSchedule(seed) gives the 15-round picks and the leader / hidden draws (0..1); the map is
+ * ARC_SEASON.stage — falling back to drawStage when that stage is not in the data (warned once, never thrown) — and the
+ * leader / hidden draws pick the mode's own leader lists through arcWeighted. */
+function arcWaves(gd, rng, bans, arcSeed) {
+  const schedule = arcSchedule(arcSeed);
+  const picks = schedule.picks;
+  // 官方弧光的专属战场（custom_cc4_focus）不在本项目的 data/stages.json 里 —— 这是**已知且预期**的缺口，
+  // 不是错误：官方前端也把它当占位，地图名一律走 ARC_SEASON.stageName（「危机合约 滞空焦点」）。
+  // 所以这里静默回退到模式自身的抽图，不再每次弧光开局都往控制台打一条 warn（那只是噪音）。
+  const stageId = (gd.stage(ARC_SEASON.stage) ? ARC_SEASON.stage : null) ?? drawStage(gd, rng, bans);
+  // ★ 弧光作战的两个领袖是**固定的**（官方与设计文档一致）：第 14 回合多萝西、第 15 回合“唤醒”。
+  //   不能走 bossWeights 的加权随机 —— 那是卫戍协议本季十个领袖的抽法，弧光不吃这套。
+  //   两个记录由 tools/fork-arc-leaders.mjs 经 FORK_APPLIERS 写进 data/bosses.json（官方 autoChessData 里没有它们）。
+  //   只有在本季数据确实带这两个记录时才固定（版本回退时退回加权抽，不至于完全没有领袖）。
+  const fixedLeader = gd.boss(ARC_LEADER_ID) ? ARC_LEADER_ID : null;
+  const fixedHidden = gd.boss(ARC_HIDDEN_ID) ? ARC_HIDDEN_ID : null;
+  const bw = gd.bossWeights(false);
+  const bossId = fixedLeader ?? (bw.length ? arcWeighted(bw, schedule.leader) : null);
+  const hw = gd.bossWeights(true);
+  const hiddenBossId = fixedHidden ?? (hw.length && gd.hiddenRound ? arcWeighted(hw, schedule.hidden) : null);
+  const factions = [];
+  Object.defineProperty(factions, 'schedule', { value: Object.freeze({ typeSlots: [], picks }), enumerable: false });
+  return { stageId, factions, bossId, hiddenBossId, typeSlots: [], picks };
+}
+
+/**
+ * @param {import('./gamedata.js').GameData} gd
+ * @param {Function} rng
+ * @param {string[]|null} [bans]
+ * @param {number|null} [arcSeed] 弧光作战的开局种子: when set, the setup is arcWaves(gd, rng, bans, arcSeed) — the 15-round
+ *   picks come from arcSchedule(arcSeed) and the map is ARC_SEASON.stage; absent for every other path (byte-identical).
+ * @returns {{ stageId: string|null, factions: string[], bossId: string|null, hiddenBossId: string|null, typeSlots: string[], picks: object[] }}
+ *   `factions` also carries the schedule as a non-enumerable `schedule` property ({ typeSlots, picks }), so callers
+ *   that keep only the factions array (Match: buildNormalWave(gd, rng, this.factions, r)) get the official rounds.
+ */
+export function setupMatchWaves(gd, rng, bans = null, arcSeed = null) {
+  if (arcSeed != null) return arcWaves(gd, rng, bans, arcSeed);
+  const stageId = drawStage(gd, rng, bans);
   // factions
   const types = gd.factions.types && typeof gd.factions.types === 'object' ? gd.factions.types : {};
   const n = Number.isInteger(gen(gd).specialEnemyNum) ? gen(gd).specialEnemyNum : 3;
@@ -307,7 +443,8 @@ function templateSpawns(gd, tpl, round, pick) {
   // the 房主配置「对局选项」DEF / RES buff, `{ defMul: 1, resMul: 1 }` without one (see roundMods for the ordinary-spawn path;
   // HP / ATK arrive already folded into `scale`)
   const buffDR = gd.enemyBuffDefRes || { defMul: 1, resMul: 1 };
-  const ph = placeholderMap(gd);
+  // 弧光作战用自已的占位表（模板 key → 槽），否则 arcSchedule 挑的敌人换不进来（见 arcPlaceholderMap）
+  const ph = gd.arcSeason ? arcPlaceholderMap(gd) : placeholderMap(gd);
   const routes = Array.isArray(tpl.routes) ? tpl.routes : [];
   const leader = isLeaderTemplate(tpl);
   const spawns = [];
@@ -332,7 +469,10 @@ function templateSpawns(gd, tpl, round, pick) {
     const p = !isBoss && !isPart ? ph[key0] : null;
     if (p && pick) {
       const newKey = p.cls === 'special' ? pick.key : p.cls === 'elite' ? pick.elite : pick.normal;
-      if (typeof newKey === 'string' && gd.enemy(newKey)) {
+      // ★ 弧光必须用 anyEnemy()：它的敌人一半在 data/enemies-crisis.json 里（contract 专用），gd.enemy() 只查
+      //   enemies.json，查不到就整条替换被跳过 —— 那正是「出怪完全不按种子」的最终根因。
+      //   其它赛季保持 gd.enemy()：任何对普通对局的放宽都会让 19 个 golden 场景漂移。
+      if (typeof newKey === 'string' && (gd.arcSeason ? anyEnemy(gd, newKey) : gd.enemy(newKey))) {
         if (isFlyKey(gd, newKey) !== !!p.fly) {
           // the other movement class: not spawned, not sent, not previewed (isValid = false)
           actions.push({ index: i, key: null, tplKey: key0, slot: p.slot ?? s.slot ?? null, time, count: 0, tplCount: n, window, routeIndex, valid: false, server: false });
@@ -343,7 +483,7 @@ function templateSpawns(gd, tpl, round, pick) {
         key = newKey;
       }
     }
-    if (!gd.enemy(key)) continue;
+    if (!(gd.arcSeason ? anyEnemy(gd, key) : gd.enemy(key))) continue;
     const slot = s.slot || classOf(gd, key);
     const spec = {
       time,
@@ -407,8 +547,9 @@ export function buildNormalWave(gd, rng, factions, round) {
   return {
     templateId,
     spawns,
-    routes: Array.isArray(tpl.routes) ? tpl.routes : [],
-    extraRoutes: Array.isArray(tpl.extraRoutes) ? tpl.extraRoutes : [],
+    // 弧光作战：模板路线是本季战场坐标，必须按活动图的 routeAdapt 转写（否则端点落在禁区块上，敌人会走进障碍物）
+    routes: adaptRoutes(gd, tpl.routes),
+    extraRoutes: adaptRoutes(gd, tpl.extraRoutes),
     timeLimit,
     overrides: tpl.overrides && typeof tpl.overrides === 'object' ? tpl.overrides : {},
     pick,
@@ -425,6 +566,13 @@ export function buildBossWave(gd, rng, factions, round, { bossId, solo }) {
   const rc = gd.roundCfg(round);
   const map = rc && rc.bossTemplates && typeof rc.bossTemplates === 'object' ? rc.bossTemplates : {};
   let templateId = typeof map[bossId] === 'string' ? map[bossId] : null;
+  // ★ 首领记录自带的模板优先（data/bosses.json `templates[modeId] = { round, template }`）：弧光的两个固定领袖
+  //   （boss_arc1 / boss_arc2）是危机合约独有的，模式的 bossTemplates 里没有它们的条目，只看 rc 会回退到第一个
+  //   首领模板（实测第 14 回合用了 act1autochess_h07_01_s，出的是本季敌人而不是多萝西的护卫）。
+  if (!templateId && typeof gd.boss === 'function') {
+    const own = gd.boss(bossId)?.templates?.[gd.modeId]?.template;
+    if (typeof own === 'string' && gd.wave(own)) templateId = own;
+  }
   if (!templateId) {
     const first = Object.values(map).find((v) => typeof v === 'string');
     templateId = first || null;
@@ -438,8 +586,9 @@ export function buildBossWave(gd, rng, factions, round, { bossId, solo }) {
   return {
     templateId,
     spawns,
-    routes: Array.isArray(tpl.routes) ? tpl.routes : [],
-    extraRoutes: Array.isArray(tpl.extraRoutes) ? tpl.extraRoutes : [],
+    // 弧光作战：模板路线是本季战场坐标，必须按活动图的 routeAdapt 转写（否则端点落在禁区块上，敌人会走进障碍物）
+    routes: adaptRoutes(gd, tpl.routes),
+    extraRoutes: adaptRoutes(gd, tpl.extraRoutes),
     timeLimit: Infinity,
     overrides: tpl.overrides && typeof tpl.overrides === 'object' ? tpl.overrides : {},
     pick,

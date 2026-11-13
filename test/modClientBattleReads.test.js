@@ -149,7 +149,13 @@ describe('§35.38 面板注入面：ctx.battle.damage()', () => {
     await r.settle();
     const e = r.runner._entries.get(start.battleId);
     assert.ok(e && e.battle, '战斗建起来了');
-    r.advance(4000);                                     // 跑 4 秒真时间：够打出一批伤害
+    // 原来只推进 4000 ms（speed 2 ⇒ 240 tick ⇒ 战斗内 8 s），注释写「够打出一批伤害」。这个前提随内容包更新失效了：
+    // 本场（seed 7301）的第一个敌人 3.03 s 进场，但此刻的开局阵容要先等它走进射程才开火 —— 实测首次伤害落在
+    // tick 296（战斗内 9.87 s）。44ff278ef 时同一 seed 的开局阵容不同（多萝西仍在池内），首击在 tick 218，
+    // 240 够用；内容包换成麦哲伦、并新增 28 名棋手之后，这个 seed 抽到的阵容变了，首击被推到 240 之后。
+    // 推进量按真实需求取值：5000 ms ⇒ 300 tick，稳定越过首击（实测伤害 866），这条钉的仍是「读数与引擎那本账逐个相同」，
+    // 而不是「恰好 4 秒内必有伤害」。
+    r.advance(5000);
     const b = e.battle;
     const dmgOf = (u) => Math.round(Number(u.stats.dmg) || 0);
     const total = b.allyUnits.reduce((s, u) => s + dmgOf(u), 0);

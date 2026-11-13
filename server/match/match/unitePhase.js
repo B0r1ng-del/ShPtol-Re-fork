@@ -17,7 +17,10 @@ export class MatchUnite {
     if (this.clientCombat) { this._startUniteClient(plan); return; }
     this.phase = PHASE.UNITE;
     this.unitePlan = plan;
-    const limit = this.wave ? this.wave.timeLimit : 60;
+    // 危机合约 M5 的强制拼场是固定 40 秒（契约文案），不吃当回合战场的 timeLimit。
+    const forcedM5 = plan && plan.forced === true && this.gd && this.gd.crisisFx && this.gd.crisisFx.M5;
+    const m5dur = forcedM5 && Number.isFinite(this.gd.crisisFx.M5.dur) && this.gd.crisisFx.M5.dur > 0 ? this.gd.crisisFx.M5.dur : null;
+    const limit = m5dur != null ? m5dur : (this.wave ? this.wave.timeLimit : 60);
     const battle = this.newBattle(this._uniteOpts(plan, limit));
     this.fields = [{ fieldId: 'u', kind: 'unite', players: plan.helpers.map((p) => p.playerId), battle, live: true }];
     this.deadline = this.sched.instant ? 0 : this.sched.now() + Math.round((limit / this.gameSpeed) * 1000);
@@ -62,7 +65,14 @@ export class MatchUnite {
       routes: wave.routes,
       sharedBoss: null,
       // 联防默认不叠层（官方）；「联防不禁叠层」Mod 开关打开时才放行。这一格进 spec，两端与结算校验读的都是它。
-      flags: { layerGainsEnabled: this.gd.uniteLayers, uncapLayers: this.gd.uncapLayers, ...this.gd.dp },
+      flags: {
+        layerGainsEnabled: this.gd.uniteLayers,
+        uncapLayers: this.gd.uncapLayers,
+        ...this.gd.dp,
+        crisisUniteHpMul: this.gd.crisisUniteHpMul,
+        // 危机合约 U3：承接人（helpers）的 playerId —— crisisFx 按它筛"延迟入场"的干员
+        crisisUniteHelpers: plan.helpers.map((p) => p.playerId),
+      },
       fieldId: 'u',
       // leaked enemies re-enter with the stats they had: the round template's stat overrides apply again
       enemyOverrides: this.wave && this.wave.overrides ? this.wave.overrides : {},
@@ -73,7 +83,10 @@ export class MatchUnite {
   _startUniteClient(plan) {
     this.phase = PHASE.UNITE;
     this.unitePlan = plan;
-    const limit = this.wave ? this.wave.timeLimit : 60;
+    // 危机合约 M5 的强制拼场是固定 40 秒（契约文案），不吃当回合战场的 timeLimit。
+    const forcedM5 = plan && plan.forced === true && this.gd && this.gd.crisisFx && this.gd.crisisFx.M5;
+    const m5dur = forcedM5 && Number.isFinite(this.gd.crisisFx.M5.dur) && this.gd.crisisFx.M5.dur > 0 ? this.gd.crisisFx.M5.dur : null;
+    const limit = m5dur != null ? m5dur : (this.wave ? this.wave.timeLimit : 60);
     const f = this._ccField({ fieldId: 'u', kind: 'unite', players: plan.helpers.map((p) => p.playerId), opts: this._uniteOpts(plan, limit) });
     this.deadline = this.sched.instant ? 0 : this.sched.now() + Math.round((limit / this.gameSpeed) * 1000);
     this.watchers.clear();

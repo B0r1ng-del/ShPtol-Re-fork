@@ -94,10 +94,12 @@ describe('内容包开关: the switches themselves', () => {
     const room = read('public/js/screens/room.js');
     assert.match(room, /MOD_RULE_ROWS/, 'the 房主配置 panel draws exactly the 对局选项 half');
     assert.ok(!/PACK_AUTHORS/.test(room), 'and no longer carries the packs\' credit');
-    // the layout: two columns on a desktop, one on a phone (the two-device rule; the row grid stayed in lobby.css)
-    const css = read('public/css/screens/lobby.css');
-    assert.match(css, /\.mods__rows \{ display: grid; grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
-    assert.match(css, /\.mods__rows \{ grid-template-columns: minmax\(0, 1fr\)/);
+    // the layout: two columns. 需求方 2026-10-25 moved the 对局选项 panel into 房主配置, so the row grid lives in room.css
+    // now, not lobby.css — and it is written `1fr 1fr` rather than `repeat(2, minmax(0, 1fr))` (that rule never existed;
+    // .mods__rows / .mods__col had NO rule at all before that date, which is why the panel rendered as one column).
+    const css = read('public/css/screens/room.css');
+    assert.match(css, /\.mods__rows \{ display: grid; grid-template-columns: 1fr 1fr/);
+    assert.match(css, /\.mods__col \{ display: flex; flex-direction: column/);
     // every pack row is a real switch row with an ⓘ and a testid
     for (const k of PACK_KEYS) assert.ok(src.includes(`'${k}'`), `${k} has a row`);
   });
@@ -266,7 +268,10 @@ describe('内容包开关: the server sees only what the room contains', () => {
     assert.match(src, /const v = stored == null \? null : packFiltered\(name, stored\)/, 'data.get applies the filter');
     // and the app drives it from the room / match it is showing
     const main = read('public/js/main.js');
-    assert.match(main, /data\.setPacks\(packs\)/);
+    // 需求方 2026-10-24 (「开启盟约 mod 后 S.W.E.E.P. 里看不到」): the effect only pushes when the screen actually HAS a room or a
+    // match, so the local variable is `roomPacks` — the lobby keeps the 「Mod 菜单」 preference that boot's setPacks(modsOn())
+    // seeded. The source expression itself is unchanged.
+    assert.match(main, /data\.setPacks\(roomPacks\)/);
     assert.match(main, /s\.match\?\.public\?\.mods \|\| s\.room\?\.mods/, 'the host\'s switches are the source');
   });
 

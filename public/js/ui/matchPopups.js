@@ -174,10 +174,10 @@ export function RoundPopup({ round, gain = null, left = null, sub = null, watchi
  * A phase plate: the robot or the 联防 faces, title (+ optional line), chevrons sweeping through on the right.
  * @param {{ tone?: 'mint'|'orange'|'red'|'gold', faces?: boolean, title: any, sub?: any, chev?: boolean, duration?: number, onDone?: Function }} props
  */
-export function PhasePopup({ tone = 'mint', faces = false, title, sub = null, chev = false, duration = 2200, onDone }) {
+export function PhasePopup({ tone = 'mint', faces = false, goal = false, title, sub = null, chev = false, duration = 2200, onDone }) {
   const leaving = useTimedLeave(duration, onDone);
   const fm = frameMask();
-  return html`<div class=${cx('mpop', 'mpop--phase', `mpop--${tone}`, fm.cls, chev && 'has-chev', leaving && 'is-leaving')} style=${fm.style} role="status" aria-live="polite"
+  return html`<div class=${cx('mpop', 'mpop--phase', `mpop--${tone}`, goal && 'mpop--goal', fm.cls, chev && 'has-chev', leaving && 'is-leaving')} style=${fm.style} role="status" aria-live="polite"
       data-testid="phase-popup">
     <${Panel}>
       <${PopArt} faces=${faces} />
@@ -198,5 +198,10 @@ export function PhasePopup({ tone = 'mint', faces = false, title, sub = null, ch
 export function phasePopupOf(phase, banner) {
   if (!banner) return null;
   if (phase === 'UNITE') return { tone: 'orange', faces: true, chev: true, duration: 2600, title: banner.title, sub: banner.sub || null };
+  // ★ 全局作战目标（需求方 2026-11-13 图一）：原版在首领战开场有一块「全局作战目标 / 消灭敌方领袖！」的弹板，
+  //   深色带 + 左侧环形准星 + 右侧装饰刻度。以前这里只做 联防，最终攻势直接进 bossPlate —— 补一块。
+  if (phase === 'FINAL_ASSAULT' || phase === 'HIDDEN_CORE') {
+    return { tone: 'mint', goal: true, chev: false, duration: 2600, title: t('全局作战目标'), sub: t('消灭敌方领袖！') };
+  }
   return null;
 }

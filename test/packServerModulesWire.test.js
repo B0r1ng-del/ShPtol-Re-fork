@@ -1,4 +1,4 @@
-// test/packServerModulesWire.test.js — 服务端模块**接线到真服务器**（DESIGN §34.14，G2 第二半）。
+// test/packServerModulesWire.test.js — 服务端模块**接线到真服务器**（DESIGN §36.14，G2 第二半）。
 //
 // 第一半（`test/packServerModules.test.js`）验的是声明层、装载器与宿主；这里验的是「接起来之后」才成立的四件事：
 //   1. `onBoot` 在**端口绑好之后**真的跑了一次，而且它写的东西落在**自己的状态目录**里（`SP_STATE_DIR`）；
@@ -96,7 +96,7 @@ describe('真服务器：boot / healthz / matchClass / 裁剪', () => {
     assert.deepEqual(Object.keys(health.modHealth).sort(), ['ops-pack', 'stats-pack']);
     assert.deepEqual(health.modHealth['ops-pack'], { boots: 1, wrote: true, pack: 'ops-pack' });
     assert.equal(health.modHealth['stats-pack'].matches, 0, '还没开过局');
-    assert.equal(typeof health.mods, 'string', '包的摘要本来就在 lobby.stats() 里（DESIGN §34.9 第 2 项）');
+    assert.equal(typeof health.mods, 'string', '包的摘要本来就在 lobby.stats() 里（DESIGN §36.9 第 2 项）');
   });
 
   test('干净安装：`/healthz` 里没有 `modHealth` 这个键', async () => {

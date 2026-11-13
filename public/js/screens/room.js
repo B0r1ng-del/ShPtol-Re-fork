@@ -55,7 +55,7 @@ import { MOD_ROWS, MOD_RULE_ROWS, rememberMods, splitByLength } from '../ui/mods
 import { isAlignBlocked } from '../mods/align.js';
 import * as roomMods from '../roomMods.js';
 import {
-  html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyIcon, Tooltip, Spinner, confirmDialog, doctorNo, Modal,
+  html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyIcon, Tooltip, Spinner, confirmDialog, alertDialog, doctorNo, Modal,
   TextField, SwitchRow,
 } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
@@ -75,14 +75,81 @@ import { store, useStore, shallowEqual, emptyMatch, isSpectating, savePref } fro
 import { data, useData, getConfig } from '../data.js';
 import { chessAvatarUrl, chessPortraitUrl } from '../ui/assetUrls.js';
 import { CARD_KEY, cardStore, setCard, setCardBadge, setCardBackground, setCardBackgroundY, cardOperators, cardContext, seatOperator, seatCardSkin, seatArtSrc } from '../ui/seatArt.js';
+import { isBadgeUnlocked } from '../ui/crisisEventPage.js';
 import { NameCardLayer, NameCardPicker, namecardOf, namecardSrc, BADGE_CARDS } from '../ui/namecards.js';
 import { TrophyBadge } from '../ui/trophies.js';
 import { skinsStore, SKINS_KEY, ownerSkin } from '../ui/skins.js';
 import { settingsStore } from '../ui/settingsStore.js';
 import { difficultyInfo, ProtocolSelect } from './lobby.js';
+import { CrisisGlyph } from '../ui/crisisGlyph.js';
+import { crisisTag, crisisFxText, isArcCrisis } from '../../../shared/crisis.js';
 import { useRise } from '../ui/transitions.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
 import { C2S } from '../../../shared/protocol.js';
+
+
+/**
+ * 本局词条的列表（官方 crisisTags.js:383 的 CrisisTagRows）：每行一个指标图标 + 名称 + 效果文本。
+ * 类名全部官方：.cc-tagrows / .cc-tagrows__row / .is-long / .is-full（crisis-event.css 645-649、710-711）。
+ */
+export function CrisisTagRows({ crisis, full = false }) {
+  if (!crisis || !Array.isArray(crisis.tags)) return null;
+  const mode = crisis.mode === 'quad' ? 'quad' : 'solo';
+  const tags = crisis.tags.map((id) => crisisTag(mode, id)).filter(Boolean);
+  // 超过 12 个就两列排、并且不写效果文本（官方的 is-long）
+  const long = !full && tags.length > 12;
+  return html`<div class=${'cc-tagrows' + (long ? ' is-long' : '') + (full ? ' is-full' : '')}>
+    ${tags.map((tg) => {
+      const fx = crisisFxText(tg.route.id, mode, tg.tier);
+      return html`<div key=${tg.id} class="cc-tagrows__row">
+        <${CrisisGlyph} tag=${tg} />
+        <b>${t(tg.route.name)}</b>
+        ${long || !fx ? null : html`<span>${fx.text}</span>`}
+      </div>`;
+    })}
+  </div>`;
+}
+
+
+/**
+ * 房间顶栏的合约条（官方 crisisTags.js:297 的 CrisisTagStrip）：模式与风险、本局词条按钮、每个指标的图标。
+ * 类名官方：.cc-tagstrip / __head / __list / __tag（crisis-event.css 634-644）。
+ * ★ 开局种子（官方的 __seed 按钮 + cc-seedpanel）没有移植：那要 crisis.preview 服务端预览，不在本次范围。
+ */
+export function CrisisTagStrip({ crisis }) {
+  if (!crisis || !Array.isArray(crisis.tags)) return null;
+  const mode = crisis.mode === 'quad' ? 'quad' : 'solo';
+  const tags = crisis.tags.map((id) => crisisTag(mode, id)).filter(Boolean);
+  return html`<div class="cc-tagstrip" aria-label=${t('危机合约指标')} data-testid="cc-tagstrip">
+    <span class="cc-tagstrip__head">
+      <b>${t('危机合约')}</b>
+      <em>${mode === 'quad' ? t('四人合约') : t('单人合约')} · ${t('风险')} <i class="num">${crisis.total}</i></em>
+    </span>
+    <${CrisisTagButton} crisis=${crisis} />
+    <span class="cc-tagstrip__list">${tags.map((tg) => html`<span key=${tg.id} class="cc-tagstrip__tag"
+      title=${t(tg.route.name) + '：' + (crisisFxText(tg.route.id, mode, tg.tier)?.text || '')}>
+      <${CrisisGlyph} tag=${tg} /></span>`)}</span>
+  </div>`;
+}
+
+/**
+ * 「本局词条 · N」（官方 crisisTags.js:455 的 CrisisTagButton）：点开弹窗列出本局签下的指标。
+ * 官方的弹窗是 alertDialog，这里用项目自己的 dialog（components.js 的 alertDialog），结构对齐官方：
+ * 标题「本局词条」+ micro（模式 · 指标总计）。
+ */
+export function CrisisTagButton({ crisis }) {
+  if (!crisis || !Array.isArray(crisis.tags)) return null;
+  const mode = crisis.mode === 'quad' ? 'quad' : 'solo';
+  const season = isArcCrisis(crisis) ? t('弧光作战') : t('重燃作战');
+  const show = () => alertDialog({
+    title: t('本局词条'),
+    micro: `${mode === 'quad' ? t('四人合约') : t('单人合约')} · ${season} · ${t('指标总计')} ${crisis.total}`,
+    okText: t('关闭'),
+    text: html`<div data-testid="cc-tags-dialog"><${CrisisTagRows} crisis=${crisis} full=${true} /></div>`,
+  });
+  return html`<button type="button" class="cc-tags-button" data-testid="cc-tags-button" onClick=${show}
+    title=${t('查看本局签下的指标')}>${t('本局词条')} · ${crisis.tags.length}</button>`;
+}
 
 /**
  * Seats padded to the room's capacity (ultimate 6, co-op 4, solo 1), each null or a seat record.
@@ -90,7 +157,8 @@ import { C2S } from '../../../shared/protocol.js';
  * @returns {(null | {seat:number, playerId:any, name:string, isBot:boolean, ready:boolean, connected:boolean})[]}
  */
 export function normalizeSeats(room) {
-  const cap = roomSeatCap(room?.mode);
+  // a 单人 contract seats one doctor: the room's own selection narrows the mode's maximum
+  const cap = roomSeatCap(room?.mode, room?.crisis);
   const src = Array.isArray(room?.seats) ? room.seats : [];
   const out = [];
   for (let i = 0; i < cap; i++) {
@@ -348,9 +416,14 @@ function CardPicker({ current, list, m, localSkins = {}, badge = '', onPick, onP
       ${BADGE_CARDS.map((c) => {
         const on = c.id === badge;
         const src = namecardSrc(c, m);
-        return html`<button key=${c.id} type="button" class=${`cardpick__op cardpick__op--badge${on ? ' is-on' : ''}`} aria-pressed=${on ? 'true' : 'false'}
-            data-testid=${'card-badge-' + c.id.slice(6)} title=${t(c.name)} onClick=${() => onPickBadge(c.id)}>
+        // 需求方 2026-11-12：所有特工工牌默认锁定 —— 要在危机合约里赚结晶货币、到结晶圣所解锁后才能选。
+        const locked = !on && !isBadgeUnlocked(c.id);
+        return html`<button key=${c.id} type="button" class=${`cardpick__op cardpick__op--badge${on ? ' is-on' : ''}${locked ? ' is-locked' : ''}`}
+            aria-pressed=${on ? 'true' : 'false'} aria-disabled=${locked ? 'true' : 'false'}
+            data-testid=${'card-badge-' + c.id.slice(6)} title=${locked ? t('未解锁') : t(c.name)}
+            onClick=${() => { if (!locked) onPickBadge(c.id); }}>
           <span class="cardpick__img">${src ? html`<img src=${src} alt="" loading="lazy" draggable=${false} />` : null}</span>
+          ${locked ? html`<span class="cardpick__lock">${t('未解锁')}</span>` : null}
           <span class="cardpick__name">${t(c.name)}</span>
         </button>`;
       })}
@@ -566,8 +639,8 @@ function RoomConfigBody({ rows, enemyRows, modRows, takeoverOption = null, takeo
     ...(rows || []).map((r) => ({ ...r, testid: `hostcfg-${r.key}`, onChange: (v) => r.editable && onToggle(r.key, v) })),
     ...(takeoverOption ? [{
       key: 'aiTakeover',
-      label: '允许观战者接替 AI',
-      tip: '默认关闭。开启后，观战者可在休整期经同房间真人投票接替 AI；继承记录不计个人统计或奖励。',
+      label: t('允许观战者接替 AI'),
+      tip: t('默认关闭。开启后，观战者可在休整期经同房间真人投票接替 AI；继承记录不计个人统计或奖励。'),
       on: takeoverOption.on,
       editable: takeoverOption.editable,
       testid: 'room-ai-takeover',
@@ -784,6 +857,11 @@ export function RoomScreen() {
   if (!room) return null;
   const online = conn.status === 'online';
   const coop = room.mode !== 'solo';
+  // 危机合约 (shared/crisis.js): its own room mode, with its own name and its own seat count. A solo contract seats ONE
+  // doctor yet is emphatically not 独立模拟, and a four-doctor contract is not 同盟模拟 either — but the coop-shaped
+  // decisions below (invite column, the ready row) still key off `coop` on purpose: a quad contract really is four
+  // doctors in seats. Only the wording is contract-specific.
+  const crisis = room.crisis || null;
   const ultimate = room.mode === 'ultimate';
   const facts = roomFacts(room, me.playerId);
   const myReady = !!facts.mine?.ready;
@@ -901,7 +979,11 @@ export function RoomScreen() {
       ? html`<span class="t-lo">${t('等待所有博士载入房间的插件内容')}</span>`
     : facts.isHost
       ? facts.canStart
-        ? html`<span class="t-mint">${t('*同盟人数达标，准许进入模拟')}</span>`
+        // a contract room is not an alliance: a 单人 contract never waits for allies, and a 四人 one waits for FOUR
+        // doctors who are signing the same contract — 同盟人数 would name a different thing
+        ? html`<span class="t-mint">${crisis
+          ? t('*合约席位已满，准许进入模拟')
+          : t('*同盟人数达标，准许进入模拟')}</span>`
         : html`<span class="t-lo">${t('等待所有博士准备就绪')}</span>`
       : myReady
         ? html`<span class="t-mint">${t('已就绪 · 等待创建者开始模拟')}</span>`
@@ -944,7 +1026,9 @@ export function RoomScreen() {
   const soloTimed = soloTimedOf(pageVersion() === roomVersion(room) ? getConfig() : null, roomVersion(room));
   const soloOpt = soloUnlimitedOption(room, me.playerId, soloTimed);
   const soloBrief = soloTimeMsgid('brief', { timed: soloTimed, unlimited: room.soloUnlimited === true });
-  const modeName = coop ? t('同盟模拟') : t('独立模拟');
+  const modeName = crisis
+    ? (crisis.mode === 'quad' ? t('危机合约 · 四人合约') : t('危机合约 · 单人合约'))
+    : coop ? t('同盟模拟') : t('独立模拟');
   // the room's version (DESIGN §35.23): the pill and ⚙'s row on a server that enables versions (or in a version room)
   const vote = versionVoteOf(room);
   const curVersion = roomVersion(room);
@@ -989,6 +1073,7 @@ export function RoomScreen() {
             ${pluginMode ? html`<span class="rs-clock__sep"></span><span class="room-mode" data-testid="room-mode">${pluginMode}</span>` : null}</b>
           <span class="rs-clock__ping">${t('当前延迟')}<${PingPill} ms=${conn.ping} online=${online} /></span>
         </div>
+        <${CrisisTagStrip} crisis=${crisis} />
         <div class="rs-tools">
           <${Button} variant="secondary" size="sm" square=${true} icon="chart" class="stats-entry" onClick=${openStats} title=${t('统计数据')} aria-label=${t('统计数据')} />
           <${SettingsButton} class="room-settings" variant="secondary" square=${true} />

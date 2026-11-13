@@ -1,4 +1,4 @@
-// test/packServerSurface.test.js — 本批新增的四格服务端能力（DESIGN §34.14/§34.30/§34.31/§34.32/§34.33）。
+// test/packServerSurface.test.js — 本批新增的四格服务端能力（DESIGN §36.14/§36.30/§36.31/§36.32/§36.33）。
 //
 // 一份文件钉五件事，因为它们是同一条线上的东西（「包只能观察 / 只能声明，不能设值、不能注入代码」）：
 //   1. `server.modules` 的**源码静态扫描**（那是 `shared/modSurface.js` 从第一天起就承诺、而引擎一直没实现的一条）；
@@ -6,7 +6,7 @@
 //   3. `uses: ["metrics"]` 的**只读标量快照**（是值不是句柄；样本过期就 `null` + 点名）；
 //   4. `uses: ["route"]` 的**动态只读端点**（`/mod/<包id>/…`、GET/HEAD、no-store/no-cache、核心保留命名空间）；
 //   5. `pack.json.server.transport` 的**声明式传输配置**（生效值进 `welcome.transport`，不是声明值）；
-//   6. 作者自备 CDN 的语音素材（§34.33：https only + sha256 核对 + 失败点名 + 绝不内置任何素材地址）。
+//   6. 作者自备 CDN 的语音素材（§36.33：https only + sha256 核对 + 失败点名 + 绝不内置任何素材地址）。
 //
 // Run: node --test --test-concurrency=4 test/packServerSurface.test.js
 import { describe, test, before, after } from 'node:test';
@@ -34,7 +34,7 @@ const quiet = { info() {}, warn() {}, error() {}, debug() {} };
 const sha256 = (s) => createHash('sha256').update(s).digest('hex');
 
 // ---------------------------------------------------------------------------------------------------------------
-describe('§34.14 补账：`server.modules` 的源码静态扫描在 import 之前', () => {
+describe('§36.14 补账：`server.modules` 的源码静态扫描在 import 之前', () => {
   test('禁的是服务端代码那一段：process / globalThis / require / eval / new Function', () => {
     for (const needle of ['process', 'globalThis', 'require', 'eval', 'new Function']) {
       const src = `export function registerServer(host) { const x = ${needle}; }\n`;
@@ -57,7 +57,7 @@ describe('§34.14 补账：`server.modules` 的源码静态扫描在 import 之�
     assert.equal(issues[0].code, 'MODULES_BAD_SOURCE');
     assert.match(issues[0].reason, /globalThis/, '点名的必须是 `globalThis` 那一格');
     // 诚实的一句照旧：这仍然是**启发式，不是沙箱** —— 把名字拼成两段就绕得过（那三处也一样绕得过，
-    // 见 docs/design/mod-layer.md §34.14 的那段免责）。
+    // 见 docs/design/mod-layer.md §36.14 的那段免责）。
     assert.deepEqual(serverModuleSourceIssues("const g = global['global' + 'This'];\n", 'p', 'm'), []);
   });
 
@@ -102,7 +102,7 @@ describe('§34.14 补账：`server.modules` 的源码静态扫描在 import 之�
 });
 
 // ---------------------------------------------------------------------------------------------------------------
-describe('§34.14 boot(config)：冻结的只读配置快照', () => {
+describe('§36.14 boot(config)：冻结的只读配置快照', () => {
   test('白名单就是引擎真读的那几个 SP_*，多余的看不见', () => {
     assert.deepEqual([...BOOT_CONFIG_ENV_KEYS], ['SP_BOT_EMOTES', 'SP_BOT_STRATEGY', 'SP_CSP', 'SP_MATCH_HOST', 'SP_PLUGIN_SCRIPTS', 'SP_STATE_DIR']);
     // 反射源码：引擎里读过的 `process.env.SP_*` 必须全在名单里（新读一个而名单没跟上就红）。
@@ -149,7 +149,7 @@ describe('§34.14 boot(config)：冻结的只读配置快照', () => {
 });
 
 // ---------------------------------------------------------------------------------------------------------------
-describe('§34.31 metrics：只读标量快照（是值不是句柄）', () => {
+describe('§36.31 metrics：只读标量快照（是值不是句柄）', () => {
   test('字段闭集、冻结、里面没有一个函数 / 句柄', () => {
     resetHostMetrics();
     try {
@@ -176,7 +176,7 @@ describe('§34.31 metrics：只读标量快照（是值不是句柄）', () => {
 });
 
 // ---------------------------------------------------------------------------------------------------------------
-describe('§34.32 动态只读端点：命名空间、保留路径、缓存策略、同步返回值', () => {
+describe('§36.32 动态只读端点：命名空间、保留路径、缓存策略、同步返回值', () => {
   test('路径必须在 /mod/<包id>/… 里，且不能落在引擎保留的命名空间上', () => {
     assert.equal(dynamicRoutePathIssue('/mod/p/stats.json', 'p'), null);
     for (const prefix of RESERVED_ROUTE_PREFIXES) {
@@ -210,7 +210,7 @@ describe('§34.32 动态只读端点：命名空间、保留路径、缓存策�
 });
 
 // ---------------------------------------------------------------------------------------------------------------
-describe('§34.30 transport：声明式配置 → 生效值', () => {
+describe('§36.30 transport：声明式配置 → 生效值', () => {
   // 0.2.6 进场（上游 WS_DEFLATE）：**缺省改了** —— 从前「没有声明 ⇒ perMessageDeflate: false」，现在是引擎自己的
   // WS_DEFLATE。参数本身随后又改过一次（0.3.2：保留上下文 + 8 KB 窗口），所以下面**读引擎的常量**而不是抄数字。
   // 包声明仍然是唯一的声明式入口，只是没人声明时引擎自己开。
@@ -253,7 +253,7 @@ describe('§34.30 transport：声明式配置 → 生效值', () => {
 });
 
 // ---------------------------------------------------------------------------------------------------------------
-describe('§34.33 CDN 语音素材：https only + sha256 核对 + 失败点名', () => {
+describe('§36.33 CDN 语音素材：https only + sha256 核对 + 失败点名', () => {
   const CDN = (over = {}) => ({ url: 'https://cdn.example.com/a.mp3', sha256: sha256('AUDIO'), file: 'voice/c1/place_1.mp3', ...over });
   // `hasAssets` 是**装载器**才知道的事实（这个包有没有 assets/ 文件夹）：CDN 条目**不需要**它，包内路径需要。
   const norm = (extra, hasAssets = false) => normalizePackManifest({ id: 'p', name: 'p', version: '1.0.0', license: 'CC0-1.0', description: 'x', gameVersion: '0.2.x', ...extra }, 'p', { hasAssets });
@@ -322,7 +322,7 @@ describe('§34.33 CDN 语音素材：https only + sha256 核对 + 失败点名',
 });
 
 // ---------------------------------------------------------------------------------------------------------------
-describe('面板数据口：上限与名单不可能再悄悄错开（bug 修复，§34.8）', () => {
+describe('面板数据口：上限与名单不可能再悄悄错开（bug 修复，§36.8）', () => {
   test('上限就是「全部」，14 张全声明被接受', () => {
     assert.equal(CLIENT_MAX_PANEL_DATA_TABLES, CLIENT_PANEL_DATA_TABLES.length);
     const r = normalizePackManifest({

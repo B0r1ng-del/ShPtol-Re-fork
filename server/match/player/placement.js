@@ -201,6 +201,15 @@ export class PlayerPlacement {
     // hand/temp → board: a chess swap reuses the source slot, even with a full bench (round53).
     if (!occ || occ.kind !== 'chess') {
       if (this.deployCount >= this.deployCap) return fail(ERR.BOARD_FULL);
+      // 危机合约 J3 精锐限额 (shared/crisis.js): 场上精锐干员最多 4/3 名 — `Infinity` for an ordinary room. 「允许继续
+      // 合成并存放其他精锐」 means the merge itself never fails, only the DEPLOY of another elite: this is the deploy
+      // path, so a merge that lands on a board tile (occ.kind === 'chess', skipped above) is still allowed.
+      const eliteCap = this.gd && typeof this.gd.crisisEliteCap === 'function' ? this.gd.crisisEliteCap() : Infinity;
+      if (Number.isFinite(eliteCap) && loc && loc.piece && this.gd.isGolden(loc.piece.id)) {
+        let elites = 0;
+        for (const p of this.board.values()) if (p && p.kind === 'chess' && this.gd.isGolden(p.id)) elites++;
+        if (elites >= eliteCap) return fail(ERR.BOARD_FULL);
+      }
     }
     this._detach(loc);
     if (occ) {

@@ -236,19 +236,23 @@ test('#650: a solo run keeps the single-player stock (8 at tier 5, 5 at tier 6);
 });
 
 test('bans: a 自选 piece whose every bond is off this match has no stock (out of the shop); 协防 is never banned', REAL, () => {
-  // a seed whose drawn bans include 维多利亚 (推进之王's only bond)
+  // A seed whose drawn bans include 维多利亚 (推进之王's only bond) AND 协防 (emptyShip). ★ The second half is the point:
+  // emptyShip IS drawn by the seeded ban draw (it is an ordinary add-on bond in pool.js's pool — 670 of 2000 seeds),
+  // and the rule under test is not that it is never drawn but that drawing it never takes a 自选 prototype away. So the
+  // assertion below requires emptyShip to be PRESENT here: the prototypes must survive a drawn 协防, which is the
+  // strict form of server/match/player/diy.js:24's rule. (Requiring its absence would only ever test the easy case.)
   let h = null;
   for (let seed = 1; seed < 400 && !h; seed++) {
     const t = diyMatch({ seed });
-    if (t.m.disabledBonds.includes('victoriaShip')) h = t; else t.m.dispose();
+    if (t.m.disabledBonds.includes('victoriaShip') && t.m.disabledBonds.includes('emptyShip')) h = t; else t.m.dispose();
   }
-  assert.ok(h, 'a seed banning 维多利亚');
+  assert.ok(h, 'a seed banning both 维多利亚 and 协防');
   h.start();
   const p0 = h.ps('p_0');
   assert.deepEqual([...p0.diyBanned], [T5A]);
   assert.ok(!p0.diyStock.has(T5A));
   assert.deepEqual(Object.keys(p0.diyStock.snapshot()).sort(), [T5B, T6A], 'the prototypes (协防) stay');
-  assert.ok(!h.m.disabledBonds.includes('emptyShip'));
+  assert.ok(h.m.disabledBonds.includes('emptyShip'), '协防 is drawn by the ban draw — the strict precondition of this test');
   h.toPrep(1);
   p0.shop.level = 5;
   for (let i = 0; i < 300; i++) { p0.rollShop(); assert.ok(!p0.shop.slots.some((s) => s && s.id === T5A)); }

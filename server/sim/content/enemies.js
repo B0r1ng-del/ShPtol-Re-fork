@@ -361,6 +361,8 @@ export const KITS = Object.freeze({
   ...FLY_KITS,
   ...SPECIAL_KITS,
   ...LEADER_KITS,
+  // R-11突击动力装甲（危机合约 #4 多萝西召唤的装甲；data/enemies.json 的机制：「同时攻击四个目标」）
+  enemy_1256_lyacpa: { spawn(b, e) { e.profile.maxTargets = 4; } },
 });
 
 /** Keys deliberately left to their data stats (reason). */
@@ -372,6 +374,8 @@ export const STATS_ONLY = Object.freeze({
   enemy_1043_zomsbr: 'regen is data (hpRecoveryPerSec 80)', enemy_1061_zomshd: 'regen is data (hpRecoveryPerSec 200)',
   enemy_1046_agent: 'plain', enemy_1071_dftman: 'plain', enemy_1092_mdgint: 'plain (bounty)',
   enemy_1251_lysyta: 'R-series armour interaction absent', enemy_1251_lysyta_2: 'same',
+  // Dor-2号复制体：机制与 Dor-1 相同（「接触未激活的 R 系列动力装甲时，为其回复一定技力」），同样未实现
+  enemy_1252_lysytb: 'R-series armour interaction absent',
   enemy_1252_lysytb_2: 'same', enemy_1254_lypa_2: 'no listed ability', enemy_1325_cbgpro: 'plain', enemy_1325_cbgpro_2: 'plain',
   enemy_1381_winman: 'plain', enemy_1381_winman_2: 'plain', enemy_1387_winshd: '封冻/供暖器 zones absent', enemy_1415_mmkabi_2: 'chains absent',
   enemy_1433_dsbasi: 'plain', enemy_1433_dsbasi_2: 'plain', enemy_1438_dspred: '赘生甲壳 absent',

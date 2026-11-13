@@ -281,6 +281,10 @@ export function resolveRoles(animationNames, opts = {}) {
   if (!indices.length) indices.push(0);
   // an enemy's numbered skill clips (PR #275 by @xcdoge: its manifest only ever had index 0, so a multi-skill boss could
   // show one cast clip): appended after the caller's indices, whose first stays the primary `skill`
+  // An enemy that only carries `Skill_1` maps it onto index 0, which the caller's `[0]` already covers, so `indices`
+  // stays length 1 and the `skills` map below used to be dropped — the slot then had no clip at all (enemy_1409_bdguad).
+  // Emit it whenever numbered clips exist, not only when they widened `indices`.
+  let numberedSkill = false;
   if (opts.numberedSkills) {
     const found = new Set();
     for (const n of names) {
@@ -288,6 +292,7 @@ export function resolveRoles(animationNames, opts = {}) {
       if (m && Number(m[1]) >= 1 && Number(m[1]) <= 10) found.add(Number(m[1]) - 1);
     }
     for (const i of [...found].sort((a, b) => a - b)) if (!indices.includes(i)) indices.push(i);
+    numberedSkill = found.size > 0;
   }
   /** @type {Record<string, SkillClip>} */
   const skills = {};
@@ -307,7 +312,7 @@ export function resolveRoles(animationNames, opts = {}) {
   };
   const run = resolveRun(find, form);
   if (run) roles.run = run;
-  if (indices.length > 1) roles.skills = skills;
+  if (indices.length > 1 || numberedSkill) roles.skills = skills;
   return roles;
 }
 

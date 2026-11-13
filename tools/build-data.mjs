@@ -38,6 +38,8 @@
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { CRISIS_POOL_EXTRAS } from './crisis-enemies.mjs';
+import { ARC_KEYS } from '../shared/crisisArc.js';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { DEPLOY_REFUSED_TILES } from '../server/sim/grid.js';
@@ -52,7 +54,7 @@ const OPERATOR_POTENTIAL = FULL_RANK;
 // built chess/backups (二.8): kept out of the official-data derivation so a regeneration from the game's tables cannot
 // drop it, and so every fork-only value sits in one file.
 import { FORK_APPLIERS, FORK_PASS_APPLIERS } from './fork-overrides.mjs';
-import { applyForkExtra6Act } from './fork-extra6.mjs';
+import { applyForkExtra6Act, FORK_DELETED_CHARS } from './fork-extra6.mjs';
 import { injectDongUrsusPack, applyDongUrsusPack, CUSTOM_VISIBLE_CHESS as DU_VISIBLE_CHESS, CUSTOM_BOND_COUNT as DU_BOND_COUNT, CUSTOM_BAND_COUNT as DU_BAND_COUNT } from './dong-ursus-content.mjs';
 import { createOfficialUnitBuilders } from '../server/plugins/officialUnitBuilder.js';
 import { DEFAULT_VERSION, VERSIONS } from '../shared/versions.js';
@@ -690,16 +692,22 @@ function buildBackups(ctx, chess) {
   const roster = new Set(Object.values(act.charShopChessDatas).map((r) => r.charId).filter(Boolean));
   const teamsOf = (ch) => [ch.mainPower?.teamId ?? ch.teamId, ...(ch.subPower || []).map((p) => p?.teamId)].filter(Boolean);
   const excludedTeams = new Set(DIY_EXCLUDED_TEAMS);
+  // 2026-10-29 (六.C): 结城理 (char_4217_makoto) was DELETED — his chess rows, garrison, bond members and kit are
+  // gone (tools/fork-extra6.mjs keeps only 丰川祥子). A deleted operator is not a candidate for anything any more:
+  // he still exists in the upstream character_table, so without this guard he drops out of the roster and comes
+  // back in as a "6★ outside the chess pool" — a 自选 exclusion row for an operator the fork no longer ships.
+  const DELETED_CHARS = new Set(FORK_DELETED_CHARS);
   const legal6 = Object.keys(charTable).filter((id) => {
     const ch = charTable[id];
     return id.startsWith('char_') && requirements.has(ch.rarity) && ch.profession !== 'TOKEN' && ch.profession !== 'TRAP'
-      && !ch.isNotObtainable && !roster.has(id);
+      && !ch.isNotObtainable && !roster.has(id) && !DELETED_CHARS.has(id);
   }).sort(naturalCmp);
   const collabNumber = (ch) => DIY_EXCLUDED_NUMBER_PREFIXES.some((p) => new RegExp(`^${p}\\d`).test(ch.displayNumber || ''));
   const excluded = legal6.filter((id) => teamsOf(charTable[id]).some((t) => excludedTeams.has(t)) || collabNumber(charTable[id]));
   // A team is only unrepresented when NEITHER an excluded pick NOR a roster operator carries it: 内容包 packExtra6 (六.C)
-  // ports 丰川祥子 / 结城理 as chess, so mujica / sees stop being candidates and need no 自选 exclusion row. The warning
-  // exists to catch a stale or misspelled team name, and a roster member of that team proves the name is fine.
+  // ports 丰川祥子 as chess (结城理 was deleted 2026-10-29, so only 丰川祥子 carries a roster row any more), so mujica
+  // stops being a candidate and needs no 自选 exclusion row. The warning exists to catch a stale or misspelled team
+  // name, and a roster member of that team proves the name is fine.
   const rosterTeams = new Set([...roster].filter((id) => charTable[id]).flatMap((id) => teamsOf(charTable[id])));
   for (const t of DIY_EXCLUDED_TEAMS) {
     if (!rosterTeams.has(t) && !excluded.some((id) => teamsOf(charTable[id]).includes(t))) warn(`DIY_EXCLUDED_TEAMS: no owned-6★ pick of team ${t}`);
@@ -1611,6 +1619,55 @@ function collectEnemyKeys(ctx) {
     }
     for (const r of refs) if (!keys.has(r) && ctx.enemyDb.has(r)) { keys.add(r); queue.push(r); }
   }
+  // ★ 基线：改动之前 data/enemies.json 里已经有的那些敌人。扩展 = 本次新收进来、旧表里没有的。
+  // 用「旧表的 key」而不是「被引用的 key」做基线，是因为被引用不等于能生成 —— 旧表缺数据的敌人
+  // 当时会被 gd.enemy() 过滤掉，抽取结果里根本没有它；把它算作基线会让过滤失效（实测踩过）。
+  ctx.crisisBaseKeys = null; // 由 main() 在拿到全集后用 crisisPoolExtras 计算
+  // Every enemy the season can draw at random. This is the authoritative "enemies this season owns" list, and it is
+  // WIDER than what the shipped waves happen to spawn: 契约 routes like P1 (冰爆源石虫), Q5 (深池逐火战士) or T4 name
+  // enemies that sit in the pool but appear in no act1autochess wave. Without this they never reach data/enemies.json
+  // and a contract could not touch them at all. They are recorded in factions.poolExtras so the random draw stays
+  // byte-identical for every existing match (waves.js filters that set out).
+  const extraQueue = [];
+  for (const k of Object.keys(ctx.ac.randomEnemyAttributeDict || {})) {
+    if (!keys.has(k) && ctx.enemyDb.has(k)) { keys.add(k); extraQueue.push(k); }
+  }
+  while (extraQueue.length) {
+    const k = extraQueue.pop();
+    const refs = [...(ctx.ac.randomEnemyAttributeDict?.[k]?.extraEnemyKeyList || [])];
+    for (const lvl of ctx.enemyDb.get(k) || []) {
+      const d = lvl.enemyData || {};
+      for (const e of [...(d.talentBlackboard || []), ...(d.skills || []).flatMap((s) => s.blackboard || [])]) {
+        if (typeof e.valueStr === 'string') for (const m of e.valueStr.matchAll(/enemy_[A-Za-z0-9_]+/g)) refs.push(m[0]);
+      }
+    }
+    for (const r of refs) if (!keys.has(r) && ctx.enemyDb.has(r)) { keys.add(r); extraQueue.push(r); }
+  }
+  // ★ 弧光作战（2026-11-05 季）自己的 12 个敌人。
+  // 它们只出现在那一季的波次模板里：当前读的活动数据（activity_table 的 autoChessData）
+  // 既不把它们放进 randomEnemyAttributeDict（324 条池里没有），也不被本季任何模板 SPAWN 引用，
+  // 所以上面所有收集路径都碰不到 —— 但 enemy_database / enemy_handbook_table 里数据是齐的。
+  // 这里按 shared/crisisArc.js 的权威名单（ARC_KEYS，12 个 key）显式补进来：
+  // 只加 key，属性/技能仍走正常推导，不硬编码任何数值。
+  // 弧光的波次由 setupMatchWaves 之外的通路（crisisArc season）生成，本季随机抽取不受影响；
+  // 为万无一失仍把这 12 个记进 poolExtras，让 waves.js 的随机抽取继续把它们排除（既有对局逐字节不变）。
+  const ARC_POOL = Object.values(ARC_KEYS);
+  for (const k of ARC_POOL) {
+    if (keys.has(k) || !ctx.enemyDb.has(k)) continue;
+    keys.add(k);
+    extraQueue.push(k);
+  }
+  while (extraQueue.length) {
+    const k = extraQueue.pop();
+    const refs = [];
+    for (const lvl of ctx.enemyDb.get(k) || []) {
+      const d = lvl.enemyData || {};
+      for (const e of [...(d.talentBlackboard || []), ...(d.skills || []).flatMap((sk) => sk.blackboard || [])]) {
+        if (typeof e.valueStr === 'string') for (const m of e.valueStr.matchAll(/enemy_[A-Za-z0-9_]+/g)) refs.push(m[0]);
+      }
+    }
+    for (const r of refs) if (!keys.has(r) && ctx.enemyDb.has(r)) { keys.add(r); extraQueue.push(r); }
+  }
   const out = [...keys].sort(naturalCmp);
   out.direct = direct;
   return out;
@@ -2077,6 +2134,8 @@ const TILE_LEGEND = {
   g: { tileKey: 'tile_smog', special: 'smog', desc: '排气格栅：其上干员不会成为敌方远程攻击目标' },
   d: { tileKey: 'tile_deepsea', special: 'deepsea', desc: '深水区：不可部署（拒绝部署），敌人持续受伤、减速、减攻速' },
   i: { tileKey: 'tile_infection', special: 'infection', desc: '活性源石：单位受持续真实伤害，攻击力与攻速提升' },
+  '<': { tileKey: 'tile_grvtybtn', desc: '重力按钮·左：踩下后这半边重力向左（敌人顺重力加速、逆重力减速）' },
+  '>': { tileKey: 'tile_grvtybtn', desc: '重力按钮·右：踩下后这半边重力向右' },
 };
 
 /** Map an official tile object to a legend glyph. */
@@ -2394,9 +2453,16 @@ function buildFactions(ctx, enemies) {
     if (slotKey[walkCode]) placeholders[slotKey[walkCode]] = { slot: walkCode, cls, fly: false };
     if (slotKey[flyCode]) placeholders[slotKey[flyCode]] = { slot: flyCode, cls, fly: true };
   }
+  // ★ 契约扩展敌人：只因为本季 randomEnemyAttributeDict 收进了 data/enemies.json、但本季波次 / 特训条目 / 首领
+  // 都不引用它们。契约（P1 冰爆源石虫、Q5 深池逐火战士、T4 特殊类……）要能点到这些敌人，随机抽取却不能
+  // 因此改变 —— waves.js 的 pickRoundEntry 用这份名单把它们挡在抽取之外，既有对局逐字节不变。
+  const poolExtras = crisisPoolExtras(ctx, new Set(Object.keys(enemies)));
+  if (poolExtras.length !== CRISIS_POOL_EXTRAS.length) {
+    warn(`契约扩展敌人名单与实际差集不符：名单 ${CRISIS_POOL_EXTRAS.length} 条，实际命中 ${poolExtras.length} 条`);
+  }
   return {
     templateSlots: slotKey,
-    types, entries,
+    types, entries, poolExtras,
     handbookLevels: buildHandbookLevels(ctx),
     generation: {
       source: 'official client RandomEnemyGenerater (research 08 §2, decoded from the client; normative)',
@@ -3379,6 +3445,21 @@ function validateAll(f) {
 
 // ===== main =====================================================================================
 
+/**
+ * 「本季波次真的会用到」的敌人 key —— 契约扩展的补集。
+ *
+ * 不能用「上一版 data/enemies.json」当基线：那个文件每次生成都会变，第二次运行差值就归零了（实测踩过）。
+ * 这里用**官方数据本身**判定：本季波次 / 特训条目 / 首领 / 模板 / 赏金引用到的，就是基线；只在
+ * randomEnemyAttributeDict 里躺着、谁也引用不到的，才是契约扩展。判定与文件状态无关，可重复。
+ *
+ * @param {any} ctx loadContext 的结果
+ * @param {Set<string>} all collectEnemyKeys 收进来的全集
+ * @returns {string[]} 扩展 key（排序后）
+ */
+function crisisPoolExtras(ctx, all) {
+  return CRISIS_POOL_EXTRAS.filter((k) => all.has(k)).sort(naturalCmp);
+}
+
 async function main() {
   const t0 = Date.now();
   const ctx = await loadContext();
@@ -3417,7 +3498,19 @@ async function main() {
   // whose bond the mode switches off
   for (const b of Object.values(bands)) b.bondIds = bandBondIds(b, { bonds, pools: choices.pools });
   const config = buildConfig(ctx, waves, stages, bands, chess, items);
-  const files = { config, chess, bonds, garrisons, items, bands, effects, choices, enemies, factions, waves, stages, bosses, tokens, backups };
+  // ★ 契约专用敌人拆出去：它们不能留在 data/enemies.json 里 —— 那会改变本季波次的抽取（实测 golden 漂移）。
+  // 波次只认 enemies，契约读 enemies-crisis（gamedata.enemyAny）。
+  const crisisKeys = new Set(factions.poolExtras);
+  const enemiesCrisis = crisisKeys.size
+    ? Object.fromEntries(Object.entries(enemies).filter(([k]) => crisisKeys.has(k)).sort(([a], [b]) => naturalCmp(a, b)))
+    : {};
+  const enemiesWave = crisisKeys.size
+    ? Object.fromEntries(Object.entries(enemies).filter(([k]) => !crisisKeys.has(k)))
+    : enemies;
+  // stages-crisis：危机合约 #4 的专属战场（custom_cc4_focus）。与 enemies / enemies-crisis 同一种拆分 ——
+  // 它不能进 data/stages.json（那张表是「本季可抽到的战场」，几十处测试与 golden 以它为基准）。
+  // 记录本身由 FORK_APPLIERS['stages-crisis'] 写入，这里给一个空壳，让文件存在且离线重建可复现。
+  const files = { config, chess, bonds, garrisons, items, bands, effects, choices, enemies: enemiesWave, 'enemies-crisis': enemiesCrisis, factions, waves, stages, 'stages-crisis': {}, bosses, tokens, backups };
   // The fork's own layer over the generated files (tools/fork-overrides.mjs), so a full regeneration keeps every fork
   // feature. It reads the same `FORK_APPLIERS` list `node tools/fork-data.mjs` applies to the committed files — 六.3
   // added its bond/effect appliers to that CLI but not here, and a regeneration silently dropped the ported 盟约
@@ -3426,7 +3519,10 @@ async function main() {
   // `assets` is not built here at all (tools/fetch-assets.mjs owns it).
   // The fork layer is the DEFAULT build's only (the pinned earlier versions are upstream's pre-fork data).
   if (IS_DEFAULT) for (const [name, apply] of Object.entries(FORK_APPLIERS)) {
-    if (FORK_PASS_APPLIERS[name] || !files[name]) continue;
+    // ★ 判据是「builder 有没有产出这个文件」，不是「产出物是不是 truthy」：`stages-crisis` / `enemies-crisis` 的
+    // builder 产物可能是一个空壳（{}），而 fork 层正是要往里加记录。用 truthiness 会把空壳当成「builder 不管这个
+    // 文件」而跳过 applier，committed 文件与离线重建就对不上。
+    if (FORK_PASS_APPLIERS[name] || !(name in files)) continue;
     files[name] = apply(files[name]);
   }
 

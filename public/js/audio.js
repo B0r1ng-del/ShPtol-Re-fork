@@ -191,7 +191,7 @@ export function bgmKeyFor(route, pub, combatTrack = null) {
 export function resolveBgm(manifest, key) {
   const a = manifest?.audio;
   if (!a || !key) return null;
-  let t = null;
+  let t;
   if (key.startsWith('boss:')) t = a.bossBgm?.[key.slice(5)] || a.bgm?.boss;
   else if (key.startsWith('combat:')) t = a.bgm?.combatAlts?.[Number(key.slice('combat:'.length))] || a.bgm?.combat;
   else if (key === 'unite') t = a.bgm?.unite || a.bgm?.combat;
@@ -1020,7 +1020,20 @@ export class AudioManager {
   /** The track of a BGM key: the player's own lobby music (setLobbyTrack), else the manifest's (resolveBgm). */
   _bgmTrack(key) {
     if (key === 'lobby' && this.lobbyTrack) return { intro: null, loop: LOCAL_BGM + this.lobbyTrack.id };
+    // 弧光作战的两首（ui/crisisEventPage.js setArcBgm）：官方 crisisMusic.js 的 ARC_MENU / ARC_MATCH，都是整曲循环。
+    // 它们不在 assets 清单里（是本地文件），所以这里先于清单回答；文件缺失时 _startBgm 拿不到 buffer 就静默返回。
+    const arc = this.arcBgm && this.arcBgm[key];
+    if (arc) return { intro: null, loop: arc };
     return resolveBgm(this.getManifest(), key);
+  }
+
+  /**
+   * 弧光作战的 BGM 覆写：{ lobby: url } 或 { lobby: url, combat: url }，null 清除。
+   * 复用 `_bgmTrack` 的同一条路，所以 playBgm / refreshBgm / 淡出都自动照常工作 —— 不要另开 <audio>。
+   */
+  setArcBgm(tracks) {
+    this.arcBgm = tracks && typeof tracks === 'object' ? tracks : null;
+    this.refreshBgm();
   }
 
   async _startBgm(key, track, token) {

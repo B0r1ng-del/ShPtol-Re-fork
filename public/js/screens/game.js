@@ -92,6 +92,7 @@ import { BondStrip, BondPopup } from '../ui/bondStrip.js';
 import { RhineDock } from '../ui/rhineDock.js';
 import { TeamPanel } from '../ui/teamPanel.js';
 import { ShopBar } from '../ui/shopBar.js';
+import { CrisisShopLine } from '../ui/crisisShopLine.js';
 import { selectedBondTimers } from '../ui/bondTimers.js';
 import { DetailPanel, resolveDetail } from '../ui/detailPanel.js';
 import { RewardOverlay } from '../ui/rewardOverlay.js';
@@ -297,6 +298,8 @@ function MatchScreen() {
   // 莱茵科技 (owner request 2026-10-15): which of the two the shop slot shows — the 商店干员表 (default) or the 莱茵生命
   // 科研装置 picker. Session state, like 收起: it is a view choice, not a game decision, so it is not persisted.
   const [rhineOpen, setRhineOpen] = useState(false);
+  // 危机合约的局内信息行默认展开（official CrisisShopLine 的 expanded 默认 true）
+  const [crisisLineOpen, setCrisisLineOpen] = useState(true);
   // GitHub #501: a g.refresh is still waiting for its reply — the shop's 刷新 button dims while it is (gameActions.js
   // single-flights the intent; the R hotkey is dropped by the same guard)
   const [refreshBusy, setRefreshBusy] = useState(false);
@@ -372,6 +375,9 @@ function MatchScreen() {
   const personalChoice = !spectator && alive ? normalizePersonalChoice(pub, priv, myId) : null;
   const hasPersonalChoice = !!personalChoice;
   const roomRules = useStore((s) => s.room?.content?.rules ?? null);
+  // 局内「本局词条」用的合约数据（room.state.crisis：mode/tags/total/season/seed）。
+  // ★ 不复用 modRoom —— 那个只在装玩法插件时才非空，普通房间恒为 null。
+  const crisisSel = useStore((s) => s.room?.crisis ?? null);
   const morphMode = ruleOption(roomRules, 'morphPairing');
   const unequipAllow = ruleOption(roomRules, 'unequip') === 'allow';
   /**
@@ -1990,6 +1996,7 @@ function MatchScreen() {
         pause=${canPause || paused ? { show: canPause, paused, busy: pauseBusy, onToggle: () => togglePause(!paused) } : null}
         live=${liveLpNow} spectator=${spectator}
         spectators=${specFacts.list} myId=${myId} isHost=${specFacts.isHost} onRemoveSpectator=${removeSpectator} room=${modRoom}
+      crisis=${crisisSel}
         ${/* ★ fork 顶栏工具栏（需求方 2026-10-17）：设置 / 玩法说明 / 全屏 / 作战统计 四个 `.gm__gear` 方格，
               **只能在顶栏这一行**（`TopBar` 的 `tools` 插槽）。上游 v0.3.2 把这一整块丢了，于是作战统计按钮
               从界面消失、只剩面板。`held` 留在最后（进场动画的权威开关，测试逐字比对这一行的收尾）。 */ ''}
@@ -2058,6 +2065,8 @@ function MatchScreen() {
         onSet=${(k, v) => actions.cheatSet(k, v)}
         onAction=${(a) => (a === 'bondLayers' ? actions.cheatBondLayers() : actions.cheatFreeRefresh())} />
 
+      ${showShop && priv?.crisis ? html`<div class="shopbar__contract"><${CrisisShopLine} priv=${priv} pub=${pub}
+        expanded=${crisisLineOpen} onToggle=${() => setCrisisLineOpen((v) => !v)} /></div>` : null}
       ${showShop ? html`<${ShopBar} priv=${priv} editable=${editable} collapsed=${barCollapsed} refreshBusy=${refreshBusy} onCollapse=${setCollapsed}
         barRef=${barRef} offBonds=${offBonds}
         rhineOpen=${rhineOpen} onRhineToggle=${setRhineOpen}
@@ -2169,7 +2178,7 @@ function MatchScreen() {
     ${boot && !hasOffers ? html`<${ProtocolBoot} key=${boot.key} players=${players} myId=${myId} leaving=${bootLeaving} />` : null}
     ${roundPop && !hasOffers && (!boot || bootLeaving) && hudIn !== 'wait' ? html`<${RoundPopup} key=${roundPop.key} round=${roundPop.round} gain=${roundGain} left=${roundPop.left} sub=${roundPop.sub}
       watching=${roundPop.watching} onDone=${() => setRoundPop(null)} />` : null}
-    ${!hasOffers && banner?.plate && !roundPop ? html`<${PhasePopup} key=${banner.key} tone=${banner.tone} faces=${banner.faces} title=${banner.title} sub=${banner.sub}
+    ${!hasOffers && banner?.plate && !roundPop ? html`<${PhasePopup} key=${banner.key} tone=${banner.tone} faces=${banner.faces} goal=${banner.goal} title=${banner.title} sub=${banner.sub}
       chev=${banner.chev} duration=${banner.duration} onDone=${() => setBanner(null)} />` : null}
     ${!hasOffers && banner && !banner.plate && !roundPop ? html`<${PhaseBanner} key=${banner.key} mode="overlay" title=${banner.title} sub=${banner.sub} micro=${banner.micro}
       tone=${banner.tone} duration=${banner.duration || 1500} onDone=${() => setBanner(null)} />` : null}

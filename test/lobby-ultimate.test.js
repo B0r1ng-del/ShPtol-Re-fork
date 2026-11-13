@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import { startServer } from '../server/index.js';
 import { StubMatch } from '../server/match/StubMatch.js';
 import { TestClient } from './helpers/wsClient.js';
-import { ERR, MAX_SEATS, ULTIMATE_SEATS, ULTIMATE_DIFFICULTY, ROOM_MODES, roomSeatCap, modeIdFor, MOD_KEYS } from '../shared/constants.js';
+import { ERR, MAX_SEATS, ULTIMATE_SEATS, ULTIMATE_DIFFICULTY, ROOM_MODES, roomSeatCap, modeIdFor, MOD_KEYS, CRISIS_QUAD_SEATS } from '../shared/constants.js';
 import { validateC2S } from '../shared/protocol.js';
 
 function clientPool(getUrl) {
@@ -62,13 +62,19 @@ describe('终极模拟 rooms (6 seats, AC-4)', () => {
     assert.deepEqual(cap.errors, [], 'no server errors logged');
   });
 
-  test('constants: the three room modes and their caps; MAX_SEATS keeps its old meaning', () => {
-    assert.deepEqual([...ROOM_MODES], ['solo', 'coop', 'ultimate']);
+  test('constants: the room modes and their caps; MAX_SEATS keeps its old meaning', () => {
+    // 危机合约 (shared/crisis.js) is the fourth room mode; the three pre-existing ones keep their ids and caps
+    assert.deepEqual([...ROOM_MODES], ['solo', 'coop', 'ultimate', 'crisis']);
     assert.equal(roomSeatCap('solo'), 1);
     assert.equal(roomSeatCap('coop'), MAX_SEATS);
     assert.equal(roomSeatCap('ultimate'), ULTIMATE_SEATS);
     assert.equal(ULTIMATE_SEATS, 6);
     assert.equal(roomSeatCap('nope'), MAX_SEATS, 'unknown mode: the pre-fork cap');
+    // a contract's own shape narrows its mode's cap: 单人 seats one doctor, 四人 seats four
+    assert.equal(roomSeatCap('crisis'), CRISIS_QUAD_SEATS, 'no contract chosen yet: keep the maximum reachable');
+    assert.equal(roomSeatCap('crisis', { mode: 'solo' }), 1);
+    assert.equal(roomSeatCap('crisis', { mode: 'quad' }), CRISIS_QUAD_SEATS);
+    assert.equal(roomSeatCap('coop', { mode: 'solo' }), MAX_SEATS, 'a non-contract mode ignores a stray selection');
     assert.equal(modeIdFor('ultimate', 'ABYSS'), 'mode_ultimate_abyss');
     assert.equal(modeIdFor('coop', 'ABYSS'), 'mode_multi_abyss', 'the existing ids are unchanged');
     assert.equal(modeIdFor('solo', 'HARD'), 'mode_single_hard');

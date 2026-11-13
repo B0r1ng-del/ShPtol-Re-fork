@@ -117,6 +117,20 @@ export class PlayerViews {
       // + the mode-off bonds it has members of (`off: true`, the strip's grey 本局禁用 discs — bondsMeta.offBondCounts)
       bonds: bondList(this.gd, this.bondsView(), { full: true, off: offBondCounts(this.gd, this) }),
       effects: this.effectsView(),
+      // 危机合约局内信息（official crisisTags.js CrisisShopLine）：本回合的承压位（U1）、悬赏精英（R4）
+      // 与开局种子。三项都只在真装了对应合约时才出现 —— 普通房间的帧逐字节不变。
+      ...(() => {
+        const m = this.m;
+        const fx = m && m.gd && m.gd.crisisFx;
+        if (!fx) return {};
+        const cx = {};
+        if (m.crisisPressureThisRound && fx.U1) {
+          cx.pressure = { playerId: m.crisisPressureThisRound, me: m.crisisPressureThisRound === this.playerId };
+        }
+        if (m.crisisMarkThisRound && fx.R4) cx.bounty = { key: m.crisisMarkThisRound };
+        if (typeof m.seed === 'string' && m.seed) cx.seed = m.seed;
+        return Object.keys(cx).length ? { crisis: cx } : {};
+      })(),
       // 六.E: the collectibles this player holds, the round's reward flash, the open offer, the queued revival operators,
       // the leak streak and the shield. Every entry reads a field that stays empty with the switch off, so an off match
       // sends the same arrays / nulls as one built before the port.

@@ -1,0 +1,78 @@
+/* 危机合约 · 重燃作战 (下半, rules rn1) — loaded by js/ui/crisisTags.js: the enemy routes' portrait glyphs, the 选择指标
+   tiles that wait for a scheme (需 L2/L3…) or lack targets in the seed's match (本局无目标), a tag's higher-tier clauses
+   and the seed preview's lines. */
+
+/* an enemy route: its target's portrait, white-rimmed like the drawn glyphs */
+.cs-glyph.is-face > img.cs-glyph__face { left: 3px; top: 3px; width: calc(100% - 6px); height: calc(100% - 6px); object-fit: cover; box-sizing: border-box;
+  border: 2px solid #f4f4f4; background: #2a2a2c; }
+.cs-glyph.is-face > img.cs-glyph__num { z-index: 1; }
+.cc-tagstrip .cs-glyph.is-face > img.cs-glyph__face, .cc-tagrows .cs-glyph.is-face > img.cs-glyph__face, .rs-top .cs-glyph.is-face > img.cs-glyph__face,
+.cr-tag .cs-glyph.is-face > img.cs-glyph__face { left: 1px; top: 1px; width: calc(100% - 2px); height: calc(100% - 2px); border-width: 1px; }
+
+/* 选择指标: a tile that waits for a scheme or has no targets in this seed's match */
+.cs-tile.is-needs .cs-tile__glyph, .cs-tile.is-empty .cs-tile__glyph { opacity: .12; filter: grayscale(1); }
+.cs-tile.is-needs .cs-tile__id, .cs-tile.is-empty .cs-tile__id { opacity: .4; }
+.cs-page .cs-tile.is-empty { border-style: dashed; }
+.cs-tile__note { position: absolute; left: 0; right: 0; top: 26px; text-align: center; font-size: 12px; line-height: 1.35; color: #e8e8e8;
+  letter-spacing: .02em; pointer-events: none; }
+.cs-tile.is-empty .cs-tile__note { color: #c9c9c9; }
+
+/* a clause that comes with tier Ⅱ / Ⅲ: dim until the tag's tier holds it */
+.cs-item__text em.cs-fx-more { color: #7d7d7d; }
+.cs-item__text em.cs-fx-more.is-on { color: #ffa21f; }
+.cs-item__where { display: block; margin-top: 4px; font-size: 11.5px; line-height: 1.3; color: #ffcf8a; }
+
+/* the seed button when the preview could not be read */
+.cs-page .cs-seed.is-error { border-color: #ff7a5ab3; }
+.cs-seed.is-error > small { color: #ff9c8a; }
+
+/* the shop bar's contract line: this round's 承压位 / 悬赏 elite and the 开局种子 (a button: copies it) */
+.cc-shopline__press.is-me i { color: #ff8a8a; }
+.cc-shopline__bounty { display: inline-flex; align-items: center; gap: 3px; }
+.cc-shopline__bounty img { width: 18px; height: 18px; object-fit: cover; border: 1px solid #f4f4f4; background: #2a2a2c; }
+.cc-shopline__seed { font: inherit; color: #fff; background: rgba(0, 0, 0, .35); border: 1px solid rgba(255, 255, 255, .25); padding: 1px 6px; cursor: pointer; }
+.cc-shopline__seed:hover { border-color: #ffcf4a; }
+.cc-tags-seed { display: block; margin: 0 0 6px; font: inherit; font-size: 12px; color: #fff; background: #8f1418; border: 0; padding: 4px 10px; cursor: pointer; }
+.cc-tags-seed b { color: #ffcf4a; margin-left: 4px; }
+
+/* the waiting room's 开局种子: the strip's chip and its dialog (map, each round's entry, the targets of the enemy routes) */
+.cc-tagstrip__seed { flex: none; font: inherit; font-size: 12px; color: #fff; background: rgba(0, 0, 0, .35); border: 1px solid rgba(255, 255, 255, .3);
+  padding: 1px 7px; cursor: pointer; white-space: nowrap; }
+.cc-tagstrip__seed b { color: #ffcf4a; margin-left: 2px; letter-spacing: .04em; }
+.cc-tagstrip__seed:hover { border-color: #ffcf4a; }
+/* ★ 2026-11-06: the seed dialog's 780px box was `:has(.cc-seedpanel)` — `.cc-seedpanel` is the official
+   waiting-room panel, never ported (room.js:116 says so). `:has()` is a parse error in Firefox ESR 115 /
+   Safari < 15.4 and client-static.test.js bans it, so the dead selector is gone. The ported seed dialog is
+   `.cs-seed-panel` (crisisSelect.js:187) with its own width in crisis-s1.css; bring this back as a plain
+   `.modal__box.cc-seed-modal` rule if that panel ever gets a `modal__box` host. */
+.cc-seedpanel { display: grid; gap: 8px; min-width: 0; font-size: 13px; }
+.cc-seedpanel__code { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cc-seedpanel__code > b { font-size: 22px; letter-spacing: .08em; color: #ffcf4a; }
+.cc-seedpanel__code > span, .cc-seedpanel__note, .cc-seedpanel__host small { opacity: .75; font-size: 12px; }
+.cc-seedpanel button { font: inherit; font-size: 12px; color: #fff; background: #8f1418; border: 0; padding: 3px 10px; cursor: pointer; }
+.cc-seedpanel button:disabled { opacity: .45; cursor: default; }
+.cc-seedpanel__meta { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.cc-seedpanel__meta b { margin-left: 4px; }
+.cc-seedpanel__rounds { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 12px;
+  max-height: 42vh; overflow: auto; }
+.cc-seedpanel__rounds li { display: grid; grid-template-columns: 58px 30px 22px minmax(0, 1fr); min-width: 0; grid-template-rows: auto auto; column-gap: 6px; align-items: center; }
+.cc-seedpanel__rounds li.is-boss em { color: #ff8a8a; }
+.cc-seedpanel__rounds em { font-style: normal; grid-row: span 2; opacity: .8; }
+.cc-seedpanel__type { grid-row: span 2; font-size: 11px; opacity: .7; }
+.cc-seedpanel__rounds img { grid-row: span 2; width: 22px; height: 22px; object-fit: cover; border: 1px solid #f4f4f4; background: #2a2a2c; }
+.cc-seedpanel__rounds small { grid-column: 4; font-size: 11px; opacity: .65; }
+.cc-seedpanel__targets { display: flex; flex-wrap: wrap; gap: 3px 12px; font-size: 12px; }
+.cc-seedpanel__targets .is-none { color: #ff8a8a; }
+.cc-seedpanel__host { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.cc-seedpanel__host input { font: inherit; width: 150px; padding: 3px 6px; text-transform: uppercase; }
+.cc-seedpanel__err { color: #ff8a8a; margin: 0; }
+.cc-seedpanel__wait { opacity: .7; margin: 0; }
+.cc-seedpanel__rounds b, .cc-seedpanel__rounds small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 混合词条 (a gain with its cost): teal — the tile's frame and corner marks, a 混合 chip by the name */
+.cs-page .cs-tile.is-mixed { border-color: #2ec4b6; box-shadow: inset 0 0 0 1px #2ec4b666, 0 0 6px #2ec4b655; }
+.cs-page .cs-tile.is-mixed::before, .cs-page .cs-tile.is-mixed::after { border-color: #2ec4b6; }
+.cs-page .cs-tile.is-mixed .cs-tile__id { color: #5ee6d8; }
+.cc-mixed { display: inline-block; margin-left: 6px; padding: 0 4px; font-style: normal; font-size: 11px; font-weight: 600; line-height: 16px;
+  color: #062b27; background: #2ec4b6; vertical-align: middle; letter-spacing: .05em; }
+.cc-tagrows__row.is-mixed b { color: #7beee3; }

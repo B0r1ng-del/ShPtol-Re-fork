@@ -1,0 +1,192 @@
+/* 行动结束 (js/ui/crisisResult.js): the reference video's 25:41–25:48 on the 1280×720 stage. Cut times count from the
+   overlay opening; the settlement's from its mount at 1830 ms, when the band leaves. Full-bleed layers reach past the
+   stage with negative insets (the page clips them). Fast movers carry a horizontal blur (#cr-mb) while they travel. */
+.cr { position: absolute; inset: 0; z-index: 30; overflow: hidden; }
+.cr-defs { position: absolute; width: 0; height: 0; }
+.cr-cut, .cr-top, .cr-res { position: absolute; inset: 0; }
+.cr-top { pointer-events: none; }
+.cr--fade .cr-cut { animation: cr-out 340ms ease forwards; }
+@keyframes cr-out { to { opacity: 0; } }
+@keyframes cr-in { from { opacity: 0; } }
+@keyframes cr-blink { 0%, 99% { opacity: 1; } 100% { opacity: 0; } }
+
+/* ---- the cut ---------------------------------------------------------------------------------------------------- */
+.cr-veil { position: absolute; inset: 0; background: rgba(0, 0, 0, .5); animation: cr-in 140ms ease both; }
+
+/* the band runs in from the right edge (0–200), its fill left of the tear drops away as the label slides in (350) */
+.cr-band { position: absolute; left: -1000px; width: 3280px; top: 334px; height: 72px; animation: cr-band-in 200ms both; }
+@keyframes cr-band-in {
+  0% { clip-path: inset(0 0 0 2168px); animation-timing-function: cubic-bezier(.2, .75, .3, 1); }
+  85% { clip-path: inset(0 0 0 1000px); animation-timing-function: linear; }
+  100% { clip-path: inset(0 0 0 0); } }
+.cr-band__fill, .cr-band__solid { position: absolute; top: 0; height: 100%; background: #ec1c24;
+  background-image: repeating-linear-gradient(-45deg, rgba(255, 255, 255, .035) 0 2px, transparent 2px 5px); }
+.cr-band__fill { left: 0; width: 1440px; animation: cr-fill-out 80ms 350ms cubic-bezier(.4, 0, .6, 1) forwards; }
+@keyframes cr-fill-out { to { clip-path: inset(0 0 0 100%); } }
+.cr-band__solid { left: 1440px; right: 0; box-shadow: 0 -2px 0 rgba(60, 0, 0, .5), 0 2px 0 rgba(60, 0, 0, .5); }
+.cr-band__left { position: absolute; left: 1000px; top: 0; width: 440px; height: 100%; animation: cr-drift 1130ms 700ms cubic-bezier(.3, .5, .4, 1) both; }
+@keyframes cr-drift { to { transform: translateX(-48px); } }
+.cr-band__tear { position: absolute; left: 200px; top: 0; width: 240px; height: 72px; animation: cr-in 40ms 350ms both; }
+.cr-band__label { position: absolute; left: 74px; top: 0; height: 72px; box-sizing: border-box; padding: 5px 0 0 13px; border-left: 6px solid #ec1c24;
+  font-size: 30px; font-weight: 500; line-height: 34px; color: #fff; white-space: nowrap; animation: cr-label 130ms 350ms cubic-bezier(.2, .8, .3, 1) both; }
+.cr-band__label small { display: block; margin-top: 3px; font-size: 7px; font-weight: 700; line-height: 8px; letter-spacing: .12em; opacity: .85; }
+@keyframes cr-label { 0% { transform: translateX(-320px); filter: url(#cr-mb); } 70% { filter: none; } }
+/* it whips off to the left as the smear starts */
+.cr--s1 .cr-band, .cr--s2 .cr-band { animation: cr-band-out 130ms cubic-bezier(.55, 0, .9, .45) forwards; }
+@keyframes cr-band-out { from { filter: url(#cr-mb); } to { transform: translateX(-1500px); filter: url(#cr-mb); } }
+
+/* emblem (snaps together from three slices) and the count; they stay while the band goes, then fade */
+.cr-mark { position: absolute; inset: 0; }
+.cr-mark__emb { position: absolute; left: 518px; top: 281px; width: 160px; height: 145px; animation: cr-thump 320ms 730ms ease-out; }
+.cr-mark__emb img { position: absolute; inset: 0; width: 100%; height: 100%; filter: brightness(0) invert(1); }
+.cr-mark__emb .p1 { clip-path: inset(0 0 62% 0); animation: cr-emb-top 260ms 40ms cubic-bezier(.2, .9, .3, 1) both; }
+.cr-mark__emb .p2 { clip-path: inset(38% 0 33% 0); animation: cr-emb-mid 200ms 20ms cubic-bezier(.2, .9, .3, 1) both; }
+.cr-mark__emb .p3 { clip-path: inset(67% 0 0 0); animation: cr-emb-bot 280ms 70ms cubic-bezier(.2, .9, .3, 1) both; }
+@keyframes cr-emb-top { from { transform: translateY(-46px); opacity: 0; } 30% { opacity: 1; } }
+@keyframes cr-emb-mid { from { transform: scaleY(.2); opacity: 0; } }
+@keyframes cr-emb-bot { from { transform: translateY(46px); opacity: 0; } 30% { opacity: 1; } }
+@keyframes cr-thump { from { transform: scale(1.14); } }
+.cr-mark__n { position: absolute; left: 738px; top: 333px; height: 72px; display: flex; align-items: center; gap: 6px; animation: cr-in 60ms 30ms both; }
+.cr-mark__n b { font-size: 70px; line-height: 1; font-weight: 500; color: #fff; animation: cr-thump 320ms 730ms ease-out; }
+.cr-mark__n img { width: 28px; height: 28px; margin-top: 24px; }
+.cr-mark__n em { align-self: flex-start; margin-top: 4px; padding: 1px 6px; font-size: 11px; font-style: normal; color: #e3261c; background: #fff; animation: cr-in 160ms 760ms both; }
+.cr--s1 .cr-mark, .cr--s2 .cr-mark { animation: cr-mark-out 140ms 40ms ease-in forwards; }
+@keyframes cr-mark-out { to { opacity: 0; transform: scale(1.03); } }
+
+/* red blocks shove in from the right (700–900) */
+.cr-pre { position: absolute; background: #e3221f; opacity: 0; }
+.cr-pre--a { left: 1050px; top: 526px; width: 66px; height: 64px; animation: cr-blink 70ms 700ms forwards; }
+.cr-pre--b { left: 1254px; right: -1000px; top: -400px; bottom: -400px; animation: cr-blink 40ms 730ms forwards; }
+.cr-block { position: absolute; left: -1000px; width: 3280px; top: -400px; height: 1520px; animation: cr-block 160ms 750ms both;
+  background: radial-gradient(circle, rgba(0, 0, 0, .08) .9px, transparent 1.3px) 0 0 / 4px 4px, linear-gradient(180deg, #e4231f 0 53%, #d41c1a 53%); }
+@keyframes cr-block {
+  0% { clip-path: inset(0 0 0 2280px); animation-timing-function: cubic-bezier(.1, .7, .25, 1); }
+  80% { clip-path: inset(0 0 0 1000px); animation-timing-function: linear; }
+  100% { clip-path: inset(0 0 0 0); } }
+
+/* the arrow streaks left over the red (790–1260), its tail cut away from the right at the end */
+.cr-arrow { position: absolute; left: 0; top: 460px; width: 340px; height: 220px; opacity: 0; animation: cr-arrow 470ms 790ms forwards; }
+.cr-arrow i { position: absolute; inset: 0; background: linear-gradient(90deg, #ff2a10, #ff3a1c 60%, #f0261a);
+  clip-path: polygon(0 50%, 33% 0, 33% 34%, 100% 34%, 100% 66%, 33% 66%, 33% 100%); }
+@keyframes cr-arrow {
+  0% { opacity: 1; transform: translateX(620px); clip-path: inset(0); filter: url(#cr-mb); animation-timing-function: cubic-bezier(.2, .7, .3, 1); }
+  23% { transform: translateX(320px); filter: url(#cr-mb); }
+  51% { transform: translateX(150px); clip-path: inset(0); filter: none; animation-timing-function: linear; }
+  62% { clip-path: inset(0); }
+  99% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(40px); clip-path: inset(0 100% 0 0); } }
+
+/* CONTINGENCY wipes in from the right (880–1070) and drifts until the smear takes it (its end state is the smear's
+   texture, untransformed) */
+.cr-flood { position: absolute; left: -1000px; width: 3280px; top: -400px; height: 1520px; overflow: hidden; animation: cr-wipe 190ms 880ms both;
+  background: linear-gradient(180deg, #d01b1d 0 44%, #2a1415 66%); }
+.cr-flood img { position: absolute; left: 1000px; top: 400px; width: 1280px; height: 720px; animation: cr-flood-drift 950ms 880ms cubic-bezier(.25, .6, .35, 1) both; }
+@keyframes cr-flood-drift { from { transform: translateX(24px) scale(1.045); } }
+@keyframes cr-wipe {
+  0% { clip-path: inset(0 0 0 2280px); animation-timing-function: cubic-bezier(.25, .6, .3, 1); }
+  85% { clip-path: inset(0 0 0 1000px); animation-timing-function: linear; }
+  100% { clip-path: inset(0 0 0 0); } }
+.cr-flood-edge { position: absolute; left: 1280px; top: -400px; width: 150px; height: 1520px; opacity: 0;
+  background: linear-gradient(90deg, rgba(255, 70, 50, 0), rgba(255, 80, 60, .3) 70%, rgba(40, 5, 5, .35));
+  animation: cr-edge 165ms 880ms cubic-bezier(.25, .6, .3, 1) forwards; }
+@keyframes cr-edge { 0% { opacity: 1; } 90% { opacity: 1; } 100% { opacity: 0; transform: translateX(-1430px); } }
+
+/* ---- settlement ------------------------------------------------------------------------------------------------ */
+.cr-res { background: #050505; }
+.cr-smear { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;
+  /* 官方是 WebGL 把底图横向拉成丝；这里用同一块 canvas 上的 CSS 扫光，位置/生命周期与官方一致。 */
+  background: linear-gradient(90deg, transparent 0%, rgba(200, 26, 26, .55) 18%,
+    rgba(255, 255, 255, .28) 42%, rgba(200, 26, 26, .5) 66%, transparent 100%);
+  transform: translateX(-100%) skewX(-14deg); }
+.cr--s1 .cr-smear, .cr--s2 .cr-smear { animation: cr-smear-sweep 340ms cubic-bezier(.3, 0, .2, 1) forwards; }
+@keyframes cr-smear-sweep { from { transform: translateX(-100%) skewX(-14deg); opacity: .9; }
+  to { transform: translateX(100%) skewX(-14deg); opacity: 0; } }
+/* the plate starts where the smear leaves it, then keeps drifting */
+.cr-res__plate { animation: cr-plate 7s 340ms cubic-bezier(.2, .6, .3, 1) forwards; }
+@keyframes cr-plate { to { transform: scale(1.035) translateX(-16px); } }
+@keyframes cr-ghost { 0% { opacity: 0; transform: translateX(12px); } 12% { opacity: .4; } 26% { opacity: 1; } 100% { opacity: 1; transform: none; } }
+.cr-ui .cc-crumb { animation: cr-in 200ms 230ms both; }
+.cr-glitch { position: absolute; left: 0; top: 80px; width: 660px; height: 600px; pointer-events: none; opacity: 0;
+  background: repeating-linear-gradient(90deg, rgba(255, 60, 30, .35) 0 9px, transparent 9px 23px, rgba(255, 90, 60, .2) 23px 27px, transparent 27px 52px);
+  animation: cr-glitch 320ms 200ms steps(4) forwards; }
+@keyframes cr-glitch { 0% { opacity: .9; background-position: 0 0; } 50% { opacity: .6; background-position: 31px 0; } 100% { opacity: 0; background-position: -17px 0; } }
+
+.cr-head { position: absolute; left: 43px; top: 120px; width: 565px; display: flex; align-items: flex-end; justify-content: space-between; animation: cr-ghost 440ms 220ms cubic-bezier(.2, .6, .3, 1) both; }
+.cr-head b { position: relative; font-size: 46px; font-weight: 700; line-height: 1; color: #fff; text-shadow: 0 0 14px rgba(255, 120, 60, .6); }
+.cr-head__mark { position: absolute; left: 0; top: -22px; font-size: 13px; font-weight: 900; color: #ff8a3a; }
+.cr-head__lv { display: flex; gap: 4px; margin-bottom: 6px; }
+.cr-head__lv i { width: 22px; height: 18px; line-height: 18px; text-align: center; font-size: 10px; font-style: normal; color: #fff; background: #d8261c; }
+.cr-head__flare { position: absolute; left: -160px; top: -40px; width: 820px; height: 120px; pointer-events: none; mix-blend-mode: screen; opacity: 0;
+  background: radial-gradient(48% 14% at 28% 50%, rgba(255, 214, 160, .95), rgba(255, 130, 50, .5) 45%, transparent 75%),
+    radial-gradient(10% 45% at 28% 50%, rgba(255, 170, 90, .6), transparent 70%);
+  animation: cr-flare 900ms 230ms ease-out forwards; }
+@keyframes cr-flare { 0% { opacity: 0; transform: scaleX(.3); } 18% { opacity: 1; transform: scaleX(1.1); } 100% { opacity: 0; transform: scaleX(1.5); } }
+
+.cr-sum { position: absolute; left: 43px; top: 192px; width: 565px; height: 96px; display: flex; animation: cr-ghost 440ms 240ms cubic-bezier(.2, .6, .3, 1) both; }
+.cr-sum__red { position: relative; width: 345px; background: linear-gradient(90deg, #ef2a1e, #d61d14); }
+.cr-sum__red span { position: absolute; left: 14px; top: 10px; font-size: 13px; color: #fff; }
+.cr-sum__red em { position: absolute; left: 238px; top: 8px; padding: 0 5px; font-size: 11px; font-style: normal; color: #d61d14; background: #fff; }
+.cr-sum__red img { position: absolute; left: 14px; top: 34px; width: 60px; height: 54px; }
+.cr-sum__red b { position: absolute; right: 30px; top: 26px; font-size: 62px; line-height: 1; font-weight: 500; color: #fff; animation: cr-num 300ms 330ms cubic-bezier(.2, 1.4, .4, 1) both; }
+@keyframes cr-num { from { opacity: 0; transform: scale(.6); } }
+.cr-sum__time { position: relative; flex: 1; background: rgba(70, 70, 76, .85); }
+.cr-sum__time span { position: absolute; left: 14px; top: 10px; font-size: 13px; color: #ddd; }
+.cr-sum__time b { position: absolute; right: 16px; bottom: 12px; font-size: 30px; line-height: 1; font-weight: 500; color: #fff; }
+
+.cr-tags { position: absolute; left: 43px; top: 296px; width: 565px; height: 304px; box-sizing: border-box; padding: 22px 26px; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 18px 26px;
+  background: rgba(14, 14, 16, .88); animation: cr-ghost 440ms 250ms cubic-bezier(.2, .6, .3, 1) both; }
+/* each tag flashes in white and skewed, then settles */
+.cr-tag { width: 44px; height: 43px; animation: cr-tag 340ms calc(600ms + var(--i) * 55ms) ease-out both; }
+.cr-tag .cs-glyph { position: relative; }
+@keyframes cr-tag { 0% { opacity: 0; transform: scale(1.5) skewX(-20deg); filter: brightness(0) invert(1) blur(1px); }
+  35% { opacity: 1; transform: scale(1.05) skewX(-8deg); filter: brightness(0) invert(1) blur(0); } 100% { transform: none; filter: none; } }
+.cr-note { position: absolute; left: 43px; top: 608px; width: 565px; height: 32px; display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; padding: 0 12px;
+  background: rgba(14, 14, 16, .88); font-size: 13px; color: #eee; animation: cr-ghost 440ms 270ms cubic-bezier(.2, .6, .3, 1) both; }
+.cr-note i { display: inline-block; width: 16px; height: 16px; margin-right: 8px; border-radius: 50%; background: #fff; color: #111; font-size: 11px; font-style: normal; line-height: 16px; text-align: center; font-weight: 700; }
+.cr-note b { display: flex; align-items: center; gap: 4px; padding: 2px 8px; font-size: 15px; font-weight: 500; background: #3b2d1d; color: #ffc46a; }
+.cr-note b img { width: 14px; height: 14px; }
+
+/* the squad as the room's seat cards (css/screens/lobby.css .rseat, at the stage's 1rem ≈ 66.7px) */
+.cr-squad { position: absolute; left: 652px; top: 96px; display: flex; gap: 10px; }
+.cr-card { position: relative; width: 136px; display: flex; flex-direction: column; animation: cr-card 440ms calc(740ms + var(--i) * 75ms) cubic-bezier(.2, .7, .3, 1) both; }
+@keyframes cr-card { 0% { opacity: 0; transform: translateX(28px); } 30% { opacity: .45; } 60% { opacity: 1; } 100% { opacity: 1; transform: none; } }
+.cr-card__clip { position: absolute; left: 50%; top: -9px; z-index: 2; width: 11px; height: 13px; transform: translateX(-50%); box-sizing: border-box; background: #3a3e3d; border: 2px solid #1a1c1c; }
+.cr-card__strip { display: flex; align-items: center; justify-content: space-between; height: 17px; padding: 0 5px; background: #2b2e2e; }
+.cr-card__strip i { width: 33px; height: 4px; background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .45) 0 3px, transparent 3px 5px); }
+.cr-card__strip span { font-size: 10px; color: #8d9391; }
+.cr-card__art { position: relative; height: 392px; display: grid; place-items: center; overflow: hidden; background: linear-gradient(180deg, #1f2222, #141616); border: 2px solid #2b2e2e; border-top: 0; }
+.cr-card__art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 12%; }
+.cr-card__art::after { content: ''; position: absolute; inset: 50% 0 0; background: linear-gradient(180deg, transparent, rgba(0, 0, 0, .7)); pointer-events: none; }
+.cr-card__glyph { font-size: 60px; font-weight: 900; color: rgba(255, 255, 255, .25); }
+.cr-card__pill { position: absolute; top: 9px; left: 50%; z-index: 1; transform: translateX(-50%); padding: 1px 12px; font-size: 12px; font-weight: 800; color: #08221b; background: #4fe8c0; border-radius: 3px; white-space: nowrap; }
+.cr-card__state { position: absolute; left: 0; right: 0; bottom: 9px; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-size: 15px; font-weight: 900; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, .6); }
+.cr-card__state small { margin-right: -3px; font-size: 10px; font-weight: 700; opacity: .8; }
+.cr-card__box { display: grid; place-items: center; width: 20px; height: 20px; box-sizing: border-box; border: 2px solid currentColor; border-radius: 4px; background: rgba(0, 0, 0, .25); }
+.cr-card__box .icon { width: 80%; height: 80%; }
+.cr-card__plate { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 7px; align-items: center;
+  min-height: 50px; margin-top: 5px; padding: 4px 7px; box-sizing: border-box; background: linear-gradient(90deg, #232626, #161818); border: 1px solid rgba(255, 255, 255, .1); }
+.cr-card .cr-card__av { --av: 32px; grid-row: 1 / 3; }
+.cr-card__name { align-self: end; overflow: hidden; font-size: 12px; color: #eef0ef; text-overflow: ellipsis; white-space: nowrap; }
+.cr-card__doc { align-self: start; overflow: hidden; font-size: 8px; letter-spacing: .1em; color: #7f8583; text-overflow: ellipsis; white-space: nowrap; }
+.cr-card__me { position: absolute; left: -7px; top: -7px; z-index: 2; display: grid; place-items: center; width: 16px; height: 16px; color: #08221b; background: #4fe8c0; border-radius: 3px; }
+.cr-card__me .icon { width: 80%; height: 80%; }
+.cr-card.is-me .cr-card__plate { background: linear-gradient(90deg, #26302d, #161a19); }
+/* 行动成功: the room's 已就绪 look, and its green wash as each card lands */
+.cr-card.is-ready .cr-card__clip, .cr-card.is-ready .cr-card__strip { background: #4fe8c0; }
+.cr-card.is-ready .cr-card__strip i { background: repeating-linear-gradient(90deg, rgba(8, 34, 27, .6) 0 3px, transparent 3px 5px); }
+.cr-card.is-ready .cr-card__strip span { color: #08221b; }
+.cr-card.is-ready .cr-card__art { border-color: #4fe8c0; box-shadow: 0 0 13px rgba(79, 232, 192, .35); }
+.cr-card.is-ready .cr-card__art::after { background: linear-gradient(180deg, transparent, rgba(47, 207, 159, .85)); }
+.cr-card.is-ready .cr-card__plate { border-color: rgba(79, 232, 192, .55); }
+.cr-card.is-ready .cr-card__art::before { content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: linear-gradient(180deg, rgba(214, 255, 243, .95), rgba(79, 232, 192, .7)); animation: cr-wash 700ms calc(860ms + var(--i) * 75ms) ease-out both; }
+@keyframes cr-wash { 0% { opacity: 0; } 14% { opacity: 1; } 100% { opacity: 0; } }
+
+.cr-btns { position: absolute; right: 45px; top: 625px; display: flex; gap: 14px; animation: cr-ghost 440ms 330ms cubic-bezier(.2, .6, .3, 1) both; }
+.cr-btns button { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 22px; border: 0; border-radius: 17px; font: 500 14px/1 var(--cc-font) !important; cursor: pointer; }
+.cr-retry { color: #fff !important; background: rgba(40, 40, 44, .85) !important; }
+.cr-retry i { width: 12px; height: 12px; border: 2px solid #fff; border-right-color: transparent; border-radius: 50%; }
+.cr-done { min-width: 150px; justify-content: center; color: #222 !important; background: #f2f2f2 !important; }
+.cr-done i { width: 6px; height: 11px; border-right: 2.5px solid #222; border-bottom: 2.5px solid #222; transform: rotate(45deg); margin-top: -3px; }
+.cr-btns button:hover { filter: brightness(1.15); }

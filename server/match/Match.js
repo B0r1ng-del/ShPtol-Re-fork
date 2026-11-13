@@ -217,6 +217,7 @@ import { DEFAULT_VERSION, versionById } from '../../shared/versions.js';
 import { Battle } from '../sim/Battle.js';
 import { DataSource } from '../sim/simdata.js';
 import { createRng, deriveSeed } from '../sim/rng.js';
+import { applyCrisisBannedTiles } from './match/crisisTiles.js';
 import { GameData } from './gamedata.js';
 // 行为开关的合成（工坊 mod 层移植 2026-10-17）：多包同格时**包 id 字典序小的赢** —— 与数据记录 / kit / 图标 / 口径
 // 逐字同一条。`Match.behaviour` 与喂给 `GameData` 的那一份都来自它。
@@ -343,6 +344,16 @@ export class Match {
       ? opts.behaviour
       : mergeBehaviourDecls(opts.mods && Array.isArray(opts.mods.packs) ? opts.mods.packs : []).decl;
     this.gd = new GameData(this.data, this.modeId, opts.mods, opts.enemyBuff, behaviourDecl);
+    // 危机合约 (shared/crisis.js): the room's checked contract effects ride on the GameData so every battle spec this match
+    // builds carries them (flags.crisisFx). Absent for an ordinary room — the spec keeps its exact bytes, and a caller
+    // that passes no opts.crisis (golden scenarios, rehearsal tools, every test) behaves as before.
+    if (opts.crisis && opts.crisis.fx) this.gd.crisisFx = opts.crisis.fx;
+    // 弧光作战: the 开局种子 that fixes the enemy schedule (setupMatchWaves arcSeed); null for every other match
+    this.arcSeed = Number.isInteger(opts.arcSeed) && opts.arcSeed > 0 ? opts.arcSeed : null;
+    // 弧光作战 flag for the wave builder: its rounds use the season's own templates PLUS its fixed leaders, so the
+    // placeholder table that maps a template key to a slot must be the arc's own (waves.js arcPlaceholderMap) —
+    // the season's templateSlots point at 莱茵生命 enemies the arc templates never name.
+    if (this.arcSeed) this.gd.arcSeason = true;
     if (!this.difficulty) this.difficulty = this.gd.difficulty;
     this.isSolo = this.mode === 'solo' || this.gd.isSolo;
     /** 「AI 队友最后选择」 (opts.aiPicksLast, GitHub #338): humans draft before AI seats (MatchPhases.humansFirst) */
@@ -575,7 +586,7 @@ export class Match {
     this.loneHuman = this.order.filter((p) => !p.isBot).length === 1;
 
     // per-match setup (DESIGN §6.5)
-    const setup = setupMatchWaves(this.gd, this.rngSetup);
+    const setup = setupMatchWaves(this.gd, this.rngSetup, null, this.arcSeed);
     this.stageId = setup.stageId;
     this.stage = this.stageId ? this.gd.stage(this.stageId) : null;
     this.factions = setup.factions;
@@ -597,6 +608,17 @@ export class Match {
     // match (player/diy.js initDiyStock); no randomness is drawn here
     const off = new Set([...bans.drawn, ...bans.staticOff]);
     for (const ps of this.order) ps.initDiyStock(off);
+
+    // 危机合约 K2 封锁地带：第1回合休整开始就公开 1 个地面格 + 1 个高台格，整局封锁、同一局所有玩家相同、
+    // 由开局种子决定。★ 走引擎现成的 tileOverrides 通道（board.js:130 把它强制成 'none'），不新造封锁机制；
+    // ★ 开局即封锁，不把已站着的干员移出棋盘 —— 本函数跑在 LOBBY，棋盘还是空的。
+    if (this.gd.crisisFx && this.gd.crisisFx.K2 && this.stage) {
+      try {
+        this.crisisBannedTiles = applyCrisisBannedTiles(this, this.stage, this.seed);
+      } catch (e) {
+        this.reportError?.('crisis K2', e);
+      }
+    }
 
     this.phase = PHASE.LOBBY;
     this.round = 0;

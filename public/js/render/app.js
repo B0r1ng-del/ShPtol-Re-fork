@@ -158,7 +158,7 @@ import { TILE_H, TIER_COLORS, COLORS } from './style.js';
 import { loadBoardArt } from './boardArt.js';
 import { ImpostorAtlas } from './impostor.js';
 import { stepClipBounds } from './spine.js';
-import { loadThree, loadBoardPack, loadScenePack, webgl2Available, boardArtListed } from './board3d/load.js';
+import { loadThree, loadBoardPack, loadScenePack, loadThemePack, webgl2Available, boardArtListed } from './board3d/load.js';
 import { BoardScene } from './board3d/scene.js';
 import { layoutPen, penSignature } from './pen.js';
 import { IDENTITY, bossPrepField, tilesToDisp, circleToDisp, leaderStand } from './prepfield.js';
@@ -467,6 +467,10 @@ export async function createFieldView(host, options = {}) {
   function useOfficialScene(st) {
     const id = st && typeof st.id === 'string' ? st.id : '';
     if (!id || !board3d) return;
+    const theme = typeof st?.board3d?.theme === 'string' ? st.board3d.theme : null;
+    if (theme) loadThemePack(assets, theme).then((pack) => {
+      if (pack && !destroyed && board3d) board3d.setThemePack(theme, pack);
+    }).catch(() => {});
     loadScenePack(assets, id).then((scene) => {
       if (scene && !destroyed && board3d && stageRec && stageRec.id === id) board3d.setScenePack(id, scene);
     }).catch(() => {});

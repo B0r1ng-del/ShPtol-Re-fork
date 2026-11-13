@@ -30,6 +30,15 @@ const check = process.argv.includes('--check');
  * one direction and miss the other (六.3 shipped exactly that bug).
  */
 const LAYER = [
+  // 危机合约 #4「弧光作战」的专属战场 custom_cc4_focus（tools/fork-stage-cc4.mjs）—— 官方 gamedata 里没有这张图
+  // （levels/activities/custom_cc4/… 是 404），它随活动数据发布，只能作为 fork 层的一条记录存在。
+  { name: 'stages-crisis', what: 'custom_cc4_focus', needs: (j) => j && typeof j === 'object' },
+  // 危机合约 #4 的两个固定领袖：敌人记录 / boss 记录 / 它们的波次模板（官方 autoChessData 里没有）
+  { name: 'enemies', what: 'arc leaders', needs: (j) => j && typeof j === 'object' },
+  // 弧光专属敌人：只进 enemies-crisis（契约专用，不进本季抽取池，否则 golden 漂移）
+  { name: 'enemies-crisis', what: 'arc crisis-only enemies', needs: (j) => j && typeof j === 'object' },
+  { name: 'bosses', what: 'boss_arc1/arc2', needs: (j) => j && typeof j === 'object' },
+  { name: 'waves', what: 'arc_boss_* templates', needs: (j) => j && typeof j === 'object' },
   { name: 'config', what: 'modes', needs: (j) => j.modes && typeof j.modes === 'object' },
   { name: 'choices', what: 'schedule', needs: (j) => j.schedule && typeof j.schedule === 'object' },
   // 二.8: the extra 自选编队 slot pairs (`…_diyN_a` / `…_diyN_b`). The file is keyed by chess id and the build writes

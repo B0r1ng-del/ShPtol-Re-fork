@@ -270,7 +270,8 @@ test('限伤: a browser pool (client-side combat) behaves the same; the field st
 
 test('IsBossEnemy ⇔ tag \'boss\': every tag-\'boss\' spawn of a boss / hidden template is a bosses.json enemyKey; parts and escorts never are', () => {
   const leaders = new Set(Object.values(DATA.bosses).map((x) => x.enemyKey));
-  assert.equal(leaders.size, 10);
+  // 10 卫戍协议本季领袖 + 危机合约 #4 的两个固定领袖（多萝西 / “唤醒”，enemyKey 各不同）⇒ 12 个 enemyKey
+  assert.equal(leaders.size, 12);
   const parts = new Set(Object.values(DATA.bosses).flatMap((x) => x.parts || []));
   for (const [id, t] of Object.entries(DATA.waves)) {
     if (!t || !Array.isArray(t.spawns) || (t.kind !== 'boss' && t.kind !== 'hidden')) continue;

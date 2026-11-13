@@ -99,6 +99,14 @@ export class MatchViews {
       // changed (the 本局禁用 discs of `noBondBan`, the missing 机变 clock of `untimedSp`). Sent on every frame like
       // hostConfig: they never change mid-match.
       mods: { ...this.mods },
+      // 危机合约局内状态：本回合被标记的精英（R4）与承压位（U1）。
+      // 只有真装了对应合约才写键 —— 普通房间的帧必须逐字节不变（写 null 也会让 golden 漂移）。
+      ...(this.crisisMarkThisRound && this.gd.crisisFx && this.gd.crisisFx.R4
+        ? { crisisMark: this.crisisMarkThisRound }
+        : {}),
+      ...(this.crisisPressureThisRound && this.gd.crisisFx && this.gd.crisisFx.U1
+        ? { crisisPressure: this.crisisPressureThisRound }
+        : {}),
       stageId: this.stageId,
       // a non-default official version's match (DESIGN §35.23): its registry id, so a page that never saw the room (a
       // reload after it closed: the lobby's result replay) reads the frames with that version's data; absent for the

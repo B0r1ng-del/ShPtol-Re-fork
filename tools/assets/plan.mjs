@@ -797,6 +797,17 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
   // Kept out of `bgm` below when the index has neither bank, so the manifest stays valid for an older audio_data.
   const combatAlts = ['battle.ON_GAME_READY.bat_kazimierz2_1', 'battle.ON_GAME_READY.bat_kazimierz2_2']
     .map((n) => flatBgm(bgmLeaf(n))).filter(Boolean);
+  // 弧光作战 BGM: the season's own two tracks, shipped with this project (owner-provided) rather than drawn from the
+  // official audio index, so they get a hand-built leaf: `rel` under public/assets, one URL that is the file itself.
+  // A track whose file is absent stays out of `bgm` ⇒ audio.js _startBgm's `if (!loop) return` skips it silently,
+  // which is exactly what 重燃's three LOCAL-PREVIEW-ONLY tracks need (they were never on the CDN).
+  // ★ The two files are committed under public/assets/local/cc4-arclight/audio/ (8964524 B / 7241324 B), so no
+  // existence probe is needed here: a missing file would be caught by the asset verifier, not at plan time.
+  const localBgm = (file, bytes) => leaf(alt('local/cc4-arclight/audio/' + file, '/assets/local/cc4-arclight/audio/' + file, bytes));
+  const arcBgm = {
+    arcLobby: localBgm('battleplan.mp3', 8964524),
+    arcCombat: localBgm('leviation.mp3', 7241324),
+  };
   const bgm = {
     lobby: flatBgm(bgmLeaf('sys.ON_ACTIVITY_LOADED.act2autochess')),
     prep: flatBgm(bgmLeaf('battle.ON_GAME_READY.act1autochess_shop')),
@@ -804,6 +815,7 @@ export function buildPlan({ assets07, ops03, enemies05, maps05, audio, modelsDat
     boss: flatBgm(bgmLeaf('battle.ON_GAME_READY.rglk1phantomcastle')),
     ...(combatAlts.length ? { combatAlts } : {}),
     ...(unite ? { unite } : {}),
+    ...Object.fromEntries(Object.entries(arcBgm).filter(([, v]) => v)),
   };
   const bossBgm = {};
   for (const lv of Object.values(maps05?.roundLevels || {})) {

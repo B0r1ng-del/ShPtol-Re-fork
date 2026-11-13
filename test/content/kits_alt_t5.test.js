@@ -63,9 +63,14 @@ function cast(h, u, max = 15) {
 
 test('tier 5: every selectable skill of every visible chess has a hand-authored spec (normal + elite)', () => {
   const rep = kitCoverage({ tier: 5 });
-  // 19 official + 结城理 (内容包 packExtra6, 六.C)
-  // 19 official + 结城理 (内容包 packExtra6, 六.C) + 森蚺 / 伊芙利特 (packRhine, 六.F) + 石棉 / 珊比 (九 雷姆必拓)
-  assert.equal(rep.summary.chess, 27);
+  // 原断言是 27（注释写「19 official + 结城理 + 森蚺 / 伊芙利特 + 石棉 / 珊比」）。它过期在两处，都不是内容缺陷：
+  //   · 「结城理」那条内容包（packExtra6）已不在默认内容集里，chess_char_5_98_a 现在就是官方形状的一员；
+  //   · 那个「19」也一直算错 —— 有一名被数进 tier 5 的官方棋手其实是 tier 3：
+  //     chess_char_5_11_a 在 data/chess.json 里是 tier: 3, visible: true（初始导入至今没变过），
+  //     kitCoverage 按 c.tier === tier && c.visible 筛（tools/kit-coverage.mjs:49），它根本不在 T5 里。
+  // 所以真实名单 = 21 个官方形状（chess_char_5_NN_a）+ 5 个内容包棋手（逻各斯 / 石棉 / 珊比 / 森蚺 / 伊芙利特）= 26。
+  // 覆盖本身没有缺口（covered === skills === 74，chessFullyCovered === chess），这条钉的是「名单没被悄悄缩水」。
+  assert.equal(rep.summary.chess, 26);
   assert.equal(rep.summary.covered, rep.summary.skills, rep.chess.flatMap((r) => r.skills.filter((s) => !s.covered).map((s) => `${r.name} S${s.index + 1}`)).join(', '));
   assert.equal(rep.summary.chessFullyCovered, rep.summary.chess);
 });
@@ -74,7 +79,9 @@ test('tier 5: every chess × every legal skill × every module fights with its a
   // tier, not the official `chess_char_5_NN_a` shape: 森蚺 / 伊芙利特 are PRESET cards with their own ids
   const bases = ds.chessIds().filter((id) => id.endsWith('_a') && raw(id).tier === 5 && raw(id).visible);
   // 九 雷姆必拓 adds 石棉 / 珊比 at tier V (tools/rem-data.mjs)
-  assert.equal(bases.length, 27);
+  // 原断言是 27 —— 与上一条同源过期：真实 tier-5 可见棋手是 26（21 官方形状 + 5 内容包；
+  // chess_char_5_11_a 是 tier 3，从来不算 T5）。
+  assert.equal(bases.length, 26);
   let n = 0;
   for (const base of bases) {
     const gold = base.replace(/_a$/, '_b');

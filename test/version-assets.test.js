@@ -9,11 +9,24 @@ import { fxFixture } from './helpers/fxFixtures.js';
 
 const root = path.resolve(import.meta.dirname, '..');
 const assets = JSON.parse(readFileSync(path.join(root, 'data/assets.json'), 'utf8'));
+/** The same probe the other local-extract suites use: Windows has no python3 alias, only python / py. */
+const PY = ['python3', 'python'].find((bin) => spawnSync(bin, ['--version']).status === 0);
+
+// The fork's content packs (东国 / 莱茵 / REM / 喀兹戴尔) add tokens and items whose Spine models and icons were
+// never shipped with the repository — packs/ now holds only its README, and no source art exists for
+// token_rhine_{medical,energy,laser} or chess_item_9_0*_e_*. They are declared by the content data, so coverage
+// reports them; that is a known content-pack gap, not a version-data regression. This test guards the OFFICIAL
+// version corpus, so it filters those ids out and pins the remainder at zero.
+const PACK_ONLY = /^token_rhine_(medical|energy|laser)$|^chess_item_9_\d+_e_[ab]$/;
 
 test('every official version declares comparable pictures, models, clips, icons and scenes without installed art', () => {
   const result = assetCoverage({ root, local: { groups: {} } });
   assert.equal(result.versions.length, 4);
-  assert.deepEqual(result.missing.map((r) => `${r.version} ${r.id}: ${r.missing}`), []);
+  const official = result.missing.filter((r) => !PACK_ONLY.test(r.id)).map((r) => `${r.version} ${r.id}: ${r.missing}`);
+  assert.deepEqual(official, []);
+  // the content-pack gap is still visible, so a real regression cannot hide behind the filter
+  const packOnly = result.missing.filter((r) => PACK_ONLY.test(r.id));
+  assert.equal(packOnly.length, result.missing.length, 'only the known content-pack ids may be missing');
 });
 
 test('coverage fails for missing earlier-version pictures, model, skill icon, enemy and strategy art', () => {
@@ -27,17 +40,22 @@ test('coverage fails for missing earlier-version pictures, model, skill icon, en
     else delete broken[kind][id];
     const result = assetCoverage({ root, assets: broken, local: { groups: {} } });
     assert.ok(result.missing.some((r) => r.version === 'act1autochess'), `${kind}.${id}.${field}`);
-    assert.equal(result.versions[0].missing, 0, 'the default roster alone would not detect this regression');
+    // 第一期下半 must be the version that detects it (the default carries the known content-pack gaps, so its
+    // count proves nothing). One deleted asset legitimately breaks several rows — an operator's avatar is also
+    // reached through the chess records that name its charId — so the bar is "> 0 on act1" plus "no pack-only id".
+    const act1Rows = result.missing.filter((r) => r.version === 'act1autochess');
+    assert.ok(act1Rows.length > 0, `${kind}.${id}.${field} is detected on 第一期下半`);
+    assert.ok(act1Rows.every((r) => !PACK_ONLY.test(r.id)), `${kind}.${id}.${field}: only real ids break`);
   }
 });
 
 test('presentation union retains the operators behind reused chess ids and their skills', () => {
   const sets = versionAssetData(root), all = presentationUnion(sets);
-  assert.equal(Object.keys(all.operators).length, 229);
+  assert.equal(Object.keys(all.operators).length, 246); // content packs add 17 operators since the 229 baseline
   assert.ok(all.operators.char_198_blackd.skills.some((s) => s.skillId === 'skchr_blackd_2'));
   assert.ok(all.enemies.enemy_1254_lypa);
   assert.ok(all.bands.band_zumama);
-  assert.equal(Object.keys(all.tokens).length, 60, 'including enemy/char-backed summons');
+  assert.equal(Object.keys(all.tokens).length, 64, 'including enemy/char-backed summons; content packs add 4');
 });
 
 test('add-only keeps existing nested values, arrays and null while admitting new identities', () => {
@@ -55,7 +73,7 @@ test('fx discovery includes each season even when their chess ids collide', (t) 
     char_9001_current: { skills: [{ skillId: 'sk_shared[3]' }] },
     char_9002_earlier: { skills: [{ skillId: 'sk_shared[3]', overridePrefabKey: 'skchr_earlier_1' }] },
   });
-  const r = spawnSync('python3', ['-B', '-c', `import sys,json\nsys.path.insert(0,${JSON.stringify(path.join(root, 'tools/local-extract'))})\nimport fx\nprint(json.dumps(fx.game_data(${JSON.stringify(f.root)})))`], { encoding: 'utf8' });
+  const r = spawnSync(PY ?? 'python3', ['-B', '-c', `import sys,json\nsys.path.insert(0,${JSON.stringify(path.join(root, 'tools/local-extract'))})\nimport fx\nprint(json.dumps(fx.game_data(${JSON.stringify(f.root)})))`], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   const gd = JSON.parse(r.stdout);
   assert.deepEqual(gd.chars, ['char_9001_current', 'char_9002_earlier']);
@@ -104,6 +122,6 @@ assert json.loads((dest/'textures.json').read_text())['textures']['shared']==tex
 assert json.loads(manifest.read_text())['groups']['fx/tex']==groups['fx/tex']
 assert (dest/'untouched.bin').read_bytes()==b'keep'
 `;
-  const r = spawnSync('python3', ['-B', '-c', script], { encoding: 'utf8' });
+  const r = spawnSync(PY ?? 'python3', ['-B', '-c', script], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
 });

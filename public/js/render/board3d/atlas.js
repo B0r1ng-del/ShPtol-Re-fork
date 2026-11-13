@@ -19,6 +19,9 @@
 export const SOURCES = Object.freeze({
   D: Object.freeze({ w: 2048, h: 2048 }),
   common: Object.freeze({ w: 1024, h: 1024 }),
+  // a stage's own board theme (stage.board3d.theme, load.js loadThemePack): TX_<theme>_D / TX_<theme>_common_D
+  theme: Object.freeze({ w: 2048, h: 2048 }),
+  themeCommon: Object.freeze({ w: 1024, h: 1024 }),
 });
 
 const S = (src, rect, o = {}) => Object.freeze({ src, rect: Object.freeze(rect), ...o });

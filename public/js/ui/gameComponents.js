@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from '../../vendor/hooks.module.js';
 import { html, Icon, TierChip, Tooltip } from './components.js';
-import { data, useData, localAsset } from '../data.js';
+import { data, useData, localAsset, getStage } from '../data.js';
 import { parseRichText, rtClassName } from './richText.js';
 import { t as tr } from '../../../shared/i18n.js';
 import { useStore } from '../store.js';
@@ -17,7 +17,10 @@ import { portraitUrlOf, avatarUrlOf, currentAppearanceLookup } from './portraitC
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /** Data files the in-match screens use (`backups`: the 补位 stand-ins' bodies — cards, the board model, the detail card). */
-export const GAME_FILES = ['config', 'assets', 'chess', 'bonds', 'items', 'bands', 'enemies', 'bosses', 'stages', 'tokens',
+// ★ stages-crisis 也要预热：危机合约 #4 的专属战场在 data/stages-crisis.json 里（与 stages 分开，见 data.js getStage）
+// ★ enemies-crisis 也要：弧光的契约敌人（多萝西 / “唤醒”）在 data/enemies-crisis.json，与 enemies 同一种拆分。
+//   少了它，「本局遭遇敌方」的领袖头像是 `?`，因为 gd.enemy(boss.enemyKey) 查不到（用户 2026-11-13 实测）。
+export const GAME_FILES = ['config', 'assets', 'chess', 'bonds', 'items', 'bands', 'enemies', 'enemies-crisis', 'bosses', 'stages', 'stages-crisis', 'tokens',
   'choices', 'effects', 'garrisons', 'factions', 'local', 'backups'];
 
 /**
@@ -49,9 +52,10 @@ export function makeLookups(ready = true) {
     bond: (id) => data.lookup('bonds', id),
     item: (id) => data.lookup('items', id),
     band: (id) => data.lookup('bands', id),
-    enemy: (k) => data.lookup('enemies', k),
+    // 契约敌人（弧光）在 enemies-crisis：界面查敌人记录必须两表都看，否则领袖头像 / 图鉴是空的
+    enemy: (k) => data.lookup('enemies', k) || data.lookup('enemies-crisis', k),
     boss: (id) => data.lookup('bosses', id),
-    stage: (id) => data.lookup('stages', id),
+    stage: (id) => getStage(id),
     // (a 自选 operator's summons are data/backups.json tokens — 0.2.0, the hand piece of a placeable one)
     token: (id) => data.lookup('tokens', id) || diyToken(id),
     effect: (id) => data.lookup('effects', id),

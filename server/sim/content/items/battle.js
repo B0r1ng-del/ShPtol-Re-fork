@@ -370,6 +370,20 @@ export function deploymentOf(u) { return `${u.deploySeq}`; }
 export function reviveNow(battle, c, by) {
   const u = c && c.unit;
   if (!u || c.reason !== 'killed' || c.revivedBy || !isOp(u) || u.alive || u.removed) return false;
+  // 危机合约 E3 复起延迟：击倒时立刻生效的复活改为 delay 秒后生效，次数与效果不变；
+  // 这期间干员离场、不可被选中、不阻挡；战斗在 delay 内结束则不消耗复活次数。
+  // ★ 引擎只读一个数（battle.flags.crisisReviveDelay），不含任何 crisis 分支。
+  const delay = Number(battle.flags && battle.flags.crisisReviveDelay);
+  if (Number.isFinite(delay) && delay > 0) {
+    // 先占位（revivedBy 立刻打上 ⇒ 同一次击倒不会被第二个复活源重复消费），真正的复活延后。
+    c.revivedBy = by;
+    battle.after(delay, () => {
+      // 战斗已结束 / 干员被别处处理掉 ⇒ 不再复活（"战斗在3秒内结束则不消耗复活次数"）
+      if (!battle || battle.ended || u.removed || u.alive) return;
+      battle.redeploy(u, { free: true });
+    });
+    return true;
+  }
   if (!battle.redeploy(u, { free: true })) return false;
   c.revivedBy = by;
   return true;

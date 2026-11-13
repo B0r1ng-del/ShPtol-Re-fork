@@ -1,3 +1,7 @@
+
+// Windows 上 `python3` 可能是 Microsoft Store 的占位程序：`--version` 直接退出 9009，
+// 真正的解释器是 `python`。先探测可用的那个，别假定 python3 存在。
+const PY = ['python3', 'python'].find((bin) => spawnSync(bin, ['--version'], { encoding: 'utf8' }).status === 0);
 // #572: --game accepts an install directory (and "Arknights Game"), and the next lookup reads the remembered path.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -93,7 +97,7 @@ test('#572 extract.py resolves the same install directory and the same Windows l
       'rows = [resolve_game_dir(p) for p in sys.argv[2:]]',
       'print(json.dumps({"suffixes": windows_candidate_suffixes(), "rows": [str(r) if r else None for r in rows]}))',
     ].join('\n');
-    const py = spawnSync('python3', ['-c', script, path.join('tools', 'local-extract'), install, parent, ab], { encoding: 'utf8' });
+    const py = spawnSync(PY, ['-c', script, path.join('tools', 'local-extract'), install, parent, ab], { encoding: 'utf8' });
     assert.equal(py.status, 0, py.stderr || py.stdout);
     const out = JSON.parse(py.stdout);
     const suffixes = windowsCandidateSuffixes();

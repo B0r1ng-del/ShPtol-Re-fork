@@ -1,7 +1,7 @@
 // Separate processes exercise the same isolation boundary as official version hosts.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { closeSync, openSync, readFileSync, unlinkSync } from 'node:fs';
+import { closeSync, existsSync, openSync, readFileSync, unlinkSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -11,6 +11,14 @@ import { VERSIONS, versionSlug } from '../shared/versions.js';
 const root = fileURLToPath(new URL('..', import.meta.url));
 const families = ['roster', 'bonds', 'fields', 'matches', 'standins', 'diy'];
 
+// A real Node binary for child processes that must produce stdout. process.execPath is the Electron host
+// under the DSH harness and drops child stdout there; the repo's own `npm test` also runs on plain node.
+const NODE_BIN = (() => {
+  const cands = [process.env.SP_NODE, 'C:/Program Files/nodejs/node.exe', 'C:/Program Files (x86)/nodejs/node.exe'];
+  for (const c of cands) if (c && existsSync(c)) return c;
+  return process.execPath;
+})();
+
 /** Run `golden --list` with stdout and stderr on files. A file write finishes before process.exit. */
 function spawnGoldenList(versionId) {
   const stamp = `${process.pid}-${versionId.replace(/[^A-Za-z0-9_.-]/g, '_')}`;
@@ -19,7 +27,10 @@ function spawnGoldenList(versionId) {
   const outFd = openSync(outPath, 'w');
   const errFd = openSync(errPath, 'w');
   try {
-    const list = spawnSync(process.execPath, ['tools/golden.mjs', '--version', versionId, '--list'], {
+    // NOT process.execPath: under the Electron harness that is `DeepSeek Harness.exe`, which silently drops
+    // a child's stdout (measured: `process.stdout.write('x')` came back as just a newline, and writeFileSync
+    // never landed). That made --list look empty and the corpus look stale. Use a real node when we can find one.
+    const list = spawnSync(NODE_BIN, ['tools/golden.mjs', '--version', versionId, '--list'], {
       cwd: root, stdio: ['ignore', outFd, errFd], timeout: 120000,
     });
     return {

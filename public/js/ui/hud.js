@@ -30,6 +30,7 @@
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { PHASE } from '../../../shared/constants.js';
 import { html, Button, Icon, PingPill, Countdown, Tooltip, MicroLabel, DifficultyTag, Modal, useTicker } from './components.js';
+import { CrisisTagStrip } from './crisisTags.js';
 import { Sprite, LpTower, GIcon, LocalSprite } from './gameComponents.js';
 import { data, localAsset } from '../data.js';
 import { uiUrl } from './assetUrls.js';
@@ -487,7 +488,8 @@ export function PauseButton({ paused, busy = false, onToggle }) {
  */
 function TopBarImpl({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, onReady, readyBusy, readyCount, playerCount, pen = false, penAvail = false, onPen = () => {},
   config = null, frozenAt = null, pause = null, live = null, spectator = false,
-  spectators = null, myId = null, isHost = false, tools = null, onRemoveSpectator = null, room = null, held = false }) {
+  spectators = null, myId = null, isHost = false, tools = null, onRemoveSpectator = null, room = null, held = false,
+  crisis = null }) {
   const phase = pub?.phase;
   const boss = isBossPhase(phase);
   const lp = boss && Number.isFinite(pub?.teamLp) ? pub.teamLp : Number.isFinite(priv?.lp) ? priv.lp : null;
@@ -524,10 +526,13 @@ function TopBarImpl({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, onR
         <${UnofficialMark} room=${room} compact=${true} class="gtop__mod" />
         ${ruleLine(room?.content?.rules) ? html`<span class="gtop__rules" data-testid="plugin-rules">${ruleLine(room?.content?.rules)}</span>` : null}
       </div>
-      ${tools}
     </div>
 
     <div class="gtop__center">
+      ${/* 本局词条预览（需求方 2026-11-13）：改成顶栏左侧常驻预览，挂在「本局信息」放大镜的**左边**，
+             与放大镜同一套 frame 样式（同高、同一层）。原来的右侧数字按钮随之移除。 */''}
+      ${crisis && Array.isArray(crisis.tags) && crisis.tags.length
+        ? html`<span class="gtop__tags" data-testid="cc-tags-preview"><${CrisisTagStrip} crisis=${crisis} /></span>` : null}
       <span class="gtop__frame gtop__frame--l">
         <${Tooltip} text=${btn.left.tip} placement="bottom">
           <${CheckBtn} sprite=${btn.left.sprite} cls=${cx('gtop__iconbtn', btn.left.back && 'is-back')} label=${btn.left.label}
@@ -564,6 +569,7 @@ function TopBarImpl({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, onR
     </div>
 
     <div class="gtop__right">
+      ${/* 「本局词条」入口已移到左侧放大镜左边（需求方 2026-11-13），这里不再放。 */''}
       <div class="gtop__clock">
         ${frozenSecs != null
           ? html`<${Countdown} seconds=${frozenSecs} total=${total ?? undefined} size="md" label="PAUSED" />`
@@ -571,6 +577,8 @@ function TopBarImpl({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, onR
         ${pause && (pause.show || pause.paused) ? html`<${PauseButton} paused=${!!pause.paused} busy=${pause.busy} onToggle=${pause.onToggle} />` : null}
       </div>
       <${OvertimeWarning} ot=${ot} />
+      ${/* 工具按钮（设置/玩法说明/全屏/作战统计）从顶栏左侧移到「准备就绪」**上方**（需求方 2026-11-13）。 */''}
+      ${tools ? html`<div class="gtop__tools">${tools}</div>` : null}
       ${showReady ? html`<${ReadyToggle} priv=${priv} onToggle=${onReady} busy=${readyBusy} readyCount=${readyCount} total=${playerCount} />` : null}
     </div>
     ${html`<div class="modslot" data-mod-slot="screen.game.hud"></div>`}

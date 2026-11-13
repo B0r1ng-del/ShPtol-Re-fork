@@ -170,8 +170,9 @@ export class FxSim {
         // a line of burning tiles through the anchor tile along `axis` ('col' | 'row', from the sim event)
         const rect = this.ctx.fieldRect ? this.ctx.fieldRect() : null;
         const owner = this._viewOf(ex.id);
-        this.tileFlash(wallTiles(Number(x), Number(y), ex.axis === 'row' ? 'row' : 'col', rect), col, Math.max(0.6, dur || 1.5), false,
-          owner ? { owner, axis: ex.axis, dir: ex.dir || owner.dir } : null);
+        // A wall outlives its nominal duration: zones.js _updateTileFlashes keeps it while wall.owner has the skill.
+        this.tileFlash(wallTiles(Number(x), Number(y), ex.axis === 'row' ? 'row' : 'col', rect), col, Infinity, false,
+          owner ? { owner, wall: { owner, axis: ex.axis, dir: ex.dir || owner.dir }, axis: ex.axis, dir: ex.dir || owner.dir } : null);
         break;
       }
       case 'telegraph': {

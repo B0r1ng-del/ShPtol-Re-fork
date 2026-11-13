@@ -105,5 +105,7 @@ test('ui/hud.js useCapsuleFx: a phase change while the HUD is held waits and pla
   assert.match(hud, /function useCapsuleFx\(phase, round, held = false\) \{/);
   assert.match(hud, /if \(s\.key !== key && !\(held && s\.key !== null\)\) \{/);
   assert.match(hud, /const fx = useCapsuleFx\(phase, pub\?\.round, held\);/);
-  assert.match(hud, /onRemoveSpectator = null, room = null, held = false \}\) \{/);
+  // ★ 签名尾部容忍后续追加的参数（crisis 等）：这里只断言「held = false 之后紧跟收尾」，
+  //   旧写法钉死了 `held = false }) {`，一旦后面再加一个默认参数就会误报。
+  assert.match(hud, /onRemoveSpectator = null, room = null, held = false,\s*\n?\s*crisis = null \}\) \{/);
 });

@@ -30,8 +30,11 @@ const HOW = 'an intended change of the default version must regenerate test/fixt
   + 'SP_UPDATE_GUARD=1 node --test test/versions-default-guard.test.js and give the reason in the commit';
 
 /** The gameplay data files of the default version (gameplayDataFiles: data/*.json without the presentation files). */
-const GAMEPLAY = ['backups', 'bands', 'bonds', 'bosses', 'chess', 'choices', 'config', 'effects', 'enemies', 'factions',
-  'garrisons', 'items', 'stages', 'tokens', 'tuning', 'waves'];
+// enemies-crisis joined in 危机合约: server/match/gamedata.js reads it as gameplay data (contract-only enemies), so
+// it belongs to cs. data/skins-installed.json is this machine's extracted-skin list (tools/install-skins.mjs) and is
+// PRESENTATION_DATA, like assets / local-assets — it never enters cs.
+const GAMEPLAY = ['backups', 'bands', 'bonds', 'bosses', 'chess', 'choices', 'config', 'effects', 'enemies', 'enemies-crisis',
+  'factions', 'garrisons', 'items', 'stages', 'tokens', 'tuning', 'waves'];
 
 const VERSION_ENV = ['SP_VERSIONS', 'SP_VERSION_DEFAULT', 'SP_MAX_VERSION_HOSTS'];
 const HEX64 = /^[0-9a-f]{64}$/;

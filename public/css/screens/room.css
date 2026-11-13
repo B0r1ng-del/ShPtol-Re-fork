@@ -630,6 +630,10 @@
    the markup rendered the classes but nothing styled them, so the "two columns" were one. Both live here now. */
 .mods__rows { display: grid; grid-template-columns: 1fr 1fr; gap: .12rem .24rem; align-items: start; }
 .mods__col { display: flex; flex-direction: column; gap: .12rem; min-width: 0; }
+/* 对齐到房间那套包 (W-D)：RoomModsPanel 的那一行。组件随 v0.3.2 合并丢失时样式也一起没了，这里补回；
+   它是座位区与底栏之间的一条窄条（只在房间声明了集合时出现，干净安装上组件渲染 null、没有这一块）。 */
+.roomalign { display: flex; align-items: center; justify-content: center; gap: .12rem; padding: .06rem .16rem; font-size: calc(.16 * var(--t)); color: var(--t-dim); }
+.roomalign__text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .room-bar__right { display: flex; align-items: center; justify-content: flex-end; gap: .14rem; }
 .rs-go.proto-start { flex: none; width: min(4.6rem, 40vw); }
 /* the label (§35.18 review: it shared 选择模拟协议's wrapping label by accident, and on a phone a fixed 46 px button then cut

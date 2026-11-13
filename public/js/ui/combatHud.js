@@ -15,6 +15,7 @@ import { GIcon } from './gameComponents.js';
 import { switcherLabel, cycleField } from './gameLogic.js';
 import { t } from '../../../shared/i18n.js';
 import { KazdelCannonHud } from './kazdelHud.js';
+import { GravityHud } from './gravityHud.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -46,6 +47,7 @@ export function CombatHud({ pub, myId, watching, hud, myDone, onWatch, spectatin
   return html`<div class="chud">
     <${DpCounter} dp=${hud?.dp} />
     <${KazdelCannonHud} states=${hud?.kazdel} players=${pub?.players || []} gameTime=${hud?.gameTime || 0} />
+    <${GravityHud} grav=${hud?.grav} />
     <div class="chud__bottom">
       ${myDone ? html`<div class="chud__msg" role="status"><${Icon} name="hourglass" /><span>${t('作战结束，等待队友完成作战')}</span></div>` : null}
       ${spectating ? (spectator ? html`<div class="chud__msg" role="status"><${GIcon} name="eye" /><span>${t('观战中')}</span></div>`
@@ -75,6 +77,7 @@ function ClientHud({ hud, myDone, spectating, spectator = false, client, players
   return html`<div class="chud">
     <${DpCounter} dp=${hud?.dp} />
     <${KazdelCannonHud} states=${hud?.kazdel} players=${players} gameTime=${hud?.gameTime || 0} />
+    <${GravityHud} grav=${hud?.grav} />
     <div class="chud__bottom">
       ${myDone && !observing ? html`<div class="chud__msg chud__wait" role="status"><${Icon} name="hourglass" /><span>${t('作战结束，等待队友完成作战')}</span></div>
         <${ProgressList} list=${client.progress} />` : null}

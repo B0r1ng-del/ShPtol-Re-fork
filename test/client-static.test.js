@@ -1131,7 +1131,12 @@ describe('screen helpers', () => {
 
   test('lobby: the mode cards are 独立模拟 / 同盟模拟 / 终极模拟 — the last one the fork\'s six-博士 room', async () => {
     const { MODE_CARDS } = await mod('screens/lobby.js');
-    assert.deepEqual(MODE_CARDS.map((c) => c.id), ['solo', 'coop', 'ultimate']);
+    // ★ 2026-11-06: 危机合约移植后 MODE_CARDS 同时是 lobby hub 的入口表（HubEntry 按 `card.banner` 分流），
+    // 所以它还会带上危机合约的两张 `.cc-card` 入口（crisis / crisisArc，openMode 里各有分支）。
+    // 这里断言的是「协议模式三张牌」这一段，用 slice 取前三张，而不是放大成「整表只有三张」。
+    assert.deepEqual(MODE_CARDS.map((c) => c.id).slice(0, 3), ['solo', 'coop', 'ultimate']);
+    assert.deepEqual(MODE_CARDS.map((c) => c.id).slice(3), ['crisis', 'crisisArc'],
+      '危机合约的两个入口接在模式牌之后（crisis-event.css 的 .cc-card 版式，不是模式卡）');
     const ult = MODE_CARDS.find((c) => c.id === 'ultimate');
     assert.equal(ult.name, '扩展模拟');
     assert.equal(ult.en, 'EXTENDED SIMULATION');

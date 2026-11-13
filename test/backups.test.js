@@ -16,7 +16,7 @@ import { standInRecord, composeUnitRecord, unitForm, statusKey, IDENTITY_FIELDS 
 import { diyRecordOf, lockedSelection } from '../shared/diy.js';
 import { composeStats, composeTalents, resolveLoadout, loadoutRecord, normalizeChess } from '../server/sim/simdata.js';
 import { FORK_DIY_SLOT_IDS } from '../tools/fork-overrides.mjs';
-import { applyForkExtra6Act } from '../tools/fork-extra6.mjs';
+import { applyForkExtra6Act, FORK_DELETED_CHARS } from '../tools/fork-extra6.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = process.env.DATA_DIR || join(ROOT, 'data');
@@ -36,14 +36,14 @@ const isFiniteNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const ELITES = ['char_608_acpion', 'char_609_acguad', 'char_610_acfend', 'char_611_acnipe', 'char_612_accast', 'char_613_acmedc', 'char_614_acsupo', 'char_615_acspec', 'char_617_sharp2'];
 const RESERVES = ['char_600_cpione', 'char_601_cguard', 'char_602_cdfend', 'char_603_csnipe', 'char_604_ccast', 'char_605_cmedic', 'char_606_csuppo', 'char_607_cspec'];
 
-test('chess: 175 base chess — 110 PRESET / 55 NORMAL / 10 DIY — and every record keeps the five official backup fields', () => {
-  assert.equal(base.length, 175);
+test('chess: 174 base chess — 109 PRESET / 55 NORMAL / 10 DIY — and every record keeps the five official backup fields', () => {
+  assert.equal(base.length, 174);
   // 4 official DIY slots + the fork's 6 extra ones (二.8, 5 per tier): tools/fork-overrides.mjs applyForkChess
-  // tier 5 / 6 gained one PRESET each: the ported packExtra6 operators (六.C, tools/fork-extra6.mjs); tier 1 / 2 / 4 / 5
-  // one each and tier 3 two: the ported packRhine operators, with 塞雷娅 / 白面鸮 re-tiered into III (六.F); 八 adds
-  // six more PRESET rows: the ported 卡兹戴尔 operators (tools/kazdel.mjs); 九 adds nine: the ported 雷姆必拓 operators
-  // (tools/rem.mjs)
-  assert.deepEqual([ofType('PRESET').length, ofType('NORMAL').length, ofType('DIY').length], [110, 55, 10]);
+  // tier 6 gained one PRESET: 丰川祥子 (六.C, tools/fork-extra6.mjs) — 结城理 was DELETED on 2026-10-29 (六.C), so
+  // the packExtra6 pair contributes one row now, not one per tier; tier 1 / 2 / 4 / 5 one each and tier 3 two: the
+  // ported packRhine operators, with 塞雷娅 / 白面鸮 re-tiered into III (六.F); 八 adds six more PRESET rows: the ported
+  // 卡兹戴尔 operators (tools/kazdel.mjs); 九 adds nine: the ported 雷姆必拓 operators (tools/rem.mjs)
+  assert.deepEqual([ofType('PRESET').length, ofType('NORMAL').length, ofType('DIY').length], [109, 55, 10]);
   for (const c of all) {
     assert.deepEqual(Object.keys(c.backup), ['charId', 'tmplId', 'skillIndex', 'uniEquipId', 'potRank'], `${c.chessId}: backup fields`);
     assert.deepEqual(c.backup, chess[c.baseId].backup, `${c.chessId}: the elite shares its base row's backup`);
@@ -425,7 +425,11 @@ test('DIY: powers and the owned pool re-derived from character_table', { skip: !
   for (const c of Object.values(chess)) if (c && c.packId && typeof c.charId === 'string' && c.charId) roster.add(c.charId);
   const collab = (c) => [c.mainPower, ...(c.subPower || [])].some((p) => ['rainbow', 'action4', 'mujica', 'sees', 'laios'].includes(p?.teamId))
     || /^(?:MH|RS|AM|PS|DD)\d/.test(c.displayNumber || '');
-  const legal = Object.entries(CT).filter(([id, c]) => id.startsWith('char_') && c.rarity === 'TIER_6' && !['TOKEN', 'TRAP'].includes(c.profession) && !c.isNotObtainable && !roster.has(id));
+  // 2026-10-29 (六.C): a DELETED operator is out of every derivation, not just the roster. 结城理 (char_4217_makoto)
+  // still exists in the upstream character_table, so dropping his chess rows alone puts him back into `legal` as a
+  // "6★ outside the chess pool" — the builder and this re-derivation both read the one list in tools/fork-extra6.mjs.
+  const deleted = new Set(FORK_DELETED_CHARS);
+  const legal = Object.entries(CT).filter(([id, c]) => id.startsWith('char_') && c.rarity === 'TIER_6' && !['TOKEN', 'TRAP'].includes(c.profession) && !c.isNotObtainable && !roster.has(id) && !deleted.has(id));
   // the excel's 79 obtainable 6★ outside the official chess pool, less the two packExtra6 ports and the pack chesses
   assert.ok(legal.length <= 77, 'the excel pool minus the fork chess records');
   assert.deepEqual([...backups.diy.ownedPool].sort(), legal.filter(([, c]) => !collab(c)).map(([id]) => id).sort());

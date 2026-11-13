@@ -39,10 +39,17 @@ test('roundsToBoss: the red strip from three rounds before the final assault, no
   assert.equal(P.roundsToBoss(null), null);
 });
 
-test("phasePopupOf: 联防 gets the plate (the official faces) with the banner's words; the others keep the banner", () => {
+test("phasePopupOf: 联防 gets the plate (the official faces); 最终攻势/隐秘核心 get 全局作战目标; the others keep the banner", () => {
   const b = { title: 'T', sub: 'S', micro: 'M' };
   assert.deepEqual(P.phasePopupOf('UNITE', b), { tone: 'orange', faces: true, chev: true, duration: 2600, title: 'T', sub: 'S' });
-  for (const ph of ['ROUND_START', 'SP_DRAFT', 'HIDDEN_CORE', 'PREP', 'COMBAT', 'BATTLE_CHECK', 'FINAL_ASSAULT', 'SETTLE']) assert.equal(P.phasePopupOf(ph, b), null, ph);
+  // ★ 全局作战目标（需求方 2026-11-13 图一）：首领战开场有「全局作战目标 / 消灭敌方领袖！」弹板，取代横幅。
+  for (const ph of ['FINAL_ASSAULT', 'HIDDEN_CORE']) {
+    const plate = P.phasePopupOf(ph, b);
+    assert.ok(plate && plate.goal === true, ph + ' gets the 全局作战目标 plate');
+    assert.equal(plate.title, '全局作战目标');
+    assert.equal(plate.sub, '消灭敌方领袖！');
+  }
+  for (const ph of ['ROUND_START', 'SP_DRAFT', 'PREP', 'COMBAT', 'BATTLE_CHECK', 'SETTLE']) assert.equal(P.phasePopupOf(ph, b), null, ph);
   assert.equal(P.phasePopupOf('UNITE', null), null);
 });
 

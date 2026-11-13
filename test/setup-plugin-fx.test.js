@@ -1,3 +1,6 @@
+
+// 同 setup-game-dir.test.js：Windows 的 `python3` 是 Store 占位程序（退出 9009），真正可用的叫 `python`。
+const PY = ['python3', 'python'].find((bin) => spawnSync(bin, ['--version'], { encoding: 'utf8' }).status === 0);
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -24,7 +27,7 @@ test('setup notices installed official references absent from data/index, withou
   assert.equal(r.status, 0); assert.deepEqual(JSON.parse(r.stdout), ids, 'extractor uses exactly the setup reference reader');
   f.put('.cache/gamedata/excel/character_table.json', { char_4217_makoto: { skills: [{ skillId: 'skcom_synthetic' }] } });
   const source = `import sys, json\nsys.path.insert(0, ${JSON.stringify(path.resolve('tools/local-extract'))})\nimport fx\nprint(json.dumps(fx.game_data(${JSON.stringify(f.root)})))`;
-  const py = spawnSync('python3', ['-c', source], { encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
+  const py = spawnSync(PY, ['-c', source], { encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
   assert.equal(py.status, 0, py.stderr);
   const discovered = JSON.parse(py.stdout);
   assert.deepEqual(discovered.chars, ids); assert.deepEqual(discovered.skills.char_4217_makoto, ['skcom_synthetic']);

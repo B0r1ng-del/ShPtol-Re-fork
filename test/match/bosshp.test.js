@@ -57,10 +57,25 @@ const OFFICIAL_BLOOD_POINT = {
 };
 
 test('leader HP data = the current official bossInfoDict for every leader and difficulty', () => {
-  assert.deepEqual(Object.keys(DATA.bosses).sort(), Object.keys(OFFICIAL_BLOOD_POINT).sort());
+  // 危机合约 #4 的两个固定领袖（boss_arc1 多萝西 / boss_arc2 “唤醒”）**不在**官方 autoChessData.bossInfoDict 里
+  // —— 它们是随危机合约活动发布的内容，由 tools/fork-arc-leaders.mjs 经 FORK_APPLIERS 写入（同 custom_cc4_focus）。
+  // 这条断言钉的是「官方那张表」，所以把它们排除；它们的血量另有来源，见下一条。
+  const ARC_ONLY = new Set(['boss_arc1', 'boss_arc2']);
+  assert.deepEqual(Object.keys(DATA.bosses).filter((id) => !ARC_ONLY.has(id)).sort(), Object.keys(OFFICIAL_BLOOD_POINT).sort());
   for (const [id, want] of Object.entries(OFFICIAL_BLOOD_POINT)) {
     const bp = DATA.bosses[id].bloodPoint;
     assert.deepEqual([bp.FUNNY, bp.NORMAL, bp.HARD, bp.ABYSS], want, id);
+  }
+});
+
+test('the arc leaders carry the four difficulties and fight at rounds 14 / 15', () => {
+  for (const [id, round, hidden] of [['boss_arc1', 14, false], ['boss_arc2', 15, true]]) {
+    const b = DATA.bosses[id];
+    assert.ok(b, id);
+    for (const d of ['FUNNY', 'NORMAL', 'HARD', 'ABYSS']) assert.ok(Number(b.bloodPoint[d]) > 0, `${id} ${d}`);
+    assert.equal(b.hidden, hidden, `${id} hidden`);
+    for (const t of Object.values(b.templates)) assert.equal(t.round, round, `${id} round`);
+    for (const t of Object.values(b.templates)) assert.ok(DATA.waves[t.template], `${id} ${t.template}`);
   }
 });
 

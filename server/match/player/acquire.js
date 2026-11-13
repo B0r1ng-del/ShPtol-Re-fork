@@ -249,7 +249,15 @@ export class PlayerAcquire {
     }
     if (!list.length) return null;
     const offer = { tier: t, source, label: typeof label === 'string' && label ? label : null, slots: list.slice(0, MAX_OFFER_SLOTS).map((id) => ({ kind: 'chess', id, price: ro.price, sold: false })) };
-    this.offers.push(offer);
+    // 危机合约 H3 授衔延误 (shared/crisis.js): 精锐合成立即生效，但合成附赠的免费选择奖励延至下一回合发放；奖励等阶
+    // 按合成时计算 — the offer is BUILT now (so `tier` is this round's, not the next round's) and parked in
+    // `deferredOffers`, which `startRound` moves into `offers`. An ordinary room never takes this branch.
+    if (source === 'merge' && this.gd && typeof this.gd.crisisDefersMergeReward === 'function' && this.gd.crisisDefersMergeReward()) {
+      this.deferredOffers = Array.isArray(this.deferredOffers) ? this.deferredOffers : [];
+      this.deferredOffers.push(offer);
+    } else {
+      this.offers.push(offer);
+    }
     this.dirty();
     return offer;
   }

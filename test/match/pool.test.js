@@ -13,8 +13,10 @@ test('co-op pool doubles the measured single-player capacities; only visible, un
   const pool = new SharedPool(gd, { banned: [] });
   const caps = { 1: 12, 2: 14, 3: 18, 4: 16, 5: 8, 6: 5 };
   assert.equal(pool.entries.size, gd.visibleChess.length);
-  // 114 = 112 official + 结城理 / 丰川祥子, embedded since 2026-10-15 (owner) instead of a 内容包开关
-  assert.equal(pool.entries.size, 114);
+  // 113 = 112 official + 丰川祥子, embedded since 2026-10-15 (owner) instead of a 内容包开关.
+  // 结城理 (char_4217_makoto) was DELETED on 2026-10-29 (六.C, docs/FORK.md), so the embedded pair contributes one
+  // visible chess now, not two — the 114 in this line was the pre-deletion count.
+  assert.equal(pool.entries.size, 113);
   for (const [id, e] of pool.entries) {
     const expect = 2 * (DATA.config.economy.poolCopiesOverrides[id] ?? caps[e.tier]);
     assert.equal(e.cap, expect, id);
@@ -23,7 +25,7 @@ test('co-op pool doubles the measured single-player capacities; only visible, un
   }
   const banned = [gd.visibleChess[0], gd.visibleChess[5]];
   const p2 = new SharedPool(gd, { banned });
-  assert.equal(p2.entries.size, 112);
+  assert.equal(p2.entries.size, 111);
   assert.ok(!p2.has(banned[0]) && p2.left(banned[0]) === 0 && p2.take(banned[0]) === 0);
 });
 
@@ -209,7 +211,8 @@ test('the match pool excludes banned chess; m.public lists disabled bonds and ba
   assert.equal(pub.drawnDisabledBonds.length, 7);
   assert.ok(pub.bannedChess.length > 0);
   for (const id of pub.bannedChess) assert.ok(!h.m.pool.has(id), `${id} should not be in the pool`);
-  assert.equal(h.m.pool.entries.size + pub.bannedChess.length, 114);
+  // 113 = the visible chess count (see the first test in this file): 丰川祥子 is in, 结城理 was deleted (六.C).
+  assert.equal(h.m.pool.entries.size + pub.bannedChess.length, 113);
   checkInvariants(h.m);
   h.m.dispose();
 });

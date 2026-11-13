@@ -1,0 +1,122 @@
+/* 危机合约 · 重燃作战 (js/ui/crisisLeaderboard.js injects this file): the leaderboard's two boards, 指标 / 种子 /
+   抄作业, the 选择指标 page's 开局种子 and the settlement's 作业码. */
+
+
+/* ---- 全服排行榜 ---- */
+.cc-main > .cc-ranking { width:min(430px,66vw); }
+.cc-main > .cc-ranking.cc-ranking--quad { width:min(640px,66vw); }
+.cc-ranking .cc-ranking__list li { display:block; min-height:0; padding:0; }
+.cc-ranking__line { display:grid; grid-template-columns:20px minmax(0,1fr) auto auto; gap:7px; align-items:center; min-height:30px; padding:3px 2px; cursor:pointer; }
+.cc-ranking__line:hover, .cc-ranking li.is-open > .cc-ranking__line { background:#ffffff0c; }
+.cc-ranking__line:focus-visible { outline:2px solid #ffad92; outline-offset:-2px; }
+.cc-ranking__player em { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cc-ranking__round.is-core { border-color:#ffc60099; color:#ffd86a; }
+.cc-ranking__seed { display:inline-block; margin-left:5px; padding:0 3px; border:1px solid #ffffff2e; color:#eadcdf; font-style:normal; font-size:10px; line-height:1.3; letter-spacing:.06em; }
+.cc-ranking .cc-ranking__line .cc-ranking__score { display:flex; align-items:center; justify-content:flex-end; gap:6px; line-height:1; }
+.cc-ranking__line .cc-ranking__score b { min-width:24px; font-size:19px; font-weight:600; text-align:right; }
+.cc-ranking .cc-ranking__hw { padding:3px 7px; border:1px solid #ed5868; background:#5a1f27; color:#fff; font-size:11px; line-height:1.2; white-space:nowrap; cursor:pointer; }
+.cc-ranking .cc-ranking__hw:hover:not(:disabled) { background:#8a2c37; }
+.cc-ranking .cc-ranking__hw:disabled { opacity:.32; border-color:#ffffff40; background:none; }
+
+.cc-ranking__more { margin:0 0 5px 27px; padding:7px 9px 8px; background:#00000059; border-left:2px solid #e53243; display:flex; flex-direction:column; gap:7px; animation:cc-fade-in 160ms ease; }
+.cc-ranking__more.is-empty { color:#b9aaae; font-size:11px; }
+.cc-ranking__meta { display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px; }
+.cc-ranking__kv { color:#b9aaae; font-size:10px; white-space:nowrap; }
+.cc-ranking__kv b { margin-left:5px; color:#fff; font-size:12px; font-weight:500; letter-spacing:.04em; }
+.cc-ranking__tags { display:flex; flex-wrap:wrap; gap:3px; }
+.cc-ranking__acts { display:flex; align-items:center; gap:8px; }
+.cc-ranking__acts > span { flex:1; min-width:0; color:#a99a9f; font-size:10px; }
+.cc-ranking__acts button { padding:4px 10px; border:1px solid #ffffff40; background:#ffffff10; color:#f2e8ea; font-size:11px; white-space:nowrap; cursor:pointer; }
+.cc-ranking__acts button.is-primary { border-color:#ed5868; background:#b32738; color:#fff; font-weight:600; }
+.cc-ranking nav > span { margin-left:auto; }
+.cc-ranking__closed { display:flex; align-items:baseline; gap:7px; margin:0 0 6px; padding:6px 8px; border:1px solid #b9842f; background:#3a2a12; color:#f4dfb0; font-size:11px; line-height:1.5; }
+.cc-ranking__closed b { flex:none; color:#ffd27a; font-size:12px; letter-spacing:.08em; }
+.cc-ranking__closed span { flex:1; min-width:0; }
+.cc-ranking__acts button:hover { filter:brightness(1.18); }
+@media (max-height:560px), (max-width:600px) {
+  .cc-ranking__line { grid-template-columns:16px minmax(0,1fr) auto auto; gap:5px; min-height:26px; padding:2px 0; }
+  .cc-ranking__line .cc-ranking__score b { font-size:16px; min-width:20px; }
+  .cc-ranking .cc-ranking__hw { padding:2px 5px; font-size:10px; }
+  .cc-ranking__seed { font-size:9px; }
+  .cc-ranking__more { margin-left:21px; padding:5px 7px; gap:5px; }
+  .cc-ranking__more .cc-tagstrip__tag { width:22px; height:22px; }
+  .cc-ranking__more .cc-tagstrip__tag .cs-glyph { width:18px; height:18px; }
+}
+
+/* 孤垒行动 (上半): closed, folded under the open board; opened it shows the old rows as they were */
+.cc-ranking__old { flex:0 1 auto; min-height:0; display:flex; flex-direction:column; margin-top:6px; border-top:1px solid #ffffff20; padding-top:4px; }
+.cc-ranking .cc-ranking__oldbtn { display:flex; align-items:center; gap:6px; width:100%; padding:3px 2px; color:#c9b5ba; font-size:11px; text-align:left; cursor:pointer; }
+.cc-ranking .cc-ranking__oldbtn:hover { color:#fff; }
+.cc-ranking__oldbtn i { width:10px; font-style:normal; color:#e06c78; }
+.cc-ranking__oldbtn small { margin-left:auto; color:#8f8287; font-size:10px; }
+.cc-ranking__oldlist { min-height:0; max-height:150px; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:#9c3f4b #231b20; opacity:.86; }
+.cc-ranking__oldlist li { min-height:22px; }
+.cc-ranking__oldlist .cc-ranking__score { font-size:15px; }
+.cc-ranking--quad .cc-ranking__oldlist li { min-height:32px; }
+@media (max-height:560px), (max-width:600px) { .cc-ranking__old { margin-top:4px; padding-top:2px; } .cc-ranking .cc-ranking__oldbtn { font-size:10px; } .cc-ranking__oldlist { max-height:70px; } }
+
+/* ---- 选择指标 · 开局种子 (bottom bar, between 最高纪录 and BAN 地图; stage pixels) ----
+   `.cc-root button` (crisis-event.css) resets every button's box, so these rules carry .cs-page / .cs-seed-panel. The BAN
+   地图 button lost its own box to the same reset; it gets it back here so the two read as a pair. */
+.cs-page .cs-map-ban { padding:0 16px; border:1px solid #dcbbb0b3; background:linear-gradient(110deg,#31181de8,#5d2529e8); }
+.cs-page .cs-map-ban.has-bans { border-color:#ff674c; }
+.cs-page .cs-seed { position:absolute; left:192px; top:640px; width:356px; height:42px; display:flex; align-items:center; gap:10px; padding:0 14px; box-sizing:border-box;
+  border:1px solid #dcbbb0b3; background:linear-gradient(110deg,#2a171be8,#4a2125e8); color:#fff; cursor:pointer; font:inherit; font-size:16px; text-align:left; }
+.cs-page .cs-seed:hover { filter:brightness(1.18); }
+.cs-seed > i { flex:none; width:22px; height:22px; border:2px solid #f4cbbe; border-radius:4px; box-sizing:border-box; position:relative; }
+.cs-seed > i::before, .cs-seed > i::after { content:''; position:absolute; width:4px; height:4px; border-radius:50%; background:#f4cbbe; }
+.cs-seed > i::before { left:3px; top:3px; box-shadow:8px 8px 0 #f4cbbe; }
+.cs-seed > i::after { left:7px; top:7px; }
+.cs-seed > b { font-weight:500; white-space:nowrap; }
+.cs-seed > span { margin-left:auto; font-size:20px; font-weight:500; line-height:1; letter-spacing:.08em; color:#ffd9c8; white-space:nowrap; }
+.cs-seed > span.is-random { font-size:15px; letter-spacing:.04em; color:#d9c2bb; }
+.cs-page .cs-seed.is-set { border-color:#ffc600b3; box-shadow:inset 3px 0 #ffc600; }
+.cs-seed.is-set > span { color:#ffd86a; }
+.cs-seed > small { position:absolute; left:14px; bottom:-17px; color:#ffcf8a; font-size:11px; white-space:nowrap; pointer-events:none; }
+
+.cs-seed-panel { position:absolute; left:330px; top:150px; width:620px; box-sizing:border-box; background:#151416f5; border:1px solid #bb6b65; color:#f5f0ed; box-shadow:0 18px 70px #000b; font-size:16px; }
+.cs-seed-panel > header { display:flex; justify-content:space-between; align-items:center; padding:18px 22px 10px; border-top:4px solid #d2463e; }
+.cs-seed-panel > header .cc-x { position:relative; inset:auto; flex:none; }
+.cs-seed-panel header small { display:block; font-size:12px; color:#c99189; letter-spacing:2px; }
+.cs-seed-panel h2 { margin:3px 0 0; font-size:26px; font-weight:600; }
+.cs-seed-panel > p { margin:0 22px 12px; color:#cdbcb8; font-size:14px; line-height:1.6; }
+.cs-seed-panel .cs-seed-rule { margin:0 22px 14px; padding:8px 12px; border-left:3px solid #ffc600; background:#ffc6000f; color:#f1dfae; font-size:13px; line-height:1.6; }
+/* 弧光作战 (2026-11-05): the seed's enemy order — 15 rows in three columns (the panel sits higher to hold them).
+   ★ 2026-11-06: was `:has(.cs-seed-order)`. The `<ol class="cs-seed-order">` is rendered by SeedCodeDialog exactly
+   when the server preview handed it `picks` (crisisSelect.js:195), and the SAME `picks` decides the `cs-seed-modal`
+   class on the panel (crisisSelect.js:186-187), so that class is the state without `:has()` — a parse error in
+   Firefox ESR 115 / Safari < 15.4, banned by client-static.test.js. */
+.cs-seed-panel.cs-seed-modal { top:70px; }
+.cs-seed-panel .cs-seed-order { display:grid; grid-template-columns:repeat(3, 1fr); gap:4px 8px; margin:0 22px 10px; padding:0; list-style:none; }
+.cs-seed-panel .cs-seed-order li { display:grid; grid-template-columns:auto 30px 1fr; grid-template-rows:auto auto auto; column-gap:6px; align-items:center; padding:4px 6px; background:#ffffff08; border-left:2px solid #ffffff22; min-width:0; }
+.cs-seed-panel .cs-seed-order li:nth-last-child(-n+2) { border-left-color:#d2463e; }
+.cs-seed-panel .cs-seed-order em { grid-row:1 / 4; font-style:normal; font-size:11px; color:#c99189; width:44px; }
+.cs-seed-panel .cs-seed-order img { grid-row:1 / 4; width:30px; height:30px; object-fit:contain; }
+.cs-seed-panel .cs-seed-order b { font-size:12px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cs-seed-panel .cs-seed-order small { font-size:11px; color:#a99c99; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cs-seed-panel .cs-seed-order small.cs-seed-mix { color:#8fb7a6; font-size:10px; }
+.cs-seed-opts { display:flex; flex-direction:column; gap:10px; margin:0 22px; }
+.cs-seed-panel .cs-seed-opt { display:flex; align-items:center; gap:12px; padding:12px 14px; border:1px solid #ffffff2a; background:#ffffff08; cursor:pointer; text-align:left; color:inherit; font:inherit; }
+.cs-seed-panel .cs-seed-opt.is-on { border-color:#ff674c; background:#ff674c1a; }
+.cs-seed-opt > i { flex:none; width:16px; height:16px; border:2px solid #d9c2bb; border-radius:50%; box-sizing:border-box; }
+.cs-seed-opt.is-on > i { border:5px solid #ff674c; }
+.cs-seed-opt b { display:block; font-size:16px; font-weight:500; }
+.cs-seed-opt small { display:block; color:#b8a6a2; font-size:12px; margin-top:2px; }
+.cs-seed-input { display:flex; align-items:center; gap:10px; margin:10px 22px 0 50px; }
+.cs-seed-input input { width:190px; height:38px; box-sizing:border-box; padding:0 12px; border:1px solid #ffffff40; background:#0b0b0c; color:#fff; font:500 22px/1 "Segoe UI","Helvetica Neue",Arial,sans-serif; letter-spacing:.12em; text-transform:uppercase; }
+.cs-seed-input input:focus { outline:none; border-color:#ff674c; }
+.cs-seed-panel .cs-seed-input button { height:38px; padding:0 14px; border:1px solid #ffffff40; background:#ffffff10; color:#f2e8ea; font:inherit; font-size:14px; cursor:pointer; }
+.cs-seed-msg { min-height:20px; margin:8px 22px 0 50px; font-size:13px; color:#ffb49c; }
+.cs-seed-msg.is-ok { color:#9fe0b9; }
+.cs-seed-panel > footer { display:flex; justify-content:flex-end; gap:12px; padding:16px 22px 18px; }
+.cs-seed-panel > footer button { height:38px; padding:0 22px; border:1px solid #ffffff40; background:#ffffff10; color:#fff; font:inherit; font-size:15px; cursor:pointer; }
+.cs-seed-panel > footer button.is-primary { border-color:#ff674c; background:#c63a2c; }
+.cs-seed-panel > footer button:disabled { opacity:.45; cursor:default; }
+
+/* ---- 行动结束: 难度标签 + 种子 ---- */
+.cr-sum__time .cr-seed { position:absolute; left:14px; top:32px; display:flex; align-items:center; gap:6px; font-size:12px; color:#ddd; }
+.cr-sum__time .cr-seed b { position:static; font-size:15px; letter-spacing:.06em; color:#ffd9c8; }
+.cr-btns .cr-share { background:#2c2c30; color:#fff; box-shadow:inset 0 0 0 1px #ffffff40; }
+/* more than 28 tags (7 × 4) no longer fit the box: a denser grid holds every route at once (≤ 55) */
+.cr-tags.is-dense { padding:18px 22px; gap:10px 14px; }
+.cr-tags.is-dense .cr-tag, .cr-tags.is-dense .cr-tag .cs-glyph { width:36px; height:35px; }

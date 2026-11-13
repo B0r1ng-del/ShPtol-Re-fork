@@ -3,6 +3,7 @@
 // Installed on Battle.prototype by server/sim/Battle.js (a method container: never instantiated; `this` is the battle).
 
 import { bondTimerView } from '../content/bonds/timers.js';
+import { deviceState } from '../content/devices.js';
 import { EVENT_BUFFER_CAP } from '../constants.js';
 import { elementView } from '../attack.js';
 import { unitInfo, snapshotUnits, ammoView, wolfView, negView, moteView, coinView, mysticView, layerView, chargeView } from '../snapshot.js';
@@ -113,6 +114,10 @@ export class BattleEvents {
       for (const p of this.players) snap.dps[p.playerId] = Math.floor(p.dp);
     }
     if (this.sharedBoss) snap.boss = { hp: Math.max(0, Math.round(this.sharedBoss.hp)), max: Math.round(this.sharedBoss.maxHp) };
+    // 重力按钮（危机合约 #4「滞空焦点」）：这半场当前的重力方向，HUD 的重力指示读它。只在装了 device 状态时出现。
+    // Display only —— 没有 sim 状态读它，九元组与 golden 都不受影响。
+    const grav = deviceState(this)?.grav;
+    if (grav) snap.grav = { L: grav.dir.L ?? null, R: grav.dir.R ?? null };
     const r2 = (v) => Math.round(v * 100) / 100;
     let down = null;
     for (const u of this.allyUnits) {

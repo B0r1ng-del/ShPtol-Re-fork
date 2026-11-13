@@ -437,7 +437,8 @@ describe('the fork layer reaches BOTH directions (tools/build-data.mjs ⇄ tools
       assert.match(body, /FORK_APPLIERS/, `${name}: must read the shared FORK_APPLIERS list`);
     }
     // the CLI's file list is exactly the shared list — a name it forgot would never be patched
-    const cliNames = [...cli.matchAll(/\{ name: '([a-z]+)'/g)].map((m) => m[1]);
+    // a file name may carry a dash (stages-crisis.json, like enemies-crisis.json) — the id shape is not [a-z]+ only
+    const cliNames = [...cli.matchAll(/\{ name: '([a-z][a-z-]*)'/g)].map((m) => m[1]);
     assert.deepEqual([...cliNames].sort(), Object.keys(FORK_APPLIERS).sort(), 'the CLI patches every fork-applied file');
     // the builder applies the shared list rather than naming appliers itself
     assert.match(builderCode, /Object\.entries\(FORK_APPLIERS\)/, 'the builder iterates the shared list');
@@ -450,7 +451,10 @@ describe('the fork layer reaches BOTH directions (tools/build-data.mjs ⇄ tools
     const builder = readFileSync(join(ROOT, 'tools/build-data.mjs'), 'utf8');
     // build-data writes these; `assets` it does not (tools/fetch-assets.mjs owns it, docs/ASSETS.md), which is why the
     // builder skips a name missing from its `files` map instead of throwing.
-    assert.match(builder, /if \(FORK_PASS_APPLIERS\[name\] \|\| !files\[name\]\) continue;/);
+    // ★ 判据是「builder 有没有产出这个文件」（`name in files`），不是 truthiness：`stages-crisis` / `enemies-crisis`
+    //   的 builder 产物可以是空壳 {}，而 fork 层正是要往里加记录 —— 用 truthiness 会把空壳当成「builder 不管这个
+    //   文件」而跳过 applier，committed 文件与离线重建就对不上。
+    assert.match(builder, /if \(FORK_PASS_APPLIERS\[name\] \|\| !\(name in files\)\) continue;/);
     assert.ok(!/files\.assets\b|`\$\{name\}\.json`.*assets/.test(builder), 'build-data never writes data/assets.json');
   });
 });

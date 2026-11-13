@@ -1,8 +1,8 @@
-// test/packMatchMsg.test.js — **对局子类收到包通道消息**（DESIGN §34.14 的那**唯一**一条网络触发点，业主裁决
+// test/packMatchMsg.test.js — **对局子类收到包通道消息**（DESIGN §36.14 的那**唯一**一条网络触发点，业主裁决
 // 2026-10-10 的 A 方案）。
 //
 // `pack.msg` 仍然由大厅校验 / 限流 / 转发；多出来的只有一步：**转发之前**问一次房间里的对局。六件事各有一条断言：
-//   1. **投递收窄**（DESIGN §34.23，docs/WORKSHOP.md §1.12）：`channels` 是**接收入口** —— 本包的 `server.modules[]`
+//   1. **投递收窄**（DESIGN §36.23，docs/WORKSHOP.md §1.12）：`channels` 是**接收入口** —— 本包的 `server.modules[]`
 //      **声明过**这个通道，消息才投给对局；只被面板声明（`client.panels[].messages`）、模块没声明的通道**投都不投**
 //      （转发照旧：那是面板那半边 §1.9.6 的判据，收窄没有动它）。一个通道都没声明的包 = 没有接收入口；
 //   2. `server.modules` 里声明了 `uses: ['matchClass']`（所以这个包必须同时写 `combat: true`）的包，其 MatchClass
@@ -31,7 +31,7 @@ const PLAIN_PACK = 'channels-pack';
 /** 每个通道一个返回值分支（见下面的模块源码）；它们同时也是**模块声明**的接收通道。 */
 const CHANNELS = ['chat', 'skins', 'obj', 'boom', 'no'];
 /**
- * 只被**面板**声明、模块**没有**声明的通道（§34.23 收窄的那一条）：客户端发得出来（面板声明过），但对局
+ * 只被**面板**声明、模块**没有**声明的通道（§36.23 收窄的那一条）：客户端发得出来（面板声明过），但对局
  * 收不到（不是接收入口）。去掉 `packMsg` 里那道收窄的接线，这条通道就会投进对局 —— 钉住它的断言因此有牙。
  */
 const PANEL_ONLY = 'watch';
@@ -72,7 +72,7 @@ function writePack(root, id, declaration) {
   return dir;
 }
 
-describe('对局子类收到包通道消息（DESIGN §34.14 的唯一网络触发点；§34.23 把投递收窄到声明过的通道）', () => {
+describe('对局子类收到包通道消息（DESIGN §36.14 的唯一网络触发点；§36.23 把投递收窄到声明过的通道）', () => {
   let tmp;
   let srv;
   let bare;
@@ -102,7 +102,7 @@ describe('对局子类收到包通道消息（DESIGN §34.14 的唯一网络触�
   before(async () => {
     tmp = fs.mkdtempSync(path.join(tmpdir(), 'sp-packmatchmsg-'));
     // 装了钩子的那台：声明 `uses: ['matchClass']` + `combat: true`（`MODULES_NEED_COMBAT` 的硬闸门），并且
-    // **声明了接收通道**（§34.23）—— 收窄之后，没有这一格的消息投不进对局。面板比模块多声明一条 `PANEL_ONLY`。
+    // **声明了接收通道**（§36.23）—— 收窄之后，没有这一格的消息投不进对局。面板比模块多声明一条 `PANEL_ONLY`。
     const hookRoot = path.join(tmp, 'hook');
     const hookDir = writePack(hookRoot, HOOK_PACK, {
       combat: true,
@@ -114,7 +114,7 @@ describe('对局子类收到包通道消息（DESIGN §34.14 的唯一网络触�
     fs.mkdirSync(path.join(hookDir, 'server'), { recursive: true });
     fs.writeFileSync(path.join(hookDir, 'server', 'hook.mjs'), HOOK_SRC);
     // 对照的那台：有包通道，但**没有任何** `server.modules` ⇒ 既没有 MatchClass 方法，也没有一条 `channels`
-    // 声明（§34.23 的接收入口一个都不存在）：消息照旧转发，对局一次都收不到。
+    // 声明（§36.23 的接收入口一个都不存在）：消息照旧转发，对局一次都收不到。
     const bareRoot = path.join(tmp, 'bare');
     writePack(bareRoot, PLAIN_PACK, {
       client: { panels: [{ id: 'chat', slot: 'root.overlays', module: 'ui/chat.js', messages: ['chat', 'skins'] }] },
@@ -225,7 +225,7 @@ describe('对局子类收到包通道消息（DESIGN §34.14 的唯一网络触�
     assert.deepEqual(await b.waitFor('pack.msg'),
       { t: 'pack.msg', pack: HOOK_PACK, channel: PANEL_ONLY, from: playerId, data: { panelOnly: true } },
       '面板声明过的通道照旧转发');
-    // 投递是**这一格**（§34.23）的判据：模块没把它写进 `channels` ⇒ 它不是接收入口，对局一次都不该被调到。
+    // 投递是**这一格**（§36.23）的判据：模块没把它写进 `channels` ⇒ 它不是接收入口，对局一次都不该被调到。
     // 钩子在转发之前跑，所以这一条不依赖计时：去掉 `packMsg` 里那道收窄的接线，这里就会是 1。
     assert.equal(calls().length, 0, '模块没声明的通道投不进对局（只被面板声明不够）');
   });

@@ -22,7 +22,7 @@ import { createPluginPolicy } from '../server/plugins/policy.js';
 import { writePlugin } from './helpers/pluginFixtures.js';
 import { computeVanillaContent } from '../server/plugins/identity.js';
 import { DATA_SHIM_JS } from '../server/http/static.js';
-import { DIFFICULTIES, ERR, modeIdFor } from '../shared/constants.js';
+import { DIFFICULTIES, ERR, modeIdFor, roomSeatCap } from '../shared/constants.js';
 import { checkNotOwned, validateC2S } from '../shared/protocol.js';
 import { DEFAULT_VERSION, VERSIONS, versionById } from '../shared/versions.js';
 
@@ -502,7 +502,12 @@ test('gameplay plugins: refused in a version room and for a proposal while on; c
   plugins.resolve = resolve;
   h.clock.t += 1000;
   const g = h.player('Guest');
-  room.mode = 'coop'; // (a second human for a vote)
+  // (a second human for a vote) The room was created as solo, whose seat array has ONE slot (Room constructor:
+  // new Array(roomSeatCap(mode))) — poking room.mode alone leaves no free seat and join answers ROOM_FULL. Grow the
+  // array with the mode, exactly as a room created as coop would have it.
+  room.mode = 'coop';
+  room.seats = new Array(roomSeatCap('coop')).fill(null);
+  room.seats[0] = h.lobby.humanSeat(0, p, room);
   ok(h.lobby.join(g, { code: room.code }));
   ok(h.lobby.proposeVersion(p, { version: 'act1autochess' }));
   plugins.resolve = (ids, opts) => (opts.gameplay === false ? { error: ERR.PLUGIN_BLOCKED } : resolve(ids, opts));
@@ -563,7 +568,8 @@ test('a switch: others un-readied, settings cleared, a card the version lacks dr
   assert.equal(seat.notOwned, null);
   assert.equal(seat.loadoutCs, null);
   assert.equal(seat.card, null, '本 version has no 温蒂 (char_494_vendla)');
-  assert.equal(room.seatOf(a.playerId).card, 'char_102_texas');
+  // seats[].card is the whole 名片 plate since 名片底图 2026-11-01 (server/lobby.js card); the operator is its charId
+  assert.equal(room.seatOf(a.playerId).card?.charId, 'char_102_texas');
   assert.equal(b.loadout?.chess_char_1_02_a?.skill, 0, 'the session keeps its own copy (the page sends again)');
   assert.deepEqual(h.last(a).seats.filter(Boolean).map((s) => s.content), ['loading', 'loading']);
   assert.equal(room.replay, null, 'the replay is gone');
@@ -661,7 +667,14 @@ test('startMatch: a version room plays in its version host (version + requireCs)
   ok(h.lobby.start(q));
   assert.equal(hosted.length, 1);
   const keys = Object.keys(Rec.last).sort();
-  assert.deepEqual(keys, ['aiPicksLast', 'broadcast', 'cs', 'data', 'difficulty', 'hostId', 'log', 'matchNo', 'mode', 'modeId', 'now', 'onEnd', 'roomCode', 'seats', 'seed', 'send', 'spectators']);
+  // The keys a default room's opts carry: 房主配置 (setHostConfig: sharedPool / sharedBounty / multiAlliance / itemSell /
+  // onlineChat), 「对局选项」 (setEnemyBuff: enemyBuff) and Mod 开关 (normalizeMods: mods) were all added after this list
+  // was first pinned — a room that never touched them still passes the OFFICIAL values (false / {} / all-off), so the
+  // key set is what grows, not the behaviour. The assertion is about "a default room's opts keep their keys", not about
+  // freezing the feature set: 共享卡池 / 共享悬赏 really do default ON, so it names keys, never values.
+  assert.deepEqual(keys, ['aiPicksLast', 'broadcast', 'cs', 'data', 'difficulty', 'enemyBuff', 'hostId', 'itemSell', 'log',
+    'matchNo', 'mode', 'modeId', 'mods', 'multiAlliance', 'now', 'onEnd', 'onlineChat', 'roomCode', 'seats', 'seed',
+    'send', 'sharedBounty', 'sharedPool', 'spectators']);
   // a version room without a version host, and the real Match class: never in this process
   const lone = new Lobby({ registry: new SessionRegistry(), log: quiet, content: { cs: VANILLA }, getData, versions: versionStub() });
   const s = lone.registry.create('C');

@@ -58,7 +58,7 @@
 //                                    [--local-spines] [--no-optional-voice] [--help]
 
 import { readFile, writeFile, mkdir, rename, readdir, unlink } from 'node:fs/promises';
-import { existsSync, realpathSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Downloader } from './assets/downloader.mjs';
@@ -83,9 +83,21 @@ import { fontJobs, buildFonts } from './assets/fonts.mjs';
 import { statsTemplateJobs } from './assets/stats-template.mjs';
 import { skelParserAvailable } from './assets/skel.mjs';
 import { SourceVerifier } from './assets/source-verifier.mjs';
-import { versionAssetData, presentationUnion, addManifestEntries } from './assets/versions.mjs';
+import { versionAssetData, presentationUnion, addManifestEntries, mergeCrisisEnemies } from './assets/versions.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+/**
+ * 契约专用敌人（data/enemies-crisis.json）。它们与 enemies / enemies-crisis 同一种拆分：不进 data/enemies.json
+ * （那张表是本季能刷到的敌人，多几个会让 roster 抽到、golden 全漂），所以版本表里也没有它们 ——
+ * 但弧光的两个领袖（多萝西 / “唤醒”）是真实可刷的敌人，图标与 Spine 必须照样规划。
+ * 缺文件时返回空表，与从前一致。
+ */
+function crisisEnemies(root) {
+  const file = join(root, 'data', 'enemies-crisis.json');
+  if (!existsSync(file)) return {};
+  try { return JSON.parse(readFileSync(file, 'utf8')) ?? {}; } catch { return {}; }
+}
 const ASSETS = join(ROOT, 'public', 'assets');
 const FONTS = join(ROOT, 'public', 'fonts');
 const CACHE = join(ROOT, '.cache');
@@ -457,7 +469,9 @@ async function main() {
   }
   // The game data built by tools/build-data.mjs (when present) may reference more
   // spawnable enemies/tokens than research lists (e.g. 机变 enemy swaps): cover them too.
-  const versionSets = versionAssetData(ROOT);
+  // ★ 契约敌人并入默认版本：否则 71 个危机合约敌人在 assets.json 里没有 icon/spine，
+  //   局内敌人预览区只剩占位与阴影、本体不显示（用户 2026-11-13 实测）。
+  const versionSets = mergeCrisisEnemies(ROOT, versionAssetData(ROOT));
   const all = presentationUnion(versionSets);
   log(`[versions] planning presentation for ${versionSets.length} official versions`);
   const extraHandbook = {};
@@ -483,7 +497,9 @@ async function main() {
     // default: only the slots a battle can play (plan.mjs VOICE_BATTLE_SLOTS); --voice-all takes the whole official set
     voiceSlots: opts.voiceAll ? null : undefined,
     optionalVoice: opts.optionalVoice,
-    extraEnemyIds: Object.keys(all.enemies),
+    // 契约专用敌人（data/enemies-crisis.json）：多萝西 / “唤醒” / R-11 装甲 / Dor-2 复制体不在这张版本表里
+    // （和 enemies / enemies-crisis 是同一种拆分），不并进来这两个领袖就永远没有图标与 Spine。
+    extraEnemyIds: [...Object.keys(all.enemies), ...Object.keys(crisisEnemies(ROOT))],
     extraTokenIds: Object.keys(all.tokens),
     extraHandbook,
     localEnemySpines,
@@ -592,6 +608,12 @@ async function main() {
   addRemArtPlan(manifest);
   const afterBonds = Object.keys(manifest.bonds || {}).length;
   if (afterBonds !== beforeBonds) log(`[art] pack bond icons: ${beforeBonds} → ${afterBonds}`);
+  // ★ the three `add*Art` above REWRITE `manifest` in place, so the `stats` snapshot taken at line 580 (before they
+  // run) has already drifted: `stats.ui` / `stats.bonds` / `stats.items` no longer equal the counts they claim to
+  // summarise. `test/assets.test.js` asserts `stats.ui === Object.keys(ui).length` for exactly this reason — it was
+  // reading 639 against 661 real keys because nothing recomputed after the in-place patch. Recompute here, once the
+  // patch is done, so the summary is always a snapshot of the manifest that gets written.
+  manifest.stats = countStats(manifest, bytes, resolved.files.size);
   const guard = shrinkGuard(current, manifest, opts);
   if (guard.write) await writeJsonAtomic(MANIFEST, manifest);
 

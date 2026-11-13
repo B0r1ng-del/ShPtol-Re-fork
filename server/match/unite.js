@@ -120,7 +120,9 @@ export function helperOrder(m, perfects, results) {
   const st = new Map(perfects.map((ps) => [ps.playerId, helperStats(m, ps, results)]));
   const S = (ps) => st.get(ps.playerId);
   const select = perfects.slice().sort((a, b) => S(b).units - S(a).units || (S(b).active - S(a).active) || S(b).standing - S(a).standing || a.seat - b.seat)
-    .slice(0, m.gd.unite.maxHelpers);
+    // 危机合约 M3 援护限额：每轮联防最多由 1 名成功玩家承接（默认 maxHelpers 是 2）。
+    // ★ 引擎只读一个数，不含任何 crisis 分支 —— 数值由 crisisFx 写进 gd.crisisUniteHelpers。
+    .slice(0, Math.min(m.gd.unite.maxHelpers, m.gd.crisisUniteHelpers ?? Infinity));
   return select.sort((a, b) => S(b).units - S(a).units || (S(b).active - S(a).active) || S(b).layers - S(a).layers || S(b).standing - S(a).standing || a.seat - b.seat);
 }
 

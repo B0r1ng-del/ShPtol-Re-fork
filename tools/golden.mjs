@@ -270,7 +270,11 @@ const VISIBLE = CHESS.filter((c) => c.visible);
 const STAGES = Object.keys(data.stages).filter((id) => data.stages[id].kind !== 'unite').sort(byId);
 const BANDS = Object.keys(data.bands).sort(byId);
 const EQUIPS = Object.values(data.items).filter((i) => i.itemType === 'EQUIP').map((i) => i.id).sort(byId);
-const BOSSES = Object.keys(data.bosses).sort((a, b) => Number(a.replace(/\D/g, '')) - Number(b.replace(/\D/g, '')));
+// ★ 只用卫戍协议本季的领袖（boss_<n>）。危机合约 #4 的两个固定领袖（boss_arc1 / boss_arc2）是活动独有的内容
+// （tools/fork-arc-leaders.mjs 经 FORK_APPLIERS 写入），它们不属于本季的领袖轮换：算进来会让下面
+// `for (const bossId of BOSSES)` 的 `i % 4` 难度交替整体错位，5 个 fields 场景无端漂移。
+const BOSSES = Object.keys(data.bosses).filter((id) => /^boss_\d+$/.test(id))
+  .sort((a, b) => Number(a.replace(/\D/g, '')) - Number(b.replace(/\D/g, '')));
 const LEADER_KEYS = new Set();
 for (const bo of Object.values(data.bosses)) { LEADER_KEYS.add(bo.enemyKey); for (const p of bo.parts || []) LEADER_KEYS.add(typeof p === 'string' ? p : p.enemyKey ?? p.key); }
 const ACLOON = 'enemy_9012_acloon'; // the 炎 bond's summon, never an enemy

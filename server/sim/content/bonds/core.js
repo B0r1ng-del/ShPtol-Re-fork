@@ -286,7 +286,11 @@ function installVictoria(battle, pid, bb, members) {
   apply();
   onLayers(battle, pid, 'victoriaShip', apply);
   if (!reached(battle, pid, 'victoriaShip', bb.power_bond_char_cnt)) return;
-  const normal = num(bb.atk_normal_equip, 0), golden = normal + num(bb.atk_golden_equip, 0);
+  // 危机合约 J5 把这两档下调（battle.flags.crisisEquipAtk，由 match/crisisFx.js 写入）：
+  // 数据表仍是官方值，只有该场战斗读到的数被替换。
+  const ov = battle.flags && battle.flags.crisisEquipAtk;
+  const normal = ov && Number.isFinite(ov.normal) ? ov.normal : num(bb.atk_normal_equip, 0);
+  const golden = ov && Number.isFinite(ov.golden) ? ov.golden : normal + num(bb.atk_golden_equip, 0);
   for (const u of members) {
     const ids = S.itemsOf(u);
     if (!ids.length) continue;

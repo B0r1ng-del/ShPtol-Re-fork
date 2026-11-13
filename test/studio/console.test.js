@@ -69,7 +69,10 @@ test('every official map and four field regions builds and steps real battle cod
 });
 
 test('all ten leaders use the official templates and shared pool scaling', () => {
-  for (const boss of Object.values(raw.bosses)) for (const n of [1, 2]) {
+  // 只测卫戍协议本季的 10 个领袖（boss_<n>）：危机合约 #4 的 boss_arc1 / boss_arc2 的模板条目不在
+  // config.modes[*].rounds[14].bossTemplates 里（它们由 data/bosses.json 自己的 templates 字段指向 arc_boss_*），
+  // 这条测试钉的是「模式的官方模板表」，见 test/match/bosshp.test.js 里弧光那一条独立断言。
+  for (const boss of Object.values(raw.bosses).filter((b) => /^boss_\d+$/.test(b.bossId))) for (const n of [1, 2]) {
     const s = { ...newScenario(), kind: boss.hidden ? 'hidden' : 'boss', round: boss.hidden ? 15 : 14, bossId: boss.bossId, modeId: 'mode_multi_hard', players: Array.from({ length: n }, emptyPlayer) };
     const { spec } = build(s);
     assert.equal(spec.boss.poolMax, new GameData(raw, s.modeId).bossPoolHp(boss.bossId, n));
@@ -157,7 +160,12 @@ test('summon stock uses match rules for all regular/elite owners and DIY modules
     const s = newScenario(); s.players[0].units = [op(rec.chessId)];
     assert.deepEqual(build(s).tokens[0].map(({tokenId,count}) => ({tokenId,count})), gd.placeableTokens(rec.chessId), rec.chessId);
   }
-  const s = newScenario(), u = { ...op('chess_char_6_diy1_a'), diy: { charId: 'char_248_mgllan', skillIndex: 0, uniEquipId: null }, potential: 3 };
+  // 麦哲伦 (char_248_mgllan) used to be an owned-but-not-in-roster 6★, so it was a legal 自选 pick. It is now a chess
+  // record itself (chess_rhine_magallan_a), and tools/build-data.mjs (applyForkPackAphris / ownedPoolOf) removes an
+  // operator from diy.ownedPool once it HAS a chess record — dsh here: the pick is no longer legal, the fixture is stale,
+  // not the code. 白面鸮 (char_179_cgbird) is still an ownedPool pick and still summons (token_10003_cgbird_bird), which is
+  // what this case exercises.
+  const s = newScenario(), u = { ...op('chess_char_6_diy1_a'), diy: { charId: 'char_179_cgbird', skillIndex: 0, uniEquipId: null }, potential: 3 };
   s.players[0].units = [u];
   const def = ds.getChess(u.chessId, u); assert.ok(def);
   const expected = diyGameData(gd, new Map([[u.chessId, def.raw]])).placeableTokens(u.chessId, def.loadout);

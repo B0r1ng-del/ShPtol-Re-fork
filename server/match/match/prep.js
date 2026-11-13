@@ -6,17 +6,28 @@
 import { PHASE } from '../../../shared/constants.js';
 import { testSlice } from '../testTrace.js';
 import { DELAYS } from './common.js';
+import { pickCrisisPressure } from './crisisPressure.js';
+import { pickCrisisMark } from './crisisMark.js';
 
 export class MatchPrep {
   enterPrep() {
     this.phase = PHASE.PREP;
     this.sp = null;
+    // 危机合约 U1：休整开始时公开本回合的承压位（不连续两回合、每人最多 2 次）。
+    // 选人逻辑在 crisisPressure.js；没装 U1 时返回 null，不写任何状态。
+    this.crisisPressureThisRound = pickCrisisPressure(this);
+    // 危机合约 R4：休整开始时公开本回合被标记的精英（生命 +25%，首次击倒给全场干员发奖励）。
+    this.crisisMarkThisRound = pickCrisisMark(this);
     const alive = this.alivePlayers();
+    for (const ps of alive) ps.crisisPressure = ps.playerId === this.crisisPressureThisRound;
     for (const ps of alive) {
       ps.ready = false;
       // Items gained as the previous prep ended waited unmerged (acquireItem deferMerge). Merge them now, before
       // this prep's onPrepStart grants and before the player acts — not in endPrep, which runs in the same prep
       // that granted them and would take an equipped copy off for the fight about to start.
+      // 危机合约 H5 / J6：每休整期重置「主动操作次数」与「消耗装备份数」配额
+      ps.crisisActions = 0;
+      ps.crisisEquipCost = 0;
       ps.checkItemMerges();
       ps.recompute();
       this.dispatch(ps, 'onPrepStart', { round: this.round });

@@ -24,6 +24,9 @@ export const FX_KINDS = Object.freeze({
   dorothyTrap: { a: 'blast', c: 0xffcf69, r: 1.2, pt: true },
   dorothyCritical: { a: 'summon', c: 0xff665c, r: 0.4, pt: true },
   dorothyChain: { a: 'dorothyChain', c: 0xffcf69, r: 0.5, pt: true },
+  // 雷姆必拓 Boss: the thrown pizza and its landing (sim content/rem.js specials) — a tossed arc, then the blast
+  remPizza: { a: 'summon', c: 0xffc35c, r: 0.45, pt: true },
+  remPizzaImpact: { a: 'blast', c: 0xff9a3c, r: 0.45 },
   // blasts
   // [ASSUMED] Clementia's S3 uses the shared blast placeholder until her official effect is ported.
   blast: { a: 'blast', c: 0xffb35c },

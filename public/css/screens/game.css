@@ -203,7 +203,8 @@
 .gtop__iconbtn:hover, .gtop__iconbtn.is-on { background: var(--mint-a20); color: var(--mint-400); border-color: var(--mint-500); }
 .gtop__iconbtn.is-on:not(.has-sprite) { opacity: .6; }
 .gtop__iconbtn .enemybtn__chev { color: #fff; }
-.gtop__right { display: flex; flex-direction: column; align-items: flex-end; gap: .1rem; justify-self: end; }
+/* 右列整体居中对齐（需求方 2026-11-13：工具按钮与准备就绪上下交换后，整列要居中） */
+.gtop__right { display: flex; flex-direction: column; align-items: center; gap: .1rem; justify-self: end; }
 .gtop__right .countdown { --cd-h: .7rem; filter: drop-shadow(0 0 .12rem rgba(0, 0, 0, .8)); }
 .gtop__clock { display: flex; align-items: flex-start; gap: .14rem; }
 
@@ -844,6 +845,19 @@
 /* a spectator seat (community report #26): the same place, the watching pill's amber — nobody was eliminated */
 .gm__dead--spectator { background: rgba(24, 16, 4, .92); border-color: rgba(246, 163, 41, .6); color: var(--amber); }
 
+/* 本局词条预览（需求方 2026-11-13）：顶栏左侧放大镜**左边**的常驻预览。
+   ★ 必须 absolute 脱离文档流：顶栏是 `1fr auto 1fr` 三列 grid，中列是 auto —— 词条块若参与排版，
+     中列会变宽、整条顶栏（回合盒/胶囊/生命塔）就偏离屏幕中心，与下方盟约条对不齐（用户 2026-11-13 实测）。
+     绝对定位挂在 `gtop__center`（它是 position:relative）的左侧，宽度不参与任何列计算。 */
+.gtop__tags {
+  position: absolute; right: 100%; top: 0; margin-right: .08rem;
+  display: flex; align-items: center; height: 100%; max-width: 2.6rem; overflow: hidden;
+}
+.gtop__tags .cc-tagstrip { height: 100%; }
+.gtop__tags .cc-tagstrip__head { display: none; }   /* 顶栏里只留图标串，标题让位给战场 */
+/* 工具按钮（设置/玩法说明/全屏/作战统计）挂在「准备就绪」下方（需求方 2026-11-13） */
+.gtop__tools { display: flex; justify-content: center; gap: .08rem; }
+.gtop__tools .gm__tools { position: static; display: flex; gap: .08rem; }
 .chud { position: absolute; inset: 0; pointer-events: none; }
 .chud > * { pointer-events: auto; }
 .dpbox {
@@ -860,6 +874,19 @@
 }
 .dpbox__icon { width: .26rem; height: .26rem; color: var(--mint-500); }
 .dpbox b { font-size: .34rem; line-height: 1; color: #fff; }
+/* 重力指示（危机合约 #4「滞空焦点」）：需求方 2026-11-13 选 (c) —— 右上角，与 DP 计数板同侧 */
+.gravhud {
+  position: absolute; right: .3rem; top: calc(50% - 1.1rem);
+  display: flex; flex-direction: column; align-items: stretch; gap: .04rem; padding: .1rem .14rem;
+  background: rgba(8, 11, 10, .55);
+  -webkit-backdrop-filter: blur(.12rem) saturate(1.6);
+  backdrop-filter: blur(.12rem) saturate(1.6);
+  border: 1px solid var(--line-2); border-left: 3px solid var(--amber);
+}
+@supports not (backdrop-filter: blur(1px)) { .gravhud { background: rgba(8, 11, 10, .88); } }
+.gravhud__side { display: flex; align-items: center; gap: .08rem; }
+.gravhud__arrow { font-size: .3rem; line-height: 1; color: var(--amber); font-weight: 700; }
+.gravhud__name { font-size: .15rem; font-weight: 400; color: var(--text-hi); }
 .chud__bottom { position: absolute; left: 50%; bottom: .3rem; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: .12rem; pointer-events: none; }
 .chud__bottom > * { pointer-events: auto; }
 .chud__msg {

@@ -1,4 +1,4 @@
-// test/packServerModules.test.js — 包的**服务端模块**载荷（`pack.json.server.modules`，DESIGN §34.14）。
+// test/packServerModules.test.js — 包的**服务端模块**载荷（`pack.json.server.modules`，DESIGN §36.14）。
 //
 // 这一类载荷存在的理由很具体：社区插件包要做的三件事（停机播报与快照留档、匿名对局统计落盘、给 `/healthz` 加字段）
 // 每一条都与 kit 的契约相反（kit 明写「不碰文件系统、不碰网络」），今天只能靠**手改引擎文件**。这一格就是那条

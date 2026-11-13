@@ -8,8 +8,12 @@ import { makeMatch, legalTileFor } from './harness.js';
 
 const REAL = { skip: !hasGeneratedData() && 'needs the generated data (npm run build-data)' };
 const T6B = 'chess_char_6_diy2_a';
-const MGLLAN = 'char_248_mgllan';
-const SUM_Y = 'uniequip_003_mgllan';
+// ★ 2026-11-08: 麦哲伦 (char_248_mgllan) left `backups.diy.ownedPool` when packRhine ported her as a chess of her own
+// (chess_rhine_magallan_a/b) — a ported operator is no longer "a 6★ outside the chess pool", so she cannot fill a
+// 自选 slot any more and `acquireChess` returns null. 令 (char_2023_ling) is the other summoner this test's own header
+// names (「麦哲伦 / 令 3 → 4」) and she is still an owned pick; her module is SUM-X.
+const SUM = 'char_2023_ling';
+const SUM_U = 'uniequip_002_ling';
 
 /** Summon copies of `uid` the player holds: placed on the board plus the stacks in the hand and 临时整备区. */
 function summonsOf(ps, uid) {
@@ -19,7 +23,7 @@ function summonsOf(ps, uid) {
 }
 
 test('a promoted 自选 summoner on the board gets the elite\'s summon count (麦哲伦 SUM-Y: 3 → 4 drones)', REAL, () => {
-  const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, diy: { [T6B]: { charId: MGLLAN, skillIndex: 0, uniEquipId: SUM_Y } } }];
+  const seats = [{ seat: 0, playerId: 'p_0', name: 'P0', isBot: false, connected: true, diy: { [T6B]: { charId: SUM, skillIndex: 0, uniEquipId: SUM_U } } }];
   const h = makeMatch({ mode: 'solo', seats, seed: 21 }).start();
   try {
     h.toPrep(1);

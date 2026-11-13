@@ -68,7 +68,11 @@ describe('the manifest (data/assets.json)', () => {
     const backs = Object.entries(M.chars).filter(([, c]) => c.spine?.back);
     const withFall = backs.filter(([, c]) => dieClipDur(c.spine.back) > 0).map(([id]) => id).sort();
     assert.ok(backs.length >= 130, `${backs.length} Back skeletons`);
-    assert.deepEqual(withFall, ['char_271_spikes', 'char_322_lmlee', 'char_388_mint', 'char_4064_mlynar', 'char_440_pinecn', 'char_602_cdfend'], 'including 芳汀 from the earlier-version union');
+    // The pinned set of Back skeletons that DO carry a Die clip. 芳汀 (char_4064_mlynar) came from the earlier-version
+    // union; オブリビオン (char_4182_oblvns) came with 0.3.2 (18da6bdda), which backfilled the historical versions' official
+    // resources, and its Back skeleton has carried a real 1 s Die clip since. Not a regression: the point of the test is
+    // that a Back model normally has NO fall, and this list is the measured exception list, not a design list.
+    assert.deepEqual(withFall, ['char_271_spikes', 'char_322_lmlee', 'char_388_mint', 'char_4064_mlynar', 'char_4182_oblvns', 'char_440_pinecn', 'char_602_cdfend'], 'including 芳汀 from the earlier-version union');
     for (const [id, c] of Object.entries(M.chars)) assert.ok(dieClipDur(c.spine.front) > 0, `${id} Front has a Die clip`);
     assert.equal(dieClipDur(back(CAPER)), 0);
     assert.equal(dieClipDur(front(CAPER)), front(CAPER).animations.Die);

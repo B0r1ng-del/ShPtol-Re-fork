@@ -1405,7 +1405,10 @@ function bossCandidateOpts(m, ps, byUid, plan) {
     sharedBoss: new SharedBossPool(hp),
     // the spec the host's browser rebuilds the pool from (buildBattleSpec reads `boss`, not the live pool object)
     boss: { poolHp: hp, poolMax: hp },
-    flags: { layerGainsEnabled: false, ...m.gd.dp, enemyScale: m.gd.enemyScale(m.round) },
+    // 解除叠层上限 (MOD_KEYS `uncapLayers`): 这条规格和 combat.js:161 / unitePhase.js:69 / bossRounds.js:137 是同一份
+    // 规则清单，其它三处都带了这个旗标，这一处漏了 ⇒ AI 演练算出来的层数被 999 压住、真打的却不受限，
+    // 演练就不再是同一场战斗的预演。`layerCapFor` 是唯一判据，旗标照它们那样写成布尔。
+    flags: { layerGainsEnabled: false, uncapLayers: m.gd.uncapLayers, ...m.gd.dp, enemyScale: m.gd.enemyScale(m.round) },
     fieldId: `rb:${ps.playerId}`,
     enemyOverrides: wave.overrides,
     waveId: wave.templateId,

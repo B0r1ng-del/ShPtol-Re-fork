@@ -886,7 +886,13 @@ test('干员战斗语音 (DESIGN §21.30): the manifest data, the official prior
   // one operator carries every slot a battle can play — and none of the prep-only ones (plan.mjs VOICE_BATTLE_SLOTS):
   // 干员报到 / 编入队伍 / 任命队长 are never requested by the client, so planning them only made every `npm run assets`
   // download 360 files (19.3 MB, one per operator and slot) nobody hears. `--voice-all` brings the complete set back.
-  const slots = ['start', 'faceEnemy', 'select', 'place', 'skill1', 'skill2', 'skill3', 'skill4', 'resultFour', 'resultThree', 'resultTwo', 'resultLose'];
+  const slots = ['start', 'faceEnemy', 'select', 'place', 'skill1', 'skill2', 'skill3', 'resultFour', 'resultThree', 'resultTwo', 'resultLose'];
+  // skill4 is NOT a universal slot: 21 operators in the official charword table simply have no BATTLE_SKILL_4
+  // (they are 3-skill or 1-skill units — 锡兰 char_348_ceylon is one: her voiceIds run CN_027 then jump to CN_029).
+  // Asserting it for everyone was wrong. Only the operators the official data gives a 4th slot must carry it.
+  const skill4Chars = new Set(Object.values(JSON.parse(readFileSync(join(ROOT, '.cache/gamedata/excel/charword_table.json'), 'utf8')).charWords ?? {})
+    .filter((e) => e && e.placeType === 'BATTLE_SKILL_4' && typeof e.voiceId === 'string' && e.voiceId.startsWith('CN_'))
+    .map((e) => e.charId));
   const prepOnly = ['gacha', 'squad', 'squadFirst'];
   const lines = [];
   const walk = (x) => {
@@ -896,6 +902,9 @@ test('干员战斗语音 (DESIGN §21.30): the manifest data, the official prior
   };
   for (const id of charIds) {
     for (const s of slots) assert.ok(voice[id][s], `${id}.${s}`);
+    // the 4th skill slot only where the official table declares BATTLE_SKILL_4 (see above)
+    if (skill4Chars.has(id)) assert.ok(voice[id].skill4, `${id}.skill4`);
+    else assert.equal(voice[id].skill4, undefined, `${id}.skill4 is absent in the official table too`);
     for (const s of prepOnly) assert.equal(voice[id][s], undefined, `${id}.${s} is not planned by default`);
     walk(voice[id]);
   }

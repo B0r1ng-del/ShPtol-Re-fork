@@ -34,6 +34,7 @@ import {
 } from './materials.js';
 import { syncThreeCamera } from '../projection.js';
 import { mergeSceneChunks, sceneMaterialKey, sceneWaterInfo, isSceneWater } from './load.js';
+import { sceneryPlan, sceneryChunks } from './scenery.js';
 
 /** Lighting rig (tuned against the official screenshots: bright even tops, darker sides, soft shadows). */
 export const LIGHTING = Object.freeze({
@@ -236,6 +237,8 @@ export class BoardScene {
     this.stageKey = null;
     this.stage = null;
     this.scenePacks = new Map();   // stage id → official scene pack (setScenePack)
+    this.themes = new Map();       // board theme → { pack, tex, mat } (setThemePack)
+    this.themeNow = null;          // the theme of the current stage, once loaded
     this.sceneRes = new Map();     // pack key → { tex, lm, mats } GPU resources (kept across rebuilds)
     this.official = null;
     this.sceneWater = [];
@@ -350,18 +353,24 @@ export class BoardScene {
   setStage(stage) {
     if (this.destroyed) return;
     const official = stage ? this.scenePacks.get(stage.id) || null : null;
-    const key = stage ? `${stage.id || ''}|${official ? official.key : ''}|${(stage.rows || []).join('/')}|${JSON.stringify((stage.devices || []).map((d) => [d.key, d.pos, d.active, d.dir]))}` : '';
+    const theme = stage && typeof stage.board3d?.theme === 'string' ? this.themes.get(stage.board3d.theme) || null : null;
+    const key = stage ? `${stage.id || ''}|${official ? official.key : ''}|${theme ? theme.pack.key : ''}|${(stage.rows || []).join('/')}|${JSON.stringify((stage.devices || []).map((d) => [d.key, d.pos, d.active, d.dir]))}` : '';
     if (key === this.stageKey) return;
     this.stageKey = key;
     this.stage = stage || null;
     this._clear();
     this.sceneWater = [];
     this.official = null;
+    this.themeNow = null;
     if (!stage) { applyWaterMaterial(this.mat.water, null); return; }
-    const board = buildBoard(stage, { uv: this.pack?.uv || null, area: this.area, platformMesh: !!this.platformGeometry() });
+    this.themeNow = theme;
+    const board = buildBoard(stage, { uv: this.pack?.uv || null, area: this.area, platformMesh: !!this.platformGeometry(), theme: !!theme,
+      kits: !!(theme && official && stage.board3d?.scenery && stage.board3d?.models) });
     this.board = board;
     const M = this.meshes = {};
-    this.official = official && this._buildScene(official) ? official : null;
+    // a hand-made stage may take an official scene as its surroundings only (stage.board3d.scenery, scenery.js)
+    const scenery = official && stage.board3d?.scenery ? official : null;
+    this.official = !scenery && official && this._buildScene(official) ? official : null;
     // Apply only the active, successfully built pack: preloading another stage must not recolour this board.
     // setScenePack rebuilds the current stage, so replacement/removal also restores parameters and cube defines.
     const waterPack = this.official;
@@ -373,6 +382,11 @@ export class BoardScene {
       M.glass = this._mesh(board.buckets.glass, this.mat.glass);
       M.decal = this._mesh(board.buckets.decal, this.mat.decal, { cast: false });
       M.pipe = this._mesh(board.buckets.pipe, this.mat.pipe);
+      if (theme) {
+        M.theme = this._mesh(board.buckets.theme, theme.mat.board);
+        M.themeDecal = this._mesh(board.buckets.themeDecal, theme.mat.decal, { cast: false });
+      }
+      if (scenery) this._buildScene(scenery, sceneryPlan(stage, scenery.chunks, this.area, board.grid));
     } else {
       // the scene has no device slabs: the 特制水上平台 / 封印的地面 slabs (and the 射击台's without its model) stay
       // drawn on it (units stand on them at tiles.js heightAt; GitHub #569)
@@ -386,6 +400,31 @@ export class BoardScene {
     if (!this.official) this._buildBackground(board);
     this._fitShadow(board);
     this.renderer.shadowMap.needsUpdate = true;
+  }
+
+  /**
+   * A stage's own board theme (load.js loadThemePack): materials on the theme atlas; rebuilds the current stage when
+   * it uses that theme. Set once per theme (the pack is cached per page).
+   */
+  setThemePack(theme, pack) {
+    if (this.destroyed || typeof theme !== 'string' || !pack || this.themes.has(theme)) return false;
+    const T = this.THREE, img = pack.images || {};
+    const aniso = Math.min(8, this.renderer.capabilities?.getMaxAnisotropy?.() || 1);
+    const own = {
+      D: makeTexture(T, img.D, { aniso }), N: makeTexture(T, img.N, { srgb: false, aniso }), R: makeTexture(T, img.R, { srgb: false, aniso }),
+      E: makeTexture(T, img.E, { aniso }), common: makeTexture(T, img.common, { aniso }), commonE: makeTexture(T, img.commonE, { aniso }),
+      BG: makeTexture(T, img.BG, { aniso }),
+    };
+    if (own.BG) { own.BG.wrapS = T.MirroredRepeatWrapping; own.BG.wrapT = T.MirroredRepeatWrapping; }
+    const tex = { ...this.tex, ...Object.fromEntries(Object.entries(own).filter(([, v]) => v)) };
+    const mat = {
+      board: boardMaterial(T, tex, this.focus, { emissive: LIGHTING.emissive, roughness: LIGHTING.roughness }),
+      decal: own.common ? decalMaterial(T, tex, this.focus) : null,
+      bg: own.BG ? unlitMaterial(T, own.BG, new T.Color().setScalar(LIGHTING.bg.color * LIGHTING.bg.dim)) : null,
+    };
+    this.themes.set(theme, { pack, own, mat });
+    if (this.stage && this.stage.board3d?.theme === theme) { this.stageKey = null; this.setStage(this.stage); }
+    return true;
   }
 
   /** Use (or drop, with null) the official scene of stage `id`; rebuilds when that stage is the current one. */
@@ -426,7 +465,7 @@ export class BoardScene {
    * The official scene's meshes: the base plus the fields of the built areas, one mesh per material and lightmap
    * page (`mergeSceneChunks`). A switched-off HIDDEN part is left out before the merge.
    */
-  _buildScene(pack) {
+  _buildScene(pack, around = null) {
     const T = this.THREE;
     const res = this._sceneResources(pack);
     const infos = pack.doc?.materials || {};
@@ -438,11 +477,15 @@ export class BoardScene {
       const mk = sceneMaterialKey(c, info);
       let bucket = buckets.get(mk);
       if (!bucket) { bucket = { info, chunks: [] }; buckets.set(mk, bucket); }
-      bucket.chunks.push(c);
+      if (!around) { bucket.chunks.push(c); continue; }
+      // around a hand-made board: its tile models and its surroundings (scenery.js)
+      for (const pc of sceneryChunks(c, around)) bucket.chunks.push(pc);
     }
     let n = 0;
     for (const [mk, bucket] of buckets) {
+      if (!bucket.chunks.length) continue;
       const c = mergeSceneChunks(bucket.chunks);
+      if (!c) continue;
       const info = bucket.info;
       const surface = isSceneWater(info, c.material);
       const water = surface || info?.kind === 'water';
@@ -621,7 +664,7 @@ export class BoardScene {
       const ix = placed.index;
       for (let i = 0; i < ix.length; i += 3) { const t = ix[i + 1]; ix[i + 1] = ix[i + 2]; ix[i + 2] = t; }
     }
-    this.meshes.bg = this._mesh({ ...placed, color: null }, this.mat.bg, { cast: false, receive: false, order: -2 });
+    this.meshes.bg = this._mesh({ ...placed, color: null }, this.themeNow?.mat.bg || this.mat.bg, { cast: false, receive: false, order: -2 });
     // the key light's shadow of the island on the ground far below (S_Background_shadow's role)
     const s = B.size;
     const q = { position: new Float32Array([cx - s / 2, cy - s / 2, B.z + 0.02, cx + s / 2, cy - s / 2, B.z + 0.02, cx + s / 2, cy + s / 2, B.z + 0.02, cx - s / 2, cy + s / 2, B.z + 0.02]), normal: new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1]), uv: new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]), color: null, index: new Uint16Array([0, 1, 2, 0, 2, 3]) };
@@ -779,6 +822,11 @@ export class BoardScene {
     this._clear();
     for (const p of [...this.scenePacks.values()]) this._disposeScene(p);
     this.scenePacks.clear();
+    for (const th of this.themes.values()) {
+      for (const m of Object.values(th.mat)) m?.dispose?.();
+      for (const t of Object.values(th.own)) t?.dispose?.();
+    }
+    this.themes.clear();
     this.mat.edge?.map?.dispose?.(); // canvas dash texture (not in this.tex)
     for (const m of Object.values(this.mat)) m?.dispose?.();
     for (const t of Object.values(this.tex)) t?.dispose?.();

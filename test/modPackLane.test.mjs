@@ -1,4 +1,4 @@
-// test/modPackLane.test.mjs — DESIGN §34.56：包声明的 WebSocket lane。
+// test/modPackLane.test.mjs — DESIGN §36.56：包声明的 WebSocket lane。
 // 两半各自钉住：形状层（pack.json 里那句声明的每条拒绝码）与纯的那半（`server/modLanes.js` 的认领 / 撞车 /
 // 限额 / 「处理器还没就位」）。这一格最怕的失败方向是「包合法、表里没这行、客户端连过去永远没反应」，
 // 所以每一条都判它响不响。
@@ -31,7 +31,7 @@ describe('形状层：每条失败都点名', () => {
     // 闭枚举扩张（`SERVER_MODULE_USES` 6→7、`SERVER_MODULE_FIELDS` 5→6）**必须**带的那一条判据。
     // 比上面那条强：上面只问 `lane` 在不在，这一条把**整条模块条目**钉成一份完整期望值 ——
     // 多一个键、少一个键、键序变了都当场红。为什么必须这么严：`identifyPack` 哈希的就是这份归一化清单的
-    // canonicalJson，给每个模块都补一个 `lane: null` 会让**所有已发布包**的摘要全部改变（DESIGN §34.2）。
+    // canonicalJson，给每个模块都补一个 `lane: null` 会让**所有已发布包**的摘要全部改变（DESIGN §36.2）。
     const bare = mk([{ id: 'm', entry: 'server/m.mjs', uses: ['healthz'] }]);
     assert.equal(bare.ok, true, JSON.stringify(bare.detail));
     assert.deepEqual(bare.pack.server.modules, [{ id: 'm', entry: 'server/m.mjs', uses: ['healthz'], write: false }]);
@@ -123,7 +123,7 @@ describe('纯的那半：认领、撞车、限额、处理器还没就位', () =
     assert.equal(destroyed, 0, '有 reject 就不该直接掐连接：客户端要能看清是 503');
   });
 
-  test('处理器就位后转发，并多带一个 lane 身份；抛错就关连接（§34.44 的口径）', () => {
+  test('处理器就位后转发，并多带一个 lane 身份；抛错就关连接（§36.44 的口径）', () => {
     const row = claimPackLane({ packId: 'p', moduleId: 'm', path: '/mod-ws/p/duel' }).row;
     const seen = [];
     assert.equal(attachPackLaneHandler('p', 'm', (req, socket, head, ctx) => { seen.push(ctx.lane.path); }).ok, true);

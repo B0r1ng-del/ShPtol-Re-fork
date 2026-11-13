@@ -928,6 +928,11 @@
   color: #fff;
   text-shadow: 0 0 .26rem var(--rd-glow), 0 2px 0 rgba(0, 0, 0, .55);
 }
+/* ★ 原版的方块机器人图标（需求方 2026-11-13 图二：作战结束弹板左侧有个青色方块机器人）。
+   官方图是 roundStartDialog 那套白模按色遮罩合成的；这里用纯 CSS 画同一形状——方块头 + 一只眼 + 底部横条。 */
+.rdialog__bot { position: relative; flex: none; width: .5rem; height: .46rem; background: var(--rd); opacity: .92; }
+.rdialog__bot::before { content: ''; position: absolute; left: 18%; top: 30%; width: 22%; height: 26%; background: #0b100e; }
+.rdialog__bot::after { content: ''; position: absolute; left: 12%; bottom: 12%; width: 76%; height: 16%; background: #0b100e; }
 .rdialog__chev { --ch-h: .46rem; height: .46rem; flex: none; }
 .rdialog__sub {
   font-size: calc(.18 * var(--t));

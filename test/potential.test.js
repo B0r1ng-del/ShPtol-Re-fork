@@ -116,8 +116,11 @@ test('every chess and 自选 form at every potential: the raw keyframes plus the
     for (let rank = 0; rank <= FULL_RANK; rank++) { const r = atRank(c, rank); check(c.chessId, c.charId, c.status, r.statsBase ?? r.stats, rank); n++; }
   }
   // 258 official records + the two ported packExtra6 operators' base/elite pairs (内容包 六.C) + the six ported
-  // packRhine ones' (六.F) + the eighteen 卡兹戴尔 / 雷姆必拓 records (八 / 九) + 二.3's 26 东国/乌萨斯 records, × six ranks
-  assert.equal(n, 330 * 6);
+  // packRhine ones' (六.F) + the eighteen 卡兹戴尔 / 雷姆必拓 records (八 / 九) + 二.3's 26 东国/乌萨斯 records, × six ranks.
+  // ★ 2026-11-06: 330 → 328 (the same 2 records as test/full-potential.test.js): 结城理 (char_4217_makoto) was
+  // deleted 2026-10-29 (六.C, commit d136a382a); only 丰川祥子 remains from packExtra6, so its base/elite pair is
+  // the remainder.
+  assert.equal(n, 328 * 6);
   let forms = 0;
   for (const [charId, u] of Object.entries(backups.units)) {
     for (const f of Object.values(u.forms)) {

@@ -33,9 +33,10 @@
 // the striped hatch. The Final Assault benches (rows 0–1) are dark-rimmed plates with a 2×2 grid of light panels. The island ("drawn" tiles: content + the forbidden ring around it) stands on
 // panelled cliff faces; beyond it the official background plane shows through (scene.js).
 
-import { SURFACES, surfaceUV, sideRect, tintRgb } from './atlas.js';
+import { SURFACES, surfaceUV, sideRect, tintRgb, cleanSurface } from './atlas.js';
 import { GLYPH, TILEKEY_GLYPH, TILE_H } from '../style.js';
 import { parsePenRect, PEN_RECT } from '../pen.js';
+import { benchGlyph } from '../bench.js';
 
 export const ROWS = 19;
 export const COLS = 21;
@@ -160,7 +161,7 @@ export function uvAt(uv, fx, fy) {
  * areas (inclusive tile rects, see AREAS): content outside them is not built, like the client which only builds the
  * areas of the current phase (configBlackBoard leftNormal / rightNormal / leftBoss / rightBoss + the preview pen).
  */
-export function classifyStage(stage, area = null) {
+export function classifyStage(stage, area = null, theme = null, kits = false) {
   const rows = Array.isArray(stage?.rows) ? stage.rows : [];
   const pen = parsePenRect(stage?.config?.enemy_place_rect) || PEN_RECT;
   const legend = stage && typeof stage.tiles === 'object' && stage.tiles ? stage.tiles : {};
@@ -169,11 +170,12 @@ export function classifyStage(stage, area = null) {
     const line = typeof rows[r] === 'string' ? rows[r] : '';
     const row = [];
     for (let c = 0; c < COLS; c++) {
-      let g = line[c] || '#';
+      let g = benchGlyph(rows, r, c) || line[c] || '#';
+      const ch = g; // the stage's own character (a board theme is keyed by it)
       if (!GLYPH[g]) g = TILEKEY_GLYPH[legend[g]?.tileKey] || (legend[g]?.height === 'HIGH' ? '#' : 'R');
       const def = GLYPH[g];
       const inArea = !area || area.some((a) => r >= a.r0 && r <= a.r1 && c >= a.c0 && c <= a.c1);
-      row.push({ r, c, glyph: g, content: inArea && CONTENT_OF(g), inArea, drawn: false, h: def.h ? TILE_H[def.h] : 0, raised: !!def.h });
+      row.push({ r, c, ch, glyph: g, content: inArea && CONTENT_OF(g), inArea, drawn: false, h: def.h ? TILE_H[def.h] : 0, raised: !!def.h });
     }
     grid.push(row);
   }
@@ -232,6 +234,48 @@ export function classifyStage(stage, area = null) {
     else if (far) { t.surf = 'plateL'; t.rot = 270; }
     else if (near) { t.surf = 'plateL'; t.rot = 90; }
     else t.surf = 'plateS';
+  }
+  // a stage's own board theme (stage.board3d.tiles, keyed by the stage's own row characters): top / side / decal
+  // surfaces of the theme atlas — only when its textures are loaded (buildBoard `theme`), the official look otherwise
+  if (theme && typeof theme === 'object') for (const row of grid) for (const t of row) {
+    const o = theme[t.ch];
+    if (!o || typeof o !== 'object') continue;
+    if (typeof o.surf === 'string') {
+      t.surf = o.surf;
+      t.rot = Number.isFinite(o.rot) ? o.rot : (o.spin ? (hash2(t.r, t.c) % 4) * 90 : 0);
+      t.flipX = false;
+    }
+    if (Array.isArray(o.tint) && o.tint.length === 3) t.tint = o.tint.map(Number);
+    if (typeof o.side === 'string') t.side = o.side;
+    if (Array.isArray(o.sideTint) && o.sideTint.length === 3) t.sideTint = o.sideTint.map(Number);
+    if (typeof o.decal === 'string') { t.decal = o.decal; t.decalRot = Number(o.decalRot) || 0; t.decalSize = Number(o.decalSize) || 0.92; }
+    // built from a tile model of the official scene (scenery.js kitPlaces) once that scene is loaded.
+    // ★ 官方的 `board: false` 是「这一格不画程序化板面，用场景里的模型顶上」。参考站能这么做，是因为它的
+    //   kitPlaces 对每一格都真的产出了模型。**本项目不能照搬**：`deco` 组用的是 `cells` 复制（只挑场景里
+    //   11 个装饰格），复制体只覆盖部分格子，其余格子就没有任何顶面 ⇒ 板面出现黑洞（用户 2026-11-13 实测）。
+    //   所以这里只记录 kit（模型照样叠上去），**不设 noBoard** —— 程序化主题板面始终在，模型是加成而不是替代。
+    if (kits && typeof o.kit === 'string') {
+      t.kit = o.kit;
+      // ★ 官方的 `t.decal = null` 必须保留：有 kit 模型的格子，警示贴片由模型自己带（网格贴图），
+      //   程序化 decal 再叠一张就是重影 —— 用户 2026-11-13 图二里那些斜纹格正是这样来的。
+      t.decal = null;
+      if (typeof o.kitSurf === 'string') { t.surf = o.kitSurf; t.rot = 0; }
+      if (Array.isArray(o.kitTint) && o.kitTint.length === 3) t.tint = o.kitTint.map(Number);
+    }
+  }
+  // ★ 敌人预览区（pen）的地板也要走 theme（需求方 2026-11-13 选「让 pen 也走 theme」）。
+  //   上面按 glyph 套 theme 时，pen 里的 'f' / 'p' 会被换成 theme 的普通地板（airship: shipConcrete），
+  //   玻璃格的样子就丢了。`board3d.pen` 给了就按它来（{ surf, side?, decal?, tint? }），
+  //   没给就保留 glass 标记 —— classifyStage 出来的 glass 桶照旧由 scene.js 的玻璃材质渲染。
+  const penTheme = stage && typeof stage.board3d === 'object' && stage.board3d ? stage.board3d.pen : null;
+  if (penTheme && typeof penTheme === 'object') {
+    for (const row of grid) for (const t of row) {
+      if (!t.glass) continue;
+      if (typeof penTheme.surf === 'string') { t.surf = penTheme.surf; t.rot = Number(penTheme.rot) || 0; }
+      if (typeof penTheme.side === 'string') t.side = penTheme.side;
+      if (typeof penTheme.decal === 'string') { t.decal = penTheme.decal; t.decalRot = Number(penTheme.decalRot) || 0; t.decalSize = Number(penTheme.decalSize) || 0.92; }
+      if (Array.isArray(penTheme.tint) && penTheme.tint.length === 3) t.tint = penTheme.tint.map(Number);
+    }
   }
   return grid;
 }
@@ -333,12 +377,18 @@ function sideFace(g, uvTable, surfName, dir, x0, x1, y0, y1, zb, zt, colBottom, 
  */
 export function buildBoard(stage, opts = {}) {
   const uvTable = opts.uv || null;
-  const UVT = uvTable || Object.fromEntries(Object.entries(SURFACES).map(([k, v]) => [k, { ...v, rect: [...v.rect] }]));
-  const grid = classifyStage(stage, opts.area || null);
+  const UVT0 = uvTable || Object.fromEntries(Object.entries(SURFACES).map(([k, v]) => [k, { ...v, rect: [...v.rect] }]));
+  // a stage's own board theme (stage.board3d): its surfaces join the table; their quads go to the theme buckets
+  const th = opts.theme && stage?.board3d && typeof stage.board3d === 'object' ? stage.board3d : null;
+  const UVT = { ...UVT0 };
+  if (th && th.surfaces && typeof th.surfaces === 'object') for (const [k, v] of Object.entries(th.surfaces)) { const s = cleanSurface(v); if (s) UVT[k] = s; }
+  const grid = classifyStage(stage, opts.area || null, th ? th.tiles : null, !!(th && opts.kits));
   const at = (r, c) => grid[r]?.[c] || null;
   const topZ = (t) => (t.glyph === 'd' ? -BASIN : t.h);
   const board = new Geom(), decal = new Geom(), pipe = new Geom(), glass = new Geom();
   const raised = new Geom(), raisedDecal = new Geom();
+  const themeG = new Geom(), themeDecal = new Geom();
+  const geomOf = (name, dflt) => (UVT[name]?.src === 'theme' ? themeG : UVT[name]?.src === 'themeCommon' ? themeDecal : dflt);
   const gates = [], terrain = { water: [], mire: [], smog: [], infection: [] };
   // S / E gates come from the whole grid, not from the drawn tiles: the enemy half's start gate sits outside the
   // current area and the `t.drawn` filter below would drop it, so watching one half lost the other side's red gate.
@@ -372,7 +422,8 @@ export function buildBoard(stage, opts = {}) {
     };
     const ao = [occl(-1, -1), occl(1, -1), occl(1, 1), occl(-1, 1)];
     const [inset, drop] = t.raised ? BEVEL.block : BEVEL.low;
-    bevelTop(t.glass ? glass : board, UVT, t, zt, inset, t.glyph === 'd' ? 0 : drop, ao, tint);
+    // a tile model (t.noBoard) stands here instead: only its island cliff is built
+    if (!t.noBoard) bevelTop(t.glass ? glass : geomOf(t.surf, board), UVT, t, zt, inset, t.glyph === 'd' ? 0 : drop, ao, tint);
     if (t.panels) benchPanels(board, UVT, t, zt, ao);
     const zEdge = zt - (t.glyph === 'd' ? 0 : drop);
     // sides: towards lower drawn neighbours (block sides / basin walls) and the island edge (cliffs)
@@ -383,14 +434,14 @@ export function buildBoard(stage, opts = {}) {
       if (!nDrawn) {
         // island edge: the tile's own side (if raised) then the platform's panelled cliff
         const sideTint = t.sideTint || [1, 1, 1];
-        if (zEdge > 0.001) sideFace(board, UVT, t.side || 'graySide', dir, x0, x1, y0, y1, 0, zEdge, scl(sideTint, 0.7), sideTint);
+        if (zEdge > 0.001 && !t.noBoard) sideFace(geomOf(t.side, board), UVT, t.side || 'graySide', dir, x0, x1, y0, y1, 0, zEdge, scl(sideTint, 0.7), sideTint);
         sideFace(board, UVT, 'pipePanel', dir, x0, x1, y0, y1, -CLIFF, Math.min(0, zEdge), [0.16, 0.18, 0.2], [0.62, 0.66, 0.7], 1);
         continue;
       }
-      if (zEdge > nz + 1e-4) {
+      if (!t.noBoard && zEdge > nz + 1e-4) {
         const surf = t.glyph === 'd' ? 'graySide' : (t.side || 'graySide');
         const st = t.sideTint || (t.glyph === 'd' ? [0.45, 0.5, 0.55] : [1, 1, 1]);
-        sideFace(board, UVT, surf, dir, x0, x1, y0, y1, nz, zEdge, scl(st, 0.62), st);
+        sideFace(geomOf(surf, board), UVT, surf, dir, x0, x1, y0, y1, nz, zEdge, scl(st, 0.62), st);
       }
     }
     // per-glyph extras
@@ -409,6 +460,12 @@ export function buildBoard(stage, opts = {}) {
       case 'g': terrain.smog.push([r, c]); break;
       case 'i': terrain.infection.push([r, c]); break;
       default: break;
+    }
+    // a board theme's decal plate (e.g. 滞空焦点's attitude switch on the gravity buttons)
+    if (t.decal && UVT[t.decal]) {
+      const s = UVT[t.decal], a = (t.decalSize || 0.92) / 2, z = zt + 0.004;
+      geomOf(t.decal, decal).quad([[c - a, r - a, z], [c + a, r - a, z], [c + a, r + a, z], [c - a, r + a, z]],
+        surfaceUV({ ...s, rot: ((s.rot | 0) + (t.decalRot | 0)) % 360 }), [0, 0, 1], [1, 1, 1]);
     }
   }
 
@@ -479,7 +536,7 @@ export function buildBoard(stage, opts = {}) {
 
   return {
     grid, gates, devices, terrain, edges,
-    buckets: { board: board.finish(), decal: decal.finish(), pipe: pipe.finish(), glass: glass.finish(), raised: raised.finish(), raisedDecal: raisedDecal.finish() },
+    buckets: { board: board.finish(), decal: decal.finish(), pipe: pipe.finish(), glass: glass.finish(), raised: raised.finish(), raisedDecal: raisedDecal.finish(), theme: themeG.finish(), themeDecal: themeDecal.finish() },
     bounds: { x0: minX, x1: maxX, y0: minY, y1: maxY },
     stats: { tiles: grid.flat().filter((t) => t.drawn).length, vertices: board.vertexCount + decal.vertexCount + pipe.vertexCount },
   };

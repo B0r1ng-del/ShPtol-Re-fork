@@ -60,7 +60,30 @@ export async function quitMatch() {
     if (left && !store.get().match.result) {
       try { recordQuit(before); } catch (err) { console.warn('[stats] quit record failed', err); }
     }
-    store.set({ room: null, match: emptyMatch() });
+    // 危机合约：局内放弃也要走**行动结束页**（用户 2026-11-08 明确要求，两个赛季都一样），
+    // 而不是直接掉回大厅。官方 crisisResult / crisisArcResult 的「失败」正是这一屏，
+    // 所以这里造一个最小 result 让 screens/game.js 的 `hasResult` 分支接管，
+    // 房间留到结算页的「完成」再丢（backToCrisis 会一并清掉）。
+    const crisis = before?.room?.crisis || null;
+    if (left && crisis) {
+      const pub = before?.match?.public || {};
+      store.set({
+        match: {
+          ...emptyMatch(),
+          public: { ...pub, phase: 'RESULT', winner: -1, seconds: Number(pub.seconds) || 0 },
+          result: {
+            quit: true,
+            victory: false,
+            seconds: Number(pub.seconds) || 0,
+            endedAt: Date.now(),
+            players: Array.isArray(before?.match?.public?.players) ? before.match.public.players : [],
+            lineup: before?.match?.private?.lineup || [],
+          },
+        },
+      });
+    } else {
+      store.set({ room: null, match: emptyMatch() });
+    }
   }
 }
 

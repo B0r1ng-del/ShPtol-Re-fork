@@ -99,8 +99,13 @@ test('every chess, 自选 form and stand-in form: the raw keyframes plus every p
     if (Object.keys(steps(c.charId)).length) withSteps++;
   }
   // 258 official + the two ported packExtra6 operators (内容包 六.C), the six ported packRhine ones (六.F), the
-  // eighteen 卡兹戴尔 / 雷姆必拓 records (八 / 九) and 二.3's 26 东国/乌萨斯 records, each a base/elite pair
-  assert.equal(n, 330);
+  // eighteen 卡兹戴尔 / 雷姆必拓 records (八 / 九) and 二.3's 26 东国/乌萨斯 records, each a base/elite pair.
+  // ★ 2026-11-06: 330 → 328. 结城理 (char_4217_makoto) was deleted 2026-10-29 (六.C, commit d136a382a, which took
+  // his chess rows, garrison and kit out of data/chess.json and taught tools/build-data.mjs / test/backups.test.js
+  // about FORK_DELETED_CHARS). Only 丰川祥子 (char_4182_oblvns) is left in that pack, so its base/elite pair is
+  // what remains — one operator × two records = the 2 this count lost. The count tracks the shipped records; it is
+  // not a rule about how many operators the fork should port.
+  assert.equal(n, 328);
   assert.ok(withSteps >= 220, `chess with potential steps: ${withSteps}`);
   let forms = 0;
   for (const [charId, u] of Object.entries(backups.units)) {

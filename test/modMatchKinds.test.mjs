@@ -1,4 +1,4 @@
-// test/modMatchKinds.test.mjs — DESIGN §34.54 的 `pack.json.matchKinds`：形状、两条硬闸门、字节稳定性，
+// test/modMatchKinds.test.mjs — DESIGN §36.54 的 `pack.json.matchKinds`：形状、两条硬闸门、字节稳定性，
 // 以及 `host.matchKinds()` 那半边「没声明 matchClass 就没有能力」。
 //
 // 与 test/packBehaviour.test.js 同一套打法：合成 raw manifest 直接喂 `normalizePackManifest`，逐个拒绝分支
@@ -31,7 +31,7 @@ describe('合法形状与字节稳定性', () => {
     assert.deepEqual(a.pack.matchKinds.map((k) => k.id), ['a_kind', 'b_kind']);
     assert.equal(JSON.stringify(a.pack.matchKinds), JSON.stringify(b.pack.matchKinds));
     // ⭐ 只比 matchKinds 那一小段还不够：摘要是对**整份清单**取的。两份只差书写顺序的包必须结出**同一份清单**，
-    // 否则书写顺序就能改摘要 —— 那等于房间的摘要闸门（§34.2）可以被绕过：两份行为不同的包共用一个摘要。
+    // 否则书写顺序就能改摘要 —— 那等于房间的摘要闸门（§36.2）可以被绕过：两份行为不同的包共用一个摘要。
     assert.equal(JSON.stringify(a.pack), JSON.stringify(b.pack),
       'declaration order must not change the manifest: identifyPack hashes this object');
   });
@@ -75,7 +75,7 @@ describe('两条硬闸门：没有接收人 / 不肯认 combat', () => {
     assert.equal(bad.error, 'MATCHKINDS_NEED_MATCH_CLASS');
   });
 
-  test('有包装器但不声明 combat ⇒ 由 §34.14 那条先拦（这一格不重复判，写了也永远不会命中）', () => {
+  test('有包装器但不声明 combat ⇒ 由 §36.14 那条先拦（这一格不重复判，写了也永远不会命中）', () => {
     const bad = mk({ server: { modules: WRAP }, matchKinds: KIND });
     assert.equal(bad.ok, false);
     assert.equal(bad.error, 'MODULES_NEED_COMBAT');

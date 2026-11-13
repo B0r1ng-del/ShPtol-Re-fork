@@ -7,6 +7,7 @@
 // Plain DOM in a 1280×720 stage; class names carry the `spa-` prefix (the intro and the backdrop can be on screen
 // together, so nothing here uses an element id).
 import { data } from '../data.js';
+import { t } from '../../../shared/i18n.js';
 
 // ★ 本 fork 没有 `resources/cdn.js`（那属于另一个前端实现）。这里只需要一个「资源版本」串拼在图片地址后面
 //   做缓存区分：取 data/assets.json 的 hash —— 资源一更新它就变，浏览器就会重新取图。
@@ -506,60 +507,7 @@ function sqStyle(el, L, light) {
 function introHTML() {
   const fog = spriteUrl('fog'), ship = spriteUrl('ship'), logo = spriteUrl('logo'), cross = spriteUrl('cross'), scan = spriteUrl('scan');
   const crossImg = `<img class="spa-cross" data-k="cross" src="${cross}" alt="">`;
-  return `<div class="spa-L" data-k="lobby">${lobbyHTML()}</div>
-  <div class="spa-L spa-intro" data-k="intro">
-    <div class="spa-cam" data-k="cam">
-      <div class="spa-bgTone"></div>
-      <img class="spa-fog" data-k="fog" src="${fog}" alt="">
-      <img class="spa-fog2" data-k="fog2" src="${fog}" alt="">
-      <div class="spa-shade" data-k="shade"></div>
-      <img class="spa-ship" data-k="shipA" src="${ship}" alt=""><img class="spa-ship" data-k="shipB" src="${ship}" alt="">
-    </div>
-    <div>
-      <div class="spa-hud" data-k="sqBig"><i style="left:-1px;top:-1px"></i><i style="right:-1px;top:-1px"></i><i style="left:-1px;bottom:-1px"></i><i style="right:-1px;bottom:-1px"></i></div>
-      <div class="spa-hud" data-k="sqSmall"></div>
-      <div class="spa-hud" data-k="sqTiny"></div>
-    </div>
-    <div class="spa-L" data-k="rows">
-      <div class="spa-rowsBase" data-k="rowsBase"><div class="spa-vg"></div></div>
-      <div class="spa-bband" data-k="bband"></div><div class="spa-band" data-k="band"></div><div class="spa-lline" data-k="lline"></div><div class="spa-r1slab" data-k="r1slab"></div><div class="spa-r2bar" data-k="r2bar"></div>
-      <div class="spa-row" data-k="row1"><div class="spa-ear"></div><div class="spa-box">01</div><div class="spa-tick"></div><div class="spa-rslab" data-k="row1slab"></div><svg class="spa-cap" data-k="cap1"></svg></div>
-      <div class="spa-row" data-k="row2"><div class="spa-ear"></div><div class="spa-box">02</div><div class="spa-tick"></div></div>
-    </div>
-    <svg class="spa-rail" data-k="rail" viewBox="0 0 1280 720"></svg>
-    <div class="spa-slab" data-k="slab">
-      <div class="spa-s" data-k="sBlock" style="left:327px;width:110px"></div>
-      <div class="spa-s" data-k="sMain" style="left:447px;width:457px;clip-path:polygon(0 0,100% 0,100% 34%,97.6% 34%,97.6% 66%,100% 66%,100% 100%,0 100%)"></div>
-      <div data-k="sTxt" style="position:absolute;left:740px;font-size:22px;color:#6f8188;letter-spacing:.04em">INPUT ▸</div>
-      <div class="spa-s" style="left:907px;top:433px;width:60px;height:7px"></div>
-      <div class="spa-s" style="left:653px;top:347px;width:100px;height:9px;background:#26333a"></div>
-      <div style="position:absolute;left:713px;top:514px;font-size:9px;color:#33454c;white-space:nowrap">■&nbsp;&nbsp;STRONGHOLD PROTOCOL</div>
-    </div>
-    <div class="spa-L spa-introScan" data-k="introScan" style='background-image:url("${scan}")'></div>
-    <canvas class="spa-grain" data-k="grain"></canvas>
-    <div class="spa-L">
-      ${crossImg}${crossImg}${crossImg}${crossImg}
-      <div class="spa-hb" data-k="hbL"></div><div class="spa-hb" data-k="hbR"></div>
-      <div class="spa-hbk" data-k="hbkL" style="border-left:none"></div><div class="spa-hbk" data-k="hbkR" style="border-right:none"></div>
-      <div class="spa-orange" data-k="orange">RHODES ISLAND STRONGHOLD PROTOCOL</div>
-    </div>
-  </div>
-  <div class="spa-L spa-logo" data-k="logo">
-    <div class="spa-a0 spa-card" data-k="card"></div>
-    <div class="spa-pyr" data-k="pyr"><img class="spa-pyrTeal" data-k="pyrTeal" src="${logo}" alt=""><img data-k="pyrWhite" src="${logo}" alt=""></div>
-    <div class="spa-a0 spa-cream" data-k="cream"><img class="spa-pyrBlack" data-k="pyrBlack" src="${logo}" alt=""></div>
-    <canvas class="spa-dots" data-k="dots"></canvas>
-    <div class="spa-a0" data-k="txt">
-      <div class="spa-a0 spa-brk spa-bkL" data-k="bkL"></div><div class="spa-a0 spa-brk spa-bkR" data-k="bkR"></div>
-      <div class="spa-a0 spa-abs" data-k="abs"><span>AB1</span><span>AB2</span><span>AB3</span><span>AB4</span></div>
-      <svg class="spa-a0" data-k="tA"></svg>
-      <div class="spa-a0 spa-tline spa-tB" data-k="tB"><span class="spa-ink" data-k="tBink">STRONGHOLD PROTOCOL</span><span class="spa-pale" data-k="tBpale">STRONGHOLD PROTOCOL</span></div>
-      <div class="spa-a0 spa-tline spa-tC" data-k="tC"><span data-k="tCtxt">${[...'ALLIANCE'].map((c) => `<span>${c}</span>`).join('')}</span></div>
-      <div class="spa-dot2" data-k="dotL"></div><div class="spa-dot2" data-k="dotR"></div>
-      <div class="spa-a0 spa-blk" data-k="blk"><div class="spa-bars"><i></i><i></i></div><div class="spa-lines"><b><span>STRONGHOLD PROTOCOL</span></b><s>ALLIED OPERATIONS ·</s></div></div>
-      <div class="spa-a0 spa-tline spa-tE" data-k="tE">卫戍协议: <em>盟约</em></div>
-    </div>
-  </div>`;
+  return t('<div class="spa-L" data-k="lobby">{0}</div>\n  <div class="spa-L spa-intro" data-k="intro">\n    <div class="spa-cam" data-k="cam">\n      <div class="spa-bgTone"></div>\n      <img class="spa-fog" data-k="fog" src="{fog}" alt="">\n      <img class="spa-fog2" data-k="fog2" src="{fog}" alt="">\n      <div class="spa-shade" data-k="shade"></div>\n      <img class="spa-ship" data-k="shipA" src="{ship}" alt=""><img class="spa-ship" data-k="shipB" src="{ship}" alt="">\n    </div>\n    <div>\n      <div class="spa-hud" data-k="sqBig"><i style="left:-1px;top:-1px"></i><i style="right:-1px;top:-1px"></i><i style="left:-1px;bottom:-1px"></i><i style="right:-1px;bottom:-1px"></i></div>\n      <div class="spa-hud" data-k="sqSmall"></div>\n      <div class="spa-hud" data-k="sqTiny"></div>\n    </div>\n    <div class="spa-L" data-k="rows">\n      <div class="spa-rowsBase" data-k="rowsBase"><div class="spa-vg"></div></div>\n      <div class="spa-bband" data-k="bband"></div><div class="spa-band" data-k="band"></div><div class="spa-lline" data-k="lline"></div><div class="spa-r1slab" data-k="r1slab"></div><div class="spa-r2bar" data-k="r2bar"></div>\n      <div class="spa-row" data-k="row1"><div class="spa-ear"></div><div class="spa-box">01</div><div class="spa-tick"></div><div class="spa-rslab" data-k="row1slab"></div><svg class="spa-cap" data-k="cap1"></svg></div>\n      <div class="spa-row" data-k="row2"><div class="spa-ear"></div><div class="spa-box">02</div><div class="spa-tick"></div></div>\n    </div>\n    <svg class="spa-rail" data-k="rail" viewBox="0 0 1280 720"></svg>\n    <div class="spa-slab" data-k="slab">\n      <div class="spa-s" data-k="sBlock" style="left:327px;width:110px"></div>\n      <div class="spa-s" data-k="sMain" style="left:447px;width:457px;clip-path:polygon(0 0,100% 0,100% 34%,97.6% 34%,97.6% 66%,100% 66%,100% 100%,0 100%)"></div>\n      <div data-k="sTxt" style="position:absolute;left:740px;font-size:22px;color:#6f8188;letter-spacing:.04em">INPUT ▸</div>\n      <div class="spa-s" style="left:907px;top:433px;width:60px;height:7px"></div>\n      <div class="spa-s" style="left:653px;top:347px;width:100px;height:9px;background:#26333a"></div>\n      <div style="position:absolute;left:713px;top:514px;font-size:9px;color:#33454c;white-space:nowrap">■&nbsp;&nbsp;STRONGHOLD PROTOCOL</div>\n    </div>\n    <div class="spa-L spa-introScan" data-k="introScan" style=\'background-image:url("{scan}")\'></div>\n    <canvas class="spa-grain" data-k="grain"></canvas>\n    <div class="spa-L">\n      {crossImg}{crossImg}{crossImg}{crossImg}\n      <div class="spa-hb" data-k="hbL"></div><div class="spa-hb" data-k="hbR"></div>\n      <div class="spa-hbk" data-k="hbkL" style="border-left:none"></div><div class="spa-hbk" data-k="hbkR" style="border-right:none"></div>\n      <div class="spa-orange" data-k="orange">RHODES ISLAND STRONGHOLD PROTOCOL</div>\n    </div>\n  </div>\n  <div class="spa-L spa-logo" data-k="logo">\n    <div class="spa-a0 spa-card" data-k="card"></div>\n    <div class="spa-pyr" data-k="pyr"><img class="spa-pyrTeal" data-k="pyrTeal" src="{logo}" alt=""><img data-k="pyrWhite" src="{logo}" alt=""></div>\n    <div class="spa-a0 spa-cream" data-k="cream"><img class="spa-pyrBlack" data-k="pyrBlack" src="{logo}" alt=""></div>\n    <canvas class="spa-dots" data-k="dots"></canvas>\n    <div class="spa-a0" data-k="txt">\n      <div class="spa-a0 spa-brk spa-bkL" data-k="bkL"></div><div class="spa-a0 spa-brk spa-bkR" data-k="bkR"></div>\n      <div class="spa-a0 spa-abs" data-k="abs"><span>AB1</span><span>AB2</span><span>AB3</span><span>AB4</span></div>\n      <svg class="spa-a0" data-k="tA"></svg>\n      <div class="spa-a0 spa-tline spa-tB" data-k="tB"><span class="spa-ink" data-k="tBink">STRONGHOLD PROTOCOL</span><span class="spa-pale" data-k="tBpale">STRONGHOLD PROTOCOL</span></div>\n      <div class="spa-a0 spa-tline spa-tC" data-k="tC"><span data-k="tCtxt">{13}</span></div>\n      <div class="spa-dot2" data-k="dotL"></div><div class="spa-dot2" data-k="dotR"></div>\n      <div class="spa-a0 spa-blk" data-k="blk"><div class="spa-bars"><i></i><i></i></div><div class="spa-lines"><b><span>STRONGHOLD PROTOCOL</span></b><s>ALLIED OPERATIONS ·</s></div></div>\n      <div class="spa-a0 spa-tline spa-tE" data-k="tE">卫戍协议: <em>盟约</em></div>\n    </div>\n  </div>', { 0: lobbyHTML(), fog, ship, scan, crossImg, logo, 13: [...'ALLIANCE'].map((c) => `<span>${c}</span>`).join('') });
 }
 
 /**

@@ -8,7 +8,10 @@ import assert from 'node:assert/strict';
 import { makeBattle, chessRec, enemyRec, checkInvariants } from '../helpers/battleHarness.js';
 import { getDefaultSource } from '../../server/sim/simdata.js';
 import { hasGeneratedData } from '../../server/sim/simdata.js';
-import { airflowRelationOf } from '../../server/sim/content/devices.js';
+import { airflowRelationOf, deviceState } from '../../server/sim/content/devices.js';
+import { attrPower } from '../../server/match/waves.js';
+import { GameData } from '../../server/match/gamedata.js';
+import { getData } from '../../server/data.js';
 import { frontPiece, behindPiece } from '../../server/sim/content/support/meta.js';
 
 const REAL = { skip: !hasGeneratedData() };
@@ -111,6 +114,78 @@ test('气流 (act2 m01 DOWN blowers): an operator facing DOWN gets ATK +equal, U
   close(atkOf('DOWN'), 1000 * (1 + bb['blower_s_character[equal].atk']), 'with the flow');
   close(atkOf('UP'), 1000 * (1 + bb['blower_s_character[opposite].atk']), 'against the flow');
   close(atkOf('RIGHT'), 1000, 'across the flow');
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// 重力按钮 (危机合约 #4「滞空焦点」)
+
+// The arc map lives in data/stages-crisis.json and reaches the sim only through DataSource.rawStage's crisis lookup; the
+// stage object is handed to the harness directly (makeBattle's stageId path is the seasonal draw).
+const ARC = REAL.skip ? null : ds.getStage('custom_cc4_focus');
+
+test('重力按钮: the arc stage loads at all (stages-crisis is not the seasonal draw)', REAL, () => {
+  assert.ok(ARC, 'custom_cc4_focus resolves through DataSource.rawStage');
+  assert.equal(ARC.rows.length, 19);
+  assert.ok(ARC.special?.gravity, 'special.gravity is carried into the sim stage');
+  assert.equal(ARC.devices.length, 5);
+  assert.ok(!ds.stageIds().includes('custom_cc4_focus'), 'but it is never drawn as a seasonal stage');
+});
+
+test("重力按钮: stepping on '<' / '>' sets that half's gravity; the last one on it wins", REAL, () => {
+  const h = makeBattle({ stage: ARC, defs: { chess: { t_g: op('t_g') } }, units: [{ chessId: 't_g', row: 10, col: 8 }], autoFinish: false, timeLimit: 10 });
+  h.step();
+  assert.deepEqual(deviceState(h.b).grav.dir, { L: 'LEFT', R: null }, "'<' presses LEFT for the left half only");
+});
+
+test('重力按钮: an operator facing with gravity gets ASPD +aspd, against −aspd, across nothing', REAL, () => {
+  const aspd = ARC.special.gravity.aspd;
+  const aspdOf = (dir) => {
+    const h = makeBattle({ stage: ARC, defs: { chess: { t_g: op('t_g') } }, units: [{ chessId: 't_g', row: 10, col: 8, dir }], autoFinish: false, timeLimit: 10 });
+    h.step();
+    return h.unit('t_g').s.aspd;
+  };
+  close(aspdOf('LEFT'), 100 + aspd, 'with gravity (< pressed: LEFT)');
+  close(aspdOf('RIGHT'), 100 - aspd, 'against gravity');
+  close(aspdOf('UP'), 100, 'across gravity');
+});
+
+test('重力按钮: an enemy walking sideways with gravity is faster by withMove[重量], against by againstMove[重量]; up/down untouched', REAL, () => {
+  const G = ARC.special.gravity;
+  // '<' at (10,8) is pressed by a stationary operator, so the left half's gravity is LEFT for the whole run
+  const run = (mass, from, to) => {
+    const key = `enemy_m${mass}`;
+    const h = makeBattle({
+      stage: ARC,
+      defs: { chess: { t_g: op('t_g') }, enemies: { [key]: enemyRec({ key, hp: 1e6, speed: 1, mass }) } },
+      units: [{ chessId: 't_g', row: 10, col: 8 }],
+      enemies: [{ key, route: { motion: 'WALK', start: from, end: to, checkpoints: [] } }],
+      autoFinish: false, timeLimit: 30,
+    });
+    h.step();
+    const e = h.enemy(key);
+    const seen = new Set();
+    for (let i = 0; i < 40 && e.alive; i++) { h.step(0.25); if (e.moving) seen.add(Math.round(e.s.moveSpeed * 1000) / 1000); }
+    return [...seen].sort((a, b) => b - a)[0];
+  };
+  for (const mass of [0, 1, 2, 3, 4]) {
+    const lv = Math.min(mass, G.withMove.length - 1);
+    close(run(mass, [11, 8], [11, 2]), G.withMove[lv], `重量 ${mass} with gravity`);
+    close(run(mass, [11, 2], [11, 8]), G.againstMove[lv], `重量 ${mass} against gravity`);
+  }
+  close(run(4, [11, 8], [11, 2]), G.withMove[G.withMove.length - 1], 'anything heavier than the last index');
+  close(run(3, [12, 5], [10, 5]), 1, 'a vertical walk is untouched');
+});
+
+test('弧光的契约敌人必须算得出战力：attrPower / beFactor 走 anyEnemy，否则 replacedCount 把每回合怪量压成 1', REAL, () => {
+  // data/enemies-crisis.json 里的敌人在 gd.enemy() 之外 —— attrPower 用 gd.enemy 会得到 0，
+  // replacedCount 的 ratio 于是落到下限，第 1 回合只剩 1–2 只（用户 2026-11-13 反馈「敌人太少」）。
+  // 判据：契约敌人的战力必须与同表的一般敌人同量级，绝不是 0。
+  // 这条用 GameData（不是 DataSource）：波次构建的真实路径就是它，且只有它有 enemy / enemyAny 两套查表
+  const gd = new GameData(getData(), 'mode_single_hard');
+  for (const key of ['enemy_1326_cbagen', 'enemy_1333_cbbgen', 'enemy_1325_cbgpro']) {
+    assert.ok(gd.enemyAny(key), `${key} 必须能从 enemies-crisis 查到`);
+    assert.ok(attrPower(gd, key) > 1000, `${key} 的战力必须算得出来（拿到 0 就会把怪量压成 1）`);
+  }
 });
 
 // ---------------------------------------------------------------------------------------------------------------------

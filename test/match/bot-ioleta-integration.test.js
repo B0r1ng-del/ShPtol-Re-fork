@@ -242,13 +242,19 @@ for (const selected of ['ioleta', 'ioleta-adaptive']) test(`${selected}: one Mat
   players[0].bandId = players[1].bandId = 'band_ioleta';
   players[2].bandId = 'band_bldsk';
   const attempts = new Map();
+  // O.gummy (chess_char_1_10_a) is NOT guaranteed to survive the HARD ban draw: this seed bans it
+  // (bannedChess holds chess_char_1_10_a), and a banned chess sitting in a hand-built shop slot trips
+  // checkInvariants ("banned chess … in the shop") — which is the invariant doing its job, not a bot bug.
+  // Draw the slot from a tier-1 piece this match actually keeps.
+  const shelfChess = m.gd.visibleChess.find((id) => !m.bannedChess.includes(id) && m.gd.tierOf(id) === 1);
+  assert.ok(shelfChess, 'a HARD match keeps at least one tier-1 chess');
   for (const ps of players) {
     ps.ready = false;
     delete ps.botStrategyState;
     ps.funds = 2;
     ps.shop.upgradePrice = 100;
     ps.shop.freeRefreshes = 0;
-    ps.shop.slots = [{ kind: 'chess', id: O.gummy, basePrice: 2, sold: false }, null, null, null];
+    ps.shop.slots = [{ kind: 'chess', id: shelfChess, basePrice: 2, sold: false }, null, null, null];
     attempts.set(ps.playerId, 0);
     ps.buy = () => {
       attempts.set(ps.playerId, attempts.get(ps.playerId) + 1);

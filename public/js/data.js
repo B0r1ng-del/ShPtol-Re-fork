@@ -58,6 +58,11 @@ export const DATA_FILES = Object.freeze({
   enemies: 'enemies.json',
   bosses: 'bosses.json',
   stages: 'stages.json',
+  // 危机合约 #4「弧光作战」的专属战场（custom_cc4_focus）：**不能**并进 stages.json —— 那张表是「本季可抽到的
+  // 战场」，几十处测试与 golden 以它为基准。与 enemies / enemies-crisis 是同一种拆分。
+  'stages-crisis': 'stages-crisis.json',
+  // 契约专用敌人（多萝西 / “唤醒” 等）：`enemy` 查表要两处都看，见 ui/gameComponents.js makeLookups
+  'enemies-crisis': 'enemies-crisis.json',
   tokens: 'tokens.json',
   choices: 'choices.json',
   config: 'config.json',
@@ -631,7 +636,12 @@ export const getEnemy = (key) => data.lookup('enemies', key);
 /** @param {string} id boss id */
 export const getBoss = (id) => data.lookup('bosses', id);
 /** @param {string} id stage id */
-export const getStage = (id) => data.lookup('stages', id);
+/**
+ * 一张战场记录。**任何读 stage 的地方都该走这里**，不要直接 `data.lookup('stages', id)` ——
+ * 危机合约 #4「弧光作战」的专属战场（custom_cc4_focus）在 data/stages-crisis.json 里，与 stages 分开是刻意的
+ * （它不能进抽图池，否则 golden roster 会抽到它）。只查一张表的地方会静默拿到 null。
+ */
+export const getStage = (id) => data.lookup('stages', id) || data.lookup('stages-crisis', id);
 /** @param {string} id token id */
 export const getToken = (id) => data.lookup('tokens', id);
 /** @returns {any|null} data/config.json */

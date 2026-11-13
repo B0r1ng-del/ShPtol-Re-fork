@@ -255,8 +255,10 @@ test('data/versions/act2autochess-v2_1: the same-id records that differ from tod
   assert.deepEqual(changed('bands'), ['band_chen', 'band_malkie', 'band_yu']);
   // the bands' and bonds' effects above, 奥术法阵 without 失能 and 商业包装方案 (V2_2), 阿戈尔's swallow order and
   // 悬赏·折射II's 卫队 / 卫士 (04-14)
+  // eff_acarm073 / eff_acgarm073 (变形同构体, 危机合约): today's text gained the two 同时携带 lines naming the
+  // 莱茵实验终端 and 舍身刻印 bonds; V2_1 (2026-03-14) has the shorter original, so the pair belongs in this list.
   assert.deepEqual(changed('effects'), ['aceffect_band_27', 'aceffect_band_39', 'bondeffect_egir', 'bondeffect_invest', 'bondeffect_mira',
-    'bondeffect_visi', 'eff_acarm048', 'eff_acarm074', 'eff_acgarm048', 'eff_acgarm074', 'enemyeffect_15_7']);
+    'bondeffect_visi', 'eff_acarm048', 'eff_acarm073', 'eff_acarm074', 'eff_acgarm048', 'eff_acgarm073', 'eff_acgarm074', 'enemyeffect_15_7']);
   // 圆仔 NORMAL and 节日气球 uncounted (level_autochess_enemy_data, 04-14); the rest term markup or an ability's format only
   assert.deepEqual(changed('enemies'), ['enemy_10028_vtswd', 'enemy_10029_vtshld', 'enemy_10030_vtwand', 'enemy_10034_cnvsax', 'enemy_10040_cnvbln',
     'enemy_10144_xdelk_2', 'enemy_2008_flking', 'enemy_2085_skzjxd', 'enemy_2085_skzjxd_2', 'enemy_9011_acrefr']);
@@ -286,20 +288,51 @@ test('data/versions/act2autochess-v2_1: the same-id records that differ from tod
   const changedIn = (sub, pick) => Object.keys(sub(v21b)).filter((id) => Object.hasOwn(sub(today), id)
     && JSON.stringify(pick(sub(today)[id])) !== JSON.stringify(pick(sub(v21b)[id]))).sort();
   const diyOps = (b) => b.diy.operators;
-  assert.deepEqual(changedIn(diyOps, (o) => o.bonds), ['char_4055_bgsnow', 'char_4204_mantra']);
+  // 鸿雪（char_4055_bgsnow）已不在 diy.operators：`tools/dong-ursus-content.mjs:119` 把他做成了内容包棋盘棋子
+  // （乌萨斯盟约，用户指定覆盖 nationId），`legal6` 于是不再收他进自选池。V2_1 里他还是自选，但 changedIn
+  // 只在「两版都有」的键上比对，所以他自然消失 —— 不是漏测，是他真的换了归属。
+  // 这 5 名的盟约在内容包完成后发生了真实变化：V2_1 时他们是 emptyShip（协防占位），今天分别是
+  // 多萝西→yanShip+dongShip、可颂丽→siracusaShip+ursusShip、阿米娅近卫→ursusShip、遥→dongShip、真言→sargonShip。
+  // 鸿雪 char_4055_bgsnow 已不在 diy.operators（`tools/dong-ursus-content.mjs:119` 把他做成乌萨斯内容包棋子），
+  // 而 changedIn 只比对两版共有的键，所以他不出现 —— 不是漏测，是他真的换了归属。
+  assert.deepEqual(changedIn(diyOps, (o) => o.bonds), ['char_1044_hsgma2', 'char_1502_crosly', 'char_4195_radian',
+    'char_4202_haruka', 'char_4204_mantra']);
+  // 今日比 V2_1 多出来的 powers 全部来自内容包盟约：东国 higashi（多萝西/赫德雷）、乌萨斯 ursus（可颂丽/阿米娅近卫形态/
+  // 塞雷娅近卫形态/嵯峨近卫形态/澄闪/重岳/莫斯提马近卫形态/夜刀近卫形态/雷蛇/陈近卫形态/真言/薇恩/克罗丝尔/赤冬/白面鸮/
+  // 玛恩纳/克洛丝/耀骑士/灰烬/霜星/近卫阿米娅），以及 REM 的 babel（真言）。V2_1 是 03-14 的快照，那时这些内容包还不存在。
   assert.deepEqual(changedIn(diyOps, (o) => o.powers), ['char_003_kalts', 'char_1044_hsgma2', 'char_1050_chen3', 'char_1502_crosly',
-    'char_4055_bgsnow', 'char_4132_ascln', 'char_4133_logos', 'char_4195_radian', 'char_4204_mantra']);
+    'char_4132_ascln', 'char_4133_logos', 'char_4195_radian', 'char_4204_mantra']);
+  // 内容包带来的真实差异：鸿雪/赫拉格/星熊/嵯峨 今日少一个形态（V2_1 里他们多一个未启用形态，被内容包收敛成 2 形态）；
+  // 提丰/菲尼克斯 今日多一个模组 uniequip_004；黍/纳仁 多 uniequip_003。
   assert.deepEqual(changedIn((b) => b.units, (u) => Object.values(u.forms || {}).map((f) => (f.modules || []).map((m) => m.uniEquipId))),
-    ['char_2012_typhon', 'char_2025_shu', 'char_300_phenxi', 'char_4138_narant']);
+    ['char_188_helage', 'char_197_poca', 'char_2012_typhon', 'char_2025_shu', 'char_300_phenxi', 'char_362_saga',
+      'char_4055_bgsnow', 'char_4138_narant']);
   // the 自选 pools: the 9 operators released after 03-14 are absent (怒潮凛冬 among them); 银灰, 空弦, 卡涅利安 and 伺夜 are
   // V2_1-only 自选 picks (pending: the kitted gate drops them); 焰狐龙梓兰 and 结城理 are not excluded yet
   const minus = (a, b) => a.filter((c) => !b.includes(c)).sort();
   const later = ['char_1015_aglna2', 'char_1051_headb2', 'char_1052_kalts2', 'char_4226_veen', 'char_4228_closur', 'char_4229_aphris',
     'char_4230_mcnist', 'char_4231_clemnt', 'char_4235_thumpy'];
   const own = ['char_172_svrash', 'char_332_archet', 'char_426_billro', 'char_427_vigil'];
-  assert.deepEqual([minus(Object.keys(today.diy.operators), Object.keys(v21b.diy.operators)), minus(Object.keys(v21b.diy.operators), Object.keys(today.diy.operators))], [later, own]);
-  assert.deepEqual([minus(today.diy.ownedPool, v21b.diy.ownedPool), minus(v21b.diy.ownedPool, today.diy.ownedPool), v21b.diy.ownedPool.length], [later, own, 67]);
-  assert.deepEqual([minus(today.diy.excluded, v21b.diy.excluded), minus(v21b.diy.excluded, today.diy.excluded)], [['char_1048_orchd2', 'char_4217_makoto'], []]);
+  // 内容包把 4 名原自选干员收编成棋盘棋子，于是他们退出 diy.operators（只在 V2_1 里有）：
+  // 鸿雪 char_4055_bgsnow（东国/乌萨斯包）、赫拉格 char_188_helage、星熊 char_197_poca、嵯峨 char_362_saga。
+  // 今日多出来的 7 名里，char_1051_headb2 / char_4226_veen 仍未进自选池（later 里保留），其余 7 个已进。
+  const laterDiy = ['char_1015_aglna2', 'char_1052_kalts2', 'char_4228_closur', 'char_4229_aphris', 'char_4230_mcnist',
+    'char_4231_clemnt', 'char_4235_thumpy'];
+  const ownDiy = ['char_172_svrash', 'char_188_helage', 'char_197_poca', 'char_332_archet', 'char_362_saga', 'char_4055_bgsnow',
+    'char_426_billro', 'char_427_vigil'];
+  assert.deepEqual([minus(Object.keys(today.diy.operators), Object.keys(v21b.diy.operators)), minus(Object.keys(v21b.diy.operators), Object.keys(today.diy.operators))], [laterDiy, ownDiy]);
+  // ownedPool 从 67 缩到 58：内容包把 15 名原owned 干员收编成棋盘棋子（鸿雪/赫拉格/星熊/嵯峨/逻各斯/伊芙利特 等），
+  // 同时新增 6 名今日 owned（阿米娅近卫/陈近卫/克罗丝尔/阿弗丽丝/麦克尼斯/克莱蒙）。
+  const laterPool = ['char_1015_aglna2', 'char_1052_kalts2', 'char_4228_closur', 'char_4229_aphris', 'char_4230_mcnist', 'char_4231_clemnt'];
+  const ownPool = ['char_1035_wisdel', 'char_134_ifrit', 'char_172_svrash', 'char_188_helage', 'char_197_poca', 'char_248_mgllan',
+    'char_332_archet', 'char_362_saga', 'char_4055_bgsnow', 'char_4088_hodrer', 'char_4117_ray', 'char_4133_logos',
+    'char_416_zumama', 'char_426_billro', 'char_427_vigil'];
+  assert.deepEqual([minus(today.diy.ownedPool, v21b.diy.ownedPool), minus(v21b.diy.ownedPool, today.diy.ownedPool), v21b.diy.ownedPool.length], [laterPool, ownPool, 67]);
+  // 今日排除项只剩 妖灯 char_1048_orchd2 —— 结城理 char_4217_makoto 已由 `tools/fork-extra6.mjs` 的
+  // FORK_DELETED_CHARS 删除（六.C），不再作为「自选排除项」存在；另有两名今日新排除的 夜刀 char_1029_yato2
+  // 与 oblevns char_4182_oblvns（内容包收编后不再进自选池）。
+  assert.deepEqual([minus(today.diy.excluded, v21b.diy.excluded), minus(v21b.diy.excluded, today.diy.excluded)],
+    [['char_1048_orchd2'], ['char_1029_yato2', 'char_4182_oblvns']]);
   const v21 = read('versions/act2autochess-v2_1', 'enemies');
   assert.deepEqual([v21.enemy_2085_skzjxd.rank, v21.enemy_10040_cnvbln.notCountInTotal], ['NORMAL', true]);
 });
@@ -469,7 +502,11 @@ test('HTTP (M1, DESIGN §35.23): an enabled version\'s data is served (immutable
     const vanilla = await vr.json();
     assert.equal(Object.hasOwn(vanilla, 'version'), false);
     assert.equal(Object.hasOwn(vanilla, 'bounds'), false);
-    assert.ok(Object.values(vanilla.data).every((d) => /^\/data\/[a-z]+\.json\?v=[0-9a-f]{8}$/.test(d.url)));
+    // ★ 2026-11-08: the charset was [a-z]+, which cannot match `enemies-crisis.json` — 危机合约's rules table
+  // (server/match/gamedata.js:331 reads it) is a legal data file whose name carries a hyphen. This is not a
+  // loosening: the shape being pinned is `/data/<file>.json?v=<8 hex>`, and <file> was always allowed to be any
+  // data file name; [a-z][a-z-]* names exactly the characters data file names actually use.
+  assert.ok(Object.values(vanilla.data).every((d) => /^\/data\/[a-z][a-z-]*\.json\?v=[0-9a-f]{8}$/.test(d.url)));
     assert.deepEqual(vanilla, srv.content.index);
     assert.equal((await get(`/cs/${srv.versions.csOf('act1autochess').slice(0, 16)}/data/chess.json`)).status, 404);
     // /healthz names them and their match hosts

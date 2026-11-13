@@ -98,9 +98,12 @@ export function bossPoolHp(gd, bossId, aliveCount) {
   // lands here rather than through `enemyScale` — the pool is the only place a leader's HP exists. GameData.bossPoolHp
   // applies the same factor, so the two agree.
   const buffHp = gd.enemyBuff ? gd.enemyBuff.hp : 1;
+  // 危机合约 L1 王权高压 (shared/crisis.js): a leader's HP IS this pool, so a contract's raise lands here too. 1 for
+  // every ordinary match — the official modes' pool arithmetic is unchanged.
+  const crisisHp = typeof gd.crisisBossHpMul === 'function' ? gd.crisisBossHpMul(bossId) : 1;
   const share = typeof gd.bossPoolShare === 'function' ? gd.bossPoolShare(aliveCount)
     : bossPoolShareOf(gd.mode && gd.mode.bossHpScale, gd.config && gd.config.bossHpScale, !!gd.isSolo, aliveCount);
-  return Math.max(1, Math.round(base * share * tune * extra * buffHp));
+  return Math.max(1, Math.round(base * share * tune * extra * buffHp * crisisHp));
 }
 
 /**

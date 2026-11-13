@@ -229,7 +229,12 @@
 
 import { aiTakeover, resetAiTakeover, reconcileAiTakeover } from './aiTakeover.js';
 import { randomBytes, randomInt } from 'node:crypto';
-import { DIFFICULTIES, ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor, HOST_CONFIG_KEYS, HOST_CONFIG_SOLO_KEYS, HOST_CONFIG_DEFAULTS, HOST_ENEMY_KEYS, HOST_ENEMY_DEFAULTS, HOST_ENEMY_MAX_STEPS, MOD_KEYS, MOD_DEFAULTS, normalizeMods, roomSeatCap, ULTIMATE_DIFFICULTY } from '../shared/constants.js';
+import { DIFFICULTIES, ERR, MAX_SEATS, MAX_SPECTATORS, ROOM_CODE_LEN, modeIdFor, HOST_CONFIG_KEYS, HOST_CONFIG_SOLO_KEYS, HOST_CONFIG_DEFAULTS, HOST_ENEMY_KEYS, HOST_ENEMY_DEFAULTS, HOST_ENEMY_MAX_STEPS, MOD_KEYS, MOD_DEFAULTS, normalizeMods, roomSeatCap, ULTIMATE_DIFFICULTY, CRISIS_ROOM_MODE, CRISIS_ROOM_DIFFICULTY, crisisSeatCap } from '../shared/constants.js';
+import { checkCrisis, crisisRules, crisisTag, crisisTargetRounds, crisisMissingTargets, isCrisisSeed } from '../shared/crisis.js';
+import { arcTag } from '../shared/crisisArc.js';
+import { setupMatchWaves } from './match/waves.js';
+import { createRng, deriveSeed } from './sim/rng.js';
+import { GameData } from './match/gamedata.js';
 import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, checkDiyPicks, charPotentialChanges, checkSkinSelection, operatorCharIds, PACK_MSG_LIMITS } from '../shared/protocol.js';
 import { encode, isErrCode, sendRaw, sendSession } from './net.js';
 import { getData as defaultGetData, lookup } from './data.js';
@@ -417,6 +422,8 @@ export class Room {
     this.hostId = null;
     /** @type {(Seat | null)[]} */
     this.seats = new Array(roomSeatCap(mode)).fill(null);
+    /** 危机合约 room: { mode, tags, total, fx, season?, bans? } or null (a normal room). Set by create(). */
+    this.crisis = null;
     /** @type {{ playerId: string, name: string, connected: boolean }[]} spectator seats, ≤ MAX_SPECTATORS (header) */
     this.spectators = [];
     /** @type {any} running Match instance */
@@ -486,6 +493,9 @@ export class Room {
   toState(now = Date.now()) {
     return {
       t: 'room.state',
+      // 危机合约: the contract the room was created with. The settle screen reads it from here (views.js does not
+      // carry it), so it has to survive on every state push, not just the first.
+      ...(this.crisis ? { crisis: { mode: this.crisis.mode, tags: [...this.crisis.tags], total: this.crisis.total, fx: this.crisis.fx, ...(this.crisis.season ? { season: this.crisis.season } : {}), ...(this.crisis.bans ? { bans: [...this.crisis.bans] } : {}), ...(this.crisis.seed != null ? { seed: this.crisis.seed } : {}) } } : {}),
       ...(this.aiTakeoverEnabled ? { aiTakeoverEnabled: true, aiTakeoverVotes: this.aiTakeoverVotes || [] } : {}),
       code: this.code,
       hostId: this.hostId,
@@ -912,6 +922,8 @@ export class Lobby {
   handleMessage(session, msg, ctx = null) {
     switch (msg.t) {
       case 'room.create': return this.create(session, msg);
+      case 'crisis.preview': return this.crisisPreview(session, msg);
+      case 'crisis.seed': return this.crisisSeed(session);
       case 'room.join': return this.join(session, msg);
       case 'room.leave': return this.leave(session);
       case 'room.ready': return this.ready(session, msg);
@@ -1022,7 +1034,7 @@ export class Lobby {
   // room.* handlers
   // ---------------------------------------------------------------------------------------------------
 
-  create(session, { mode, difficulty: asked, test, version: askedVersion, soloUnlimited, mods, modDigest } = {}) {
+  create(session, { mode, difficulty: asked, test, version: askedVersion, soloUnlimited, mods, modDigest, crisis } = {}) {
     // A test room exists only when the process switch allowed it. The check runs before the room is built.
     if (test === true && this.testEnabled !== true) return fail(ERR.TEST_DISABLED);
     // the official version (header "Official versions"): left out, the server's default
@@ -1034,7 +1046,13 @@ export class Lobby {
     // lacks is lowered (终极 → 绝境). 终极模拟 has no picker at all: its single difficulty is the AC-4 (ABYSS) table,
     // forced here because the client's value cannot be trusted (a room accepted as ultimate that then runs HARD would
     // be a silently wrong room).
-    const difficulty = mode === 'ultimate' ? ULTIMATE_DIFFICULTY
+    // 危机合约: the contract decides the difficulty table (绝境模拟), so a crisis room ignores the ask. A crisis room
+    // without a contract the server accepts does not exist — this is the same check the page runs, so the page can
+    // never offer a contract create() would refuse.
+    const contract = mode === CRISIS_ROOM_MODE ? (crisis ? checkCrisis(crisis) : null) : null;
+    if (mode === CRISIS_ROOM_MODE && !contract) return fail(ERR.BAD_MSG, 'not a valid crisis contract'); // i18n-ignore (developer diagnostic)
+    const difficulty = contract ? CRISIS_ROOM_DIFFICULTY
+      : mode === 'ultimate' ? ULTIMATE_DIFFICULTY
       : this.fallbackDifficulty(version, mode, DIFFICULTIES.includes(asked) ? asked : DEFAULT_DIFFICULTY);
     const cur = this.roomOf(session);
     if (cur && cur.match) return fail(ERR.ROOM_STARTED, 'leave your running match first');
@@ -1096,6 +1114,25 @@ export class Lobby {
     // Mod 开关 (room.create.mods, MOD_KEYS): the creator's switches, normalised — a missing / malformed value is the
     // official default, and the room keeps them for every match it runs (the protocol already refused an unknown key).
     room.mods = normalizeMods(mods);
+    // 危机合约: freeze the contract on the room. `fx` is compiled once here so every push and the match itself read the
+    // same numbers; 单人 runs on the single set, so it also narrows to one seat (a solo contract in a 4-seat room
+    // would let a second player join a run that has no second seat).
+    if (contract) {
+      const rules = crisisRules({ mode: contract.mode, tags: contract.tags, ...(contract.season ? { season: contract.season } : {}) });
+      if (!rules) return fail(ERR.BAD_MSG, 'crisis rules did not compile'); // i18n-ignore (developer diagnostic)
+      const bans = Array.isArray(crisis.bans) ? crisis.bans.slice(0, 64).filter((b) => typeof b === 'string') : null;
+      room.crisis = Object.freeze({
+        mode: contract.mode,
+        tags: Object.freeze([...contract.tags]),
+        total: contract.total,
+        fx: rules.fx,
+        ...(contract.season ? { season: contract.season } : {}),
+        // 弧光作战: 开局种子只决定出怪顺序（shared/crisisArc.js arcSchedule），随合约冻在房间上，开局时带给 Match
+        ...(crisis && isCrisisSeed(crisis.seed) ? { seed: Number(crisis.seed) >>> 0 } : {}),
+        ...(bans && bans.length ? { bans: Object.freeze(bans) } : {}),
+      });
+      if (contract.mode === 'solo') room.seats = new Array(crisisSeatCap('solo')).fill(null);
+    }
     room.ownerKey = key;
     room.seats[0] = this.humanSeat(0, session, room);
     room.hostId = session.playerId;
@@ -1969,6 +2006,52 @@ export class Lobby {
    * Any seated player may open or cancel the vote (issue #854); the match owns the vote, the per-seat cooldown and the
    * setup replacement itself. A spectator has no seat and therefore nothing to reroll.
    */
+  /**
+   * `crisis.preview`: what this seed draws — stage, the per-round enemy picks, which tags can hit their targets, the
+   * total. The page shows it before 行动开始 so a contract is never accepted blind. The ANSWER is pushed as its own
+   * message (`crisis.preview`): net.js answer() reduces a handler's `{ ok: true }` to the bare ack, so a payload
+   * returned from here would reach the browser empty.
+   */
+  crisisPreview(session, msg = {}) {
+    const sel = { mode: msg.mode, tags: Array.isArray(msg.tags) ? msg.tags.slice() : [], ...(msg.season ? { season: msg.season } : {}) };
+    // the same table create() checks against, so a page cannot preview a contract the server would refuse
+    const checked = checkCrisis(sel);
+    if (!checked) return fail(ERR.BAD_MSG, 'not a valid contract selection'); // i18n-ignore (developer diagnostic)
+    const bans = Array.isArray(msg.bans) ? msg.bans.slice(0, 64).filter((b) => typeof b === 'string') : null;
+    const seed = isCrisisSeed(msg.seed) ? (Number(msg.seed) >>> 0) : randomInt(1, 0x7fffffff);
+    // a contract runs on 绝境模拟; a 四人 one is a co-op room ⇒ the multi data set, a 单人 one the single set
+    const modeId = modeIdFor(checked.mode === 'solo' ? 'solo' : 'coop', CRISIS_ROOM_DIFFICULTY);
+    let preview;
+    try {
+      const gd = new GameData(this.getData(), modeId);
+      const setup = setupMatchWaves(gd, createRng(deriveSeed(seed, 'setup')), bans, checked.season === 'arc' ? seed : null);
+      // 弧光作战 keeps its routes in its own table, so the tag lookup has to follow the season
+      const tagOf = checked.season === 'arc' ? arcTag : crisisTag;
+      const rounds = {};
+      for (const id of checked.tags) {
+        const tag = tagOf(checked.mode, id);
+        if (!tag) continue;
+        const r = crisisTargetRounds(tag.route, { stageId: setup.stageId, picks: setup.picks, seed });
+        if (r.length) rounds[id] = r;
+      }
+      // 弧光作战: every enemy of the season comes in every match (shared/crisisArc.js ARC_ROSTER) ⇒ nothing can be missing
+      const missing = checked.season === 'arc' ? [] : crisisMissingTargets(checked, { stageId: setup.stageId, picks: setup.picks, seed });
+      preview = { seed, stageId: setup.stageId, picks: setup.picks, rounds, missing, total: checked.total, bans: bans || [] };
+    } catch (e) {
+      this.log.error(`[lobby] crisis.preview failed: ${e && e.message}`);
+      return fail(ERR.INTERNAL);
+    }
+    if (session && session.connected) sendSession(session, { t: 'crisis.preview', preview });
+    return OK;
+  }
+
+  /** `crisis.seed`: one fresh 32-bit seed, so a page can open without inventing its own. */
+  crisisSeed(session) {
+    const seed = randomInt(1, 0x7fffffff);
+    if (session && session.connected) sendSession(session, { t: 'crisis.seed', seed });
+    return OK;
+  }
+
   rerollSetup(session, msg, cancel = false) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -2448,6 +2531,8 @@ export class Lobby {
         // only a room created as a test room; a normal match opts object does not grow a test key
         ...(room.test === true ? { test: true } : {}),
         seed,
+        // 弧光作战: the 开局种子 that fixes the enemy schedule (setupMatchWaves arcSeed); a normal room omits the key
+        ...(room.crisis && room.crisis.season === 'arc' && Number.isInteger(room.crisis.seed) && room.crisis.seed > 0 ? { arcSeed: room.crisis.seed } : {}),
         // the room's match number: with the seed it keeps battleIds unique across the room's matches (DESIGN §14)
         matchNo: room.matchCount + 1,
         // the room's content hash (header "Content identity"): copied into every BattleSpec; its visual set too (a

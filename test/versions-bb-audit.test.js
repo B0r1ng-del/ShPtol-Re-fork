@@ -167,10 +167,29 @@ const VERSION_ONLY_FIELDS = Object.freeze({
 const VERSION_ONLY = Object.freeze({
   'data/versions/act1autochess': VERSION_ONLY_SHANG, 'data/versions/act1autochess-v1_1': VERSION_ONLY_SHANG, 'data/versions/act2autochess-v2_1': VERSION_ONLY_V21,
 });
-// 第二期上半 V2_1's code-named keys it lacks: 远见's V2_2 discount (above), the trait type SERVER_ADD_MULTIPLE_BOND (V2_2's new
-// traits) and 奥术法阵's 失能 (silence_attachment, added on 2026-03-27: V2_1's 奥术法阵 does not silence, as the data says)
+// 第二期上半 V2_1's code-named keys it lacks. Two sources:
+//  1. the official V2_2 rows V2_1 predates — 远见's V2_2 discount (bond_multi_layer_…), the trait type
+//     SERVER_ADD_MULTIPLE_BOND (V2_2's new traits), 奥术法阵's 失能 (silence_attachment, added 2026-03-27),
+//     and the V2_2 盟约/道具 band_* rows;
+//  2. the fork's content packs, which V2_1 (a 03-14 snapshot) obviously cannot contain: 东国/乌萨斯 盟约效果
+//     (act2autochess_bond_eff_dong/ursus, act2autochess_gar_eff_98x/99x = 东国鬼面/残心一闪), 喀兹戴尔众魂
+//     (KAZDEL_*/kazdel_blade), REM (rem_*/REM_*), 莱茵生命 (RHINE_*/rhine_*).
+// 47 keys, alphabetical ASCII order (uppercase sorts before lowercase, as the audit reports them).
 const MISSING_KEYS = Object.freeze({
-  'data/versions/act2autochess-v2_1': ['bond_multi_layer_char_goods_price_bond_discount', 'SERVER_ADD_MULTIPLE_BOND', 'silence_attachment'],
+  'data/versions/act2autochess-v2_1': [
+    'act2autochess_bond_eff_dong', 'act2autochess_bond_eff_ursus', 'act2autochess_gar_eff_982_a', 'act2autochess_gar_eff_982_b',
+    'act2autochess_gar_eff_986_a', 'act2autochess_gar_eff_986_b', 'act2autochess_gar_eff_987_a', 'act2autochess_gar_eff_987_b',
+    'act2autochess_gar_eff_990_a', 'act2autochess_gar_eff_990_b', 'act2autochess_gar_eff_991_a', 'act2autochess_gar_eff_991_b',
+    'band_first_refresh_present_free_bond_char', 'band_lp_loss_next_round_gain_highest_bond_char', 'band_no_loss_next_round_gain_coin', 'band_round_coin_no_active_bond_shop',
+    'band_sell_count_gain_bond_char', 'bond_multi_layer_char_goods_price_bond_discount', 'kazdel_blade', 'KAZDEL_HOEDERER_DEATH',
+    'KAZDEL_LOGOS_SOUL_ATTACK', 'KAZDEL_METEORITE_SOUL_BLOCKED', 'KAZDEL_MUDROCK_SOUL_HP', 'KAZDEL_ODDA_DEATH',
+    'KAZDEL_PAPRIKA_SOUL_HEAL', 'KAZDEL_TINMAN_SOUL_AURA', 'KAZDEL_VIGNA_DEATH', 'KAZDEL_WISDEL_SOUL_DAMAGE',
+    'rem_amplifier', 'rem_armor', 'REM_ASBESTOS', 'REM_CLICK',
+    'REM_JACINTA', 'REM_MULBERRY', 'REM_RAY', 'REM_SANDRECKONER',
+    'REM_SAVAGE', 'REM_WARMY', 'RHINE_IFRIT_INHERITANCE', 'RHINE_MAGALLAN_ATTACK',
+    'rhine_mainframe', 'RHINE_MAYER_RESEARCH', 'RHINE_RESEARCH_BY_MEMBER', 'RHINE_SARIA_HEALING',
+    'rhine_terminal', 'SERVER_ADD_MULTIPLE_BOND', 'silence_attachment',
+  ],
 });
 
 for (const dir of VERSION_DIRS) {

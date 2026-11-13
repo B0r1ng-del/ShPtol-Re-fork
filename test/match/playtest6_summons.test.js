@@ -19,7 +19,10 @@ const DRONE = 'token_10000_silent_healrb';
 const DEVICE = 'token_10041_cathy_catsld';
 const DOLL = 'token_10006_vodfox_doll';
 const DOROTHY = 'chess_rhine_dorothy_a'; // 六.F 莱茵生命（tools/rhine-data.mjs）
-const RESONATOR = 'token_10025_doroth_recttp';
+// ★ 2026-11-08: 'token_10025_doroth_recttp' is 多萝西's battle-side TRAP (test/content/op_doroth.test.js);
+// it lives in backups.tokens and never in data/tokens.json, so it can never appear in a `placeable` list. 共振器
+// 在这份数据里就是流形 (token_10030_mlyss_wtrman).
+const RESONATOR = 'token_10030_mlyss_wtrman';
 const chess = (id) => (Object.hasOwn(DATA.chess, id) ? DATA.chess[id] : null);
 
 function prep({ loadout = null, stageId = 'act2autochess_m04', seed = 11 } = {}) {
@@ -42,7 +45,13 @@ const move = (m, uid, to, dir) => m.handle('p_0', { t: 'g.move', uid, to, ...(di
 test('tokens.json: the manually deployable summons are hand pieces — 医疗探机, 诅咒娃娃, 爬行号·防护单元, 共振器 and 沙地兽 with the talent ones', () => {
   const placeable = Object.values(DATA.tokens).filter((t) => t.placeable).map((t) => t.tokenId).sort();
   // 九 雷姆必拓: 莱伊's 沙地兽 (token_10034_ray_sndbst) is a hand piece like the others.
-  assert.deepEqual(placeable, [DRONE, 'token_10004_otter_motter', DOLL, 'token_10017_skadi2_dedant', RESONATOR, 'token_10028_vigil_wolf', 'token_10030_mlyss_wtrman', 'token_10034_ray_sndbst', DEVICE,
+  // ★ This list drifted twice away from the test's own comment and nothing guarded it:
+  //   · 'token_10025_doroth_recttp' (the 共振器 this test is named after) does not exist in data/tokens.json at all —
+  //     RESONATOR is 'token_10030_mlyss_wtrman', so the old literal was simply a dead id.
+  //   · packRhine ported 麦哲伦 as a chess of her own, so her three drones (龙腾.F/G/H) became placeable hand pieces.
+  assert.deepEqual(placeable, [DRONE, 'token_10004_otter_motter', DOLL, 'token_10017_skadi2_dedant', 'token_10028_vigil_wolf', 'token_10030_mlyss_wtrman', 'token_10034_ray_sndbst', DEVICE,
+    // 六.F 莱茵生命: 麦哲伦's drones (龙腾.F/G/H) are hand pieces like the rest
+    'token_10005_mgllan_drone1', 'token_10005_mgllan_drone2', 'token_10005_mgllan_drone3',
     // 二.3 东国/乌萨斯: 冰原咆哮's sub-bow (赫拉格) is a hand piece too
     'token_10026_bgsnow_subbow'].sort());
   // HIDDEN shop-state tokens stay battle-only (PRTS: 新约能天使 with 使命必达！ provides no 投递坐标 card)

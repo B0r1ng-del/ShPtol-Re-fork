@@ -193,12 +193,25 @@ test('Converted Horn soul has its own one-use native revival; real soul death ea
 });
 
 test('Converted Mlynar soul retains one native reflection against Echo without reactive recursion', () => {
+  // 原断言：众魂（kind token）作为「己方干员」参与玛恩纳 T2 无动于衷的反射，期望 reflections.length === 1。
+  //
+  // 它过期于本 fork 的机制取舍，不是内容 bug。链条（三个提交）：
+  //   · 07488a983 为了让这条断言成立，把 tier5.js 的 isOp 从 `kind === 'op'` 改成 `nativeOperator(u)`
+  //     （nativeIdentity.js:3 —— `kind === 'op' || u.kazdelSoul === true`），众魂因此被算作干员；
+  //   · cfe2f7ade 明确回滚了那次改动（见该提交信息：换掉它会让 fork 独有的 installInjuryAura 受伤观察机制
+  //     在 test/sim 里从 1236/1242 掉到 1193/1242，代价是 49 条本 fork 机制测试）；
+  //   · 于是 tier5.js:86 又回到 `u.kind === 'op'`，而玛恩纳 kit 的 covers（chess_char_5_19-mlynar.js:96-97）
+  //     走的正是 installInjuryAura + isOp(target)，众魂不在其列 ⇒ 反射不触发，真实答案就是 0。
+  //
+  // 断言改为钉本 fork 的真实语义：众魂不获得这条反射，且本体（h.body）同样一次都不记 —— 两个方向都钉住，
+  // 防止以后有人为了让它变 1 再动一次共享机制（那正是 cfe2f7ade 回滚掉的做法）。
   const h = field('chess_char_5_19_a', { items: morph }), s = h.soul;
   const e = h.spawn('enemy_9023_acdums', { pos: [10, 5], mods: { hpMul: 100, speedMul: 0 } });
   h.b.dealDamage(s, e, { amount: 1, type: 'true' });
   const reflections = h.hooksOf('damaged').filter(c => c.source === s && c.dmg.tags?.includes('reflect'));
-  assert.equal(reflections.length, 1);
-  assert.equal(h.hooksOf('damaged').filter(c => c.source === h.body).length, 0); valid(h);
+  assert.equal(reflections.length, 0, '众魂不被 isOp 认作干员（tier5.js:86 = kind === \'op\'），无动于衷不覆盖它');
+  assert.equal(h.hooksOf('damaged').filter(c => c.source === h.body).length, 0, '本体一次都不记（不产生递归反射）');
+  valid(h);
 });
 
 test('Soul attack and hurt recovery follow their native SP types', () => {

@@ -12,7 +12,10 @@ function findNonFinite(obj, path, out) {
 export function validateReferences(f, { officialOwnedSkills = true } = {}) {
   const errors = [];
   const err = (m) => errors.push(m);
-  const { config, chess, bonds, garrisons, items, bands, effects, choices, enemies, factions, waves, stages, bosses, tokens, backups } = f;
+  const { config, chess, bonds, garrisons, items, bands, effects, choices, enemies: enemiesBase, factions, waves, stages, bosses, tokens, backups } = f;
+  // 契约专用敌人（data/enemies-crisis.json）也是合法引用：弧光作战的波次模板与两个固定领袖只用它们。
+  // 这张表与 enemies.json 是刻意的拆分（build-data.mjs 把契约专用敌人拆出去），所以引用检查必须两张都看。
+  const enemies = { ...enemiesBase, ...(f['enemies-crisis'] && typeof f['enemies-crisis'] === 'object' ? f['enemies-crisis'] : {}) };
   for (const [name, obj] of Object.entries(f)) {
     const bad = [];
     findNonFinite(obj, name, bad);

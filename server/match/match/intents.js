@@ -12,7 +12,102 @@ import { OK, fail } from './common.js';
 import { onHumanEmote } from '../botEmotes.js';
 
 export class MatchIntents {
+  /**
+   * 危机合约 H5 / J6 的配额检查 —— 在意图真正执行**之前**拦。
+   * H5：每休整期主动购买/出售/使用消耗品合计上限（免费操作也计；自动赠送、自动合成不计）。
+   * J6：每休整期最多使用的「基础等价消耗装备」份数（基础品质 1 份、进阶 2 份，共用配额）。
+   * 未选合约时 fx 为空 ⇒ 直接放行，零开销、零行为变化。
+   */
+  _crisisQuota(ps, t, msg) {
+    const fx = this.gd.crisisFx;
+    if (!fx) return null;
+    const ACT = new Set(['g.buy', 'g.sell', 'g.equip', 'g.art', 'g.destroy']);
+    const h5 = fx.H5, j6 = fx.J6;
+    if (h5 && Number.isFinite(h5.cap) && ACT.has(t) && (ps.crisisActions ?? 0) >= h5.cap) {
+      return fail(ERR.BAD_TARGET, 'crisis action cap reached');
+    }
+    if (j6 && Number.isFinite(j6.cap) && (t === 'g.equip' || t === 'g.art')) {
+      // 基础品质 1 份、进阶品质 2 份，共用配额。ps.find(uid) 是引擎找棋子的唯一入口。
+      const uid = msg.itemUid ?? msg.uid;
+      const loc = uid != null ? ps.find(uid) : null;
+      const piece = loc && loc.piece;
+      if (piece && piece.kind === 'item') {
+        // ★ piece 上没有 golden 字段（实测 piece.golden === undefined）—— 品质要问 gamedata。
+        const cost = this.gd.isGolden(piece.id) ? 2 : 1;
+        if ((ps.crisisEquipCost ?? 0) + cost > j6.cap) {
+          return fail(ERR.BAD_TARGET, 'crisis equip quota reached');
+        }
+      }
+    }
+    // J4 制式限流：同名进阶装备全队最多 team 件、每名玩家最多 each 件（基础装备不限；已淘汰玩家不计）。
+    // ★ "同名" = baseIdOf(id) 相同（_a / _b 是同一件装备的两个品质）；只有进阶（_b）计入。
+    const j4 = fx.J4;
+    if (j4 && Number.isFinite(j4.team) && t === 'g.equip') {
+      const uid = msg.itemUid ?? msg.uid;
+      const loc = uid != null ? ps.find(uid) : null;
+      const piece = loc && loc.piece;
+      if (piece && piece.kind === 'item' && this.gd.isGolden(piece.id)) {
+        const base = this.gd.baseIdOf(piece.id);
+        let teamCount = 0, mineCount = 0;
+        for (const other of this.order) {
+          // "已淘汰玩家的装备不计入"
+          if (other.eliminated) continue;
+          // ★ target.items 里放的是**棋子 piece 对象**（items.js:132 `target.items.push(item)`），不是装备 id。
+          for (const p2 of other.allChess ? other.allChess() : []) {
+            for (const it of p2.items || []) {
+              const id = it && it.id;
+              if (!id || !this.gd.isGolden(id) || this.gd.baseIdOf(id) !== base) continue;
+              teamCount++;
+              if (other === ps) mineCount++;
+            }
+          }
+        }
+        if (mineCount >= (Number.isFinite(j4.each) ? j4.each : 1)) {
+          return fail(ERR.BAD_TARGET, 'crisis J4 per-player cap reached');
+        }
+        if (teamCount >= j4.team) {
+          return fail(ERR.BAD_TARGET, 'crisis J4 team cap reached');
+        }
+      }
+    }
+    return null;
+  }
+
+  /** 执行前算出这件装备要记几份（基础 1 / 进阶 2）；非装备意图返回 0。 */
+  _crisisEquipCostOf(ps, msg) {
+    if (!this.gd.crisisFx) return 0;
+    const uid = msg.itemUid ?? msg.uid;
+    const loc = uid != null ? ps.find(uid) : null;
+    const piece = loc && loc.piece;
+    if (!piece || piece.kind !== 'item') return 0;
+    return this.gd.isGolden(piece.id) ? 2 : 1;
+  }
+
+  /** 成功后记一次配额（H5 计所有主动操作；J6 按基础 1 / 进阶 2 计消耗装备）。 */
+  _crisisQuotaSpend(ps, t, msg, equipCost = 0) {
+    const fx = this.gd.crisisFx;
+    if (!fx) return;
+    const ACT = new Set(['g.buy', 'g.sell', 'g.equip', 'g.art', 'g.destroy']);
+    if (fx.H5 && ACT.has(t)) ps.crisisActions = (ps.crisisActions ?? 0) + 1;
+    if (fx.J6 && Number.isFinite(fx.J6.cap) && (t === 'g.equip' || t === 'g.art')) {
+      ps.crisisEquipCost = (ps.crisisEquipCost ?? 0) + equipCost;
+    }
+  }
+
   _handle(ps, msg) {
+    const denied = this._crisisQuota(ps, msg.t, msg);
+    if (denied) return denied;
+    // ★ 装备成功后它会从 hand 移到棋子的 items 里 ⇒ ps.find(itemUid) 变 null，
+    //   记账时再查就查不到了。所以在执行**之前**把品质记下来。
+    const equipCost = this._crisisEquipCostOf(ps, msg);
+    const out = this._route(ps, msg);
+    // ★ OK 是 Object.freeze({ok:true})，而 ps.equip 等返回的是**新对象** {ok:true} ⇒ out === OK 恒为 false，
+    //   原来那版等于只对极少数返回同一个 OK 常量的意图记账。改成按形状判断。
+    if (out && out.ok === true) this._crisisQuotaSpend(ps, msg.t, msg, equipCost);
+    return out;
+  }
+
+  _route(ps, msg) {
     switch (msg.t) {
       case 'g.infoReady':
         if (this.phase !== PHASE.INFO_CHECK) return fail(ERR.WRONG_PHASE);

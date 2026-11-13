@@ -218,7 +218,13 @@ export class PlayerState {
     /** reward offers queue (merge rewards, special refreshes): { tier, source, label, slots: [{ kind, id, price, sold }] } */
     this.offers = [];
     /** @type {Array<any>} */
-    this.hand = new Array(HAND_SIZE).fill(null);
+    // 危机合约 M1 后备封存 (shared/crisis.js): 常规手牌区由 10 格降为 7 格. The array is SHORTENED rather than masked so
+    // every `freeSlot`/`countFree` caller and the client's slot count agree without a second rule. `GEO.HAND_SIZE` (10)
+    // stays the wire bound (`protocol.js` checks `idx <= 9`), so a shorter array is still perfectly legal to address.
+    const handSize = this.gd && typeof this.gd.crisisHandSize === 'function'
+      ? this.gd.crisisHandSize(HAND_SIZE)
+      : HAND_SIZE;
+    this.hand = new Array(handSize).fill(null);
     /** @type {Array<any>} */
     this.temp = new Array(TEMP_SIZE).fill(null);
     /** preps of this player that ended so far (endPrep) = index of the current (or next) prep */

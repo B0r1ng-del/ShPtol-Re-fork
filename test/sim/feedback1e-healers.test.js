@@ -272,5 +272,6 @@ test('E2 audit: healers on every boss / hidden field deal no damage; they block 
     if (EXPECT[key]) assert.ok(healsOnLead > 0, `${key}: healers heal while they block it (${healsOnLead})`);
     else assert.equal(leads.length, 0, `${key}: its leaders / parts cannot be blocked (${[...new Set(leads)]})`);
   }
-  assert.equal(templates, 20);
+  // 20 卫戍协议本季的 boss/hidden 模板 + 4 个危机合约 #4 的弧光领袖模板（arc_boss_dorothy(_s) / arc_boss_wake(_s)）
+  assert.equal(templates, 24);
 });

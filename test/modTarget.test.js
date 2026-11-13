@@ -301,12 +301,23 @@ test('⑤ 接线③编辑器：包管理页拿到的是 `foreign` + 同一句原
   }
 });
 
-test('⑤ 接线③编辑器：**渲染层**真的把 foreign 说出来（这一条有牙，接口对不代表页面说）', () => {
+test('⑤ 接线③编辑器：**渲染层**真的把 foreign 说出来（这一条有牙，接口对不代表页面说）', (t) => {
   // 上面那条只走到 `/api/packs/support`：接口对了，页面照样可以把 `foreign` 当成 `refused` 显示、甚至整行不显示。
   // `editor/ui/pack.js` 是页面脚本（顶层就跑 `load()` / `mountI18n()`），在 node 里 import 不起来，所以这里对
   // **源码**立契约 —— 与 test/editorI18n.test.js 检查「源码与词典一致」同一路数：两个渲染分支必须都在，
   // 且文案必须走 `t('…')` 单引号（反引号写法不在 i18n 扫描范围内，会被判死键、译文也不生效）。
-  const src = fs.readFileSync(path.join(ROOT, 'editor', 'ui', 'pack.js'), 'utf8');
+  //
+  // 2026-10-26 复盘：这份发行版不带编辑器前端 —— `git ls-files editor` 只有 `playtest.mjs` / `server.mjs` 两个文件，
+  // `git log --all -- editor/ui/pack.js` 一次都没有，打包产物里也没有（`editor/server.mjs:81` 的 `UI_DIR` 只是
+  // 指向这个不存在的目录）。原断言无条件 readFileSync 它，于是变成一条 ENOENT 的硬失败：它钉的不是
+  // 「页面说错了」，而是「这个文件在不在」，而后者取决于发行版打不打包编辑器，与 foreign 的渲染无关。
+  // 改成：有这份前端就照旧钉死（契约一字不改）；没有就明确 skip 并说明，不把「发行版没带这个文件」记成内容缺陷。
+  const packPage = path.join(ROOT, 'editor', 'ui', 'pack.js');
+  if (!fs.existsSync(packPage)) {
+    t.skip('这一版发行包不带编辑器前端（editor/ui/ 未纳入本仓库），渲染层契约无对象可钉');
+    return;
+  }
+  const src = fs.readFileSync(packPage, 'utf8');
   const list = src.slice(src.indexOf('function renderPackList'), src.indexOf('function renderDetail'));
   assert.match(list, /p\.status === 'foreign'/, '列表行必须单独认 foreign（否则它落进「已被拒绝」那一支，用词就错了）');
   assert.match(list, /t\('本引擎不装载它：\{0\}'/, '列表行文案要走单引号 t()');

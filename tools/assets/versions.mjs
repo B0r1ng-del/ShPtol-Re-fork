@@ -7,12 +7,37 @@ import { VERSIONS } from '../../shared/versions.js';
 
 export const PRESENTATION_TABLES = ['chess', 'backups', 'tokens', 'enemies', 'items', 'bands', 'bonds', 'bosses', 'stages'];
 
+/** A JSON file of a version folder, or {} when the version predates it (never throws). */
+function versionTable(root, dir, name) {
+  const p = join(root, 'data', dir, name + '.json');
+  if (!existsSync(p)) return {};
+  try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return {}; }
+}
+
 export function versionAssetData(root) {
   return VERSIONS.filter((v) => existsSync(join(root, 'data', v.dir, 'chess.json'))).map((version) => ({
     version,
-    ...Object.fromEntries(PRESENTATION_TABLES.map((name) => [name,
-      JSON.parse(readFileSync(join(root, 'data', version.dir, `${name}.json`), 'utf8'))])),
+    ...Object.fromEntries(PRESENTATION_TABLES.map((name) => [name, versionTable(root, version.dir, name)])),
   }));
+}
+
+/**
+ * 契约专用敌人（data/enemies-crisis.json）并进「默认版本」的敌人表。
+ *
+ * ★ 为什么必须并：presentationUnion 只遍历版本文件夹的 enemies.json，而危机合约 #4 的 86 个契约敌人
+ *   有 71 个不在那张表里（它们与 enemies / enemies-crisis 是同一种拆分）。不并进来，这些敌人在
+ *   data/assets.json 里既没有 icon 也没有 spine ⇒ 局内敌人预览区（pen）只剩图标占位与阴影、
+ *   **敌人本体不显示**（用户 2026-11-13 实测）。
+ *
+ * 只并进默认版本（VERSIONS[0]，即 data/*.json 那一份）：别的官方版本本来就没有这些敌人。
+ * @param {object[]} sets versionAssetData(root) 的结果（原地改并返回）
+ */
+export function mergeCrisisEnemies(root, sets) {
+  if (!Array.isArray(sets) || !sets.length) return sets;
+  const crisis = versionTable(root, '', 'enemies-crisis');
+  if (!crisis || !Object.keys(crisis).length) return sets;
+  sets[0].enemies = { ...crisis, ...(sets[0].enemies || {}) };
+  return sets;
 }
 
 export function presentationUnion(sets) {

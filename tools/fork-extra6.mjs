@@ -40,6 +40,19 @@ export const FORK_EXTRA6_CHARS = Object.freeze([
  */
 export const FORK_EXTRA6_GARRISONS = Object.freeze({});
 
+/**
+ * Operators this fork DELETED from the upstream tables — they still exist in `character_table.json` (the source is
+ * the official client export, which we cannot edit), so every derivation that walks that table has to skip them
+ * explicitly. 结城理 (`char_4217_makoto`) is the only one: the owner deleted him on 2026-10-29 (六.C) along with his
+ * chess rows, garrison and kit.
+ *
+ * Without this, a deleted operator silently comes back as a "6★ outside the chess pool": dropping his chess
+ * records takes him OUT of the roster set, and the 自选 derivation then re-admits him as a candidate — an exclusion
+ * row (`backups.diy.excluded`) or a pick (`ownedPool`) for an operator the fork no longer ships. `tools/build-data.mjs`
+ * (the builder) and `test/backups.test.js` (the independent re-derivation) both read this one list.
+ */
+export const FORK_DELETED_CHARS = Object.freeze(['char_4217_makoto']);
+
 /** The base chess id of a ported operator: `char_4217_makoto` at tier 5 → `chess_char_5_makoto_a`. */
 export const forkExtra6BaseId = (char) => `chess_char_${char.tier}_${char.charId.replace(/^char_\d+_/, '')}_a`;
 /** The elite id of a ported operator (`chess_char_5_makoto_b`): the official `_b` twin of its base (the `_a` becomes a `_b`). */

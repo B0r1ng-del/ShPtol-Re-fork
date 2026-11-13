@@ -22,7 +22,21 @@ export class PlayerRound {
     this.pendingFunds = 0;
     this.m.dispatch(this, 'onIncome', ev);
     const nonNeg = (v) => (Number.isFinite(v) && v > 0 ? Math.trunc(v) : 0);
-    this.addFunds(nonNeg(ev.income) + nonNeg(ev.pending) + relicIncome(this.relics), { reason: 'income' });
+    // 危机合约 G1 预算削减 / G2 延期拨款 (shared/crisis.js): both act on the BASE income only — a bond, item or strategy
+    // payment goes through addFunds with its own reason and is untouched, which is the official text's 「其他收入正常」.
+    // An ordinary room has crisisFx = null, so both helpers return the number it passed in and this line is unchanged.
+    let baseIncome = this.gd.crisisIncome(r, ev.income);
+    const hold = this.gd.crisisIncomeHold(r, baseIncome);
+    if (hold.withhold > 0) {
+      baseIncome -= hold.withhold;
+      this.crisisHeld = (this.crisisHeld ?? 0) + hold.withhold;
+    }
+    if (hold.back > 0 && (this.crisisHeld ?? 0) > 0) {
+      // G2's payout is what was ACTUALLY withheld (never above the window's ceiling), then the tally resets
+      baseIncome += Math.min(this.crisisHeld, hold.cap);
+      this.crisisHeld = 0;
+    }
+    this.addFunds(nonNeg(baseIncome) + nonNeg(ev.pending) + relicIncome(this.relics), { reason: 'income' });
     // temp is NOT wiped here: the last prep's deadline resolved what the player could act on (endPrep); what overflowed
     // after it (battle-result grants, SETTLE merges, returned equipment) is shown and usable in this prep (tempDue).
     // Queued reward offers (a promotion's pick, a strategy's special refresh, an item offer) are kept until picked —
@@ -31,6 +45,11 @@ export class PlayerRound {
     this.ready = false;
     // summon stacks removed from temp at the last prep deadline come back (PRTS 卫戍协议/帮助 §手牌区); full hand ⇒ temp
     for (const p of [...this.board.values()]) if (p.kind === 'chess') this.grantTokensFor(p);
+    // 危机合约 H3 授衔延误: 上一回合合成的免费选择奖励在这里发放（奖励等阶已在合成时算好，offer 本身原样搬入）
+    if (Array.isArray(this.deferredOffers) && this.deferredOffers.length) {
+      for (const offer of this.deferredOffers) this.offers.push(offer);
+      this.deferredOffers = [];
+    }
     this.rollShop({ keepFrozen: true });
     this.shop.frozen = false;
     for (const s of this.shop.slots) if (s) s.frozen = false;

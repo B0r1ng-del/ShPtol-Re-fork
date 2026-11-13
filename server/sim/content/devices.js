@@ -48,6 +48,7 @@ export const TERRAIN = Object.freeze({ mire: 1, smog: 2, deepsea: 3, infection: 
 const TERRAIN_NAME = ['', 'mire', 'smog', 'deepsea', 'infection'];
 const BUFF = { 1: 'terrain:mire', 2: 'terrain:smog', 3: 'terrain:deepsea', 4: 'terrain:infection' };
 const AIRFLOW = 'terrain:airflow';
+const GRAVITY = 'terrain:gravity';
 const CRATE_KEY = 'trap_1105_accrate';
 const TURRET_KEY = 'trap_1104_aclasert';
 /** Research 05 §2.3 values, used only when a stage has no `special` block / device blackboard. */
@@ -123,7 +124,9 @@ function isActive(battle, st, d) {
  * attributed to that player. Returns { cancel() } or null for bad numbers.
  */
 export function startColdWind(battle, { playerId = null, interval, duration, first, ownerOnly = false } = {}) {
-  const iv = num(interval, 0);
+  // 危机合约 T5：盟约寒风触发间隔延长 —— 只读 battle.flags 上的一个系数，没装 T5 时恒为 1，普通房间逐字节不变。
+  const mul = num(battle.flags && battle.flags.crisisColdWindMul, 1);
+  const iv = num(interval, 0) * (mul > 0 ? mul : 1);
   if (!(iv > 0)) return null;
   const durOf = () => num(typeof duration === 'function' ? duration() : duration, 0);
   const handle = { cancelled: false, gusts: 0, timer: null, cancel() { this.cancelled = true; this.timer?.cancel(); } };
@@ -335,6 +338,24 @@ function buildTerrain(battle, st) {
       st.flow.set(p[0] * COLS + p[1], { fx: f[1], fy: f[0], dir, bb });
     }
   }
+  // 重力按钮 (危机合约 #4「滞空焦点」): `special.gravity` carries the numbers; the buttons themselves are the
+  // `tile_grvtybtn` glyphs of the stage rows ('<' = LEFT, '>' = RIGHT), one pair per half of the field
+  const gv = sp.gravity;
+  st.grav = gv && Array.isArray(gv.withMove) && gv.withMove.length
+    ? { dir: { L: null, R: null }, aspd: num(gv.aspd, 25), withMove: gv.withMove.map((v) => num(v, 1)), againstMove: (gv.againstMove || []).map((v) => num(v, 1)), buttons: new Map() }
+    : null;
+  if (st.grav) {
+    // the buttons are terrain, not devices: '<' presses LEFT, '>' presses RIGHT, the half being c < 11 / c >= 11
+    // (devices.js playerForCol splits the same way) — only tiles inside this field's rect count
+    for (let r = R.r0; r <= R.r1; r++) {
+      for (let c = R.c0; c <= R.c1; c++) {
+        const g = battle.grid.tile(r, c).glyph;
+        if (g !== '<' && g !== '>') continue;
+        st.grav.buttons.set(r * COLS + c, { half: c >= 11 ? 'R' : 'L', dir: g === '<' ? 'LEFT' : 'RIGHT' });
+      }
+    }
+    if (!st.grav.buttons.size) st.grav = null;   // a stage with the numbers but no buttons changes nothing
+  }
 }
 
 /** 活性源石's tick: true damage no unit deals (无来源), tagged 'terrain' = 环境伤害 ("受到来自自然环境的伤害" content reads it). */
@@ -470,6 +491,66 @@ function tickAirflowEnemy(battle, st, e) {
   else battle.removeBuff(e, AIRFLOW);
 }
 
+/**
+ * 重力按钮 (危机合约 #4「滞空焦点」, `special.gravity`): a `tile_grvtybtn` the enemy or an operator stands on presses
+ * for its half of the field — gravity goes LEFT on '<' and RIGHT on '>' — and the LAST unit on a button of that half
+ * wins ("最后按的生效"). Gravity stays where it was pressed until another button is pressed. Its two effects:
+ *   operator  facing the same way as gravity ⇒ ASPD + aspd, the other way ⇒ −aspd (perpendicular: neither)
+ *   enemy     walking sideways WITH gravity ⇒ move speed × withMove[重量], AGAINST ⇒ × againstMove[重量]
+ *             (重量 0/1/2/3/4+, the last index for anything heavier); up/down is untouched
+ * [ASSUMED] the multiplier only scales the sideways part of the tick's motion: a diagonal walk keeps its vertical
+ * component, so it is blended by the horizontal share (`|dx| / (|dx|+|dy|)`) — a pure vertical move gets ×1. A flying
+ * enemy ignores gravity (nothing in the text stops it; a hovering 近地悬浮 enemy counts as flying).
+ */
+function tickGravity(battle, st, u) {
+  const G = st.grav;
+  const r = u.side === 'ally' ? u.tileR : Math.round(u.y);
+  const c = u.side === 'ally' ? u.tileC : Math.round(u.x);
+  if (!u.hidden && r >= 0 && r < ROWS && c >= 0 && c < COLS) {
+    const b = G.buttons.get(r * COLS + c);
+    if (b) G.dir[b.half] = b.dir;
+  }
+}
+
+function applyGravityAlly(battle, st, u) {
+  const G = st.grav;
+  const g = G.dir[u.tileC >= 11 ? 'R' : 'L'];
+  let aspd = 0;
+  if (g && !u.isFlying) {
+    const d = normDir(u.dir);
+    if (d === g) aspd = G.aspd;
+    else if (d === oppositeDir(g)) aspd = -G.aspd;
+  }
+  if (aspd === (u.mem.gravAspd ?? 0)) return;
+  u.mem.gravAspd = aspd;
+  if (aspd) battle.addBuff(u, { key: GRAVITY, refresh: 'replace', mods: { aspd } });
+  else battle.removeBuff(u, GRAVITY);
+}
+
+function applyGravityEnemy(battle, st, e) {
+  const G = st.grav;
+  const px = e.mem.gravPx, py = e.mem.gravPy;
+  e.mem.gravPx = e.x; e.mem.gravPy = e.y;
+  let mul = 1;
+  if (!e.hidden && !e.isFlying && px != null) {
+    const g = G.dir[Math.round(e.x) >= 11 ? 'R' : 'L'];
+    const dx = e.x - px, dy = e.y - py;
+    const ax = Math.abs(dx), ay = Math.abs(dy);
+    // 横 / 竖 by the dominant axis of this tick's motion: a sideways walk scales, an up/down walk is untouched
+    // ("上下移动不受影响"; a diagonal leg counts as the axis it moves most along)
+    if (g && ax > 1e-9 && ax > ay) {
+      const along = g === 'RIGHT' ? dx > 0 : dx < 0;
+      const lv = Math.min(Math.max(0, Math.floor(num(e.s.massLevel, 0))), G.withMove.length - 1);
+      mul = along ? G.withMove[lv] : (G.againstMove[lv] ?? 1);
+    }
+  }
+  if (!(mul >= 0)) mul = 0;
+  if (mul === (e.mem.gravMul ?? 1)) return;
+  e.mem.gravMul = mul;
+  if (mul !== 1) battle.addBuff(e, { key: GRAVITY, refresh: 'replace', mods: { moveMul: mul } });
+  else battle.removeBuff(e, GRAVITY);
+}
+
 /** Apply terrain / airflow state to one unit now (deploy, spawn, every tick). */
 function refreshUnit(battle, st, u) {
   if (!u.alive || !u.deployed || u.kind === 'device') return;
@@ -479,14 +560,15 @@ function refreshUnit(battle, st, u) {
     else if (u.mem.terrain === TERRAIN.infection) touchInfection(battle, st, u);
   }
   if (st.flow.size) { if (u.side === 'ally') tickAirflowAlly(battle, st, u); else tickAirflowEnemy(battle, st, u); }
+  if (st.grav) { tickGravity(battle, st, u); if (u.side === 'ally') applyGravityAlly(battle, st, u); else applyGravityEnemy(battle, st, u); }
 }
 
 function ensureTick(battle, st) {
   if (st.ticking) return;
-  if (!st.hasTerrain && !st.flow.size && !st.turrets.size) return;
+  if (!st.hasTerrain && !st.flow.size && !st.turrets.size && !st.grav) return;
   st.ticking = true;
   battle.on('tick', ({ dt }) => {
-    if (st.hasTerrain || st.flow.size) {
+    if (st.hasTerrain || st.flow.size || st.grav) {
       for (const u of battle.allyUnits) refreshUnit(battle, st, u);
       for (const e of battle.enemies) refreshUnit(battle, st, e);
     }
@@ -499,10 +581,16 @@ function ensureTick(battle, st) {
   battle.on('deploy', (ctx) => {
     const u = ctx.unit;
     if (!u || !u.mem || u.kind === 'device') return;
-    if (!ctx.move) { u.mem.terrain = 0; u.mem.airAtk = 0; u.mem.airMul = 1; u.mem.airPx = null; }
+    if (!ctx.move) { u.mem.terrain = 0; u.mem.airAtk = 0; u.mem.airMul = 1; u.mem.airPx = null; u.mem.gravAspd = 0; u.mem.gravMul = 1; u.mem.gravPx = null; }
     refreshUnit(battle, st, u);
   }, { priority: 90 });
 }
+
+/**
+ * The installed device state (气流 / 地形 / 炮台 ...) for content that has to READ or re-point it — 危机合约 T1 flips every
+ * 源石流 blower for its window. Returns null when the battle has no device state; callers must treat it as optional.
+ */
+export function deviceState(battle) { return stateOf(battle); }
 
 /** Terrain name under (r, c) for other content ('mire' | 'smog' | 'deepsea' | 'infection' | null). */
 export function terrainAt(battle, r, c) {

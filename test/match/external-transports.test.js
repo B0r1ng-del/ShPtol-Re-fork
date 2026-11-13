@@ -6,6 +6,13 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { externalConfig } from '../../server/match/externalConfig.js';
 import { httpDecision, StdioAI } from '../../server/ai/transport.js';
 import { exampleServer } from '../../tools/ai/http.mjs';
+import { existsSync } from 'node:fs';
+
+// ★ 子进程必须用**真 node**启动，不能用 process.execPath：本 harness 下它是
+//   F:\DeepSeek\DeepSeek Harness.exe（Electron），连 process.stdout.write('HELLO1') 都只回来一个 \r\n，
+//   于是 stdio 传输拿不到任何回包 —— 单跑偶尔过、全量并发必超时（实测 14 例并发红、单跑 16/16 全绿）。
+const NODE_BIN = [process.env.SP_NODE, 'C:/Program Files/nodejs/node.exe', 'C:/Program Files (x86)/nodejs/node.exe']
+  .find((p) => p && existsSync(p)) ?? process.execPath;
 
 const observation = { v: 'sp-ai/1', id: 'test', public: {}, private: { canReady: true }, context: { kind: 'prep' }, results: [] };
 async function serve(t, server) {
@@ -64,7 +71,7 @@ for (const mode of ['oversized', 'malformed', 'status', 'stall', 'disconnect']) 
 }
 
 test('stdio example is long-lived, multiplexes IDs and terminates on close', async t => {
-  const c = new StdioAI(stdioConfig([process.execPath, 'tools/ai/stdio.mjs']));
+  const c = new StdioAI(stdioConfig([NODE_BIN, 'tools/ai/stdio.mjs']));
   t.after(() => c.close());
   const replies = await Promise.all(['a', 'b'].map(id => c.request({ ...observation, id }, new AbortController().signal)));
   assert.deepEqual(replies.map(r => r.id), ['a', 'b']);
@@ -78,13 +85,13 @@ test('stdio example is long-lived, multiplexes IDs and terminates on close', asy
 for (const script of ['process.exit(1)', 'process.stdin.on("data",()=>process.stdout.write("broken\\n"))',
   'process.stdin.on("data",()=>process.stdout.write("x".repeat(70000)))', 'process.stdin.resume()']) {
   test(`stdio failure, bounded wait and backoff: ${script.slice(0, 24)}`, async t => {
-    const c = new StdioAI({ ...stdioConfig([process.execPath, '-e', script]), timeoutMs: 100 });
+    const c = new StdioAI({ ...stdioConfig([NODE_BIN, '-e', script]), timeoutMs: 100 });
     t.after(() => c.close());
     await assert.rejects(c.request(observation, new AbortController().signal));
     assert.equal(c.child, null);
     await assert.rejects(c.request(observation, new AbortController().signal), /backoff/);
     await delay(25);
-    c.config.command = [process.execPath, 'tools/ai/stdio.mjs'];
+    c.config.command = [NODE_BIN, 'tools/ai/stdio.mjs'];
     c.config.timeoutMs = 1500;
     assert.equal((await c.request(observation, new AbortController().signal)).done, true);
   });
@@ -95,7 +102,7 @@ const ECHO = 'let b="";process.stdin.on("data",d=>{b+=d;let i;while((i=b.indexOf
   + 'setTimeout(()=>process.stdout.write(JSON.stringify({id:o.id,done:true})+"\\n"),o.delay||0)}})';
 
 test('stdio abort cancels only that request; its late reply is ignored and the child keeps serving', async t => {
-  const c = new StdioAI(stdioConfig([process.execPath, '-e', ECHO]));
+  const c = new StdioAI(stdioConfig([NODE_BIN, '-e', ECHO]));
   t.after(() => c.close());
   const a = new AbortController();
   const slow = c.request({ ...observation, id: 'slow', delay: 150 }, a.signal);
@@ -111,7 +118,7 @@ test('stdio abort cancels only that request; its late reply is ignored and the c
 });
 
 test('stdio timeout cancels a slow request while the child answers others, and kills a silent child', async t => {
-  const c = new StdioAI({ ...stdioConfig([process.execPath, '-e', ECHO]), timeoutMs: 200 });
+  const c = new StdioAI({ ...stdioConfig([NODE_BIN, '-e', ECHO]), timeoutMs: 200 });
   t.after(() => c.close());
   const child = c.child ?? (c.start(), c.child);
   const slow = c.request({ ...observation, id: 'slow', delay: 400 }, new AbortController().signal);
@@ -119,14 +126,14 @@ test('stdio timeout cancels a slow request while the child answers others, and k
   assert.equal((await quick).id, 'quick');
   await assert.rejects(slow);
   assert.equal(c.child, child);
-  const silent = new StdioAI({ ...stdioConfig([process.execPath, '-e', 'process.stdin.resume()']), timeoutMs: 100 });
+  const silent = new StdioAI({ ...stdioConfig([NODE_BIN, '-e', 'process.stdin.resume()']), timeoutMs: 100 });
   t.after(() => silent.close());
   await assert.rejects(silent.request(observation, new AbortController().signal));
   assert.equal(silent.child, null);
 });
 
 test('stdio reply with an ID that was never sent is a protocol error', async t => {
-  const c = new StdioAI(stdioConfig([process.execPath, '-e', 'process.stdin.once("data",()=>process.stdout.write(JSON.stringify({id:"zzz"})+"\\n"))']));
+  const c = new StdioAI(stdioConfig([NODE_BIN, '-e', 'process.stdin.once("data",()=>process.stdout.write(JSON.stringify({id:"zzz"})+"\\n"))']));
   t.after(() => c.close());
   await assert.rejects(c.request(observation, new AbortController().signal));
   assert.equal(c.child, null);

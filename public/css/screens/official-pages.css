@@ -300,9 +300,15 @@
 .lo--deck .lo-back, .lo--deck .lo-home { box-sizing: content-box; height: calc(69 * var(--p)); }
 .lo--deck .lo-back { width: calc(157 * var(--p)); padding: 0; border: 0; }
 .lo--deck .lo-home { width: calc(220 * var(--p)); padding: 0; border: 0; }
-/* hover 时那圈薄荷绿角标是 .btn--ghost::after 画的，它默认往外撑 -4px —— 底板贴图正好铺满按钮本体，
-   于是角标整圈露在底板外沿 4px，看着就是「框没对齐」。把角标收回到按钮边界上，底板与框就重合了。 */
-.lo--deck .lo-back::after, .lo--deck .lo-home::after { inset: 0; }
+/* hover 那圈薄荷绿角标是 .btn--ghost::after 画的，默认往外撑 -4px（css/components.css）。收回到按钮边界只是
+   第一步 —— 真正让四个角对不上的是：**按钮本体并不等于贴图里的深灰底板**。实测
+   btn_topmenu_back.png（157×69）的实心底板 bbox 是 x 9..155 / y 0..49 = 147×50，左 9px、右 1px、下 19px
+   全是透明阴影位；btn_topmenu_home.png（220×69）则是左 1px、右 9px、下 19px。
+   角标若按 inset:0 铺满整张图，就会左侧外溢 9px、下方外溢 19px —— 四个角浮在底板外面（需求方 2026-11-12 的图）。
+   按两张图各自的底板内边距收回，角标框与底板外沿逐像素重合（实测 144.23 × 49.06 对 144.23 × 49.06，1280 宽下）。
+   ★ 若日后换掉这两张 png，必须重新量 bbox 再改这里。 */
+.lo--deck .lo-back::after { inset: 0 calc(1 * var(--p)) calc(19 * var(--p)) calc(9 * var(--p)); }
+.lo--deck .lo-home::after { inset: 0 calc(9 * var(--p)) calc(19 * var(--p)) calc(1 * var(--p)); }
 .lo--deck .lo-back:hover, .lo--deck .lo-home:hover,
 .lo--deck .lo-back:focus-visible, .lo--deck .lo-home:focus-visible {
   outline: 0; border: 0; box-shadow: none; filter: brightness(1.15); }

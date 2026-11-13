@@ -92,6 +92,21 @@ export function bossPoolShareOf(modeScale, cfgScale, isSolo, aliveCount) {
 /** Strip the _a/_b suffix of an item id (the registry key of an item family). */
 export const itemKey = (id) => (typeof id === 'string' ? id.replace(/_[ab]$/, '') : '');
 
+/** raw.factions 是冻结对象，poolExtras 的 Set 用 WeakMap 缓存（同一个 raw 只建一次）。 */
+const POOL_EXTRA_SETS = new WeakMap();
+
+/** 危机合约 R2 的八个囚犯（数据里 confinement.times 都是 4，见 tools/crisis-enemies.mjs 同源核查）。 */
+/** 危机合约 R3 的四类敌人（攻击间隔缩短 15%）。 */
+const R3_KEYS = Object.freeze([
+  'enemy_1045_hammer', 'enemy_1160_hvyslr', 'enemy_1160_hvyslr_2', 'enemy_1320_wdrrl_2', 'enemy_1275_dwlock_2',
+]);
+
+/** 危机合约 R2 的八个囚犯（数据里 confinement.times 都是 4，见 tools/crisis-enemies.mjs 同源核查）。 */
+const PRISONER_KEYS = Object.freeze([
+  'enemy_1116_liprr', 'enemy_1116_liprr_2', 'enemy_1118_lidbox', 'enemy_1118_lidbox_2',
+  'enemy_1119_vofsd', 'enemy_1119_vofsd_2', 'enemy_1121_lifbos', 'enemy_1121_lifbos_2',
+]);
+
 export class GameData {
   /**
    * @param {Readonly<Record<string, any>>} data server/data.js getData() (may be partial)
@@ -304,12 +319,40 @@ export class GameData {
   garrison(id) { return own(this.raw.garrisons, id); }
   effect(id) { return own(this.raw.effects, id); }
   enemy(key) { return own(this.raw.enemies, key); }
+
+  /**
+   * 契约专用敌人（data/enemies-crisis.json）：本季 randomEnemyAttributeDict 里有、但波次 / 特训条目 / 首领 /
+   * 模板 / 赏金都不引用的那些（P1 冰爆源石虫、Q5 深池逐火战士、T4 特殊类……）。
+   *
+   * 它们**不在** raw.enemies 里 —— 放进去会改变既有对局的抽取结果（实测：roster 49 组、fields 2 组漂移）。
+   * 契约要读它们走这里，波次永远走 enemy()。
+   */
+  enemyAny(key) {
+    return own(this.raw.enemies, key) || own(this.raw['enemies-crisis'], key);
+  }
   wave(id) { return own(this.raw.waves, id); }
-  stage(id) { return own(this.raw.stages, id); }
+  /**
+   * A stage record. 危机合约 #4「弧光作战」的专属战场（data/stages-crisis.json, custom_cc4_focus）单独放一个文件：
+   * 它**不能**进 data/stages.json —— 那张表是「本季能被抽到的战场」，几十处测试与 golden 都以它为基准，
+   * 多一张不属于任何模式的图会让 roster 抽到它、golden 全漂。与 enemies / enemies-crisis 是同一种拆分。
+   */
+  stage(id) { return own(this.raw.stages, id) || own(this.raw['stages-crisis'], id); }
   boss(id) { return own(this.raw.bosses, id); }
   token(id) { return own(this.raw.tokens, id); }
   get choices() { return this.raw.choices && typeof this.raw.choices === 'object' ? this.raw.choices : {}; }
-  get factions() { return this.raw.factions && typeof this.raw.factions === 'object' ? this.raw.factions : {}; }
+  /**
+   * 特训敌人表（data/factions.json）。
+   *
+   * poolExtras 被换成 Set：那是「只为契约收进 data/enemies.json、本季波次并不引用」的敌人 key，
+   * waves.js 的随机抽取据此把它们排除，既有对局的抽取结果因此逐字节不变（golden 不漂移）。
+   */
+  get factions() {
+    const f = this.raw.factions && typeof this.raw.factions === 'object' ? this.raw.factions : {};
+    if (!Array.isArray(f.poolExtras)) return f;
+    let set = POOL_EXTRA_SETS.get(f);
+    if (!set) { set = new Set(f.poolExtras); POOL_EXTRA_SETS.set(f, set); }
+    return { ...f, poolExtras: set };
+  }
 
   /**
    * The 补位 record of chess `id` (normal or elite; DATA.md §18): shared/standIn.js standInRecord over data/backups.json
@@ -492,6 +535,574 @@ export class GameData {
    * client's own simulation and the server's re-run agree.
    */
   get uniteLayers() { return this.mods.uniteLayers === true; }
+  /**
+   * The 危机合约's compiled effects (`crisisRules(sel).fx`), or null for a room without a contract.
+   *
+   * Set by the Match from the room's checked contract (`room.crisis.fx`) at construction, NOT from `mods`: a contract is
+   * decided once, at create, and never toggled mid-room. It travels to every battle spec as `flags.crisisFx` — the same
+   * channel `uncapLayers` / `uniteLayers` use — so the client replica and the server's own re-run apply identical
+   * numbers, and an ordinary room's spec stays byte-identical (the key is absent when this is null).
+   * @type {Record<string, any> | null}
+   */
+  get crisisFx() { return this._crisisFx ?? null; }
+  set crisisFx(v) { this._crisisFx = v && typeof v === 'object' ? v : null; }
+
+  /**
+   * 危机合约 L1 王权高压 — 领袖生命额外增加{25%|40%}，攻击速度增加{10|20}.
+   *
+   * The leader's HP lives in the shared boss POOL (finalAssault.bossPoolHp), so the multiplier has to land there rather
+   * than through the spawn path: a leader unit's own `stats.maxHp` is not what the pool counts. This mirrors
+   * `bossHpExtra` (a per-boss factor, never one blanket multiplier) and returns 1 for every ordinary match, so the
+   * pool arithmetic of the official modes is byte-identical.
+   * @param {string} bossId
+   * @returns {number} 1 without a contract, or without L1 in it
+   */
+  crisisBossHpMul(bossId) { // eslint-disable-line no-unused-vars
+    const fx = this.crisisFx;
+    const v = fx && fx.L1 && fx.L1.hp;
+    return Number.isFinite(v) ? 1 + v : 1;
+  }
+
+  /**
+   * 危机合约 G1 预算削减 — 第7回合起，每回合系统基础资金减少{1|2|3}，最低为 0；其他收入正常.
+   *
+   * Only the BASE income is cut (`gd.income(r)`, the round table's own number); a bond/item/strategy payment goes
+   * through `addFunds` with its own reason and is untouched — which is exactly "其他收入正常".
+   * @param {number} round
+   * @param {number} income the round table's base income
+   * @returns {number} the income after the contract (unclamped: startRound clamps at 0 with `nonNeg`)
+   */
+  crisisIncome(round, income) {
+    const fx = this.crisisFx;
+    const g1 = fx && fx.G1;
+    if (!g1 || typeof g1 !== 'object' || !Number.isFinite(g1.cut)) return income;
+    const from = Number.isFinite(g1.from) ? g1.from : 1;
+    if (Number.isFinite(round) && round < from) return income;
+    return Math.max(0, income - g1.cut);
+  }
+
+  /**
+   * 危机合约 H4 商店封存 — 每次普通主动刷新后，最左侧的干员商品格本次不可购买；自动刷新和独立奖励界面不受影响.
+   *
+   * Only the LEFT-MOST CHESS slot is sealed: a refresh may put an item there instead, and the official text says 干员
+   * 商品格, so the seal follows the slot's KIND rather than its index alone. `refresh()` is the manual path; the
+   * automatic ones (startRound's `rollShop`, a strategy's grant) never call it, which is exactly 「自动刷新不受影响」.
+   * @returns {boolean}
+   */
+  crisisSealsLeftmostShop() {
+    const fx = this.crisisFx;
+    return !!(fx && fx.H4 && typeof fx.H4 === 'object');
+  }
+
+  /**
+   * 危机合约 H3 授衔延误 — 精锐合成立即生效，但合成附赠的免费选择奖励延至下一回合发放；奖励等阶按合成时计算.
+   * @returns {boolean} true when a merge's reward offer must wait for the next round
+   */
+  crisisDefersMergeReward() {
+    const fx = this.crisisFx;
+    return !!(fx && fx.H3 && typeof fx.H3 === 'object');
+  }
+
+  /**
+   * 危机合约 S1/S2/S5 — leader SKILL cooldown contracts, expressed as `enemyOverrides` patches.
+   *
+   * The engine already reads a wave's `overrides` table (`content/enemies/helpers.js:abOf` → `sk[prefabKey].cd` /
+   * `.icd`), and `bossRounds` passes `wave.overrides` straight through — so a cooldown contract needs no sim change at
+   * all, it just edits that table. The live numbers come from `data/waves.json`:
+   *   “萨米的意志” `enemy_9033_acdeer`: `Lasso`(自然涌动) cd 60 / icd 40, `Doom` cd 999 / icd 999
+   *   “假想敌：铳” `enemy_9017_achunt`: skill `1`(最终之罚) cd 999 / icd 999
+   *
+   *   * S1 一档 — 第二名领袖的【最终之罚】冷却缩短 20%
+   *   * S2 一档 — 【自然涌动】首次释放提前 25%、冷却缩短约 17%；二档另加「半血前也同时攻击 2 名目标」
+   *   * S5 一档 — 第二名领袖每个主动技能的首次等待时间减半；二档改登场条件（由 crisisDualLeader 处理）
+   * @param {Record<string, any>} overrides the wave's own table (never mutated: a copy is returned)
+   * @param {Record<string, string>} keys enemyKey of each leader ({ primary, secondary })
+   * @returns {Record<string, any>} the patched table, or the input table when no such contract applies
+   */
+  /**
+   * 危机合约 R1 再生护盾 — 把假想敌：再生的**天赋**黑板书改掉。
+   *
+   * 为什么必须在 gamedata 层：护盾层数 / 重生间隔在 kitRegen（sim/content/enemies/times.js:126）
+   * 构造能力时就闭包捕获了，等 enemySpawn 再改已经来不及。enemyOverrides 的 talents.bb 是 abOf
+   * 唯一在 kit 之前生效的注入点，所以照 crisisBossSkillOverrides 的先例在这里合并。
+   *
+   * @param {Record<string, any>} overrides 本场的 enemyOverrides（波次自带的）
+   * @returns {Record<string, any>} 打过补丁的表；没有 R1 时原样返回
+   */
+  crisisTalentOverrides(overrides) {
+    const fx = this.crisisFx;
+    if (!fx) return overrides;
+    const r1 = fx.R1 && typeof fx.R1 === 'object' ? fx.R1 : null;
+    const r2 = fx.R2 && typeof fx.R2 === 'object' ? fx.R2 : null;
+    const ANY = ['Q2', 'Q4', 'Q5', 'Q6', 'Q7', 'Q8', 'R3'].some((k) => fx[k] && typeof fx[k] === 'object');
+    if (!r1 && !r2 && !ANY) return overrides;
+    const out = { ...(overrides || {}) };
+    const obj = (v) => (v && typeof v === 'object' ? v : null);
+    const num = (v, d) => (Number.isFinite(v) ? v : d);
+    /**
+     * 给一个 key 的 stats 打补丁。spawns.js:97-105 确实消费 enemyOverrides[key].stats（maxHp/atk/def/res/
+     * moveSpeed/bat/aspd/rangeRadius/massLevel/lpr/blockCnt），所以这里是有效通道 —— 但只对**出生时**生效，
+     * 不参与 kit 构造（那条只能走 talents.bb）。
+     */
+    const patchStat = (o, key, field, value) => {
+      const base = o[key] || {};
+      o[key] = { ...base, stats: { ...(base.stats || {}), [field]: value } };
+    };
+    /** 给一个 key 的 talents.bb 打补丁（保留它自己已有的、以及波次自带的覆盖）。 */
+    const patchBb = (key, bb) => {
+      const base = out[key] || {};
+      out[key] = {
+        ...base,
+        talents: { ...(base.talents || {}), bb: { ...((base.talents && base.talents.bb) || {}), ...bb } },
+      };
+    };
+    if (r1) {
+      patchBb('enemy_9010_acpupp', {
+        'Aura.max_damage_block_cnt': Number.isFinite(r1.shield) ? r1.shield : 7,
+        'Revive[Trigger].interval': Number.isFinite(r1.reborn) ? r1.reborn : 12,
+      });
+    }
+    if (r2) {
+      // R2 囚犯：解除禁锢所需攻击次数 4 -> 3。八个囚犯 key 在数据里都写 confinement.times = 4。
+      const hits = Number.isFinite(r2.hits) ? r2.hits : 3;
+      for (const key of PRISONER_KEYS) patchBb(key, { 'confinement.times': hits });
+    }
+    // Q2 淤困寄生：宿主受元素损伤倍率 1.3 -> 1.45；Ⅱ档寄生伤害 0.3 -> 0.4（+ 淤困生命 +30%）
+    const q2 = obj(fx.Q2);
+    if (q2) {
+      const host = { '1.damage_scale': num(q2.hostScale, 1.45), '1.ep_damage_scale': num(q2.hostScale, 1.45) };
+      if (q2.atkScale != null) host['1.atk_scale'] = num(q2.atkScale, 0.4);
+      patchBb('enemy_9007_acelem', host);
+      if (q2.hpMul != null) {
+        const raw = own(this.raw.enemies, 'enemy_9007_acelem') || own(this.raw['enemies-crisis'], 'enemy_9007_acelem');
+        const hp = raw && raw.stats && Number.isFinite(raw.stats.maxHp) ? raw.stats.maxHp : null;
+        if (hp != null) patchStat(out, 'enemy_9007_acelem', 'maxHp', Math.round(hp * num(q2.hpMul, 1.3)));
+      }
+    }
+    // Q4 深池方阵：同伴提供的防御 200 -> 250
+    const q4 = obj(fx.Q4);
+    if (q4) {
+      const def = num(q4.def, 250);
+      for (const key of ['enemy_1169_duphlx', 'enemy_1169_duphlx_2']) patchBb(key, { 'auraDefup.def': def });
+    }
+    // Q5 深池逐火：余烬重生间隔 10 -> 8；Ⅱ档击倒所需次数 5 -> 7（护卫 10 -> 14）
+    const q5 = obj(fx.Q5);
+    if (q5) {
+      const interval = num(q5.interval, 8);
+      for (const key of ['enemy_1288_duskls', 'enemy_1288_duskls_2', 'enemy_1292_duskld', 'enemy_1292_duskld_2']) {
+        const bb = { 'Revive[Trigger].interval': interval };
+        if (q5.hits != null) bb['Revive[Trigger].prop_max_hp'] = num(q5.hits, 7);
+        if (q5.guardHits != null && key.startsWith('enemy_1292_')) bb['Revive[Trigger].prop_max_hp'] = num(q5.guardHits, 14);
+        patchBb(key, bb);
+      }
+    }
+    // Q6 蚀裂：毒雾半径 0.8 -> 1.2 格；Ⅱ档持续时间 8 -> 12
+    const q6 = obj(fx.Q6);
+    if (q6) {
+      const bb = { '1.projectile_range': num(q6.radius, 1.2) };
+      if (q6.lifeTime != null) bb['1.projectile_life_time'] = num(q6.lifeTime, 12);
+      patchBb('enemy_9006_actoxi', bb);
+    }
+    // Q7 控潮：侵蚀比例 0.8 -> 1.0
+    const q7 = obj(fx.Q7);
+    if (q7) {
+      const ratio = num(q7.ratio, 1.0);
+      for (const key of ['enemy_1161_tidmag', 'enemy_1161_tidmag_2', 'enemy_1162_magmot_2']) {
+        patchBb(key, { 'EpDamage.attack@ep_damage_ratio': ratio });
+      }
+    }
+    // R3 粉碎攻坚手/码头水手/悖谬暴虐兵长/王庭军精锐术师：攻击间隔缩短 15%（stats.bat，spawns.js 消费）
+    const r3 = obj(fx.R3);
+    if (r3) {
+      const cut = num(r3.batCut, 0.15);
+      for (const key of R3_KEYS) {
+        const raw = own(this.raw.enemies, key) || own(this.raw['enemies-crisis'], key);
+        const bat = raw && raw.stats && Number.isFinite(raw.stats.bat) ? raw.stats.bat : null;
+        if (bat != null) patchStat(out, key, 'bat', Math.round(bat * (1 - cut) * 1000) / 1000);
+      }
+    }
+    // Q8 深池伙友：力场半径 1.1 -> 1.5；Ⅱ档影刃攻击间隔缩减 1.3 -> 1.6。
+    // 影刃数据里默认就是 traitAbility.base_attack_time = -1.3，所以 Ⅰ 档（只有 radius）不需要碰它，
+    // 只有 Ⅱ 档带 cut 时才改成 -1.6。字段名是 cut，不是 bladeSpeed（后者在契约参数里不存在）。
+    const q8 = obj(fx.Q8);
+    if (q8) {
+      const r = num(q8.radius, 1.5);
+      for (const key of ['enemy_1174_duholy', 'enemy_1174_duholy_2']) patchBb(key, { 'traitAbility.range_radius': r });
+      if (Number.isFinite(q8.cut)) {
+        for (const key of ['enemy_1175_dushdo', 'enemy_1175_dushdo_2']) {
+          patchBb(key, { 'traitAbility.base_attack_time': -q8.cut });
+        }
+      }
+    }
+    return out;
+  }
+  crisisBossSkillOverrides(overrides, keys = {}) {
+    const fx = this.crisisFx;
+    if (!fx || !overrides || typeof overrides !== 'object') return overrides;
+    const S1 = fx.S1 && typeof fx.S1 === 'object' ? fx.S1 : null;
+    const S2 = fx.S2 && typeof fx.S2 === 'object' ? fx.S2 : null;
+    // S5 一档's params are EMPTY (`t2({}, { below: 0.6, at: 30 })`), and `crisisRules` drops an empty object — so this
+    // contract must be detected by the KEY being present, not by the object having fields.
+    const S5 = fx.S5 && typeof fx.S5 === 'object' ? fx.S5 : (Object.hasOwn(fx, 'S5') ? {} : null);
+    if (!S1 && !S2 && !S5) return overrides;
+    const primary = keys.primary || 'enemy_9033_acdeer';
+    const secondary = keys.secondary || 'enemy_9017_achunt';
+    const out = { ...overrides };
+    /** Copy one enemy's override and scale its skills by `fn(name, cd, icd)`; untouched entries stay shared. */
+    const patch = (enemyKey, fn) => {
+      const src = out[enemyKey];
+      if (!src || !Array.isArray(src.skills)) return;
+      out[enemyKey] = {
+        ...src,
+        skills: src.skills.map((s) => {
+          if (!s || s.prefabKey == null) return s;
+          const next = fn(String(s.prefabKey), numOr(s.cooldown, 0), numOr(s.initCooldown, 0));
+          return next ? { ...s, ...next } : s;
+        }),
+      };
+    };
+    // S1 `{ cd: 24 }` — the data's 999 is a sentinel ("fires on priority, no timer"), so the wave carries no usable
+    // number to shorten by 20%. The official text says 冷却缩短20%, and the 档位表 gives the RESULT (24) rather than a
+    // ratio; both readings agree when the base is the leader's real 30 s cadence. The contract therefore writes the
+    // table's own number, which is what the site's rule object holds.
+    if (S1) patch(secondary, (name, cd) => (Number.isFinite(S1.cd) ? { cooldown: S1.cd } : null));
+    // S2 `{ icd: 30, cd: 50 }` — also the RESULT, not a ratio: 自然涌动 starts at 40 s and the contract makes it 30
+    // (提前 25%), then runs every 60 s and the contract makes it 50 (缩短约 17%). Writing the values keeps the two
+    // readings (ratio vs result) from drifting apart.
+    if (S2) {
+      patch(primary, (name, cd, icd) => (name !== 'Lasso' ? null : {
+        cooldown: Number.isFinite(S2.cd) ? S2.cd : cd,
+        initCooldown: Number.isFinite(S2.icd) ? S2.icd : icd,
+      }));
+    }
+    // S5 一档 `{}` — 首次等待时间减半（无参数）; 二档 `{ below: 0.6, at: 30 }` changes the ENTRY condition instead,
+    // which crisisDualLeader applies, so only the halving belongs here.
+    if (S5) patch(secondary, (name, cd, icd) => ({ initCooldown: Math.round(icd * 0.5 * 1000) / 1000 }));
+    return out;
+  }
+
+  /**
+   * 危机合约 S3 护卫合流 — 第二名领袖关卡的护卫按 50%/100% 加入它所在的每个战场（每批向下取整，至少 1 名）.
+   * @param {number} count how many escorts the secondary leader's own level spawns in one batch
+   * @returns {number} how many of them join (0 when the contract is absent ⇒ caller appends nothing)
+   */
+  crisisEscortShare(count) {
+    const fx = this.crisisFx;
+    const s3 = fx && fx.S3;
+    if (!s3 || typeof s3 !== 'object' || !Number.isFinite(s3.share)) return 0;
+    const n = Number.isFinite(count) && count > 0 ? Math.floor(count) : 0;
+    if (!n) return 0;
+    // 「每批向下取整，至少1名」
+    return Math.max(1, Math.floor(n * s3.share));
+  }
+
+  /**
+   * 危机合约 S4 同步共鸣 — 每 30 秒比较两名领袖的剩余生命百分比.
+   *
+   *   相差 > 15 个百分点 ⇒ 较高者受到伤害降低 25%，持续 10 秒（BUCKET_GUARD）
+   *   相差 ≤ 15 个百分点 ⇒ 两名领袖受到伤害增加 15%，持续 8 秒（BUCKET_VULN）
+   *   一名领袖死亡后停止.
+   * @returns {null | { period: number, gap: number, cut: number, cutDur: number, vuln: number, vulnDur: number }}
+   */
+  /**
+   * 危机合约 M3 援护限额：「每轮联防最多由 1 名成功玩家承接」。
+   * 返回承接人数上限；未选 M3 时返回 null（unite.js 的 helperOrder 用 ?? Infinity 兜底，行为完全不变）。
+   */
+  /** U4 联防强压：转入联防战的敌人生命乘数（null = 无此合约）。 */
+  get crisisUniteHpMul() {
+    const fx = this.crisisFx;
+    const u4 = fx && fx.U4;
+    if (!u4 || typeof u4 !== 'object' || !Number.isFinite(u4.hp)) return null;
+    return 1 + u4.hp;
+  }
+
+  get crisisUniteHelpers() {
+    const fx = this.crisisFx;
+    const m3 = fx && fx.M3;
+    if (!m3 || typeof m3 !== 'object') return null;
+    const n = m3.helpers;
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+
+  crisisLeaderResonance() {
+    const fx = this.crisisFx;
+    const s4 = fx && fx.S4;
+    if (!s4 || typeof s4 !== 'object' || !Number.isFinite(s4.period)) return null;
+    return { period: s4.period, gap: s4.gap, cut: s4.cut, cutDur: s4.cutDur, vuln: s4.vuln, vulnDur: s4.vulnDur };
+  }
+
+  /**
+   * 危机合约 S6 双首破局 — 第二领袖首次登场时本场干员获得技力与护盾；登场 20 秒后两名领袖攻速 +10.
+   * @returns {null | { sp: number, shield: number, shieldDur: number, after: number, aspd: number }}
+   */
+  crisisDualEntrance() {
+    const fx = this.crisisFx;
+    const s6 = fx && fx.S6;
+    if (!s6 || typeof s6 !== 'object') return null;
+    return { sp: numOr(s6.sp, 0), shield: numOr(s6.shield, 0), shieldDur: numOr(s6.shieldDur, 0), after: numOr(s6.after, 0), aspd: numOr(s6.aspd, 0) };
+  }
+
+  /**
+   * 危机合约 L2 双首并临 / L3 第二号令 / L4 双战区：锁链 / L5 交叉追猎 — 并列领袖方案.
+   *
+   * These four all bring a SECOND leader onto the field, and each names its own HP ratio and its own condition. The
+   * engine's leader HP is one shared pool, so a dual scheme needs a second pool rather than a second spawn: the caller
+   * asks this for the plan and builds one `SharedBossPool` per entry.
+   * @param {string} primaryId the round's own leader (Match.bossId)
+   * @param {string} secondaryId the second leader the fork fields beside it (boss_2 「假想敌：铳」)
+   * @returns {null | { scheme: string, pools: Array<{ bossId: string, mul: number, at?: number, below?: number, pair?: string }>, gap?: number, cut?: number, atk?: number, swap?: number }}}
+   */
+  crisisDualLeader(primaryId, secondaryId) {
+    const fx = this.crisisFx;
+    if (!fx) return null;
+    const pick = (id) => (fx[id] && typeof fx[id] === 'object' ? fx[id] : null);
+    const L2 = pick('L2');
+    const L3 = pick('L3');
+    const L4 = pick('L4');
+    const L5 = pick('L5');
+    const scheme = L2 ? 'L2' : L3 ? 'L3' : L4 ? 'L4' : L5 ? 'L5' : null;
+    if (!scheme) return null;
+    const cfg = { L2, L3, L4, L5 }[scheme];
+    const second = secondaryId || 'boss_2';
+    if (scheme === 'L2') {
+      // 两者同时登场，各为正常生命的 65%，均须击败
+      return { scheme, pools: [{ bossId: primaryId, mul: cfg.hp }, { bossId: second, mul: cfg.hp }] };
+    }
+    if (scheme === 'L3') {
+      // 主先登场（80%）；其生命首次降至 50% 或战斗到 40 秒时，副登场（55%），取较早者。
+      // 危机合约 S5 二档覆盖这个登场条件：改为「主领袖生命降至 60% 或战斗到 30 秒」（params { below: 0.6, at: 30 }）。
+      // S5 一档 params 是 {}，只做技能首次等待减半（见 crisisLeaderSkillOverrides），不影响登场条件。
+      const s5 = pick('S5');
+      const useS5 = !!s5 && (Number.isFinite(s5.below) || Number.isFinite(s5.at));
+      const at = useS5 && Number.isFinite(s5.at) ? s5.at : cfg.at;
+      const below = useS5 && Number.isFinite(s5.below) ? s5.below : cfg.below;
+      return { scheme, pools: [{ bossId: primaryId, mul: cfg.hp }, { bossId: second, mul: cfg.hp2, at, below }] };
+    }
+    if (scheme === 'L4') {
+      // 两个拼场各面对一名领袖，各 60%；剩余生命百分比相差 >20 点时低者减伤 30%；一名死亡后另一名攻击 +20%
+      return { scheme, pools: [{ bossId: primaryId, mul: cfg.hp, pair: 'b1' }, { bossId: second, mul: cfg.hp, pair: 'b2' }], gap: cfg.gap, cut: cfg.cut, atk: cfg.atk };
+    }
+    // L5: 两个拼场各面对一名「萨米的意志」，各 60%；每 30 秒交换战区
+    return { scheme, pools: [{ bossId: primaryId, mul: cfg.hp, pair: 'b1' }, { bossId: primaryId, mul: cfg.hp, pair: 'b2' }], swap: cfg.swap };
+  }
+
+  /**
+   * 危机合约 O2 共同命运 — 四人领袖轮合并目标生命后，仅保留 75%，向下取整、最低 1 点.
+   * @param {number} merged the team's merged LP entering the leader round
+   * @returns {number}
+   */
+  crisisMergedLp(merged) {
+    const fx = this.crisisFx;
+    const o2 = fx && fx.O2;
+    if (!o2 || typeof o2 !== 'object' || !Number.isFinite(o2.keep)) return merged;
+    return Math.max(1, Math.floor(merged * o2.keep));
+  }
+
+  /**
+   * 危机合约 O3 同生共死 — 领袖轮前全队共享的「保命」次数.
+   *
+   *   * 一档 `{ saves: 1 }` — 首次有人目标生命将归零时保留为 1；此后再有人归零，全队立即失败.
+   *   * 三档 `{ saves: 0 }` — 任意一名玩家目标生命归零，全队立即失败（即没有保命）.
+   * @returns {number} the number of saves, or -1 without the contract (caller treats -1 as "official behaviour")
+   */
+  crisisTeamSaves() {
+    const fx = this.crisisFx;
+    const o3 = fx && fx.O3;
+    if (!o3 || typeof o3 !== 'object' || !Number.isFinite(o3.saves)) return -1;
+    return Math.max(0, o3.saves);
+  }
+
+  /**
+   * 危机合约 G4 资本冻结 — 休整期内的非基础资金收入延至下一休整期开始可用；不减少资金总额.
+   * 终局突袭（第14回合）休整期的收入不冻结.
+   *
+   * 「基础资金」 is the round table's own income (`gd.income`), which travels with reason `'income'`; every other payer
+   * — 出售 `'sell'`, 盟约/特质/策略 `'choice'`, 装备, 返款 — is a 非基础资金收入 and is the thing that defers.
+   * @param {number} round
+   * @param {string} reason the addFunds reason
+   * @returns {boolean} true when this payment must wait for the next prep
+   */
+  crisisFundsDeferred(round, reason) {
+    const fx = this.crisisFx;
+    const g4 = fx && fx.G4;
+    if (!g4 || typeof g4 !== 'object') return false;
+    if (reason === 'income' || reason === 'test') return false; // 基础资金；test 是调试命令，不参与
+    const until = Number.isFinite(g4.until) ? g4.until : 13;
+    // 「终局突袭（第14回合）休整期的收入不冻结」 — the window is rounds 1..until
+    return Number.isFinite(round) && round <= until;
+  }
+
+  /**
+   * 危机合约 K1 编制上限 / K4 全队部署位额度 — 每名玩家同时在场干员上限被收窄.
+   *
+   * K1 is a per-player cap (7/6). K4 is a TEAM-wide quota of −6 to be shared freely, but "个人不能超过其原本上限",
+   * and 「与K1同选时，每名玩家的上限取两者中较小的一个，K4不再额外扣减」 — so a player's own cap is its mode cap
+   * whatever K4 says; K4's −6 is a team ledger the caller keeps, never a per-player subtraction. With both, the smaller
+   * of the two wins and K4 is not applied again.
+   * @param {number} cap the player's own cap (mode + bonuses)
+   * @param {{ k4Spent?: number, seats?: number }} [team] K4's shared ledger, when the caller keeps one
+   * @returns {number}
+   */
+  crisisDeployCap(cap, team = null) {
+    const fx = this.crisisFx;
+    let out = cap;
+    const k1 = fx && fx.K1;
+    if (k1 && typeof k1 === 'object' && Number.isFinite(k1.cap)) out = Math.min(out, k1.cap);
+    const k4 = fx && fx.K4;
+    // 「K4不再额外扣减」only when K1 is also chosen; alone, K4 keeps every player at its own cap and the −6 is the
+    // team's shared budget, so there is nothing to subtract from an individual — which is exactly what this returns.
+    // K4 has no per-player cap of its own (`{ cut: 6 }` is the team-wide deduction) — with K1 it is "取两者中较小的
+    // 一个，K4不再额外扣减", i.e. K1's cap stands and K4 subtracts nothing more.
+    return Math.max(1, out);
+  }
+
+  /**
+   * 危机合约 K4 的全队总额度：原本 n 名玩家的部署位之和再减 6（不低于每名玩家 1 位）.
+   * @param {number} sum the team's combined caps
+   * @param {number} players how many players share it
+   * @returns {number}
+   */
+  crisisTeamDeployBudget(sum, players) {
+    const fx = this.crisisFx;
+    const k4 = fx && fx.K4;
+    if (!k4 || typeof k4 !== 'object' || !Number.isFinite(k4.cut)) return sum;
+    const n = Number.isFinite(players) && players > 0 ? players : 1;
+    return Math.max(n, sum - k4.cut);
+  }
+
+  /**
+   * 危机合约 J1 装备配额 — 场上进阶（精锐）装备上限 {6|4|2}；基础装备不受限制.
+   * @param {number} count how many advanced items are already carried on the board
+   * @returns {number} the cap, or Infinity
+   */
+  crisisAdvancedItemCap(count) { // eslint-disable-line no-unused-vars
+    const fx = this.crisisFx;
+    const j1 = fx && fx.J1;
+    if (!j1 || typeof j1 !== 'object' || !Number.isFinite(j1.cap)) return Infinity;
+    return j1.cap;
+  }
+
+  /**
+   * 危机合约 J3 精锐上限 — 场上精锐干员最多 {4|3} 名；允许继续合成并存放其他精锐（存于手牌，不违反此限）.
+   * @returns {number} the cap, or Infinity
+   */
+  crisisEliteCap() {
+    const fx = this.crisisFx;
+    const j3 = fx && fx.J3;
+    if (!j3 || typeof j3 !== 'object' || !Number.isFinite(j3.cap)) return Infinity;
+    return j3.cap;
+  }
+
+  /**
+   * 危机合约 H5 行动配额 — 每休整期主动购买/出售/使用消耗品合计上限 {30|22|16}；免费操作也计数.
+   * @param {number} used how many actions this prep already made
+   * @returns {number} the cap, or Infinity
+   */
+  crisisActionCap(used) { // eslint-disable-line no-unused-vars
+    const fx = this.crisisFx;
+    const h5 = fx && fx.H5;
+    if (!h5 || typeof h5 !== 'object' || !Number.isFinite(h5.cap)) return Infinity;
+    return h5.cap;
+  }
+
+  /**
+   * 危机合约 I4 层数配额 — 每种盟约每休整期实际新增层数上限 {40|25|15}；战斗阶段叠层不限.
+   *
+   * ONLY the 休整 (prep) gains are capped — the official text says 战斗阶段叠层不限, so a caller in the battle phase
+   * must not consult this.
+   * @returns {number} the cap, or Infinity
+   */
+  crisisLayerGainCap() {
+    const fx = this.crisisFx;
+    const i4 = fx && fx.I4;
+    if (!i4 || typeof i4 !== 'object' || !Number.isFinite(i4.cap)) return Infinity;
+    return i4.cap;
+  }
+
+  /**
+   * 危机合约 M1 手牌收缩 — 常规手牌区由 10 格降为 7 格.
+   * @param {number} size the mode's hand size
+   * @returns {number}
+   */
+  crisisHandSize(size) {
+    const fx = this.crisisFx;
+    const m1 = fx && fx.M1;
+    if (!m1 || typeof m1 !== 'object' || !Number.isFinite(m1.hand)) return size;
+    return Math.min(size, m1.hand);
+  }
+
+  /**
+   * 危机合约 H1 频率限制 — 第4回合起，每回合主动刷新最多{12|9|6}次，免费刷新也计次.
+   * @param {number} round
+   * @returns {number} the cap, or Infinity without H1
+   */
+  crisisRefreshCap(round) {
+    const fx = this.crisisFx;
+    const h1 = fx && fx.H1;
+    if (!h1 || typeof h1 !== 'object' || !Number.isFinite(h1.cap)) return Infinity;
+    const from = Number.isFinite(h1.from) ? h1.from : 1;
+    if (Number.isFinite(round) && round < from) return Infinity;
+    return h1.cap;
+  }
+
+  /**
+   * 危机合约 H2 升格管制 — 调度中心第 1 次升级不加价，第 2 次起每次额外消耗 2 资金.
+   * @param {number} level the shop level BEFORE this upgrade
+   * @param {number} price the mode's own upgrade price
+   * @returns {number} the price the contract charges
+   */
+  crisisLevelUpPrice(level, price) {
+    const fx = this.crisisFx;
+    const h2 = fx && fx.H2;
+    if (!h2 || typeof h2 !== 'object' || !Number.isFinite(h2.tax)) return price;
+    const free = Number.isFinite(h2.free) ? h2.free : 1;
+    // 「第1次升级不加价」: the shop starts at level 1, so the first upgrade leaves level 1 — anything above pays the tax
+    const from = 1 + free;
+    if (Number.isFinite(level) && level < from) return price;
+    return price + h2.tax;
+  }
+
+  /**
+   * 危机合约 G3 集中采购税 — 每回合前 3 次购买干员正常计价，第 4 次起每次额外消耗 1 资金.
+   * @param {number} buys how many purchases this round has already made
+   * @param {number} price the piece's own price
+   * @returns {number}
+   */
+  crisisBuyPrice(buys, price) {
+    const fx = this.crisisFx;
+    const g3 = fx && fx.G3;
+    if (!g3 || typeof g3 !== 'object' || !Number.isFinite(g3.tax)) return price;
+    // `buys` is how many purchases this round ALREADY made, so 0..free-1 are the free ones — the first taxed purchase
+    // is the (free+1)-th, i.e. `buys === free`.
+    const free = Number.isFinite(g3.free) ? g3.free : 0;
+    return Number.isFinite(buys) && buys >= free ? price + g3.tax : price;
+  }
+
+  /**
+   * 危机合约 G2 延期拨款 — 第4—6回合每回合扣留 2 点基础资金，第 7 回合一次性返还（最多 6 点）.
+   *
+   * Returns what this round WITHHOLDS from the base income and what it gives BACK. The caller keeps the withheld total
+   * on the player (it is that player's own contract state), so a re-entry into prep cannot double-pay.
+   * @param {number} round
+   * @param {number} income the base income BEFORE any withholding
+   * @returns {{ withhold: number, back: number, cap: number }}
+   */
+  crisisIncomeHold(round, income) {
+    const fx = this.crisisFx;
+    const g2 = fx && fx.G2;
+    if (!g2 || typeof g2 !== 'object' || !Number.isFinite(g2.hold)) return { withhold: 0, back: 0, cap: 0 };
+    const [r0, r1] = Array.isArray(g2.rounds) ? g2.rounds : [4, 6];
+    const backAt = Number.isFinite(g2.back) ? g2.back : r1 + 1;
+    // "最多6点" is the ceiling of the whole withholding window, not a fixed payment: the caller returns what it actually
+    // withheld (a player whose income was already 0 withheld nothing and must not be paid 6).
+    const cap = g2.hold * (r1 - r0 + 1);
+    if (Number.isFinite(round) && round >= r0 && round <= r1) {
+      return { withhold: Math.min(g2.hold, Math.max(0, income)), back: 0, cap };
+    }
+    // `back` here is the SIGNAL only; the caller substitutes the amount it actually withheld (never above `cap`)
+    if (Number.isFinite(round) && round === backAt) return { withhold: 0, back: 1, cap };
+    return { withhold: 0, back: 0, cap };
+  }
   get maxShopLevel() { return posIntOr(this.mode.maxShopLevel, DEFAULTS.maxShopLevel); }
 
   /**
@@ -803,6 +1414,19 @@ export class GameData {
    * Mod 开关 `noBondBan` 关闭盟约禁用 overrides everything with `{ core: 0, addon: 0 }`: no 盟约 is drawn out of play in
    * ANY mode, which is the switch's whole point. The mode's static list is emptied with it (modeInactiveBonds).
    */
+  /**
+   * The fallback bond (协防干员, `config.economy.fallbackBondId`) — the bond a chess with no bond of its own falls back
+   * to (server/match/pool.js forgeImport, records.js). ★ It is a CONTAINER-SIDE default, not a 盟约 the match ever
+   * draws: the seeded ban draw must never remove it (server/match/player/diy.js:24 states the rule in so many words
+   * — 「协防 (emptyShip) is never banned, so a prototype always stays」), because every 自选 prototype carries exactly
+   * this bond, and banning it would wipe the whole DIY stock in one go (measured before this fix: emptyShip came up
+   * in 670 of 2000 seeds, and each of those matches lost all ten prototype slots).
+   * `null` when the config names no such bond.
+   */
+  get fallbackBondId() {
+    const id = this.config.economy && this.config.economy.fallbackBondId;
+    return typeof id === 'string' && this.bond(id) ? id : null;
+  }
   bans(difficulty) {
     if (this.mods.noBondBan) return { core: 0, addon: 0 };
     const own = this.mode && typeof this.mode.bans === 'object' && this.mode.bans !== null && !Array.isArray(this.mode.bans) ? this.mode.bans : null;

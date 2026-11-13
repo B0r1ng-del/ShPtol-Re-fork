@@ -46,12 +46,56 @@ export const MAX_SEATS = 4;
  * for every pre-existing room: solo = 1 seat, coop = 4, ultimate = ULTIMATE_SEATS.
  */
 export const ULTIMATE_SEATS = 6;
-/** Room modes a `room.create` may ask for, in lobby-card order. */
-export const ROOM_MODES = Object.freeze(['solo', 'coop', 'ultimate']);
-/** Seat cap per room mode (solo 1 / coop MAX_SEATS / ultimate ULTIMATE_SEATS); unknown modes fall back to MAX_SEATS. */
-export const SEATS_BY_MODE = Object.freeze({ solo: 1, coop: MAX_SEATS, ultimate: ULTIMATE_SEATS });
-/** Seat cap of a room mode: the lobby's seat grid, the protocol's seat ranges and the room screen all read it. */
-export const roomSeatCap = (roomMode) => SEATS_BY_MODE[roomMode] ?? MAX_SEATS;
+/** The room mode of a 危机合约 room (`ROOM_MODES` below). */
+export const CRISIS_ROOM_MODE = 'crisis';
+/**
+ * 危机合约 room mode (fork feature, 2026-11-07). A contract room is not a fourth 玩法 beside solo/coop/ultimate: it is a
+ * ROOM MODE that carries a checked contract selection (`shared/crisis.js`), runs on 绝境模拟 (HARD), and fixes its
+ * settings — the host's 难度 / 同盟设置 / 版本 pickers are disabled while it holds one, because the contract itself decides.
+ *
+ * Two shapes of it (`CRISIS_MODES`): `solo` = a one-seat room, `quad` = a co-op room of exactly CRISIS_QUAD_SEATS = 4
+ * seats that must be FULL (humans or AI) before the host may start.
+ *
+ * Kept in MOD_KEYS? No: a contract is a room property carried beside `mods` (room.create.crisis), not a switch a room
+ * may flip mid-life — the tags decide the numbers, and every seat plays the host's contract.
+ */
+/** Difficulty a contract room always runs on (shared/crisis.js CRISIS_DIFFICULTY is the same value; this one is the
+ *  constant the constants module can export without importing the rules table). */
+export const CRISIS_ROOM_DIFFICULTY = 'HARD';
+/** Seats a 四人 contract needs filled before it may start (shared/crisis.js CRISIS_QUAD_SEATS). */
+export const CRISIS_QUAD_SEATS = 4;
+/**
+ * Room modes a `room.create` may ask for, in lobby-card order.
+ *
+ * `crisis` (2026-11-07) is the 危机合约 card: it is NOT one more entry in the lobby's mode row — the lobby opens it from
+ * its own 活动中心 page, which sends the contract selection and lets the server derive the seats and the difficulty
+ * (header CRISIS_ROOM_MODE). It lives here so that `room.create`, the protocol guard and `roomSeatCap` accept it the same
+ * way they accept the other three.
+ */
+export const ROOM_MODES = Object.freeze(['solo', 'coop', 'ultimate', 'crisis']);
+/**
+ * Seat cap per room mode (solo 1 / coop MAX_SEATS / ultimate ULTIMATE_SEATS / crisis CRISIS_QUAD_SEATS); unknown modes
+ * fall back to MAX_SEATS. A contract room's own `crisis.mode` narrows this further: `solo` = 1 seat (see
+ * `crisisSeatCap`), `quad` = CRISIS_QUAD_SEATS.
+ */
+export const SEATS_BY_MODE = Object.freeze({ solo: 1, coop: MAX_SEATS, ultimate: ULTIMATE_SEATS, crisis: CRISIS_QUAD_SEATS });
+/**
+ * Seat cap of a contract room: 1 for a 单人 contract, CRISIS_QUAD_SEATS for a 四人 one, and the mode's own cap when no
+ * selection is known yet (a room whose contract the host has not chosen keeps the maximum, so a 四人 contract can still
+ * be picked). `mode` is the checked selection's `mode` ('solo' | 'quad'), NOT the room mode.
+ */
+export const crisisSeatCap = (crisisMode) => (crisisMode === 'solo' ? 1 : CRISIS_QUAD_SEATS);
+/**
+ * Seat cap of a room mode: the lobby's seat grid, the protocol's seat ranges and the room screen all read it.
+ *
+ * A contract room's cap is narrower than its mode's: a 单人 contract seats ONE doctor even though the mode's maximum is
+ * CRISIS_QUAD_SEATS. Pass the room's checked selection (`room.crisis`) as the second argument; without it (a room whose
+ * contract is not chosen yet, a 四人 contract still being picked) the mode's maximum stands, so either shape stays
+ * reachable.
+ * @param {string} roomMode @param {{ mode?: string } | null} [crisis]
+ */
+export const roomSeatCap = (roomMode, crisis = null) =>
+  (roomMode === CRISIS_ROOM_MODE && crisis && crisis.mode ? crisisSeatCap(crisis.mode) : SEATS_BY_MODE[roomMode] ?? MAX_SEATS);
 /** 终极模拟 offers no difficulty picker: its single difficulty is the ABYSS table (AC-4), kept on the mode record. */
 export const ULTIMATE_DIFFICULTY = 'ABYSS';
 /**

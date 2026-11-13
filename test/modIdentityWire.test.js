@@ -148,7 +148,11 @@ describe('mod identity: entering a modded room needs the client to confirm the c
     //                    `soloUnlimited`（不限时 §35.23.10）—— 三格在 `server/lobby.js` 的 `create()` 里都**真读了**
     //                    （不是只放开协议的摆设），所以它们是本合并版的真实形状，断言跟到六项。
     assert.deepEqual(C2S['room.join'].$optional, ['modDigest', 'testAck']);
-    assert.deepEqual(C2S['room.create'].$optional, ['mods', 'modDigest', 'test', 'difficulty', 'version', 'soloUnlimited']);
+    // 原断言在此处结束于六个字段（mods/modDigest/test/difficulty/version/soloUnlimited）。它过期于 v0.3.2 合并把
+    // 危机合约带了进来：`shared/protocol.js:626` 的 `room.create` 现在第七格是 `crisis: isCrisis`，而
+    // `server/lobby.js:1037` 的 `create()` 真的解构并用它（`:1052` 的 `checkCrisis`、`:1124` 冻到 `room.crisis`），
+    // 所以它不是「只放开协议的摆设」—— 和上面那三个 v0.3.2 字段同一条理由，断言跟到七项。
+    assert.deepEqual(C2S['room.create'].$optional, ['mods', 'modDigest', 'test', 'difficulty', 'version', 'soloUnlimited', 'crisis']);
     // `mods` 与 `modDigest` 是**两格不同语义**的字段，同时出现也合法（开关 + 内容集）。
     assert.equal(validateC2S({ t: 'room.create', mode: 'solo', difficulty: 'NORMAL', mods: { noBondBan: true }, modDigest: digest }), null);
   });

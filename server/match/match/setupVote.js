@@ -89,7 +89,7 @@ export class MatchSetupVote {
     let prepared;
     try {
       const rng = createRng(deriveSeed(this.seed, `reroll-setup:${this.setupRevision + 1}`));
-      const setup = setupMatchWaves(this.gd, rng);
+      const setup = setupMatchWaves(this.gd, rng, null, this.arcSeed);
       const stage = setup.stageId ? this.gd.stage(setup.stageId) : null;
       const bans = drawDisabledBonds(this.gd, rng);
       const pool = new SharedPool(this.gd, { banned: bans.banned });

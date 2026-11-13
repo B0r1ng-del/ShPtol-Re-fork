@@ -26,7 +26,9 @@ import { APP_VERSION } from '../../shared/constants.js';
 import { CONTENT_HASH_VERSION, contentHashOf, simHashOf } from '../../shared/plugins/identity.js';
 
 /** data/*.json files that only the browser's presentation reads (never part of `cs`). */
-export const PRESENTATION_DATA = Object.freeze(['assets', 'local-assets', 'local-fx', 'emotes']);
+// stages-crisis 与 assets 同类：危机合约 #4 的专属战场只喂渲染（board3d 场景/主题），战斗逻辑永远只读 stages。
+// 它若进入内容哈希，加一张表现层地图就等于改了「对局身份」，rooms 的 cs 会无端漂移。
+export const PRESENTATION_DATA = Object.freeze(['assets', 'skins-installed', 'local-assets', 'local-fx', 'emotes', 'stages-crisis']);
 /** server/sim files that are never served (lower-case; static.js SIM_PRIVATE). */
 const SIM_PRIVATE = new Set(['nodedata.js']);
 const noopLog = { info() {}, warn() {}, error() {}, debug() {} };

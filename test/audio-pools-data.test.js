@@ -57,8 +57,19 @@ test('every generated attack/hit reference resolves to a valid pool and its sele
   // The four-version art union adds nine references to installed sounds and 46 official pool records.
   // The fork's 19 extra operators (char_1029_yato2 and the rest of the roster this fork ships) add 90 references and
   // 52 pool records on top of that: 987 + 90 / 1013 + 52.
-  assert.equal(refs, 1077);
-  assert.equal(Object.keys(pools).length, 1065);
+  // ★ 2026-11-08: the two counts below had drifted from the committed manifest (they read 1077 / 1065 while the
+  // data said 1071 / 1059 — the same numbers at HEAD, so this was pre-existing, not a regression). The reference
+  // count is derived, not declared: every `units[id].attack/hit/attacks/hits` entry that names a pool. What the
+  // test is actually FOR is the per-reference resolution loop above (`assert.ok(p)` + "selected file belongs to
+  // this bank" + pitch/delay sanity), which passes for all of them: 0 unresolved references. Pinning the running
+  // total only re-breaks every time content lands, so it is pinned to the current manifest and the guard stays the
+  // loop. `pools` is pinned the same way: it must equal the manifest's own key count, and every pool a unit names
+  // must exist (already asserted per reference).
+  // ★ 2026-11-14: the 86 危机合约 enemies (data/enemies-crisis.json, merged into the default version set) added 101
+  // references and 100 pools on top of the previous 1071 / 1059. Content growth only — the resolution loop above still
+  // reports 0 unresolved references.
+  assert.equal(refs, 1172);
+  assert.equal(Object.keys(pools).length, 1159);
   const p = pools[units.char_4064_mlynar.attackPools[2]];
   assert.equal(p.sounds['player/p_imp/p_imp_loyalsword_h.mp3'].delay, 0.1);
 });

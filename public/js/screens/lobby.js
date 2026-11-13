@@ -44,13 +44,17 @@ import { uiUrl } from '../ui/assetUrls.js';
 import { peekStatsRecords, trophyMedalOf, aggregateStats, recordsOfSeason } from '../ui/stats.js';
 import { TrophyBadge } from '../ui/trophies.js';
 import { NameCardLayer, namecardOf } from '../ui/namecards.js';
-import { cardStore, cardMessage } from '../ui/seatArt.js';
+import { cardStore } from '../ui/seatArt.js';
 import { levelProgress, levelOf } from './settle.js';
 import { OwnBackdrop, LobbyScene, LobbyMediaButton } from '../ui/lobbyMedia.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { GuideButton, openGuide } from '../ui/guide.js';
 import { RadarScene, CreateArt, JoinArt } from '../ui/allyArt.js';
 import { ProtocolScene } from '../ui/protocolScene.js';
+// 危机合约 (fork 常驻模式): the contract selection page. Imported statically like every other screen module — the mode is
+// part of this build, not a lazily loaded plugin.
+import { CrisisSelect } from '../ui/crisisSelect.js';
+import { CrisisEventPage, CC_UI, CC_ART } from '../ui/crisisEventPage.js';
 import { AchievementDialog, useStatsOpen } from './stats.js';
 import { SweepReport } from './sweep.js';
 import { Emblem } from './title.js';
@@ -165,6 +169,26 @@ export const MODE_CARDS = [
     id: 'ultimate', name: N_('扩展模拟'), en: 'EXTENDED SIMULATION', icon: 'crown',
     desc: N_('与至多 {n} 名博士组成同盟，共享干员池，联防协作抵御敌潮。'), params: { n: ULTIMATE_SEATS },
     points: [N_('1–{n} 名博士 · 可由 AI 队友补位'), N_('固定为终极难度')], pointParams: { n: ULTIMATE_SEATS },
+  },
+  // 危机合约 (shared/crisis.js): a persistent mode, not a per-room option — offered whenever the SERVER reports the
+  // capability (welcome.crisis), which is every build carrying the rules table. The difficulty is not a choice: the
+  // contract decides it (绝境模拟) and the server refuses any other value (server/lobby.js setDifficulty).
+  // 两个赛季是两套独立页面（官方 crisisPages.js:180 的 skin 参数）：重燃测试作战与弧光作战各有自己的
+  // 皮肤、词条表与图标，不能合并成一页加个切换按钮。
+  {
+    id: 'crisis', name: N_('重燃测试作战'), en: 'CONTINGENCY CONTRACT', icon: 'crown',
+    desc: N_('签下由词条组成的合约，在绝境模拟下迎战。风险越高，收获越重。'),
+    points: [N_('1 或 4 名博士'), N_('固定为绝境模拟 · 词条数值真实施加')],
+    // 官方 cc-card 的横幅（crisisEvent.js:92 的 banner.png；重燃那条用活动中心顶部的 nav-crisis.png）
+    banner: CC_UI + 'nav-crisis.png',
+    cardClass: 'is-rekindle',
+  },
+  {
+    id: 'crisisArc', name: N_('弧光作战'), en: 'ARCLIGHT CONTRACT', icon: 'crown',
+    desc: N_('滞空焦点上的重力战。踩下重力按钮改变半场朝向，顺重力者加速、逆重力者受阻。'),
+    points: [N_('1 或 4 名博士'), N_('重量与重力决定攻速 · 词条数值真实施加')],
+    banner: CC_ART + 'banner.png',
+    cardClass: 'is-arclight',
   },
 ];
 
@@ -421,6 +445,17 @@ function ProtoFit() {
  * keeps points[0] (「1 名博士」).
  */
 export function HubEntry({ card, onOpen, timePoint = null, timeShort = null }) {
+  // 危机合约的两个入口走官方的 .cc-card（crisisEvent.js:91 的 CrisisEventCard）：button.cc-card + img.cc-card__banner，
+  // 版式全由 css/official/crisis-event.css 接管（.cc-card / .cc-card__banner 已完整），这里只对齐 DOM，不发明样式。
+  if (card.banner) {
+    return html`<div class="hub-entry-wrap">
+      <span class="hub-entry__group"><${Icon} name=${card.icon} />${t(card.points[0], card.pointParams)}</span>
+      <button type="button" class=${`cc-card ${card.cardClass}`} data-mode=${card.id} data-testid=${'cc-card-' + card.id}
+          onClick=${() => onOpen(card.id)} title=${t(card.desc, card.params)} aria-label=${t(card.name)}>
+        <img class="cc-card__banner" src=${card.banner} alt="" draggable=${false} />
+      </button>
+    </div>`;
+  }
   const line = timePoint
     ? html`<span class="hub-entry__long">${t(card.points[0], card.pointParams)} · ${t(timePoint)}</span><span class="hub-entry__short">${timeShort ? t(timeShort) : t(card.points[0], card.pointParams)}</span>`
     : card.pointShort
@@ -784,6 +819,34 @@ export function LobbyScreen() {
   // the open dialogs: 选择同盟方式 (同盟模拟 / 扩展模拟 / 密钥加入) and 选择模拟协议 — `protoOpen` is the mode whose page
   // is up (独立模拟 from the hub; the room's host reuses this page for a difficulty change), null = the hub
   const [allyOpen, setAllyOpen] = useState(false);
+  // 危机合约's own page (ui/crisisSelect.js): open while a contract is being assembled
+  // 危机合约: null = 关闭；'rekindle' / 'arclight' = 当前打开的是哪个赛季的页面（官方 skin 模型）
+  const [crisisSkin, setCrisisSkin] = useState(null);
+  // 官方是两层：先活动入口页（ArcLight / 主页面），点主入口大卡才进「选择指标」。
+  // 结算页（screens/settle.js 的 backToCrisis）留一个 sessionStorage 标记，让「完成 / 重新挑战」回到
+  // 危机合约界面而不是大厅 —— 这里挂载时读一次就用掉（读后即删，刷新不会再跳）。
+  const [crisisEntry, setCrisisEntry] = useState(() => {
+    try {
+      const back = sessionStorage.getItem('crisis:return');
+      if (back) { sessionStorage.removeItem('crisis:return'); return back; }
+    } catch { /* 隐私模式忽略 */ }
+    return null;
+  });
+  // ★ 从「选择指标」按返回 / Esc 回到入口页时不能重放 wipe：CrisisEventPage 的 phase 初值是 'wipe'，
+  //   那 520ms 里 cc-pages 渲染成 null，底下就是大厅 —— 用户看到的「闪一下主页」就是这么来的。
+  const [crisisReturned, setCrisisReturned] = useState(false);
+  // 官方选择指标页没有返回按钮，退出靠 Esc（crisisEvent.js 的 keydown 分支）。这里补上同样的行为，
+  // 否则用户只能刷新页面 —— 这是本项目对官方的一处行为补齐。
+  useEffect(() => {
+    if (!crisisSkin && !crisisEntry) return undefined;
+    const onKey = (ev) => {
+      if (ev.key !== 'Escape') return;
+      if (crisisSkin) { setCrisisEntry(crisisSkin === 'arclight' ? 'arclight' : 'main'); setCrisisReturned(true); setCrisisSkin(null); return; }
+      setCrisisEntry(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [crisisSkin, crisisEntry]);   // null | 'arclight' | 'main'
   const [protoOpen, setProtoOpen] = useState(null);
   const [code, setCode] = useState('');
   const [asTest, setAsTest] = useState(false);
@@ -821,8 +884,13 @@ export function LobbyScreen() {
   // folded the two cases into `m === 'solo' || m === 'ultimate'`, which skipped 选择同盟方式 for 扩展模拟 — the owner's
   // report of 2026-10-25.) The screen also needs to know which mode opened it, so its header and create card can say so.
   const [allyMode, setAllyMode] = useState('coop');
+  // 两个危机合约入口（banner 卡）单独取出：它们不跟三张模式卡排一行，而是合并成一条通栏横幅。
+  const crisisCards = MODE_CARDS.filter((c) => c.banner);
   const openMode = (m) => {
     if (m === 'solo') { setProtoOpen(m); return; }
+    // 危机合约: its own page (ui/crisisSelect.js) — the contract is assembled there, and only a checked one comes back
+    if (m === 'crisis') { setCrisisEntry('main'); return; }
+    if (m === 'crisisArc') { setCrisisEntry('arclight'); return; }
     setAllyMode(m); setAllyOpen(true);
   };
   const pickDifficulty = (d) => { setDifficulty(d); savePref('lobby.difficulty', d); };
@@ -849,11 +917,15 @@ export function LobbyScreen() {
   //   `roomMods.buildCreatePayload()`（服务器装了什么包的 digest + 房主勾选的 modIds）和 `mods: modsOn()`
   //   （本地「Mod 菜单」的开关）都没发。import 还在，调用没了，于是服务端永远按「纯原版」建房。
   //   两者缺一不可：digest 让服务端确认客户端和它看到的是同一套包，modIds 才是房主真正勾选的那几个。
-  const create = (mode) => run('create', () => net.request('room.create', {
+  const create = (mode, crisis = null) => run('create', () => net.request('room.create', {
     ...roomMods.buildCreatePayload(mode, mode === 'solo' ? shownSolo : shownCoop),
     mods: modsOn(),
     ...(testMode && asTest ? { test: true } : {}), ...(versions ? { version } : {}),
     ...(mode === 'solo' && soloFree && soloTimed === true ? { soloUnlimited: true } : {}),
+    // 危机合约 (shared/crisis.js): the checked contract. `mode` inside it is the CONTRACT's shape ('solo' | 'quad'), which
+    // is not the room mode — a quad contract is created as a 'crisis' room whose four seats must all fill before start
+    // (server/lobby.js start). Absent for every other mode, so their room.create payload is byte-identical.
+    ...(crisis ? { crisis } : {}),
   }));
   const join = (c = code) => {
     // `onClick=${join}` hands the click EVENT as the first argument, and a default parameter only applies to
@@ -931,7 +1003,20 @@ export function LobbyScreen() {
         <${AchievementPlate} onOpen=${() => setAchOpen(true)} />
       </aside>
       <section class="hub-entries" aria-label=${t('模拟方式')}>
-        ${MODE_CARDS.map((c) => {
+        ${/* 用户 2026-11-08 18:05：「删除红框的入口,下方的弧光作战入口缩小 40% 移动到下面三个模式上方」
+               —— 红框是重燃那条（.is-rekindle），删；弧光那条从 .hub-right 移到三张模式卡**上方**，尺寸缩 40%。
+               ★ 只保留弧光一条，所以不再用 crisisCards.map，直接取 .is-arclight 那张。 */''}
+        ${/* ★ 包一层 .hub-entries__crisisrow：flex:0 0 100% 让它独占一整行（否则与三张模式卡同排），
+               内部 flex-end 让卡片右对齐到模式卡那一侧。 */''}
+        <div class="hub-entries__crisisrow">
+          ${crisisCards.filter((c) => c.id === 'crisisArc').map((c) => html`<button type="button" key=${c.id}
+              class=${'cc-card hub-entries__crisis ' + c.cardClass} data-mode=${c.id}
+              data-testid=${'cc-card-' + c.id} onClick=${() => openMode(c.id)}
+              title=${t(c.desc, c.params)} aria-label=${t(c.name)}>
+            <img class="cc-card__banner" src=${c.banner} alt="" draggable=${false} />
+          </button>`)}
+        </div>
+        ${MODE_CARDS.filter((c) => !c.banner).map((c) => {
           const timedCard = c.id === 'solo';
           const timePoint = timedCard ? soloTimeMsgid('card', { timed: soloTimed, unlimited: soloFree }) : '';
           const timeShort = timedCard ? soloTimeMsgid('short', { timed: soloTimed, unlimited: soloFree }) : '';
@@ -940,6 +1025,19 @@ export function LobbyScreen() {
       </section>
     </main>
 
+    ${/* 层一：活动入口页（官方 crisisEvent.js 的 CrisisEvent）—— 弧光作战 / 重燃测试作战两个主页，
+          用 cc-nav 的两个 tab 互相切换；点主入口大卡才进选择指标。 */''}
+    ${crisisEntry && !crisisSkin ? html`<${CrisisEventPage} initial=${crisisEntry}
+      onClose=${() => { setCrisisEntry(null); setCrisisReturned(false); }}
+      noWipe=${crisisReturned}
+      onSelect=${(skin) => setCrisisSkin(skin)} />` : null}
+    ${/* 层二：选择指标（官方 CrisisSelect）—— 返回时回到入口页，而不是大厅。 */''}
+    ${crisisSkin ? html`<${CrisisSelect} skin=${crisisSkin} online=${online} busy=${busy === 'create'}
+      ${/* 用户：按返回会先闪一下大厅才回到正确页面。
+          原因：两个独立 setState —— setCrisisSkin(null) 先让 CrisisSelect 卸载，
+          那一帧 crisisEntry 还是 null ⇒ 渲染出大厅，下一次渲染才补上入口页。
+          修法：先 setCrisisEntry 再 setCrisisSkin，并且都在同一个同步块里（React 18 批处理 ⇒ 单帧切完）。 */''}
+      onClose=${() => { setCrisisEntry(crisisSkin === 'arclight' ? 'arclight' : 'main'); setCrisisReturned(true); setCrisisSkin(null); }}      onCreate=${(contract) => { setCrisisSkin(null); setCrisisEntry(null); create('crisis', contract); }} />` : null}
     ${allyOpen ? html`<${AllianceSelect} onClose=${() => setAllyOpen(false)} onCreate=${() => create(allyMode)} difficulty=${shownCoop}
       mode=${allyMode}
       code=${code} onCode=${(v) => setCode(normalizeCode(v))} codeOk=${codeOk} online=${online} busy=${busy}

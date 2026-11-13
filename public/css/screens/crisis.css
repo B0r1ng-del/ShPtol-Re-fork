@@ -1,0 +1,838 @@
+/* 危机合约 · 本项目对官方样式的少量扩展。
+ *
+ * 布局与外观全部由官方原文件接管（public/css/official/ 下的 crisis-event.css / crisis-rn1.css /
+ * crisis-s1.css —— 从 sh.bbsmc.cn/_v024/ 原样抓取）。这个文件只放官方没有、而本项目需要的三处：
+ *   1. .cs-season        赛季切换（重燃作战 / 弧光作战）—— 官方是按活动期分的两个页面，本项目合并成一页
+ *   2. .cs-tile__note 补充 本局无目标 / 需 L2 之外的第三种提示
+ *   3. .cc-shopline__*    局内合约状态行的私有类（官方那几个类名不同）
+ *
+ * ★ 不要在这里重新定义 .cc-stage / .cs-board / .cs-row / .cs-title / .cs-pill / .cs-tile 等
+ *   —— 那会以 0,2,0 的权重盖掉官方 0,1,0 的规则，正是之前「复刻不像」的根因。
+ */
+
+
+/* ---- 赛季切换（官方两个活动页合一）----
+   官方 .cs-title 在 (32,58)、.cs-topline 从 (135,62) 起、.cs-mode 与 .cs-pill 都在 top:70 靠右。
+   300..620 / y 58..88 这条带官方没有占用，赛季切换放这里，不压任何官方元素。 */
+.cs-season {
+  position: absolute;
+  left: 230px;
+  top: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 3;
+}
+.cs-season__btn {
+  height: 26px;
+  padding: 0 18px;
+  border: 1px solid #ffffff3d;
+  background: #ffffff0f;
+  color: #d8d8d8;
+  font: 400 14px/24px var(--cc-font);
+  cursor: pointer;
+}
+.cs-season__btn:hover { border-color: #ffffff80; color: #fff; }
+.cs-season__btn.is-on {
+  border-color: #ed5868;
+  background: #b32738;
+  color: #fff;
+  font-weight: 600;
+}
+
+/* ---- 局内合约状态行（crisisShopLine.js）---- */
+.cc-shopline__toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid #ffffff33;
+  background: #ffffff0d;
+  color: #e8dcc8;
+  font: 500 12px/1.6 var(--cc-font);
+  cursor: pointer;
+}
+.cc-shopline__body { display: flex; flex-direction: column; gap: 2px; margin-top: 3px; }
+.cc-shopline__press,
+.cc-shopline__bounty,
+.cc-shopline__seed {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #cfc2b0;
+}
+.cc-shopline__press b { color: #ffb49c; font-weight: 600; }
+.cc-shopline__bounty b { color: #ffd86a; font-weight: 600; }
+.cc-shopline__seed b { color: #9fe0b9; font-weight: 600; letter-spacing: .06em; }
+
+/* 官方选择指标页没有底部取消按钮：退出靠左上角的 .cc-x（重燃）/ .ca-back（弧光）。
+   .cs-cancelbtn 已从 DOM 移除，相关样式一并删掉。 */
+
+/* ---- 弹窗层（官方 crisis-event.css 只给了 .cs-sheet 的子元素规则，没有主体）----
+   .cs-sheet 在官方表里仅 13 处且全是 .cs-sheet .cs-star / .cs-sheet__panel xxx 这类子选择器，
+   主体定位是这份文件原先那 1759 行里的，砍布局时一并砍掉了 —— 结果弹窗 position:static、
+   高度 0、z-index auto，被压在页面下方，点开看不见也关不掉。这里按原语义补回。 */
+.cs-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 9100;
+  background: #000000b8;
+}
+/* 官方弹窗内部按 1280x720 舞台的绝对像素书写（.cs-map-panel = left:250/top:82/width:780，
+   .cs-seed-panel = left:330/top:150/width:620 …）。视口不是 1280x720 时它们在原位置不居中，
+   所以统一：先按 --cc-scale 缩放到与舞台同一比例，再用 left/top 50% + translate 居中。
+   ★ scale() 不接受 var()/calc 内联，--cc-scale 是整属性值（由 .cc-root 注入）。 */
+/* ★ 弹窗居中 —— 实测通过的写法，别再改。
+   两个条件缺一不可：
+   (a) `left:0; top:0` 覆盖掉面板自带的绝对像素（.cs-seed-panel = left:330 top:150，
+       crisis-s1.css 的 :has(.cs-seed-order) 又改成 top:70）—— 不归零就会额外多出 330×1.27≈419 的位移；
+   (b) `transform: translate(calc(50vw - 50%), calc(50vh - 50%)) scale(...)`：
+       百分比按元素自身尺寸算、vw/vh 按视口算，与 left/top 无关，天然居中。
+   实测（1910×914）：left:0 + 该 transform ⇒ 面板 x=561 y=59 787×796，fitsW/fitsH 均 true。
+   ★ 别用 `left:50%; top:50%`（这层的包含块解析成 0），也别用 `inset:0 + margin:auto`（被页面的 left/top 顶掉）。
+   ★ scale() 不接受 var()/calc，--cc-scale 是整属性值（由 .cc-root 注入）。 */
+.cs-sheet > .cs-map-panel,
+.cs-sheet > .cs-sheet__panel,
+.cs-sheet > .cs-seed-panel,
+.cs-sheet > section,
+.cs-sheet > .cs-first__panel {
+  left: 0 !important;
+  top: 0 !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: translate(calc(50vw - 50%), calc(50vh - 50%)) var(--cc-scale, none);
+  transform-origin: 50% 50%;
+  max-height: 92vh;
+  overflow: auto;
+}
+.cs-sheet__panel {
+  position: relative;
+  box-sizing: border-box;
+  background: #151416f2;
+  border: 1px solid #4a4a4a;
+  color: #eee;
+  box-shadow: 0 18px 70px #000000b3;
+}
+.cs-sheet__x {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+.cs-sheet__x::before, .cs-sheet__x::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  top: 6px;
+  width: 2px;
+  height: 14px;
+  background: #d8d8d8;
+}
+.cs-sheet__x::before { transform: rotate(45deg); }
+.cs-sheet__x::after { transform: rotate(-45deg); }
+.cs-sheet__x:hover::before, .cs-sheet__x:hover::after { background: #fff; }
+
+/* ---- 地图预览的格子板（ui/crisisSelect.js 的 MapPreviewSheet / StageThumb）----
+   官方的 MapPreview 是一张 vendored webp；本站在 StageThumb 里按 stages.json 的 rows 用 fallbackTileClass
+   画格子。这两个类原先在任何一份 CSS 里都没有定义，于是每个 <i> 的 width 塌成 0、面板只剩 header
+   加一段说明 —— 现象就是「点了地图预览什么也没有」。格子定宽 24px：19 行 × 24 = 456px，
+   加上 header 和说明仍在面板 662px 的高度预算内（.cs-sheet > section 的 max-height:92vh）。 */
+/* 重燃的地图预览：官方 crisisPages.js 的 MapPreview 只给弧光一张固定 webp；重燃没有整图，本站按
+   stages.json 的 rows 用 fallbackTileClass 画格子。缺下面三条时每个 <i> 的 width 塌成 0
+   （grid-template-columns 缺省 none），面板只剩 header 加一段说明。格子定宽 24px：
+   19 行 × 24 = 456px，加 header/说明仍在 .cs-sheet > section 的 max-height:92vh 预算内。 */
+.cs-mapview__thumb {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), 24px);
+  grid-auto-rows: 24px;
+  justify-content: center;
+  gap: 1px;
+  padding: 0 20px 8px;
+}
+.cs-mapview__thumb.is-empty { min-height: 120px; }
+.cs-mapview__tile {
+  display: block;
+  border-radius: 1px;
+  background: #2b322f;
+}
+/* ---- 大厅的两个危机入口：官方的 .cc-card 卡片 --------------------------------------------------------------
+ * 官方 crisisEvent.js:91 的 CrisisEventCard 是 button.cc-card + img.cc-card__banner，版式由
+ * css/official/crisis-event.css 提供（.cc-card 6-11、.cc-card.is-arclight 770-772）。这里只补两件官方没有的事：
+ *   1. 宽度 —— 官方的 cc-card 挂在 .hub-right（右栏，width:100%）底下；本项目的入口排在 .hub-entries，宽度由
+ *      --hub-entry-w 决定，所以显式给宽，别的卡片多高它就多高。
+ *   2. 重燃那条的 aspect-ratio（官方只有 .is-arclight 的 4.4；nav-crisis.png 是 187x63 ≈ 2.97）。
+ * ★ 选择器带 .lobby-hub 前缀（0,2,0 / 0,3,0）：官方是 0,2,0，多这一层才能真正盖住；直接写 .cc-card {...}
+ *   是 0,1,0，会被官方 .cc-card.is-arclight 的 aspect-ratio 顶掉。
+ */
+/* 高度交给官方的 aspect-ratio（.cc-card 的 aspect-ratio: 2.62、.is-arclight 的 4.4）：
+   ★ 绝不能写 align-self: stretch —— flex 行会把高度撑成兄弟卡的高度，aspect-ratio 直接失效，
+     实测卡片被拉成 195x113（1.72:1）而不是官方 4.4:1。入口行是 align-items: stretch，所以要显式
+     align-self: flex-start 把它从拉伸里摘出来。 */
+.lobby-hub .hub-entries .cc-card {
+  width: var(--hub-entry-w);
+  max-width: 100%;
+  flex: none;
+  /* 需求方 2026-11-08：底边要与三张模式卡齐 —— 见本段上方的说明，这里从 flex-start 改 stretch。 */
+  align-self: stretch;
+  border-radius: .07rem;
+  animation: card-in var(--t-slow) var(--ease-out) backwards;
+}
+/* ★ 需求方（2026-11-08「有没有哪些 ui 不合理的地方」）：两张危机卡的底边必须与三张模式卡齐。
+   实测问题：同一行里模式卡卡身 88 高，而 .is-rekindle 只有 51、.is-arclight 只有 34 —— 两张卡各自按
+   自己的图片比例算高（nav-crisis.png 187x63 = 2.97、banner.png 630x85 = 4.4），于是底边参差。
+   解法：align-self: stretch + flex: 1 让卡身撑满 .hub-entry-wrap（wrap 是「group 标签行 + 卡」的纵向
+   flex，所以卡自动吃掉标签行之外的高度），高度即跟随同一行里最高的那个 wrap，不必把 88/101/134
+   这些随视口变的值写死。比例交给两张卡各自的 object-fit: cover，不会变形。
+   ★ aspect-ratio 必须置 auto：否则官方 .cc-card 的 2.62、官方 .is-arclight 的 4.4、项目补的
+   .is-rekindle 的 2.97 三条比例同时命中，谁最后命中谁生效，后来改的人很容易再次弄出一高一矮。 */
+.lobby-hub .hub-entries .cc-card { align-self: stretch; flex: 1 1 auto; height: auto; aspect-ratio: auto; }
+.lobby-hub .hub-entries .cc-card.is-rekindle, .lobby-hub .hub-entries .cc-card.is-arclight { aspect-ratio: auto; }
+/* 官方只给 .is-arclight .cc-card__banner 写了 object-fit: cover（crisis-event.css:771）；
+   重燃用的 nav-crisis.png（187x63）不带它就会拉满变形。 */
+.lobby-hub .hub-entries .cc-card.is-rekindle .cc-card__banner {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+.lobby-hub .hub-entries .hub-entry-wrap:nth-child(3) .cc-card { animation-delay: 60ms; }
+.lobby-hub .hub-entries .hub-entry-wrap:nth-child(4) .cc-card { animation-delay: 120ms; }
+
+/* ---- 需求方（2026-11-08）：弧光选择指标页的「指标说明」钮原本在 left:400px，与返回键之间空出 239px。
+   官方 .ca-back 是 left:22px / width:139px（右边缘 161px），所以贴到 168px 即紧邻返回键。
+   只覆盖 left，不重定义官方选择器的其余属性。 ---- */
+/* 指标说明钮贴到返回键右边 */
+/* 入口页（.ca-main）与选择指标页（.cs-page.is-arclight）各有一组 ca-back / ca-guide。 */
+/* 官方 .ca-back = left:22 top:9 w:139 h:59（中心 y = 9+29.5 = 38.5）
+   官方 .ca-guide = left:400 top:11 w:52 h:54（中心 y = 11+27 = 38）—— 两者中心差 0.5px，
+   但 left 挪到 168 之后并排看会明显高低不齐。这里把 guide 的 top 补 0.5px 对齐到同一水平线。 */
+/* 用户第十次纠正：最高纪录**放回官方原本的左下角、去掉背景**（撤销上一轮的弧光样式同步）。
+   官方基础版危机合约就在 .cs-record{left:30;top:632;w:140;h:50}（crisis-event.css:447），
+   这里不再覆盖任何 .cs-record 几何/配色，重燃走官方原样。 */
+/* ---- 弧光「作战回顾」弹窗自适应（用户图二：整块太大，没做大小自适应）----
+   官方 .car-rv 是 1140×628 绝对像素（crisis-event.css:1124），官方挂法是在**已缩放的** .cc-stage 里，
+   所以它天然只吃一层 --cc-s。项目原来额外套了一层 .cc-stage ⇒ 缩放变成 ccS²，
+   实测 1920×1080 时 stage 2880×1620、面板 2476.8×1364.4（占视口 129% × 126%，整块溢出）。
+   修法：弹窗容器不再用 .cc-stage（去掉重复缩放），改由 --rv-k 一次性把 1140×628 缩到视口内。
+   ★ --rv-k 由 ui/crisisEventPage.js 的 reviewZoom() 算成**数字**后注入（CSS 里算 min()/除法会被丢弃）。 */
+.car-rv-modal .cc-modal__stage { position: absolute; inset: 0; display: grid; place-items: center; }
+.car-rv { position: relative !important; left: auto !important; top: auto !important;
+  transform: scale(var(--rv-k, 1)); transform-origin: 50% 50%; }
+/* 用户要求：i 按钮放大一点，宽度做到和返回键一样。
+   ★ 官方 crisisPages.js:333 —— .ca-guide 只在 **arc 分支**里渲染，重燃选择页没有它；
+     入口页 crisisEventPage.js:98 那一个是项目自己的（官方入口页也没有），保留。
+   官方 .ca-back = 139×59、.ca-guide = 52×54 —— guide 拉到同宽同高，left 贴 back 右侧（22+139+7=168）。
+   ★ 只能命中 .cs-page.is-arclight，不能带 .ca-main —— 否则重燃入口页的 i 也会被拉成 139 宽。 */
+.cs-page.is-arclight .ca-guide { left: 168px; top: 9px; width: 139px; height: 59px; }
+.cs-page.is-arclight .ca-guide img { object-fit: contain; object-position: 50% 50%; }
+
+/* ---- 弧光选择指标页：主视觉封面 + 亚克力层（用户 2026-11-08）-----------------------------------
+   封面是官方弧光作战的 1280×720 主视觉（BV1A7xNzqE9e 的封面，与舞台同尺寸，1:1 贴合不需要缩放）。
+   ★ 必须挂在 .ca-fill 上（inset:0，是 .cc-page 的直接子级 ⇒ 跟随页面尺寸），
+     不要挂在 .cc-stage 里 —— 那会只吃一层 --cc-s，和之前 .cc-plate 的偏移是同一个坑。
+   亚克力：三层叠加（模糊 + 提亮 + 极淡噪点），压在封面之上、.cc-stage 之下（z-index 分档），
+   让上层的白色指标格与标题仍然读得清。 */
+/* ★ 特异性必须压过官方 crisis-event.css:850 的 .cs-page.is-arclight .ca-fill（同为 0,3,0，而官方文件
+   在 screens/ 之后加载 ⇒ 同特异性下官方赢）。带上 .ca-fill 本身升到 0,4,0 才稳。
+   实测证据：只写 .ca-fill--cover 时 getComputedStyle 回的是官方的 linear-gradient，封面根本没生效。 */
+.cs-page.is-arclight .ca-fill.ca-fill--cover {
+  background: url(/assets/local/cc4-arclight/sel-cover.jpg) center / cover no-repeat;
+}
+.cs-page.is-arclight .ca-acrylic {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  /* 亚克力：先压暗保对比，再给一层冷调高光，最后是细噪点（用 repeating-linear-gradient 造，零额外素材） */
+  background:
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, .022) 0 2px, transparent 2px 4px),
+    radial-gradient(120% 80% at 50% 0%, rgba(255, 255, 255, .16), transparent 62%),
+    linear-gradient(180deg, rgba(20, 24, 30, .52), rgba(12, 14, 18, .68));
+  backdrop-filter: blur(7px) saturate(.82) brightness(.94);
+  -webkit-backdrop-filter: blur(7px) saturate(.82) brightness(.94);
+}
+/* 舞台必须浮在亚克力之上，否则整页被糊住。
+   ★ 只提 .cc-stage：实测给 .cs-rpanel 也设 z-index 会把它抬到 .cc-stage 之上，
+     右侧面板（inset 撑满）反过来盖住整页底部（种子行与「开始行动」整条消失）。 */
+.cs-page.is-arclight .cc-stage { z-index: 2; }
+
+/* ---- 弧光右侧指标栏透出封面（用户 2026-11-08：「能否把右侧那块黑色遮挡删除」）-------------------
+   官方 crisis-event.css:851 的 .cs-page.is-arclight .cs-rpanel 是 left:948 w:332 h:720 的**实心 #1b1b1b**
+   —— 那是官方「纸面」设计的底色，不是 bug。用户要的是让它不再是一块死黑。
+   做法：底色改成半透明深色 + 与主背景同一套亚克力模糊，右侧留一条极淡描边维持官方分栏感，
+   不删除该元素（删了 .cs-list 里的指标卡会直接压在主视觉上，读不清）。 */
+/* ★ 特异性必须压过官方 851 行（同为 0,3,0，官方后加载 ⇒ 同特异性它赢）：
+   实测只写 .cs-page.is-arclight .cs-rpanel 时 backgroundImage 回 'none'、
+   面板仍是 #1b1b1b 的死黑。叠一个 .cs-rpanel 自身升到 0,4,0。
+   另外官方用的是 background 简写，这里必须用 background-color/-image 分开写，否则 shorthand 会互相覆盖。 */
+/* ★ 对齐重燃的做法（用户：「你可以去看重燃作战，那里的指示面板可以看到后方背景」）。
+   实测重燃选择页 .cs-list = backgroundColor rgba(0,0,0,0) / backgroundImage none / backdropFilter none
+   —— 它在纯透明底上直接读字，而且重燃**根本没有 .cs-rpanel 这个元素**。
+   弧光那块 #1b1b1b 是官方只给 .is-arclight 加的。所以这里不加 backdrop-filter
+   （连 blur 都不要，模糊反而比重燃「糊」得更假），只留一层极淡压暗保证白字可读。 */
+.cs-page.is-arclight .cs-rpanel.cs-rpanel {
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* ---- 危机合约入口（用户 2026-11-08 18:05 最终版）-----------------------------------------
+   用户原话：「删除红框的入口,下方的弧光作战入口缩小 40% 移动到下面三个模式上方」
+   ⇒ ① 删掉重燃那条（.is-rekindle）；
+      ② 弧光（.is-arclight）从 .hub-right 移到三张模式卡**正上方**；
+      ③ 整体缩 40%（原 .hub-right 内实测 197×45 ⇒ 目标宽 ~118、高 ~27）。
+   ★ 几何：.hub-entries 保持横排模式卡不变，弧光卡作为它的**第一个子元素**独占一行
+     （flex-basis:100% + 容器 flex-wrap:wrap），再靠 `margin-inline:auto` 水平居中。
+   ★ 比例用官方 :775 的 aspect-ratio 4.4（banner.png 原图 7.41:1 会裁，4.4 是官方给的框）。 */
+.hub-entries { flex-wrap: wrap; }
+/* ★★ 特异性 0,3,0 必须叠到 .lobby-hub —— 本文件早先有一条
+   `.lobby-hub .hub-entries .cc-card { width: var(--hub-entry-w); height:auto; flex:1 1 auto; aspect-ratio:auto }`
+   （0,3,0），它把卡拉成 853×102（= 容器宽 40%）。只写 .hub-entries__crisis.cc-card（0,2,0）压不住。
+   这里升到 0,3,0 并排在它后面，同时 weight 更高。 */
+/* 独占整行 + 右对齐（与三张模式卡同一侧），位于它们**上方** */
+.hub-entries__crisisrow {
+  flex: 0 0 100%;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-end;
+  margin-bottom: 0;
+  /* ★ 用户 2026-11-12：登录页进首页时，只有危机合约入口这一块没有入场动画。
+     根因：动画挂在 .hub-entry-wrap 上，而这张卡在 lobby.js 里是**裸 button** 套在
+     .hub-entries__crisisrow 里，没有那层 wrap ⇒ 从来没吃到任何入场动画。
+     ★ 必须用和模式卡**同一条** tr-rise（lobby.css:1190 是
+       「.hub-entries .hub-entry-wrap { animation: tr-rise 400ms var(--tr-ease) 300ms backwards }」），
+       不能自己写 card-in —— 那条会被 lobby 的后加载规则覆盖成 tr-rise，两处不一致。
+       延迟取 360ms，比模式卡的 300ms 稍晚一点，视觉上是同一个波次。 */
+  animation: tr-rise 400ms var(--tr-ease) 360ms backwards;
+}
+.lobby-hub .hub-entries .cc-card.hub-entries__crisis {
+  flex: none;
+  /* ★ 固定像素，不能写百分比：.hub-entries 不是 1280 舞台而是视口布局（实测容器宽 2132），
+     写百分比会按 2132 算（40% ⇒ 853×104），比三张模式卡加起来还大。
+     用户 2026-11-08 终版：「放大 20% 移到红框的位置」⇒ 上一版 210×48 ×1.2 = **252×57**（高 252/4.4 ≈ 57）。
+   ★ margin 不能带 auto：行容器是 flex + justify-content:flex-end，auto 外边距会把卡居中
+     （实测卡右边缘 877 vs 模式卡右边缘 1232，差 355px）。改成 0 才真正贴右。
+   ★ 用户最终版「再大点,移到下方红框」：252×57 → **340×77**（约 1.35 倍），
+     并且从模式卡上方拉近到**紧贴它们上沿**（行容器 margin-bottom 压到 .12rem）。 */
+  width: 340px;
+  height: 77px;
+  aspect-ratio: auto;
+  margin: 0;
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.hub-entries__crisis .cc-card__banner {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+.hub-entries__crisis:focus-visible { outline: 2px solid var(--mint-400, #6ee7b7); outline-offset: 2px; }
+
+/* ---- 用户 2026-11-08 16:16 -------------------------------------------------------------------
+   ① 「选择一个 ui 按钮的时候为什么会有个绿色的选择框,删掉它」
+      → 来源是 theme.css:180 的全局 `:focus-visible { outline: 2px solid var(--mint-400) }`。
+        网页版实测 .cs-tile / .cs-go / .cs-record 的 outline 全是 none（rgb(...) none 3px）。
+        .cc-page :focus-visible 是 0,2,0，稳胜 theme.css 的 0,1,0；不改全局，只关危机合约页内。
+   ② 「图三背景里有一个黑块加一点渐变模糊,这个也像侧边指标栏变成完成透明」
+      → 就是弧光底栏那条 .cs-bbar（bottom-menu-bg.png，523x99 铺满底栏左段）。
+        指标栏（.cs-rpanel）已经做到全透明，这条照同一标准处理。 */
+.cc-page :focus-visible { outline: none; }
+.cc-page .cs-bbar { display: none; }
+
+/* ---- 用户 2026-11-08 16:16 ④「弧光指标页把红框里的 ui 移到绿框的位置」--------------------------
+   红框 = 顶部中间的 .cs-record（官方 crisis-event.css:856 把弧光那条钉死在 left:515 top:16）。
+   绿框 = 右下角、「开始行动」按鈕左侧的空位。
+   本页底栏从右往左：.cs-go 1010,612（270x115 含贴图留白，实体按鈕在 ~1064 起）→ 左侧即 836,640 起的一带。
+   ⇒ 放 left:836 / top:640，与 .cs-score 原槽位对齐；.cs-score 目前已不在弧光页渲染，不冲突。
+   ★ 特异性必须 0,4,0：官方 0,3,0（.cs-page.is-arclight .cs-record）且后加载，同特异性必输。
+     .cs-record.cs-record 叠自身类名 = 0,4,0，稳胜。 */
+.cs-page.is-arclight .cs-record.cs-record {
+  left: 792px;
+  top: 640px;
+  width: 196px;
+  height: 50px;
+}
+/* 换位后不再压在中轴大标题上，背景图（display-record-bg.png 自带的星形与分隔）照网页版保留。 */
+/* ---- 纪录块（用户 2026-11-08 17:04 最终裁决）------------------------------------------------
+   用户原话：「你还不如不撤掉,你把指标总计和单人最高记录两个 ui 分开一些再把单人最高记录 ui 往下调一点,
+              大不了就行网页(图二)一样,直接去除背景」
+   ⇒ ① 恢复独立 star 图标；② **去掉 display-record-bg.png 背景**（图二没有那块灰底）；
+      ③ 与「指标总计」拉开距离；④ 整体下移一点。
+   ★ 上一轮的病灶（1280 坐标实测）：.cs-score 右边界 **809**，.cs-record 左边界 **792** —— 重叠 17px，
+     背景图那块灰底正好压在"指标总计"的数字上，所以看起来挤成一坨。 */
+.cs-page.is-arclight .cs-record.cs-record {
+  left: 850px;
+  top: 646px;
+  width: auto;
+  height: 52px;
+  background: none;          /* 去掉 display-record-bg.png（内联 style 的 backgroundImage 也一并压掉） */
+  background-image: none;
+  box-shadow: none;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+}
+.cs-page.is-arclight .cs-record .cs-star--big {
+  position: static;
+  flex: 0 0 auto;
+  width: 46px;
+  height: 48px;
+  opacity: .92;
+}
+/* ★ 0,4,0 —— 官方 crisis-event.css:858 的 `.cs-page.is-arclight .cs-record span` 是 0,3,0，
+   而 .cs-record__col 本身就是一个 <span>，会被它整条命中（position:absolute; right:14px; top:33px），
+   列容器一旦被绝对定位就跑到星标下方、溢出盒子。必须 span.cs-record__col 叠起来才压得住。 */
+.cs-page.is-arclight .cs-record span.cs-record__col {
+  position: static;
+  left: auto;
+  right: auto;
+  top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0;
+}
+.cs-page.is-arclight .cs-record b {
+  position: static;
+  left: auto;
+  right: auto;
+  font-size: 34px;
+  line-height: 1;
+  text-align: left;
+  color: #e8e8e8;
+}
+.cs-page.is-arclight .cs-record__col > span {
+  position: static;
+  left: auto;
+  right: auto;
+  line-height: 1.1;
+  text-align: left;
+  white-space: nowrap;
+  color: #b8b8b8;
+}
+
+/* ---- 用户 2026-11-08 16:43「图二的问题两个作战都有,点击选择指标后指标会高一截,不要让他变高」------
+   病灶（官方 crisis-event.css:366，只此一条，无第二处）：
+     .cs-page .cs-tile.is-on { margin-top: -12px; height: 105px; ... }
+   即选中时**整体上移 12px 且拉高到 105**（未选 93），同时 :368 把图标 top 从 25 顶到 35。
+   用户要求两季都不许变高 ⇒ 高度恒为 93、不上移、图标位置不动。
+   特异性：官方 .cs-page .cs-tile.is-on 是 0,3,0。这里用 .cs-page .cs-tile.is-on.is-on = 0,4,0 稳胜
+   （官方 CSS 后加载，同特异性必输）。只覆盖几何，红底/红边/勾选/冲突标记等官方行为一律保留。 */
+.cs-page .cs-tile.is-on.is-on {
+  margin-top: 0;
+  height: 93px;
+}
+.cs-page .cs-tile.is-on.is-on .cs-tile__glyph { top: 25px; }
+/* 冲突标记本来靠 -13px 顶到格子上沿外侧；格子不再上移，标记也跟着回到同一相对位置。 */
+.cs-page .cs-tile.is-on.is-on .cs-tile__mark { top: -13px; }
+
+/* ---- 重燃纪录块：加星标后文字被挤出格子底部 -------------------------------------------------
+   官方 crisis-event.css:449 把 .cs-record 定死 140x50（left:30 top:632 ⇒ 底边 682），
+   数字 :451 left:65 top:2、文字 :452 left:66 top:38（12px/17 行高 ⇒ 底 687，**本来就已经溢出 5px**，
+   只是因为原版没有星标、视觉上不明显）。加了 46x48 的星标后更明显。
+   这里把文字上提 4px 收进格子内，数字位置不动（它本来就在框内）。
+   ★ 只作用于重燃（不带 .is-arclight），弧光那条有自己的规则。 */
+.cs-page:not(.is-arclight) .cs-record span { top: 34px; }
+
+/* ── 弧光结算页 · 阵营契约（图二左侧角色卡下方）─────────────────────────────
+   官方 .car-bond 是 static（crisis-event.css:1012 只有 flex 布局），而它的兄弟元素
+   .car-cols / .car-crumb 都是 absolute ⇒ 不套容器就会落到文档流顶部、压住面包屑。
+   .car-fin 是 inset:0 的绝对层，所以这里用绝对坐标把这块钉在单人卡位的下方。 */
+.car-bonds { position: absolute; left: 24px; top: 300px; width: 260px; }
+/* ── 弧光作战主页 · 按官方原版重做（用户 2026-11-08 第二张对比图：右=官方，左=我的返工前）──
+   ★★ 返工根因：上一版为了避开网页版自带的赛季 tab，把整条左栏下移了约 200px
+      （胶囊 268 / 结晶圣所 316 / 作战回顾 486），而官方是 102 / 156 / 463。
+      tab 现在移到顶部黑框处（.ca-nav，弧光页与重燃页共用一套），左栏回归官方坐标。
+      ★ 左上胶囊行（圣所大门 / 主测试地 / 查看蚀刻章套组）已按用户 2026-11-12 要求整块删除。
+   坐标来自官方图 1177×669 按 1280×720 舞台换算，全部为舞台绝对像素。 */
+
+/* ── 左栏 结晶圣所（官方 85,156 265×178；卡面里那个巨大的斜箭头水印）── */
+.ca-main .ca-crystal { position: absolute; left: 84px; top: 178px; width: 264px; z-index: 5; }
+.ca-main .ca-crystal__head {
+  position: relative; height: 178px; box-sizing: border-box; overflow: hidden;
+  background: linear-gradient(155deg, #4a4a48 0%, #3a3a38 55%, #2e2e2c 100%);
+}
+.ca-main .ca-crystal__head h3 {
+  position: absolute; left: 18px; top: 16px; margin: 0;
+  font: 500 21px/1.2 var(--cc-font); color: #f2f2f2; letter-spacing: .06em;
+}
+/* 官方卡面：一整片很淡的斜向大折角（像被斜切掉一角），不是实心菱形。
+   用单层 polygon 折角 + 内层更淡的一层叠出层次，不引贴图。 */
+.ca-main .ca-crystal__mark {
+  position: absolute; right: -18px; bottom: -14px; width: 250px; height: 168px;
+  background: rgba(212, 212, 208, .1);
+  clip-path: polygon(40% 0, 100% 0, 100% 100%, 0 100%);
+}
+.ca-main .ca-crystal__mark::before {
+  content: ''; position: absolute; right: 34px; bottom: 30px; width: 150px; height: 110px;
+  background: rgba(212, 212, 208, .09);
+  clip-path: polygon(48% 0, 100% 0, 100% 100%, 0 100%, 0 46%);
+}
+
+/* ── 赏金条（官方 87,350 263×59）：晶体合约赏金 + 125 + 红色菱形徽记 ── */
+.ca-main .ca-crystal__bounty {
+  /* ★ 官方 head 162.7..361.3 与 bounty 361.3..433.3 **零间隙直接相连**（用户：「结晶圣所和晶体合约赏金应该是链接在一起的」）。
+     原来 margin-top:4px 在中间留了一道缝。高度按官方比例 72/198.6 折算。 */
+  position: relative; margin-top: 0; height: 64px; box-sizing: border-box;
+  display: flex; align-items: center; gap: 10px; padding: 0 10px 0 18px;
+  background: #232323;
+}
+.ca-main .ca-crystal__label { font: 400 14px/1.2 var(--cc-font); color: #e2e2e2; }
+.ca-main .ca-crystal__bounty b { font: 600 30px/1 var(--cc-font); color: #f8f8f8; letter-spacing: .02em; }
+.ca-main .ca-crystal__coin { width: 46px; height: 46px; margin-left: auto; object-fit: contain; }
+
+/* ── 地图卡顶部彩色三段条（官方紧贴在预览图底边 y≈430，不是 271）──
+   官方实测：预览区底 = 卡内 y 271（409 高卡 − 49 底栏 − 89 ？）—— 以实测校准：贴 art 底边。 */
+/* ★ 官方权威值（official/crisis-event.css）：
+     .ca-entry__art { left:0; top:0; right:0; bottom:49px }  ⇒ art 底在卡内 360
+     .ca-entry__loc { left:1; top:296; 330×54 }              ⇒ loc 296..350，**压在 art 内部**
+   因此彩色三段条与 Arclight 小字都在 art 底边内侧（卡内 347..360），不是卡中间。
+   上一版放在 504（卡内 341）看似接近，实际相机换算把 art 底算成 520 ⇒ 与 loc 底 516 打架。
+   现在改用卡内绝对定位，与官方一致。 */
+/* ★★ 层叠坑：bar 与 loc 的 z-index 都是 auto ⇒ 靠 DOM 顺序决胜负，而 bar 排在 loc 之后，
+   于是 bar 压在「弧光作战」四个字上（截图 arc-r3 可见）。
+   官方图里彩色条在 loc 底图**下缘之下**（loc 到卡内 350，条在 350~363），且在黑底之上。
+   bar bottom = 409 − 363 = 46；同时给它 z-index:2、loc 给 3，保证 loc 永远在上。 */
+/* ★ 2026-11-12 用户第三次纠正：彩条跑到 loc **下面**去了，官方是在 loc **上面**。
+   从官方 1920×1080 截图逐像素量（÷1.5 得舞台，再减卡原点 362/163 得卡内坐标）：
+     · 彩条 卡内 y 278..287（高 9），x 5..201（宽 196）
+     · loc  卡内 y 289..353
+     · art 底 = 417 − 49 = 368 ⇒ 彩条与 loc 都在 art 内部
+   三色也不是「黄/橙/红」，官方是 **青(#87c2b0) / 黄(#eeaa39) / 红(#992822)**，
+   段宽 62 / 67 / 65（≈31.6% / 34.2% / 33.2%）。 */
+.cc-root .ca-entry .ca-entry__bar {
+  /* ★ .ca-entry 有 3px border（官方 #a09f53），这里的 left/top 是**内容盒**坐标：
+     官方彩条 stage x 367.3..563.3 / y 441.3..450，减卡原点 362/163 再减 border 3 ⇒ 2..198 / 275..284。 */
+  position: absolute; left: 2px; top: 275px; width: 196px; height: 9px; display: flex; z-index: 2;
+}
+.cc-root .ca-entry .ca-entry__loc { z-index: 3; }
+.ca-entry__bar i { display: block; height: 100%; }
+.ca-entry__bar i:nth-child(1) { width: 62px; background: #87c2b0; }
+.ca-entry__bar i:nth-child(2) { width: 67px; background: #eeaa39; }
+.ca-entry__bar i:nth-child(3) { width: 65px; background: #992822; }
+/* 卡内左下 Arclight 小字（官方在彩色条下方 12px） */
+/* Arclight 小字：官方图里它在 loc 左上、彩色条上方那一行，露在深色背景上。
+   ★ 必须 z-index 高于 loc(3)，否则被 location-bg 那张半透明底图盖掉。 */
+/* Arclight 小字：官方图里它就在彩色条左下角、紧贴黑底区顶部，**不压「弧光作战」**。
+   卡内坐标：loc 占 299..353（左 1，宽 330）；把字放到 loc 左侧 20、纵向落在彩色条那一行(350..363)
+   之上一点点 —— 即 bottom 47、z-index 4。 */
+/* Arclight 小字：官方实测卡内 x 18、y 240..257 —— 在彩条（278）上方，不在卡底。 */
+.cc-root .ca-entry .ca-entry__word {
+  position: absolute; left: 15px; top: 237px; z-index: 4;
+  font: 400 12px/1 var(--cc-font); color: #cfcfcf; letter-spacing: .1em;
+}
+
+/* ── 作战回顾卡回归官方位置（85,463 265×97）── */
+.ca-main .ca-archive.ca-archive { left: 84px; top: 485px; width: 264px; height: 97px; }
+.ca-main .ca-archive.ca-archive .ca-archive__name { left: 18px; top: 22px; font-size: 21px; }
+.ca-main .ca-archive.ca-archive .ca-archive__medal { left: 158px; top: 6px; width: 86px; height: 86px; }
+
+/* ── 赛季 tab：两颗等大按钮并排，占顶部黑框位置（弧光页 / 重燃页共用）──
+   官方 .cc-tab 是 222×63 的斜排大卡（红斜纹带 + 小勾 + 角标、两颗尺寸不等）。用户
+   2026-11-12 要求「并排、等大」，所以这里抹平差异：同一 flex 行、同一尺寸、同一套
+   底图 + 居中标题，只靠压暗程度区分当前页。 */
+.ca-nav { position: absolute; left: 164px; top: 6px; width: 342px; height: 53px; z-index: 6; }
+.ca-nav .cc-nav { position: absolute; inset: 0; display: flex; gap: 6px; }
+/* ★ 必须用 .cc-nav .cc-tab--* 三段选择器（0,3,0）：官方 `.cc-nav .cc-tab--arclight{top:106px}`
+   / `.cc-nav .cc-tab--rekindle{top:180px}` 是 (0,2,0) 且 official 后加载，同权重会输。 */
+.ca-nav .cc-nav .cc-tab,
+.ca-nav .cc-nav .cc-tab.is-on,
+.ca-nav .cc-nav .cc-tab--arclight,
+.ca-nav .cc-nav .cc-tab--rekindle {
+  position: relative; left: 0; top: 0; flex: 1 1 0; width: auto; height: 53px; overflow: hidden; border-radius: 3px;
+}
+.ca-nav .cc-tab::before { display: none; }
+/* 纯色块 —— 两颗等大、文字清晰，只靠底色明暗 + 左侧色条区分当前页（JSX 里已不渲染底图）。 */
+.ca-nav .cc-tab {
+  background: #242322; color: #c9c4ba; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .13);
+  transition: filter 150ms ease;
+}
+.ca-nav .cc-tab:hover { filter: brightness(1.3); }
+.ca-nav .cc-tab.is-on { background: #ece6d8; color: #1b1a18; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .85); }
+/* 左侧 4px 色条：弧光红 / 重燃橙 —— 唯一的赛季标识 */
+.ca-nav .cc-tab::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: #d4192b; }
+.ca-nav .cc-tab--main::after { background: #e08a3c; }
+/* ★ 官方 `.cc-tab.is-on .cc-tab__name`（0,3,0）把标题钉在 left:58/top:10/display:block/16.2px，
+   下面必须用四段选择器（0,4,0）才压得住，否则选中的那颗标题跑位、字号也变大。 */
+.ca-nav .cc-nav .cc-tab__name,
+.ca-nav .cc-nav .cc-tab.is-on .cc-tab__name {
+  left: 4px; right: 0; top: 50%; transform: translateY(-50%); display: flex; justify-content: center;
+  font-size: 13px; line-height: 1; font-weight: 500; color: inherit; white-space: nowrap; text-shadow: none;
+}
+
+
+/* ★ 用户第三张标注图（2026-11-08）右竖线 1058、下横线 580：地图卡与内容区右下边界。
+   官方 .ca-entry 是 362/163 568×409（右 930 / 底 572）。按用户「冲突优先覆盖替换」，
+   把卡撑到右 1058 / 底 580 —— 即宽 1058−362 = 696、高 580−163 = 417。
+   ★ 用 .ca-main 前缀提权，压过 official 的 .cc-root .ca-entry（0,2,0）。 */
+.ca-main .ca-entry.ca-entry { left: 362px; top: 163px; width: 696px; height: 417px; }
+/* 卡内随之放大：art 底仍留 49（官方比例），diagram 靠右下，best 仍在右下角 */
+.ca-main .ca-entry.ca-entry .ca-entry__loc { top: 286px; width: 360px; }
+.ca-main .ca-entry.ca-entry .ca-entry__diagram { left: 528px; top: 226px; }
+
+/* ★ 地图卡按红线撑到 580 后，官方 .ca-time(590) / .ca-title(626) 虽未变，但卡右边界到了 1058，
+   而 ca-time 只有 565 宽（到 930）—— 视觉上像被卡压住。按红线右边界 1058 把两条一起撑宽。 */
+.ca-main .ca-time.ca-time { left: 362px; width: 696px; }
+/* 标题条是位图 banner.png（630×85，7.41:1）。撑满红线 362..1058 时若用默认 fill 会横向拉胖 20%
+   （696×78 = 8.92:1）；object-fit:cover 按比例放大后只上下裁 8px，字与图形不变形。 */
+.ca-main .ca-title.ca-title { left: 362px; width: 696px; height: 78px; object-fit: cover; }
+
+
+/* ── 第四轮：对照官方图二右半，补齐四处仍不一致的地方 ── */
+
+/* ① 结晶圣所卡面：官方是**浅灰渐变实心卡**（比深灰亮一档），上下各有一条细分隔线，
+     水印完全收在卡内。上一版是深灰空心块 + 水印溢出（116..366 越出卡片 348）。 */
+.ca-main .ca-crystal__head {
+  background: linear-gradient(168deg, #6e6e6b 0%, #5c5c59 46%, #4a4a47 100%);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, .14), inset 0 1px 0 rgba(255, 255, 255, .1);
+}
+.ca-main .ca-crystal__head h3 { text-shadow: 0 1px 2px rgba(0, 0, 0, .45); }
+/* 水印收进卡内：right 改 0、并给卡 overflow:hidden 已生效，改宽度避免溢出 */
+.ca-main .ca-crystal__mark {
+  right: 0; bottom: 0; width: 100%; height: 100%; border-radius: 0;
+  background: rgba(216, 216, 212, .085);
+  clip-path: polygon(46% 0, 100% 0, 100% 100%, 0 100%, 0 40%);
+}
+.ca-main .ca-crystal__mark::before {
+  right: 18px; bottom: 16px; width: 148px; height: 108px;
+  background: rgba(216, 216, 212, .07);
+}
+
+/* ② 作战回顾徽章：官方几乎占满卡片高度、居中偏右；上一版 86px 偏小 */
+/* 奖章与素材里的暗六边形同心：archive.png 六边形 bbox 120..266 / 10..124（285×145 素材），
+     经 __bg（301×128 @ -19,-18）映射到元素空间 = 107.7..261.9 / -9.2..91.5，
+     官方奖章相对六边形中心偏 (12.7, 5) 素材像素 ⇒ 元素空间中心 (198.2, 45.6)，尺寸 84.5×79.5。 */
+/* ★ 2026-11-12 用户：「中间的蚀刻章相应放大一些」。
+   用户裁图 138×128 实测：暗六边形 **x 11..121 / y 11..89（111×79）**，金色奖章 **65×73**
+   ⇒ 章 / 六边形 = **0.586 / 0.924**。
+   元素空间里六边形是 **154.2×100.7**、中心 **(184.8, 41.2)** ⇒ 章应为 **90.4×93.1**，中心对齐。
+   ⇒ left = 184.8 − 45.2 = **139.6**，top = 41.2 − 46.6 = **−5.4**。
+   （上一版 84.5×79.5 偏小；卡片高 97，章会略微上下出沿，这是用户要的「放大」的必然结果。） */
+/* ★ 用户 2026-11-12 第三张图（正确对齐）实测比例：
+     金色章 / 暗六边形 = **0.597 宽 × 0.75 高**；章中心相对六边形中心偏移 **(+10, +1)**（按 124 宽的六边形量）。
+   元素空间里六边形是 **155.25 × 105.93**、中心 **(185.36, 51.14)**
+   ⇒ 章 **92.69 × 79.45**，中心 **(197.88, 52.09)**，即 left **151.54** / top **12.36**。 */
+/* ★★★ 用户第 N 次纠正（图一红线）：章仍然没对齐黑底六边形。
+   这次不再用"图三比例"反推 —— 直接量**两个素材自己的中心**，让它们同心：
+     · archive.png 的暗六边形：最宽行 x **154..260**、顶点 y≈**10**、底点 y≈**132**
+       ⇒ 素材中心 **(207.5, 71)**；经 __bg(301×128 @ -19,-10.65) 映射到元素空间 **(200.15, 52.03)**，
+       尺寸 **113.01 × 108.58**。
+     · medal.png 238×249，**金内容** bbox 13..235 / 10..246，中心归一化 **(0.5210, 0.5141)**，
+       内容占比 0.937 / 0.952。
+   令金内容中心 = 六边形中心、金内容高度 = 六边形高度 × 0.80 ⇒
+     章 **87.23 × 91.26 @ left 154.70 top 5.11**。 */
+.ca-main .ca-archive.ca-archive .ca-archive__medal { left: 154.7px; top: 5.11px; width: 87.23px; height: 91.26px; object-fit: contain; }
+.ca-main .ca-archive.ca-archive .ca-archive__name { left: 20px; top: 24px; font-size: 22px; }
+
+/* ④ 彩色三段条 —— 已改为官方实测值，见上方 .ca-entry__bar 主规则。 */
+
+/* ---- 2026-11-12 用户图一 / 图二 --------------------------------------------------------------
+   图一：作战回顾弹窗后面那层灰色压暗（.cc-modal__dim = rgba(0,0,0,.55)）删掉。
+   ★ 只清底色，不删元素 —— 它同时是「点遮罩关闭」的点击区（crisisEventPage.js:215 的 onClick）。
+   图二：重燃选择页「指标选择框」与「指标列表框」之间有一条 1px 竖线 .cs-vsep
+   （官方 crisis-event.css:288，left:950 top:100 1×480 rgba(255,255,255,.28)），
+   而官方 crisis-event.css:853 对弧光页把它 display:none 掉了。这里在弧光页恢复它。
+   ★ 特异性：官方那条是 .cs-page.is-arclight .cs-vsep (0,3,0) 且后加载 ⇒ 必须叠 .cs-vsep 自身升到 (0,4,0)。 */
+.car-rv-modal .cc-modal__dim { background: none; }
+.cs-page.is-arclight .cs-vsep.cs-vsep { display: block; }
+/* ---- 2026-11-12 用户第三张标注图（红辅助线）+ 图一 -------------------------------------------
+   ★ 红线实测（用户 1260×774 视口，ccS 0.984375，舞台纵向偏移 32.6）：
+     竖线 x≈83.5 / x≈340.5，横线 y≈191 / y≈600 ⇒ 换算舞台坐标 **84..346 × 161..576**。
+   ★ 红线框 = 左栏（结晶圣所 + 作战回顾）的目标边界：
+     · 结晶圣所 top 178 → **161**（原来比红线低 17px，这是「边边没对齐」的主因）
+     · 作战回顾底 582 → **576**（top 485 → 479）
+     · 两者宽度统一 **262**（84..346）
+   ★ 作战回顾「看着比结晶圣所窄」的真正原因：**archive.png 自带透明留白** ——
+     素材 285×145，实心部分只有 x 18..266 / y 20..130。元素设成 84..346 时，
+     可见板边实际落在 100.7..331.3，左右各缩进 17px ⇒ 视觉上永远对不齐。
+     修法：不动元素盒子（保留点击区与文字/奖章坐标），只把 __bg **放大并外扩**，
+     让素材的实心部分正好铺满元素盒子（301×128 @ -19,-18，换算后实心 = 0..262 / 0..97）。 */
+.ca-main .ca-crystal.ca-crystal { left: 84px; top: 161px; width: 262px; }
+.ca-main .ca-archive.ca-archive { left: 84px; top: 479px; width: 262px; height: 97px; }
+/* ★★ 关键：theme.css:177 有全局 `img { max-width: 100% }`。
+     .ca-archive__bg 是 <img>，宽 301 > 父容器 262 ⇒ 被压成 262×128（sx .919 / sy .883 不等比），
+     素材里的暗六边形跟着横向压扁、位置全偏 —— 这就是用户绿框里「蚀刻章没对齐背景」的根因。
+     必须显式 `max-width: none`。 */
+/* ★ 用户 2026-11-12：「下面的蚀刻章能对齐吗」—— 章与素材里的暗六边形同心，
+     而那个六边形在素材里**不是垂直居中**的（y 10..124 / 145，中心 46%），
+     缩放后落在元素空间 -9.2..91.5，中心 41.15，比卡片中心 48.5 高 7.35px。
+     把 __bg 整体下移 7.35（top -18 → -10.65）⇒ 六边形中心回到 48.5，章跟着居中。 */
+.ca-main .ca-archive.ca-archive .ca-archive__bg { max-width: none; left: -19px; top: -10.65px; width: 301px; height: 128px; }
+
+/* ---- 作战回顾那层半透明材质，同样加到结晶圣所与地图卡 ---------------------------------------
+   材质本体 = 浅灰纵向渐变 + 4px 网点（archive.png 里那层就是这个），纯 CSS 造，
+   任意尺寸都对得齐，也不受素材留白影响。
+   ① 结晶圣所：把原来的**不透明**渐变换成同款半透明材质 + 轻模糊，背景主视觉能透出来。
+   ② 地图卡：在卡片外沿垫一圈同款材质的「底板」（inset -5px），只露 5px 边，不盖住卡面 art。
+      ★ 底板必须排在 __art 之前（::before 天然在前）—— art 是 inset:0 的实心图，会把底板压住，
+        只留外圈可见，这正是「不遮挡」的做法。
+      ★ 底板下沿 576+5 = 581，仍低于 ca-time 的 590，不会压到时间条。 */
+.ca-main .ca-crystal__head {
+  background:
+    radial-gradient(rgba(255, 255, 255, .13) 1px, transparent 1.2px) 0 0 / 4px 4px,
+    linear-gradient(168deg, rgba(120, 120, 118, .74) 0%, rgba(98, 98, 96, .76) 46%, rgba(76, 76, 74, .80) 100%);
+  -webkit-backdrop-filter: blur(3px) saturate(.9);
+  backdrop-filter: blur(3px) saturate(.9);
+}
+.ca-main .ca-crystal__bounty {
+  background:
+    radial-gradient(rgba(255, 255, 255, .07) 1px, transparent 1.2px) 0 0 / 4px 4px,
+    rgba(26, 26, 26, .86);
+}
+/* ★ 官方 .cc-root .ca-entry 有 overflow:hidden（crisis-event.css:811），底板会被裁掉 ⇒ 必须放开。
+     卡内所有子元素（art / loc / diagram / best）都在 0..100% 内，放开不会溢出。 */
+.ca-main .ca-entry.ca-entry { overflow: visible; }
+.ca-main .ca-entry.ca-entry::before {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  background:
+    radial-gradient(rgba(255, 255, 255, .12) 1px, transparent 1.2px) 0 0 / 4px 4px,
+    linear-gradient(180deg, rgba(126, 126, 124, .55) 0%, rgba(104, 104, 102, .6) 100%);
+  pointer-events: none;
+}
+
+/* ---- 图一：指标列表框左右两侧渐变淡出（翻页过渡）-------------------------------------------
+   列表是 .cs-track（left:103 宽:847 overflow-x:auto）。官方没有任何遮罩，
+   卡片滑到边缘是硬切。用 mask 在两端各 46px 内淡出，滑动时看起来是「渐隐渐现」。
+   ★ 用 mask 而不是盖两层渐变色块：色块会挡住可点击的指标格（.cs-tile 是 pointer-events:auto），
+     mask 只影响绘制、不吃事件。 */
+.cs-page .cs-track.cs-track {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 46px, #000 calc(100% - 46px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 46px, #000 calc(100% - 46px), transparent 100%);
+}
+
+/* ---- 2026-11-12 用户图：顶部按钮高度统一 ------------------------------------------------
+   用户原话：「顶上的按钮高度统一为右侧模式选择按钮，所修改的返回按钮同步到其他页面」
+   ★ 实测差在哪：官方 .ca-back 是 **139×59 @ top:9**，而 .ca-nav 的两颗 tab 是 **53 高 @ top:6**。
+     所以返回键比 tab 高 6px、上沿低 3px、下沿低 9px —— 视觉上就是「没对齐」。
+   ★ 统一基准取 tab 的 **53px / top:6**（它是「右侧那颗模式选择按钮」的量法），
+     返回键改成 139×53 @ top:6，与两颗 tab 同顶同高。
+   ★ 返回键素材 btn-backbutton.png 是 163×69（aspect 2.362），139×53 的框 aspect 是 2.62 ⇒
+     直接 100%/100% 会把图标横向拉胖。加 object-fit: contain 保住比例。
+   ★ 三处 .ca-back 共用这条规则（弧光入口 crisisEventPage.js:97 / 重燃入口 :153 / 弧光选择页 crisisSelect.js:707），
+     所以「同步到其他页面」自动成立，不需要逐个页面改。 */
+/* ★★★ 用户第二次纠正：「是按钮的整个高度，不是按钮所在界面高度」。
+   我上一版只改了**盒子**高度（59→53），但盒子改了不等于**看得见的深色块**改了 ——
+   素材 btn-backbutton.png 163×69，里面那块深色底只占 **x 9..153 / y 0..49（145×50）**，
+   其余全是透明留白。object-fit:contain 会把整张 163×69 等比塞进 139×53（aspect 2.362 vs 2.623），
+   实际渲染 125.2×53，深色块只剩 **111.4×37.6** —— 比 tab 的 53 矮 15px，所以看着还是没对齐。
+   修法：**按深色块反算缩放**，让 145×50 正好铺满 139×53。
+     sx = 139/145 = 0.958621  → img 宽 156.255
+     sy = 53/50  = 1.06       → img 高 73.14
+     left = -9×sx = -8.63px   top = 0
+   多出来的透明部分靠 overflow:hidden 裁掉（深色块本身正好落在 0..53，不裁到内容）。 */
+/* ★★★ 用户：「记得补齐上个版本返回按钮的细节和阴影」。
+   上一版为了把深色块撑到 53 加了 overflow:hidden —— 但素材的**阴影整块在盒子外面**：
+     · 主体 x 9..153 / y 0..49（145×50）
+     · 外发光 x 0..8 与 154..162（左右各约 8px）、y 50..68（下方 18px）
+   缩放后阴影落在 left −8.63..−0.93、right 139..146.7、bottom 53..72.1 —— 全在 139×53 盒子之外，
+   被 overflow:hidden 一刀切掉，所以按钮变成一块死板、没有外发光。
+   修法：**不裁**。盒子仍是 139×53（深色块铺满，与 tab 同高），img 溢出部分就是阴影，让它自然画出去。
+   ★ 父级 .cc-stage / .ca-main 都没有 overflow:hidden，阴影不会被上一层裁掉（已实测）。 */
+.ca-back.ca-back { top: 6px; height: 53px; overflow: visible; }
+.ca-back.ca-back img {
+  position: absolute; left: -8.63px; top: 0;
+  width: 156.26px; height: 73.14px; max-width: none; object-fit: fill;
+}
+/* i 按钮（.ca-guide）在任何 JSX 里都已不渲染（grep 只命中注释），
+     所以这里不给它补高度规则 —— 将来真加回来时再一起改。 */
+
+/* ---- 2026-11-12 结晶圣所 · 商店页（骨架，内容留白）----------------------------------------
+   用户：「给结晶圣所添加按钮功能，进去后会到一个商店样式的界面，具体样式等我确认，先留白」。
+   ★ 只做骨架：整页底板 + 标题行 + 空白内容区。不预造货架 / 商品卡片。
+   ★ z-index 40：主页最高是 .ca-nav 的 6、ArcReview 弹窗是 30 ⇒ 商店必须压在上面。
+   ★ 返回键直接复用 .ca-back（139×53 @ top:6 + 阴影），所以「补齐返回按钮」零额外 CSS。 */
+/* 遮罩要够实：否则底下两颗赛季 tab（z-index 6）会透上来抢视线。 */
+.ca-shop { position: absolute; inset: 0; z-index: 40; background: rgba(8, 8, 8, .94); }
+/* 商店的返回键压在遮罩之上（它是 .ca-shop 的子元素，遮罩是父背景，天然在上；这里只补 z-index 防被子级盖住）。 */
+.ca-shop .ca-back { z-index: 41; }
+.ca-shop__plate {
+  position: absolute; left: 84px; top: 96px; width: 1112px; bottom: 24px; box-sizing: border-box;
+  background:
+    radial-gradient(rgba(255, 255, 255, .05) 1px, transparent 1.2px) 0 0 / 4px 4px,
+    linear-gradient(168deg, rgba(74, 74, 72, .96) 0%, rgba(56, 56, 54, .97) 46%, rgba(40, 40, 38, .98) 100%);
+  border: 1px solid rgba(160, 159, 83, .55);
+  display: flex; flex-direction: column;
+}
+.ca-shop__bar {
+  flex: none; height: 64px; display: flex; align-items: center; gap: 18px; padding: 0 22px;
+  box-sizing: border-box; border-bottom: 1px solid rgba(255, 255, 255, .12);
+  background: rgba(24, 24, 23, .55);
+}
+.ca-shop__title { margin: 0; font: 500 24px/1 var(--cc-font); color: #f2f2f2; letter-spacing: .04em; }
+.ca-shop__bounty { display: flex; align-items: center; gap: 8px; margin-left: auto; font: 400 14px/1 var(--cc-font); color: #dcdcdc; }
+.ca-shop__bounty b { font: 600 24px/1 var(--cc-font); color: #f8f8f8; }
+.ca-shop__bounty img { width: 28px; height: 28px; object-fit: contain; }
+/* 内容区：特工工牌货架（2026-11-12 用户确认「商品就设置为特工工牌」后填上）。 */
+.ca-shop__body {
+  flex: 1; min-height: 0; margin: 18px 22px 22px; box-sizing: border-box; overflow-y: auto;
+  background: rgba(0, 0, 0, .12); border: 1px solid rgba(255, 255, 255, .08);
+  scrollbar-width: thin;
+}
+.ca-shop__grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; padding: 16px;
+}
+.ca-shop__cell {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 12px 10px 14px; box-sizing: border-box;
+  background:
+    radial-gradient(rgba(255, 255, 255, .05) 1px, transparent 1.2px) 0 0 / 4px 4px,
+    linear-gradient(180deg, rgba(96, 96, 94, .5), rgba(52, 52, 50, .62));
+  border: 1px solid rgba(160, 159, 83, .35);
+}
+/* 工牌是 268×640 的竖长板（立绘比例），用 3:4 的框 + cover 裁上半身。 */
+.ca-shop__thumb {
+  position: relative; width: 100%; aspect-ratio: 3 / 4; overflow: hidden;
+  background: rgba(18, 18, 18, .72); display: grid; place-items: center;
+}
+.ca-shop__thumb img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 22%; display: block; }
+.ca-shop__lock { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(0, 0, 0, .45); }
+.ca-shop__lock img { width: 44px; height: 44px; object-fit: contain; opacity: .85; }
+.ca-shop__name { font: 400 13px/1.3 var(--cc-font); color: #e8e8e6; text-align: center; }
+.ca-shop__owned { font: 400 12px/1 var(--cc-font); color: #8fd18f; }
+/* ★ 用户 2026-11-12：「价格标签被压成扁平，调成正常大小」。
+   price_back.png 是 **224×36**（aspect 6.22），上一版拉成 132×34（aspect 3.88）⇒ 纵向压扁 37%。
+   按素材原比例放大到 **176×28**（6.29）。 */
+.ca-shop__buy {
+  /* ★ 固定 176px 会溢出格子（格子约 150 宽）—— 改成跟格子走，比例由素材 aspect-ratio 锁死，
+     这样既不被压扁也不会横穿到隔壁。 */
+  position: relative; width: 100%; max-width: 168px; aspect-ratio: 224 / 36; height: auto;
+  display: flex; align-items: center; justify-content: center;
+  gap: 4px; cursor: pointer; border: 0; background: none; padding: 0;
+}
+.ca-shop__pricebg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }
+.ca-shop__pricecoin { position: relative; flex: none; width: 14px; height: 14px; object-fit: contain; }
+/* 价格数字：price_back 是深色底（rgba(49,49,49,.8)），字要用亮色，不是深色。 */
+.ca-shop__buy b { position: relative; font: 600 15px/1 var(--cc-font); color: #f0efe8; text-shadow: 0 1px 2px rgba(0,0,0,.55); }
+/* 买不起：只压暗、不换图（换图会变成方形的 cannot_buy_current，压进长条就糊）。 */
+.ca-shop__buy.is-off { cursor: default; }
+.ca-shop__buy.is-off .ca-shop__pricebg { opacity: .55; filter: brightness(.7); }
+.ca-shop__buy.is-off .ca-shop__pricecoin { opacity: .5; }
+.ca-shop__buy.is-off b { color: #b8b6ae; }
+.ca-shop__buy:not(.is-off):hover { filter: brightness(1.12); }
+/* 顶栏的结晶货币计数 */
+.ca-shop__coin { display: flex; align-items: center; gap: 6px; margin-left: 18px; }
+.ca-shop__coin img { width: 26px; height: 26px; object-fit: contain; }
+.ca-shop__coin b { font: 600 22px/1 var(--cc-font); color: #f2d34a; }
