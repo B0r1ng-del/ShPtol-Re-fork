@@ -27,7 +27,11 @@ test('setup notices installed official references absent from data/index, withou
   assert.equal(r.status, 0); assert.deepEqual(JSON.parse(r.stdout), ids, 'extractor uses exactly the setup reference reader');
   f.put('.cache/gamedata/excel/character_table.json', { char_4217_makoto: { skills: [{ skillId: 'skcom_synthetic' }] } });
   const source = `import sys, json\nsys.path.insert(0, ${JSON.stringify(path.resolve('tools/local-extract'))})\nimport fx\nprint(json.dumps(fx.game_data(${JSON.stringify(f.root)})))`;
-  const py = spawnSync(PY, ['-c', source], { encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
+  // ★ `fx.game_data` shells out to Node to read the plugin references, and this machine has no `node` on PATH
+  //   (the desktop ships its own runtime): hand it the interpreter that is running this test.
+  const py = spawnSync(PY, ['-c', source], {
+    encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1', SP_NODE: process.execPath },
+  });
   assert.equal(py.status, 0, py.stderr);
   const discovered = JSON.parse(py.stdout);
   assert.deepEqual(discovered.chars, ids); assert.deepEqual(discovered.skills.char_4217_makoto, ['skcom_synthetic']);

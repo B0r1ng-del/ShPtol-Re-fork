@@ -1355,3 +1355,38 @@ button.ally-card:disabled .ally-card__bar { filter: grayscale(.5) brightness(.8)
    looks like blown up behind a plate, and 调整显示范围 lets the owner move it. */
 .nc-pick__card--badge .nc-pick__art { height: clamp(150px, 23vh, 260px); }
 .nc-pick__card--badge .nc-pick__art--skin img { object-position: 50% 18%; }
+
+/* ==========================================================================================
+   我的账号 (需求方 2026-11-14): the reference server's account dialog. Layout follows its .acct-me / .acct-row /
+   .acct-btn: an identity block carrying the namecard, two action rows, then 统计数据.
+   ★ Every size is rem (scales with the layout root, theme.css) or max(rem, px) — no fixed widths and no media query,
+     so the panel follows the window like the rest of the screens. The dialog's own width comes from Modal.
+   ========================================================================================== */
+.acct { display: flex; flex-direction: column; gap: .1rem; padding: .12rem .04rem .04rem; }
+.acct-me { position: relative; display: flex; align-items: center; gap: .12rem; min-height: .52rem;
+  padding: .1rem .14rem; border-radius: 4px; border: 1px solid rgba(255, 255, 255, .1); overflow: hidden;
+  background: rgba(13, 18, 17, .82); }
+.acct-me__lv { position: relative; z-index: 1; flex: none; display: grid; place-items: center;
+  width: max(.3rem, 32px, calc(34px * var(--sp-ui, 1))); height: max(.3rem, 32px, calc(34px * var(--sp-ui, 1)));
+  font-size: calc(.16 * var(--t)); font-weight: 700;
+  color: #06231b; background: var(--mint-400); border-radius: 3px; }
+.acct-me__id { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.acct-me__name { font-size: calc(.17 * var(--t)); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acct-me__no { font-size: calc(.12 * var(--t)); color: #a9b4b0; letter-spacing: .04em; }
+.acct-row { display: flex; flex-wrap: wrap; gap: .08rem; }
+.acct-btn { flex: 1 1 auto; min-width: max(.9rem, 32px, calc(96px * var(--sp-ui, 1)));
+  min-height: max(.3rem, 32px, calc(34px * var(--sp-ui, 1))); padding: .04rem .1rem;
+  font: inherit; font-size: calc(.13 * var(--t)); color: #e6ecea; background: rgba(0, 0, 0, .35);
+  border: 1px solid rgba(255, 255, 255, .2); border-radius: 3px; cursor: pointer; }
+.acct-btn:hover:not(:disabled), .acct-btn:focus-visible:not(:disabled) { border-color: rgba(78, 216, 175, .6); outline: none; }
+.acct-btn:disabled { opacity: .45; cursor: not-allowed; }
+.acct-btn--go { color: #06231b; background: var(--mint-400); border-color: var(--mint-400); font-weight: 700; }
+.acct-btn--wide { width: 100%; flex: none; margin-top: .02rem; }
+.acct-rename { display: flex; flex-wrap: wrap; align-items: center; gap: .08rem; padding: .06rem 0; }
+.acct-rename__label { font-size: calc(.12 * var(--t)); color: #a9b4b0; }
+.acct-rename__in { flex: 1 1 8rem; min-width: 0; min-height: max(.3rem, 32px, calc(34px * var(--sp-ui, 1)));
+  padding: 0 .1rem;
+  font: inherit; font-size: calc(.13 * var(--t)); color: #e6ecea; background: rgba(0, 0, 0, .45);
+  border: 1px solid rgba(255, 255, 255, .2); border-radius: 3px; }
+.acct-rename__in:focus { border-color: rgba(78, 216, 175, .6); outline: none; }
+

@@ -123,7 +123,9 @@ test('the room screen: the strip between the 观战席 and the footer, the versi
   );
   assert.match(src, /data-testid="room-version"/);
   // 对齐门（mod 层的包对齐）也拦「开始模拟」：`alignBlocked` 是 W-D 唯一的门，见 room.js 的 start()。
-  assert.match(src, /disabled=\$\{!facts\.canStart \|\| !online \|\| busy === 'start' \|\| !!vote \|\| alignBlocked\}/);
+  // ★ 但它不在这一行：GoButton 的 disabled 只看 canStart / online / busy / vote。alignBlocked 在 start() 里
+  // 直接拦住并 toast（「请先关闭改变玩法的插件」，下一行断言的那条），所以这里不能要求它出现在 disabled 里。
+  assert.match(src, /disabled=\$\{!facts\.canStart \|\| !online \|\| busy === 'start' \|\| !!vote\}/, '开始模拟的 disabled 只看 canStart / online / busy / vote');
   assert.match(src, /t\('请先关闭改变玩法的插件'\)/);
   assert.match(src, /data-testid="version-banner"/);
   assert.match(src, /t\('\{name\}邀请你加入卫戍协议：盟约·\{version\}【\{difficulty\}】'/);

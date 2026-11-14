@@ -885,8 +885,8 @@
 }
 @supports not (backdrop-filter: blur(1px)) { .gravhud { background: rgba(8, 11, 10, .88); } }
 .gravhud__side { display: flex; align-items: center; gap: .08rem; }
-.gravhud__arrow { font-size: .3rem; line-height: 1; color: var(--amber); font-weight: 700; }
-.gravhud__name { font-size: .15rem; font-weight: 400; color: var(--text-hi); }
+.gravhud__arrow { font-size: calc(.3 * var(--t)); line-height: 1; color: var(--amber); font-weight: 700; }
+.gravhud__name { font-size: calc(.15 * var(--t)); font-weight: 400; color: var(--text-hi); }
 .chud__bottom { position: absolute; left: 50%; bottom: .3rem; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: .12rem; pointer-events: none; }
 .chud__bottom > * { pointer-events: auto; }
 .chud__msg {

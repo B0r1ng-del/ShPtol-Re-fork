@@ -40,8 +40,13 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const ASSETS = path.join(ROOT, 'public/assets');
 const readJson = (rel) => JSON.parse(readFileSync(path.join(ROOT, rel), 'utf8'));
 const SLUGS = ['enemy_1305_mhslim', 'enemy_1305_mhslim_2'];
-const EARLIER = ['enemy_1201_sfzhi', 'enemy_1249_lysdb', 'enemy_1254_lypa', 'enemy_1275_dwlock',
-  'enemy_1373_ltnhor_2', 'enemy_1376_ltndru'];
+// Every model the committed metadata lists besides the two 源石虫 slugs. Kept in sync with
+// tools/assets/local-enemy-spines.json: the "committed metadata" test below pins this list against that file, and the
+// 弧光作战 / 契约 season added nine more enemies' models (2026-11-14: enemy_1292_duskld_2 and enemy_1328_cbjedi_2 among them).
+const EARLIER = ['enemy_1201_sfzhi', 'enemy_1249_lysdb', 'enemy_1250_lyengs_2', 'enemy_1254_lypa',
+  'enemy_1275_dwlock', 'enemy_1292_duskld_2', 'enemy_1307_mhrhcr', 'enemy_1326_cbagen', 'enemy_1328_cbjedi_2',
+  'enemy_1330_cbrush', 'enemy_1331_cbsisy', 'enemy_1332_cbterm', 'enemy_1333_cbbgen', 'enemy_1373_ltnhor_2',
+  'enemy_1376_ltndru'];
 const LOCAL_ENEMIES = [...SLUGS, ...EARLIER].sort();
 const COMMITTED = readJson(LOCAL_ENEMY_SPINES_FILE).models;
 const MANIFEST = readJson('data/assets.json');

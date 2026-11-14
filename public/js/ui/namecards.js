@@ -1,14 +1,16 @@
 // 名片底图 (移植自 Stronghold-Protocol, 需求方 2026-11-01: 「Q2 ①+②」):
-// 底图来自本服务器已有的素材 —— 四张模拟场景加载图（assets.json ui['loading/loading_ac_*']）与阵营徽记
-// （ui['campLogo/logo_*']，白徽记配阵营色底）。卡片 id 是 `loading:<key>` 或 `camp:<key>`；未知 id 什么都不显示。
+// 底图来自三处：阵营徽记（ui['campLogo/logo_*']，白徽记配阵营色底）、组织徽记（同表 logo_<org>）、
+// 以及**原版名片**（OFFICIAL_CARDS：参考站 /accounts/namecards 的 121 张 webp）。卡片 id 形如 `camp:<key>` /
+// `official:<12-hex id>` / `badge:<key>`；未知 id 什么都不显示。
 //
-// ★ 与源仓的差异（移植时的取舍，需求方知情）：
-//   · 源仓的「组织徽记」(23 张 ui['campLogo/logo_babel']…)：**源仓自己也没有这些图** —— assets.json 有条目，但
-//     public/assets/ui/campLogo/ 只有 19 张阵营徽记，组织徽记一张都不在盘上。没有素材，也就不可能画（业主明令
-//     「不要自己画」），所以这一组**不提供**。
-//   · 源仓的 `skin:<id>` 卡片要 assets.json 的 skins[].illustration（约 4 MB 一张全幅立绘）：我方的 assets.json
-//     里 315 套皮肤**一套都没有 illustration 字段**（只有 180×360 半身 portrait / avatar / spine）。同样没有素材，
-//     所以这一组也**不提供**。将来 build-data 补上 illustration 后，在这里加回 skin 分支即可。
+// ★ 2026-11-14 需求方定稿（推翻了下面的历史取舍）：
+//   · 删掉「模拟场景」组（四张 loading 图）与「干员皮肤立绘」组（`skin:<id>`）——需求方明确不要。
+//   · 删掉组织徽记里的「彩虹小队」（rainbow，不属于明日方舟 IP）。
+//   · 新增「原版名片」：121 张 600×186 webp 落在 public/assets/ui/namecard/<id>.webp，不进 assets.json
+//     （public/assets 已被 .gitignore，沿用 valBadge 先例，路径在 namecardSrc 里直接拼）。
+//
+// ★ 历史取舍（留档，已不生效）：组织徽记的图曾不在盘上、skins[].illustration 曾为空，故两组当时不提供。
+//   `skin:` 分支与 SKIN_CARDS 仍保留 —— 只是 picker 不再列出它们，已存偏好仍能解析出来。
 //
 // 选择存在浏览器（NAMECARD_PREF），随 room.card 一起发给房间，同盟里的博士都能看到（ui/playerCard.js, server/lobby.js）。
 // 底图显示的范围可上下拖动（feedback #61）：y 是百分比（NAMECARD_Y_PREF / room.card bgY）；徽记没有可裁的部分。
@@ -37,14 +39,6 @@ export function dragNamecardY(from, dy, { width, height, aspect }) {
   if (!(spare > 0)) return from;
   return Math.max(0, Math.min(100, Math.round(from - (dy / spare) * 100)));
 }
-
-/** The loading pictures (one per simulation difficulty). */
-const LOADING = [
-  { key: 'prototype', name: N_('模拟·原型') },
-  { key: 'core', name: N_('模拟·核心') },
-  { key: 'hard', name: N_('模拟·险境') },
-  { key: 'abyss', name: N_('模拟·终极') },
-];
 
 /** The factions with an emblem in the material, each with a tint for the card behind the white emblem. */
 const CAMPS = [
@@ -85,7 +79,6 @@ const ORGS = [
   { key: 'pinus', name: N_('红松骑士团'), tint: '#4a2420' },
   { key: 'chiave', name: N_('贾维团伙'), tint: '#2a4438' },
   { key: 'lee', name: N_('鲤氏侦探事务所'), tint: '#3f3320' },
-  { key: 'rainbow', name: N_('彩虹小队'), tint: '#2c3440' },
   { key: 'student', name: N_('乌萨斯学生自治团'), tint: '#3c3c44' },
   { key: 'sui', name: N_('炎-岁'), tint: '#5a2a20' },
   { key: 'sweep', name: 'S.W.E.E.P.', tint: '#2a3a36' },
@@ -129,9 +122,49 @@ const badgeCard = ([key, name]) => Object.freeze({ id: `badge:${key}`, kind: 'ba
 
 const campCard = (c) => Object.freeze({ id: `camp:${c.key}`, kind: 'camp', name: c.name, tint: c.tint, assetKey: `campLogo/logo_${c.key}` });
 
+/** 原版名片 (2026-11-14): the official mode's own namecards, scraped from the reference server's
+ * /accounts/namecards/index.json catalogue (121 cards in 34 themes) into public/assets/ui/namecard/<id>.webp
+ * (600 × 186, the same plate ratio as .nc-pick__art). A theme groups its cards in the order the reference
+ * picker lists them. The ids are the server's 12-hex ids; a machine without the file just draws nothing. */
+export const OFFICIAL_CARDS = Object.freeze([
+  [N_('默认'), ['25e9161b5b22']],
+  [N_('☆超新星☆'), ['39a80df185d1', '013b0e4ed8f2', '9da478f9e780', '841e338e5f41', '3294f8c0203a']],
+  [N_('一起去狩猎喵！'), ['e5109590ab16', '5fbf2cd28f50', '4d916d09ba97', '303ffe99e98e', '850662793271', '438261865864', 'cdeea2062243', '7ad22c810cea', 'cc78caef853a', '2b0b3680522a', '932d2408b3aa', '14210d05d154', 'fddbc13cfe37', 'f3d1da1adffd']],
+  [N_('健将'), ['7e27b214965d']],
+  [N_('冰纹玉釉'), ['413db5b18de9', 'db1db3827161', '5366f1d3113b', 'e80f03aa2003', '7c3c22fe8fdf']],
+  [N_('决意'), ['942da72eeacf']],
+  [N_('剧幕'), ['76bf944671fd']],
+  [N_('合照'), ['c85af8511c3c', '2b723a616949', '834a533b7a1a']],
+  [N_('回溯'), ['c125443245c4']],
+  [N_('圣境'), ['7eb53769d98b']],
+  [N_('失语者'), ['3968a9f6bcf7', '9f279d63712f', '65f670bfdf46', 'ba30c54c18eb', '5f29bf47f238']],
+  [N_('山水'), ['c56e6e390c45']],
+  [N_('布道人'), ['94a568bfb12b', '515462a66fde', 'a1839dc2cdd5', '53474289bdfb', '6e64500368d4']],
+  [N_('弧光'), ['eb719fa0912f']],
+  [N_('戏中身'), ['3d221e2fd87f', 'fcbdc5bc990b', '23537bd12de9', '995359606a29', '81b0d78da4d8']],
+  [N_('时序花圃'), ['17a1eb531ef7', '26da34b9568d', '85a7c1bb7ca6', 'f8be3cda03f8', 'cc8ed6a6daa5']],
+  [N_('暖意'), ['2b2e21c9f9a7', '33d0c7efd1ba', '18211c66fe12', '166c69acf063', 'df4bc20bd88f', '2f9092ce7b8b']],
+  [N_('月落镜水'), ['840f08f1fa6e', '068246d2a0a1', 'd4940a25baa8', '2d051200ac01']],
+  [N_('梦人'), ['2db10913336f', 'ea81e243f2f7', '1083c1ad27ae', 'b56b0697c6e0', '7ebfdeaa7e3d']],
+  [N_('永恒的演出'), ['630d04081618', '83f831ef73c4', '00cfbef97d9a', '740a86fbc935', 'e1617c06707e']],
+  [N_('渡星客'), ['b586bcb87286', '09d830d13d33', '923198eabc3f', '6ca2efdcaa99', 'cc7b14b7b070']],
+  [N_('演算'), ['016ef37e15cd']],
+  [N_('熠曲丰碑'), ['ba5008632c09', '1fdf99227618', 'aafe5e9116ec', '67dba162c3fd', '1b8e41356444']],
+  [N_('甜意'), ['8b4517511ec0']],
+  [N_('祝鼓祭'), ['686d03a28b35', '35d01a1ce371', '0324481e9931', '601fbe967299', 'c0d1861f0824']],
+  [N_('移星桂冠'), ['8fce7f4a5757', 'd7f4b264ee8d', 'f8b03e4f139e', '6168d402e9fd', '0a5d9301635f']],
+  [N_('行者'), ['2913e4cc5ca5', 'fd16bd26aef1', 'f640c2dd6a00', 'b860f0be32f4', 'fcf52e70d3a4']],
+  [N_('遗君'), ['21d8e9c1a2b6', '9526e6e789cf', '5e5d1d452dd8', '25716451b167', 'ddc798006877']],
+  [N_('邀月'), ['55f37c1a562d', '44dfb05ddb8a', '511b515b38fa', '3650641d889f', '2002e0256d2f']],
+  [N_('险途'), ['4de3f42f4a18']],
+  [N_('集锦'), ['22252931f9f2']],
+  [N_('雾色秘访'), ['552e39e7cb17', 'af73117ffac4', '7b9e6e1958f3', 'e3dba1900d08', '7fe6fc133c5a']],
+  [N_('青漾'), ['238b01de24c1']],
+  [N_('飘游'), ['523ff244ef89']],
+]);
+
 /** Every card: { id, kind, name, assetKey, tint? }. */
 export const NAMECARDS = Object.freeze([
-  ...LOADING.map((c) => Object.freeze({ id: `loading:${c.key}`, kind: 'loading', name: c.name, assetKey: `loading/loading_ac_${c.key}` })),
   ...CAMPS.map(campCard),
   ...ORGS.map(campCard),
   ...BADGES.map(badgeCard),
@@ -162,6 +195,15 @@ export function namecardOf(id) {
   if (typeof id !== 'string') return null;
   // A skin card is built on demand: the catalogue lives in the loaded asset index, not in a module constant.
   if (id.startsWith('skin:')) return SKIN_CARDS().get(id) || null;
+  if (id.startsWith('official:')) {
+    const cid = id.slice('official:'.length);
+    for (const [theme, ids] of OFFICIAL_CARDS) {
+      const at = ids.indexOf(cid);
+      if (at < 0) continue;
+      return Object.freeze({ id, kind: 'official', cardId: cid, theme, name: ids.length > 1 ? `${theme} · ${at + 1}` : theme });
+    }
+    return null;
+  }
   return BY_ID.get(id) || null;
 }
 
@@ -178,6 +220,8 @@ export function namecardSrc(card, m = data.get('assets'), half = false) {
   // public/assets/ui/valBadge/ and are not part of the official material plan (tools/assets/plan.mjs cannot reach
   // them). The path is built here so the manifest stays the manifest; a machine without the files draws nothing.
   if (card?.kind === 'badge') return safeUrl(card.assetKey ? `/assets/ui/${card.assetKey}.png` : null);
+  // 原版名片 (2026-11-14): scraped WebPs, not in assets.json (public/assets is ignored by git, like the 特工工牌)
+  if (card?.kind === 'official') return safeUrl(`/assets/ui/namecard/${card.cardId}.webp`);
   return safeUrl(card && m?.ui && typeof m.ui === 'object' ? m.ui[card.assetKey] : null);
 }
 
@@ -246,23 +290,13 @@ export function NameCardPicker({ current, y = null, onPick, onAdjust = null, onC
     addEventListener('keydown', onKey);
     return () => removeEventListener('keydown', onKey);
   }, []);
-  // a skin's card: the picker shows its half-body art, the plate its full illustration
-  const skinCard = (c) => {
-    const src = namecardSrc(c, data.get('assets'), true);
+  // 原版名片 (2026-11-14): a 600 × 186 plate like .nc-pick__art, so the common tile fits it as-is
+  const officialCard = (c) => {
+    if (!c) return null;
     const on = current === c.id;
-    return html`<button key=${c.id} type="button" class=${'nc-pick__card nc-pick__card--skin' + (on ? ' is-on' : '')}
-        onClick=${() => pick(c.id)} title=${t(c.name)} data-testid=${'nc-skin-' + c.skinId}>
-      <span class="nc-pick__art nc-pick__art--skin">${src ? html`<img src=${src} alt="" loading="lazy" draggable=${false} />` : null}
-        <span class="nc-pick__name">${t(c.name)}</span></span>
-      ${on ? html`<span class="nc-pick__on">${t('使用中')}</span>` : null}</button>`;
-  };
-  // 特工工牌: a tall plate (268 × 640) like a 立绘, so its tile reuses the skin tile's portrait ratio and name band
-  const badgeTile = (c) => {
-    const src = namecardSrc(c, data.get('assets'), true);
-    const on = current === c.id;
-    return html`<button key=${c.id} type="button" class=${'nc-pick__card nc-pick__card--skin nc-pick__card--badge' + (on ? ' is-on' : '')}
-        onClick=${() => pick(c.id)} title=${t(c.name)} data-testid=${'nc-badge-' + c.id.slice(6)}>
-      <span class="nc-pick__art nc-pick__art--skin">${src ? html`<img src=${src} alt="" loading="lazy" draggable=${false} />` : null}
+    return html`<button key=${c.id} type="button" class=${'nc-pick__card' + (on ? ' is-on' : '')}
+        onClick=${() => pick(c.id)} title=${t(c.name)} data-testid=${'nc-official-' + c.cardId}>
+      <span class="nc-pick__art"><img src=${`/assets/ui/namecard/${c.cardId}.webp`} alt="" loading="lazy" draggable=${false} />
         <span class="nc-pick__name">${t(c.name)}</span></span>
       ${on ? html`<span class="nc-pick__on">${t('使用中')}</span>` : null}</button>`;
   };
@@ -281,14 +315,14 @@ export function NameCardPicker({ current, y = null, onPick, onAdjust = null, onC
       ${adjusting && namecardOf(current) ? html`<${NameCardAdjust} key=${current} card=${current} y=${y} onAdjust=${onAdjust} onDone=${onClose} />` : html`<div class="nc-pick__grid">
         <button type="button" class=${'nc-pick__card nc-pick__card--none' + (!namecardOf(current) ? ' is-on' : '')} onClick=${() => pick('')}>
           <span class="nc-pick__art"><${Icon} name="close" /><span class="nc-pick__name">${t('不使用底图')}</span></span></button>
-        <h4 class="nc-pick__theme">${t('模拟场景')}</h4>
-        ${NAMECARDS.filter((c) => c.kind === 'loading').map(card)}
         <h4 class="nc-pick__theme">${t('阵营徽记')}</h4>
         ${NAMECARDS.filter((c) => c.kind === 'camp' && !ORG_IDS.has(c.id)).map(card)}
         <h4 class="nc-pick__theme">${t('组织徽记')}</h4>
         ${NAMECARDS.filter((c) => ORG_IDS.has(c.id)).map(card)}
-        <h4 class="nc-pick__theme">${t('干员皮肤立绘')}</h4>
-        ${[...SKIN_CARDS().values()].map(skinCard)}
+        ${OFFICIAL_CARDS.flatMap(([theme, ids]) => [
+          html`<h4 class="nc-pick__theme" key=${'th' + theme}>${t(theme)}</h4>`,
+          ...ids.map((cid) => officialCard(namecardOf('official:' + cid))),
+        ])}
 
       </div>`}
       <footer class="nc-pick__foot"><small>${t('名片底图显示在同盟席位的名牌后面，同盟里的博士都能看到')}</small>

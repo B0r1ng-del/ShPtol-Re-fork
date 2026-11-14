@@ -44,6 +44,7 @@ import { uiUrl } from '../ui/assetUrls.js';
 import { peekStatsRecords, trophyMedalOf, aggregateStats, recordsOfSeason } from '../ui/stats.js';
 import { TrophyBadge } from '../ui/trophies.js';
 import { NameCardLayer, namecardOf } from '../ui/namecards.js';
+import { AccountDialog } from '../ui/account.js';
 import { cardStore } from '../ui/seatArt.js';
 import { levelProgress, levelOf } from './settle.js';
 import { OwnBackdrop, LobbyScene, LobbyMediaButton } from '../ui/lobbyMedia.js';
@@ -489,7 +490,7 @@ function MeChip({ me, onOpen }) {
   const rec = card.avatar ? m?.chars?.[card.avatar] : null;
   const skinRec = rec && card.avatarLook ? rec.skins?.[card.avatarLook] : null;
   const face = (skinRec && (skinRec.avatar || skinRec.avatarE2)) || (rec && (rec.avatarE2 || rec.avatar)) || null;
-  const label = t('成就统计（本机记录）');
+  const label = t('我的账号');
   const has = !!namecardOf(card.bg);
   return html`<button type="button" class=${'me-chip' + (has ? ' has-nc' : '')} onClick=${onOpen} title=${label} aria-label=${label}>
     ${has ? html`<${NameCardLayer} card=${card.bg} y=${card.bgY} />` : null}
@@ -856,6 +857,7 @@ export function LobbyScreen() {
   const marks = loadPref('recentTestRooms', []);
   const [sweepOpen, setSweepOpen] = useState(false);
   const [achOpen, setAchOpen] = useState(false);
+  const [acctOpen, setAcctOpen] = useState(false);
   const [coarse] = useState(() => detectFeatures().coarse);
   const shortScreen = useMediaQuery(SHORT_SCREEN_QUERY);
   const alive = useRef(true);
@@ -986,7 +988,7 @@ export function LobbyScreen() {
              game-rule switches are NOT here — they live in 房主配置 → 对局选项. `-X theirs` dropped this render (the
              import survived), which is why the hub lost the button after the v0.3.2 merge (需求方 2026-10-25 报). */ ''}
         <${ModMenuButton} class="lobby-modmenu" />
-        <${MeChip} me=${me} onOpen=${() => setAchOpen(true)} />
+        <${MeChip} me=${me} onOpen=${() => setAcctOpen(true)} />
       </div>
     </header>
 
@@ -1052,5 +1054,7 @@ export function LobbyScreen() {
       testMode=${testMode} asTest=${asTest} onTest=${setAsTest} difficulties=${[ULTIMATE_DIFFICULTY]} />` : null}
     ${sweepOpen ? html`<${SweepReport} onClose=${() => setSweepOpen(false)} />` : null}
     ${achOpen ? html`<${AchievementDialog} onClose=${() => setAchOpen(false)} />` : null}
+    <${AccountDialog} open=${acctOpen} myId=${me?.playerId ?? null} onClose=${() => setAcctOpen(false)}
+      onStats=${() => { setAcctOpen(false); setAchOpen(true); }} />
   </div>`;
 }

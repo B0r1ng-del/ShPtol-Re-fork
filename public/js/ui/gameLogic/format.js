@@ -35,8 +35,8 @@ export function snapHud(snap) {
   if (isObj(snap.boss) && Number.isFinite(snap.boss.hp)) boss = { hp: snap.boss.hp, max: n(snap.boss.max) ?? n(snap.boss.maxHp) };
   const killed = n(snap.killed);
   // 重力按钮（危机合约 #4「滞空焦点」）：snap.grav = { L, R } 是这半场当前的重力方向，没有该地形的图就没有这个键
-  const grav = isObj(snap.grav) ? { L: snap.grav.L ?? null, R: snap.grav.R ?? null } : null;
-  return { killed, resolved: n(snap.resolved) ?? killed, total: n(snap.total), dp: n(snap.dp), boss, grav,
+  return { killed, resolved: n(snap.resolved) ?? killed, total: n(snap.total), dp: n(snap.dp), boss,
+    ...(isObj(snap.grav) ? { grav: { L: snap.grav.L ?? null, R: snap.grav.R ?? null } } : {}),
     ...(Array.isArray(snap.kazdel) ? { kazdel: cannonStates(snap.kazdel), gameTime: n(snap.gt ?? snap.t) ?? 0 } : {}) };
 }
 

@@ -776,6 +776,68 @@ function GoButton({ label, onClick, disabled, loading = false, ready = null, ico
 /** How long a version proposal refused as too frequent (RATE) waits before it is sent once more [ASSUMED]. */
 const PROPOSE_RETRY_MS = 1200;
 
+/**
+ * 对齐到房间那套包 (W-D, DESIGN §34.16)：本机到底有没有这个房间声明的包。房间声明了集合（`room.mods`）时才做任何事
+ * —— 干净安装上这个组件渲染 `null`，一次 fetch 都不发（`useEffect` 在组件里，不渲染就没有它）。
+ *
+ * 结论通过 `onAlignment` **交回房间界面**（准备就绪按钮的门读的是它），所以门只有一份实现：`isAlignBlocked`。
+ * ★ 2026-11-14 恢复：这段与下面 `<\${RoomModsPanel} … />` 那行在 fork 同步中一起丢了，只剩 `align` 状态与注释
+ *   ⇒ `align` 永远是 `null`、`isAlignBlocked(null)` 永远是 `false`，那道门成了装饰。组件按 44ff278ef 的原样复原。
+ */
+export function RoomModsPanel({ room, myId, onAlignment }) {
+  const mods = room && room.mods && Array.isArray(room.mods.packs) && room.mods.packs.length ? room.mods : null;
+  const [plan, setPlan] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const alive = useRef(true);
+  useEffect(() => () => { alive.current = false; }, []);
+
+  // 进房间问一次「本机有没有这个房间的包」；房间集合变了（房主改了）再问一次。
+  useEffect(() => {
+    if (!mods) { setPlan(null); return; }
+    let cancelled = false;
+    setPlan({ needed: true, checking: true, ok: false });
+    (async () => {
+      try {
+        const { loadCatalog, planAlignment, storeFor } = await import('../mods/align.js');
+        const catalog = await loadCatalog();
+        const next = await planAlignment({ catalog, mods, store: storeFor() });
+        if (!cancelled && alive.current) setPlan(next);
+      } catch {
+        if (!cancelled && alive.current) setPlan({ needed: true, ok: false, unknown: [], packs: [], missingFiles: 0 });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [mods && mods.digest]);
+
+  // 结论交回房间：交给 `setAlign`（就是房间界面自己那一格）。
+  useEffect(() => { onAlignment(plan); }, [plan]);
+
+  if (!mods || !plan) return null;
+  const blocked = isAlignBlocked(plan);
+  if (!blocked && plan.needed === false) return null;
+
+  const fill = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const { loadCatalog, alignRoom, storeFor } = await import('../mods/align.js');
+      const catalog = await loadCatalog();
+      const next = await alignRoom({ catalog, mods, store: storeFor() });
+      if (alive.current) setPlan(next);
+    } catch (err) { toastError(err); } finally { if (alive.current) setBusy(false); }
+  };
+
+  const label = plan.checking ? t('正在核对本机的内容包…')
+    : blocked ? t('本机缺少这个房间的内容包') : t('本机内容包与房间一致');
+  return html`<div class="roomalign" data-testid="room-align">
+    <${MicroLabel}>WORKSHOP<//>
+    <span class="roomalign__text">${label}</span>
+    ${blocked && !plan.checking
+      ? html`<${Button} variant="secondary" size="sm" loading=${busy} onClick=${fill}>${t('补齐内容包')}<//>`
+      : null}
+  </div>`;
+}
+
 /** Room screen component. */
 export function RoomScreen() {
   const room = useStore((s) => s.room);
@@ -1147,12 +1209,13 @@ export function RoomScreen() {
             <//>`
           : facts.spectating
             ? html`<${GoButton} label=${t('观战中')} icon="eye" disabled=${true} />`
-          : html`<${Tooltip} text=${!myReady && facts.myContent !== 'ready' ? (facts.versionRoom ? t('「{version}」的数据载入并通过校验后才能准备', { version: versionLabel(curVersion) }) : t('房间的插件内容载入并通过校验后才能准备')) : null}>
+          : html`<${Tooltip} text=${alignBlocked && !myReady ? t('本机缺少这个房间的内容包：先补齐再准备') : (!myReady && facts.myContent !== 'ready' ? (facts.versionRoom ? t('「{version}」的数据载入并通过校验后才能准备', { version: versionLabel(curVersion) }) : t('房间的插件内容载入并通过校验后才能准备')) : null)}>
               <${GoButton} label=${myReady ? t('已就绪') : t('准备就绪')} ready=${myReady} loading=${busy === 'ready'}
-                disabled=${!online || !facts.mine || busy === 'ready' || (!myReady && facts.myContent !== 'ready')} onClick=${toggleReady} />
+                disabled=${!online || !facts.mine || busy === 'ready' || (!myReady && facts.myContent !== 'ready') || alignBlocked} onClick=${toggleReady} />
             <//>`}
       </div>
     </footer>
+    <${RoomModsPanel} room=${room} myId=${me.playerId} onAlignment=${setAlign} />
     ${picking === 'bg' ? html`<${NameCardPicker} current=${myBg} y=${myBgY} onPick=${setCardBackground} onAdjust=${setCardBackgroundY}
       onClose=${() => setPicking(null)} />` : null}
     ${picking === 'op' ? html`<${CardPicker} current=${myCard} list=${cardList} m=${data.get('assets')} localSkins=${localSkins} badge=${myBadge} onPick=${pickCard} onPickBadge=${pickBadge} onClose=${() => setPicking(null)} />` : null}

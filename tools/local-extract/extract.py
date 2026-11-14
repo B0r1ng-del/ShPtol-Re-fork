@@ -283,8 +283,14 @@ JOBS = [
 # _AlphaTex merged in as A). Output: spine/enemy/<id>/ (manifest group spine/enemy/<id>); the client draws the model
 # when the group lists every file of data/assets.json enemies[id].spineLocal (whose metadata
 # tools/assets/local-enemy-spines.json keeps: `node tools/fetch-assets.mjs --local-spines` after a game update).
-ENEMY_SPINES = ['enemy_1201_sfzhi', 'enemy_1249_lysdb', 'enemy_1254_lypa', 'enemy_1275_dwlock',
-                'enemy_1305_mhslim', 'enemy_1305_mhslim_2', 'enemy_1373_ltnhor_2', 'enemy_1376_ltndru']
+# ★ Keep this list equal to the models tools/assets/local-enemy-spines.json already carries (test/feedback1d-models
+#   pins the two together): the 契约 season's nine enemies were added on 2026-11-14, and a model extracted here but
+#   missing from the committed metadata (or the reverse) is exactly the drift that test reports.
+ENEMY_SPINES = ['enemy_1201_sfzhi', 'enemy_1249_lysdb', 'enemy_1250_lyengs_2', 'enemy_1254_lypa',
+                'enemy_1275_dwlock', 'enemy_1292_duskld_2', 'enemy_1305_mhslim', 'enemy_1305_mhslim_2',
+                'enemy_1307_mhrhcr', 'enemy_1326_cbagen', 'enemy_1328_cbjedi_2', 'enemy_1330_cbrush',
+                'enemy_1331_cbsisy', 'enemy_1332_cbterm', 'enemy_1333_cbbgen', 'enemy_1373_ltnhor_2',
+                'enemy_1376_ltndru']
 ENEMY_ART = 'refs/arts/enm_art_*.ab'
 ENEMY_SPINE_SUB = 'spine/enemy'
 

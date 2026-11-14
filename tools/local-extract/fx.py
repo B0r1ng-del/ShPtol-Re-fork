@@ -42,6 +42,7 @@ import json
 import math
 import os
 import re
+import shutil
 import struct
 import subprocess
 import sys
@@ -3106,11 +3107,32 @@ def game_data(root):
         except (OSError, ValueError):
             return {}
     # Repository-owned JSON reader; installed plugin code is never imported or executed.
-    try:
-        ref_reader = Path(__file__).with_name('plugin-fx.mjs')
-        refs = json.loads(subprocess.check_output(['node', str(ref_reader), str(root)], timeout=30))
-    except (OSError, ValueError, subprocess.SubprocessError):
-        refs = []
+    # ★ The interpreter that runs this file is not the one that runs Node: on a machine where `node` is not on PATH
+    #   (the DSH desktop ships its own runtime) a bare 'node' raises OSError and the old `except` swallowed it into an
+    #   empty `refs` -- silently hiding every plugin reference instead of reporting one. SP_NODE, then PATH, then the
+    #   DSH runtime layout.
+    refs = []
+    ref_reader = Path(__file__).with_name('plugin-fx.mjs')
+    # ★ Extract under `npm` / `node --test` remembers the interpreter: NODE_BIN / npm_execpath name it, and the
+    #   running Node passes its own path down as NODE. That is the value a test harness already has.
+    node_bin = (os.environ.get('SP_NODE') or shutil.which('node') or shutil.which('node.exe')
+                or (os.environ.get('NODE') if os.path.isfile(os.environ.get('NODE') or '') else None))
+    if not node_bin:
+        for cand in (Path(os.environ.get('DSH_HOME') or '') / 'resources' / 'runtime' / 'primary-runtime'
+                     / 'dependencies' / 'node' / 'bin' / 'node.exe',):
+            if cand.is_file():
+                node_bin = str(cand)
+                break
+    # No Node: the extraction still works, only the plugin-reference pass is empty -- but say so on stderr rather
+    # than returning [] in silence, which is exactly how this stayed broken.
+    if not node_bin:
+        print('fx: no node found (set SP_NODE); plugin references skipped', file=sys.stderr)
+    else:
+        try:
+            refs = json.loads(subprocess.check_output([node_bin, str(ref_reader), str(root)], timeout=30))
+        except (ValueError, subprocess.SubprocessError) as exc:
+            print(f'fx: plugin reference reader failed ({exc}); references skipped', file=sys.stderr)
+            refs = []
     char_table = load_excel('character_table.json')
     for cid in refs:
         if cid not in chars:

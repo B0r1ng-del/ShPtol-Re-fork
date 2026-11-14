@@ -30,9 +30,14 @@ export function parseSeedCode(text) {
   return seed > 0 ? { seed } : { error: t('超出种子范围') };
 }
 
-/** A fresh non-zero seed. */
+/**
+ * A fresh non-zero seed.
+ * `crypto` is the Web Crypto global (a browser and Node 18+ both have it), reached through globalThis so jsconfig's
+ * lib:["ES2022"] — deliberately without DOM — still typechecks this file (its `crypto` is a real defect report, not noise).
+ */
 export function randomSeed() {
   const a = new Uint32Array(1);
-  do crypto.getRandomValues(a); while (!a[0]);
+  const webcrypto = /** @type {{ crypto: { getRandomValues(a: Uint32Array): Uint32Array } }} */ (/** @type {unknown} */ (globalThis)).crypto;
+  do webcrypto.getRandomValues(a); while (!a[0]);
   return a[0];
 }

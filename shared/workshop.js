@@ -476,6 +476,9 @@ export const CLIENT_PANEL_DATA_TABLES = Object.freeze([
   'stages', 'tokens', 'choices', 'config', 'assets', 'backups', 'local', 'notices',
   // 危机合约 #4 的专属战场（data/stages-crisis.json）—— 与 stages 分开是刻意的：它不能进抽图池
   'stages-crisis',
+  // 契约专用敌人（data/enemies-crisis.json）—— 与 enemies 分开同理。`public/js/data.js` 早就把这两张表发给浏览器，
+  // 这张白名单没跟上 ⇒ 面板「读一张本来就发给它的表」会被判成点名拒绝，而那正是本名单要防的方向。
+  'enemies-crisis',
 ]);
 /**
  * 一个面板最多读几张表 —— **由上面那张名单推导**，不是一个手写的数字。

@@ -380,8 +380,10 @@ export function crisisHasTargets(route, preview) {
 /** The routes of a selection whose targets the seed's match lacks ([] = every tag counts). */
 export function crisisMissingTargets(sel, preview) {
   const c = checkCrisis(sel);
-  // 弧光作战: every enemy of the season comes in every match (shared/crisisArc.js ARC_ROSTER)
-  if (!c || c.season === 'arc') return [];
+  // 弧光作战: every enemy of the season comes in every match (shared/crisisArc.js ARC_ROSTER).
+  // The season marker is on the *selection* (isArcCrisis), not on checkCrisis's return for a 重燃 board —
+  // checkCrisis delegates to checkArc for an arc selection, so a non-null `c` here is always 重燃.
+  if (!c || isArcCrisis(sel)) return [];
   return [...new Set(c.tags.map((id) => crisisTag(c.mode, id).route))].filter((r) => !crisisHasTargets(r, preview)).map((r) => r.id);
 }
 
@@ -477,7 +479,11 @@ export function crisisFxText(routeId, mode, tier = 1) {
       return { text: s };
     })
     .map((x) => (x.from ? { ...x, on: on >= x.from } : x));
-  const text = parts.map((x) => (x.from ? (x.on ? '；' + x.text : '') : (x.text ?? x.vals[x.on]))).join('');
+  // Two shapes share this list: a {from,on,text} branch of the tier ladder, and a {vals,on} slot (or {text}).
+  // Read each field by its own shape — a slot's `on` is an index, a branch's `on` is a boolean.
+  const text = parts.map((x) => ('from' in x && x.from
+    ? (x.on ? '；' + x.text : '')
+    : (x.text ?? x.vals[/** @type {number} */ (x.on)]))).join('');
   return { text, parts };
 }
 
