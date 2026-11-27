@@ -1,0 +1,154 @@
+/* 0.3.2 hotfix: keep desktop composition on short landscape touch displays. */
+@media (orientation:landscape) and (max-height:600px) and (any-pointer:coarse) {
+  .lobby-home { --tap-min:28px; }
+  .lobby-home .home-top { top:8px;left:14px;right:14px;width:auto;gap:4px; }
+  .lobby-home .home-top>.btn,.lobby-home .home-top .btn,.lobby-home .home-tool { height:26px;min-height:26px;min-width:28px;padding:0 7px; }
+  .lobby-home .home-top .btn__label { font-size:10px; }
+  .lobby-home .home-top .icon { width:14px;height:14px; }
+  .lobby-home .home-menu { top:9px;right:2%;width:48%;max-width:none;max-height:calc(100% - 20px);gap:4px;padding:0 1px 2px;overflow-y:auto;transform:none; }
+  .lobby-home .home-caption { font-size:7px;letter-spacing:1px;padding-bottom:3px;min-height:10px;flex:none; }
+  .lobby-home .home-simulation { min-height:0;height:clamp(44px,16.5vh,70px);gap:4px;flex:none; }
+  .lobby-home .home-alliance { padding:6px 10px; }
+  .lobby-home .home-alliance strong { font-size:clamp(20px,6vh,29px);letter-spacing:1px; }
+  .lobby-home .home-alliance small,.lobby-home .home-operators small,.lobby-home .home-rooms small { font-size:6px;letter-spacing:.6px; }
+  .lobby-home .home-alliance>span { font-size:8px; }
+  .lobby-home .home-alliance b { font-size:14px; }
+  .lobby-home .home-solo { padding:4px;gap:3px; }
+  .lobby-home .home-solo strong { font-size:12px;letter-spacing:0; }
+  .lobby-home .home-solo .icon { width:15px;height:15px; }
+  .lobby-home .home-solo small { font-size:5px;letter-spacing:.5px; }
+  .lobby-home .home-resources { gap:4px!important;flex:none; }
+  .lobby-home .home-resources>button { min-height:0!important;height:clamp(27px,9vh,40px)!important;padding:4px 10px!important;grid-template-columns:24px minmax(0,1fr)!important;gap:0 7px!important; }
+  .lobby-home .home-resources>button>strong { grid-column:2;font-size:clamp(12px,3.8vh,17px)!important;letter-spacing:.3px; }
+  .lobby-home .home-resources>button>small { grid-column:2;font-size:6px!important; }
+  .lobby-home .home-resources>button>.icon,.lobby-home .home-resources>button>img { position:static;grid-column:1;grid-row:1/3;width:22px!important;height:22px!important;opacity:1; }
+  .lobby-home .home-rooms { min-height:0;height:clamp(36px,11vh,48px);padding:5px 10px;gap:5px;flex:none; }
+  .lobby-home .home-rooms>div:first-child { gap:2px; }
+  .lobby-home .home-rooms strong { font-size:13px;letter-spacing:0; }
+  .lobby-home .home-rooms>div>span { font-size:12px; }
+  .lobby-home .home-counters>span { font-size:7px!important;gap:2px; }
+  .lobby-home .home-counters>span>b { font-size:13px; }
+  .lobby-home .home-connect { flex:none;padding:5px 7px 4px;margin:0; }
+  .lobby-home .home-connect .join-row { gap:4px; }
+  .lobby-home .home-connect .field__box,.lobby-home .home-connect .join-row .btn { height:24px;min-height:24px; }
+  .lobby-home .home-connect .field__box { padding:0 5px; }
+  .lobby-home .home-connect .join-row .btn { padding:0 6px; }
+  .lobby-home .home-connect input,.lobby-home .home-connect input::placeholder,.lobby-home .home-connect .join-row .btn__label { font-size:9px; }
+  .lobby-home .home-connect .join-foot { margin-top:3px;min-height:12px;gap:3px;font-size:7px; }
+  .lobby-home .home-connect .code-chip { min-height:13px;padding:0 4px;font-size:8px; }
+  .lobby-home .home-connect .tips { margin-top:3px;padding-top:3px; }
+  .lobby-home .home-connect .tips__head { font-size:7px;gap:3px; }
+  .lobby-home .home-connect .tips__idx { font-size:7px; }
+  .lobby-home .home-connect .tips__nav { width:16px;height:14px; }
+  .lobby-home .home-connect .tips__text { font-size:8px;line-height:1.35;margin-top:2px;min-height:11px; }
+  .lobby-home .home-menu>.home-duel { min-width:135px!important;min-height:0!important;height:28px!important;padding:3px 8px!important;margin-top:0!important;grid-template-columns:18px minmax(0,1fr) 12px;gap:0 5px;flex:none; }
+  .lobby-home .home-duel>.icon { width:17px;height:17px; }
+  .lobby-home .home-duel>strong { font-size:11px; }
+  .lobby-home .home-duel>small { font-size:6px; }
+  .lobby-home .home-duel>span { font-size:15px; }
+  .lobby-home .home-music { top:45px;left:14px;width:210px;max-width:35%;padding:6px 8px; }
+  .lobby-home .home-music header { margin-bottom:3px;gap:5px; }
+  .lobby-home .home-music header>span { font-size:14px; }
+  .lobby-home .home-music strong { font-size:10px; }
+  .lobby-home .home-music select { padding:3px 5px;font-size:10px;min-height:22px; }
+  .lobby-home .home-music__controls { margin-top:4px;gap:3px; }
+  .lobby-home .home-music button { height:21px;min-width:22px;padding:0 4px;font-size:9px; }
+  .lobby-home .home-music small,.lobby-home .home-music label { display:none; }
+  .lobby-home .home-identity { left:16px;top:auto;bottom:77px;gap:8px; }
+  .lobby-home .home-identity strong { font-size:14px; }
+  .lobby-home .home-identity small { font-size:6px;margin-top:3px; }
+  .lobby-home .home-identity .avatar-frame { width:32px;height:32px; }
+  .lobby-home .home-personal { left:16px;bottom:31px;gap:3px; }
+  .lobby-home .home-personal .btn,.lobby-home .home-personal>button { height:25px;min-height:25px;padding:0 7px;font-size:9px; }
+  .lobby-home .home-personal .btn__label { font-size:9px; }
+  .lobby-home .home-footer { left:16px;right:2%;bottom:7px;font-size:6px;letter-spacing:.5px; }
+
+  .lo.material-allocation { --tap-min:28px; }
+  .material-allocation .lo-top { display:grid;grid-template-columns:auto minmax(0,1fr) auto;min-height:34px;height:34px;padding:3px 8px;gap:5px;flex-wrap:nowrap; }
+  .material-allocation .lo-top__left { gap:0; }
+  .material-allocation .lo-top__left .btn { width:27px;min-width:27px;padding:0; }
+  .material-allocation .lo-top__left .btn__label { display:none; }
+  .material-allocation .lo-top__center { min-width:0;gap:0; }
+  .material-allocation .lo-top__right { width:auto;max-width:none;flex-wrap:nowrap;gap:3px; }
+  .material-allocation .lo-top .btn { min-height:25px;height:25px;padding:2px 5px;font-size:10px; }
+  .material-allocation .lo-top .btn__label { font-size:10px; }
+  .material-allocation .lo-top .icon,.material-allocation .lo-tab .lo-top__icon { width:12px;height:12px; }
+  .material-allocation .lo-tabs { gap:2px; }
+  .material-allocation .lo-tab { min-height:26px;padding:2px 4px;font-size:11px;letter-spacing:0;gap:3px; }
+  .material-allocation .lo-note { min-height:14px;padding:2px 8px;font-size:8px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+  .material-allocation .lo-body { flex:1;min-height:0;padding:4px 8px 6px;gap:6px; }
+  .material-allocation .lo-roster { display:flex;flex-direction:column;min-height:0; }
+  .material-allocation .lo-filters { gap:3px; }
+  .material-allocation .lo-frow { flex-wrap:nowrap;gap:5px;min-height:23px; }
+  .material-allocation .lo-chips { gap:3px;flex-wrap:nowrap; }
+  .material-allocation .lo-chip { min-width:25px;min-height:22px;height:22px;padding:2px 5px;gap:3px; }
+  .material-allocation .lo-chip .num { font-size:11px; }
+  .material-allocation .lo-chip__lbl { display:inline;font-size:9px; }
+  .material-allocation .lo-chip__icon { width:12px;height:12px; }
+  .material-allocation .lo-search { flex:1;min-width:100px;max-width:250px; }
+  .material-allocation .lo-search .field__box { height:23px;min-height:23px;padding:0 6px; }
+  .material-allocation .lo-search .field__input { font-size:10px; }
+  .material-allocation .lo-search .field__icon { width:12px;height:12px; }
+  .material-allocation .lo-select { min-height:22px;height:22px;padding-left:4px;gap:3px; }
+  .material-allocation .lo-select__k,.material-allocation .lo-toggle { font-size:9px; }
+  .material-allocation .lo-select select { min-width:78px;padding:0 18px 0 3px;font-size:10px; }
+  .material-allocation .lo-toggle { min-height:22px;gap:3px;white-space:nowrap; }
+  .material-allocation .lo-toggle__box { width:12px;height:12px; }
+  .material-allocation .material-quick { min-height:26px;gap:4px;font-size:9px; }
+  .material-allocation .material-quick>span { display:inline;margin-right:3px; }
+  .material-allocation .material-quick button { min-height:21px;min-width:42px;padding:2px 8px;font-size:10px; }
+  .material-allocation .lo-list { min-height:0;overflow-x:auto;overflow-y:hidden;padding-bottom:3px;--q:17px;--qg:3px; }
+  .material-allocation .lo-list__rows { height:100%;min-height:0;box-sizing:border-box;padding:2px 1px;gap:10px;align-items:stretch; }
+  .material-allocation .material-tier { height:100%;gap:5px; }
+  .material-allocation .material-tier__rail { width:24px;padding:6px 3px;gap:10px;border-top-width:2px; }
+  .material-allocation .material-tier__rail>b { font-size:22px; }
+  .material-allocation .material-tier__rail>small { font-size:5px;letter-spacing:.05em; }
+  .material-allocation .material-tier__cards { height:100%;grid-template-rows:repeat(2,minmax(0,1fr));grid-auto-columns:clamp(82px,11vw,112px);gap:5px;align-content:stretch; }
+  .material-allocation .lo-card { min-height:0;padding:4px;gap:2px;overflow:hidden; }
+  .material-allocation .lo-card__pick { flex:1;min-height:0;gap:2px; }
+  .material-allocation .lo-card__art { height:auto;min-height:0;max-height:none;flex:1; }
+  .material-allocation .lo-card__art>img { object-fit:contain;object-position:center; }
+  .material-allocation .lo-card__levels { font-size:7px;line-height:1.1; }
+  .material-allocation .lo-card__id { min-height:0;gap:1px; }
+  .material-allocation .lo-card__name { font-size:9px;line-height:1.2;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;max-width:100%; }
+  .material-allocation .lo-card__bond,.material-allocation .lo-card__bonds .lo-bond__dot { width:10px;height:10px; }
+  .material-allocation .lo-card__bonds { min-height:10px;gap:2px; }
+  .material-allocation .lo-card__tier { transform:scale(.65);transform-origin:top left; }
+  .material-allocation [data-quick="browse"] .lo-quick { bottom:30px; }
+  .material-allocation [data-quick="browse"] .lo-card__skills { left:5px; }
+  .material-allocation [data-quick="browse"] .lo-card__mods { right:5px; }
+  .material-allocation .lo-body.is-detail { grid-template-columns:minmax(0,1fr) minmax(230px,36%);gap:6px; }
+  .material-allocation .lo-body.is-detail .lo-roster { display:flex; }
+  .material-allocation .lo-body.is-detail .lo-detail-wrap { grid-column:2;position:relative;inset:auto;width:auto; }
+  .material-allocation .lo-detail-back { min-height:26px!important;padding:4px 8px!important;font-size:11px; }
+  .material-allocation .lo-dhead { padding:8px;grid-template-columns:70px minmax(0,1fr);gap:8px; }
+  .material-allocation .lo-dhead__art { width:70px; }
+  .material-allocation .lo-dhead__name { font-size:17px; }
+  .material-allocation .lo-skins { grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:5px; }
+  .material-allocation .lo-skin { padding:3px;gap:3px; }
+  .material-allocation .lo-skin__name { font-size:10px; }
+  .material-allocation .lo-skin__group { font-size:8px; }
+  .material-allocation .material-items { padding:5px 8px;gap:5px; }
+  .material-allocation .material-items__scroll { padding:2px;gap:10px; }
+  .material-allocation .material-items__grid { height:100%;grid-template-rows:repeat(2,minmax(0,1fr));grid-auto-columns:220px;gap:5px; }
+  .material-allocation .material-item { grid-template-columns:38px minmax(0,1fr);gap:6px;padding:6px 6px 18px; }
+  .material-allocation .material-item>img { width:38px;height:38px; }
+  .material-allocation .material-item h3 { font-size:11px;margin-bottom:3px; }
+  .material-allocation .material-item__desc { font-size:10px;line-height:1.4; }
+  .material-allocation .own { padding:5px 8px;gap:5px; }
+  .material-allocation .own__lead { font-size:9px;line-height:1.3; }
+  .material-allocation .own__list { padding:2px 1px 5px;gap:10px; }
+  .material-allocation .own-grid { grid-template-rows:repeat(2,minmax(0,1fr));grid-auto-columns:220px;gap:5px; }
+  .material-allocation .own-grid>.own-card { --own-ava:40px;padding:5px;gap:3px;grid-template-rows:minmax(0,1fr) 23px; }
+  .material-allocation .own-card .own-card__name { font-size:10px; }
+  .material-allocation .own-card .own-card__txt small { font-size:8px; }
+  .material-allocation .own-card>.own-card__state { min-height:21px;font-size:10px; }
+}
+@media (orientation:landscape) and (max-height:340px) and (any-pointer:coarse) {
+  .lobby-home .home-caption { display:none; }
+  .lobby-home .home-simulation { height:44px; }
+  .lobby-home .home-resources>button { height:26px!important; }
+  .lobby-home .home-rooms { height:34px; }
+  .lobby-home .home-connect .tips__head { display:none; }
+  .lobby-home .home-connect .tips__text { white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+}

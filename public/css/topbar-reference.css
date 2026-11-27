@@ -1,0 +1,612 @@
+/* Original autochess RectTransforms: 1280 × 720 reference canvas. */
+.gm{--native-unit:.015rem}
+.gm .gtop{position:absolute!important;inset:0 0 auto!important;height:1.02rem!important;display:block!important;padding:0!important;background:none!important;border:0!important;box-shadow:none!important;pointer-events:none!important}
+.gm .gtop__left{position:absolute!important;left:.24rem!important;top:.18rem!important;display:flex!important;gap:.18rem!important;align-items:flex-start!important;pointer-events:auto!important}
+.gm .gtop__meta{display:flex!important;flex-direction:column!important;gap:.04rem!important;padding-top:.04rem!important}
+/* ★ 2026-11-25 修：right 原是 -.25rem（负值），把整列往右推出视口 —— 实测 1256×774 下
+   .gtop__right 右缘 = 1272.3，出屏 16.3px（-0.25rem × 65.42px = -16.35px，逐像素吻合）。
+   上游 game.css 的 .gtop 本来用 padding:.2rem .3rem 0 .26rem 留出右边距；本文件第 3 行把
+   padding 清成 0 之后，右边距必须由这里的 right 补回来。
+   为什么取 .3rem：关掉本样式表实测（只剩 game.css）时 .gtop__right 右缘 = 1236.4，即
+   视口内留白 19.6px = .3rem；这就是原版留白，用它才能与上游逐像素一致。
+   三个视口实测（修后恒等于 .3rem）：1256×774 → 19.6px；1280×720 → 20px；1920×1080 → 30px。 */
+.gm .gtop__right{position:absolute!important;right:.3rem!important;top:.1rem!important;width:2.0rem!important;display:flex!important;flex-direction:column!important;align-items:flex-end!important;gap:.05rem!important;pointer-events:auto!important}
+.gm .gtop__clock{display:flex!important;align-items:flex-start!important;gap:.1rem!important;flex-wrap:nowrap!important}
+.gm .gtop__clock .countdown{font-size:inherit!important}
+.gm .gtop__clock .pausebtn{width:.33rem!important;height:.33rem!important;min-height:0!important;padding:.03rem!important;font-size:.14rem!important}
+.gm .gtop__exit,.room-screen .topbar__left>.btn--danger{width:.76rem!important;height:.76rem!important;min-height:.76rem!important;flex:none!important;clip-path:none!important;border-radius:0!important;border:0!important;background:url('/assets/ui/native-autochess/btn_exit.png') center/100% 100% no-repeat!important;color:#eee!important;box-shadow:none!important}
+.gm .gtop__exit>.btn__icon,.room-screen .topbar__left>.btn--danger>.btn__icon{display:none!important}
+.native-hud-center{position:absolute;left:50%;top:0;width:800px;height:156px;transform-origin:50% 0;pointer-events:none}
+.native-ui-node{box-sizing:border-box;margin:0;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;letter-spacing:normal;font-family:var(--font-ui,Arial,sans-serif);text-shadow:none;animation:none;pointer-events:none}
+button.native-ui-node{appearance:none;pointer-events:auto;cursor:inherit;translate:none;scale:none;color:inherit}
+button.native-ui-node:hover,button.native-ui-node:active{background:transparent;box-shadow:none;filter:brightness(1.12);translate:none;scale:none}
+button.native-ui-node:disabled{filter:none;opacity:1;cursor:inherit}
+/* Keep native HUD controls interactive after scoped CSS extraction; decorative space stays transparent. */
+.gm .gtop > .native-hud-center{pointer-events:none}
+.gm .gtop button.native-ui-node{pointer-events:auto}
+.native-hud-row{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;gap:4px;white-space:nowrap;line-height:1}
+.native-hud-round{font-size:14px;color:#b7b9b4}
+.native-hud-roundnum{width:35px;height:18px;display:grid;place-items:center;color:#141a17;background:url('/assets/ui/hudPanel/bg_round.png') center/100% 100%;font-size:20px;font-family:var(--font-num,Arial,sans-serif);font-weight:400}
+.native-hud-hp{font-size:20px;color:#cecece;font-family:var(--font-num,Arial,sans-serif)}
+.native-hud-hp img{width:12px;height:19px;object-fit:contain}
+.native-hud-loss{position:absolute;left:100%;margin-left:10px;color:#ee554c;font-size:15px;font-weight:400}
+.native-hud-kills{font-family:var(--font-num,Arial,sans-serif);font-size:20px;color:#cecece;font-weight:400}
+.native-hud-kills b{color:#ff7633;font-weight:400}
+.gm .gm__bonds{position:absolute!important;left:50%!important;top:.825rem!important;bottom:auto!important;right:auto!important;transform:translateX(-50%)!important;width:12rem!important;max-width:64vw!important;display:flex!important;flex-direction:column!important;align-items:center!important;overflow:visible!important}
+.gm .gm__bond-list{width:100%!important;max-height:none!important;overflow:visible!important}
+.gm .gm__bond-list[hidden]{display:none!important}
+.gm .bstrip{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:flex-start!important;justify-content:safe center!important;gap:0!important;overflow-x:auto!important;overflow-y:hidden!important;scrollbar-width:none!important;max-height:none!important;padding:0 2px!important}
+.gm .bslot{width:auto!important;flex:0 0 auto!important;position:relative!important}
+.gm .bslot__count{display:none!important}
+.gm .bslot .bond{width:1.0rem!important;display:flex!important;flex-direction:column!important;align-items:center!important;padding:0!important;border:0!important;background:none!important}
+.gm .bslot .bond__disc{width:.87rem!important;height:.87rem!important}
+.gm .bslot .bond__name{font-size:.2rem!important;line-height:1.2!important;margin-top:0!important;color:#ddd!important;text-shadow:0 1px 2px #000!important}
+.gm .bslot .bond__count{font-size:.22rem!important;bottom:.04rem!important;top:auto!important;left:50%!important;transform:translateX(-50%)!important;color:#ddd!important;background:none!important;padding:0!important}
+.gm .gm__bond-toggle{order:2!important;position:relative!important;inset:auto!important;transform:rotate(90deg)!important;width:.45rem!important;height:.22rem!important;margin-top:.05rem!important}
+.native-frozen-bonds{position:relative;width:100%}
+.native-layers-disabled{position:absolute;left:50%;top:0;width:145px;height:59px;transform-origin:50% 0;pointer-events:none}
+.native-phase-modal{position:fixed;inset:0;z-index:50;pointer-events:none}
+.native-phase-canvas{position:absolute;left:50%;top:50%;width:1280px;height:720px;transform-origin:50% 50%;pointer-events:none}
+.native-phase-modal.is-leaving{animation:none}
+@keyframes native-phase-hide{to{opacity:0}}
+@media(prefers-reduced-motion:reduce){.native-phase-modal.is-leaving{animation:none;opacity:0}}
+@font-face{font-family:'SourceHanSansCN-Heavy';font-style:normal;font-weight:900;font-display:swap;src:url('/assets/ui/native-autochess/fonts/SourceHanSansCN-Heavy.ttf')}
+@font-face{font-family:'NotoSansHans-Medium';font-style:normal;font-weight:500;font-display:swap;src:url('/assets/ui/native-autochess/fonts/NotoSansHans-Medium.ttf')}
+@font-face{font-family:'Novecentowide-Medium';font-style:normal;font-weight:500;font-display:swap;src:url('/assets/ui/native-autochess/fonts/Novecentowide-Medium.ttf')}
+.native-ui-node{font-family:'NotoSansHans-Medium',sans-serif;font-weight:500}
+.native-hud-round{font-family:'NotoSansHans-Medium',sans-serif;font-weight:500}
+.native-hud-roundnum,.native-hud-hp,.native-hud-kills{font-family:'Novecentowide-Medium',sans-serif;font-weight:500}
+.native-countdown{position:relative;flex:none}
+.native-countdown-digits{height:68px;display:flex;gap:0;align-items:center}
+.native-countdown-digits>i{display:block;width:32px;height:68px;background:currentColor;mask-size:100% 100%;mask-repeat:no-repeat}
+/* ★ 2026-11-25 修：right:-.23rem 是同一批负值位移的另一处 —— 实测空态 .gtop__clock
+   宽 0、右缘跳到 1287.4（比 .gtop__right 还靠右 15px），把整列宽度撑到 130.8px。
+   改为 0：不删除倒计时 / PauseButton 的任何逻辑（子节点与 JS 全不动），只取消这段挪位。 */
+.gm .gtop__clock{position:relative!important;right:0!important}
+.gm .gtop__clock .pausebtn{position:absolute!important;right:.02rem!important;top:1.45rem!important}
+.gm .gtop__clock [data-testid='battle-speed']{right:.42rem!important}
+.gm .gtop__clock .pausebtn{top:1.55rem!important;right:1.4rem!important}
+.gm .gtop__clock [data-testid='battle-speed']{right:1.8rem!important}
+/* ★ 2026-11-25 修：.53rem 的 margin-right 原本是给上面那个-.25rem负值打补丁用的（把
+   「准备就绪」往回拉，才勉强留在屏内）；right 归正后它就是多余的偏移，会让准备就绪
+   比上方工具按钮右移 34.7px，破坏整列右对齐。归零，与工具按钮共用同一条右缘。 */
+.gm .gtop__right .readywrap{margin-right:0!important}
+.gm .gtop__right .readybtn{margin-right:0!important}
+.native-bond-disc{position:relative;appearance:none;display:block;border:0;margin:0;padding:0;background:none;border-radius:0;box-shadow:none;flex:none;cursor:inherit}
+/* Keep the transparent disc hitbox flat instead of inheriting generic button lift/shadows. */
+button.native-bond-disc:hover,button.native-bond-disc:active{background:none;box-shadow:none;translate:none;scale:none}
+.gm .bstrip.is-frozen{opacity:1!important;filter:none!important}
+.gm .gm__bonds>.bonds-toggle{order:2;position:relative;inset:auto;display:inline-flex;align-items:center;justify-content:center;width:max(.75rem,44px);height:44px;min-width:44px;min-height:44px;margin:0;padding:0;border:0;border-radius:0;background:none;box-shadow:none;color:#78edcd;opacity:.9;transform:none;pointer-events:auto}
+.gm .gm__bonds>.bonds-toggle>.icon{display:block;width:22px;height:22px;fill:currentColor;transform:rotate(-90deg);filter:drop-shadow(0 1px 2px #000)}
+.gm .gm__bonds>.bonds-toggle[aria-expanded='false']>.icon{transform:rotate(90deg)}
+.gm .gm__bonds>.bonds-toggle:focus-visible{outline:2px solid currentColor;outline-offset:-4px;opacity:1}
+
+.gm .bstrip.is-frozen .bslot{opacity:1!important;filter:none!important}
+
+.gm .dpbox{right:0;bottom:18.5%;top:auto;height:auto;max-height:none;min-width:1.3rem;padding:.05rem .12rem .04rem;background:rgba(20,22,24,.65)}
+/* ★ top:auto / height:auto 是**必需**的不是保险：本文件排在 screens/game.css 之后，基础规则若带 top
+   就会与本行的 bottom 组成「top+bottom 双锚」，绝对定位下高度被拉成 two-sided stretched
+   （实测 774px 高：top=387、bottom=143.19、height=243.81，内容仅 ~58px）。显式写 auto 让高度回到内容撑开。 */
+.gm .dpbox__bar{height:.06rem;min-height:4px;margin-top:.03rem}
+.gm .dpbox__fill{position:absolute;left:0;top:0;height:100%;overflow:hidden;transition:width .2s linear}
+.gm .dpbox__fill img{position:absolute;inset:0;width:1.06rem;max-width:none;height:100%}
+
+/* Stage information uses the separate original outer-UI discs and section strips. */
+.screen.brief,.screen.draft{--outer-px:min(.078125vw,.138889vh)}
+.native-outer-background{position:absolute;inset:0;overflow:hidden;background:#101212;pointer-events:none}
+.native-info-title{position:relative;width:100%;flex:none;overflow:hidden}
+.native-info-bond{position:relative;flex:none}
+.screen.brief .brief__bg,.screen.draft .draft__bg{background:none!important}
+.screen.brief .brief__main{display:block!important;overflow-y:auto;overflow-x:hidden;padding:0!important}
+.screen.brief .brief__left{display:grid;grid-template-columns:52% 48%;gap:0;overflow:visible;padding:0}
+.screen.brief .brief__left>.native-info-title{grid-column:1/-1}
+.screen.brief .brief-boss{grid-column:1;grid-row:2;grid-template-columns:calc(160 * var(--outer-px)) 1fr;gap:calc(18 * var(--outer-px));padding:calc(18 * var(--outer-px)) calc(12 * var(--outer-px)) calc(22 * var(--outer-px)) calc(68 * var(--outer-px));border:0;background:none}
+.screen.brief .brief-boss::before,.screen.brief .brief-boss::after,.screen.brief .brief-boss>.micro,.screen.brief .brief-boss__ring{display:none}
+.screen.brief .brief-boss__art{width:calc(160 * var(--outer-px));height:calc(160 * var(--outer-px));margin:0}
+.screen.brief .brief-boss__art::after{display:none}
+.screen.brief .brief-boss__badge{position:absolute;inset:auto 0 -24px;height:24px;border-radius:0;background:#9e711c99;display:grid;place-items:center;font-size:12px;color:#ffbc25}
+.screen.brief .brief-boss__sil{width:100%;height:100%;border-radius:0;filter:none;box-shadow:0 0 0 calc(3 * var(--outer-px)) #787b78}
+.screen.brief .brief-boss__text{padding:0;gap:calc(8 * var(--outer-px))}
+.screen.brief .brief-boss__name{font-size:calc(27 * var(--outer-px));letter-spacing:0}
+.screen.brief .brief-boss__when{font-size:calc(14 * var(--outer-px));color:#a6aaa6}
+.screen.brief .brief-boss__abil{font-size:calc(16 * var(--outer-px));line-height:1.4;color:#b8bcb9}
+.screen.brief .brief-boss__desc{margin:0;font-size:calc(17 * var(--outer-px));line-height:1.4;color:#b2b5b2}
+.screen.brief .brief-boss__details{font-size:calc(13 * var(--outer-px));color:#b2b5b2}
+.screen.brief .brief-reroll{margin:0;padding:0;border:0;background:none}
+.screen.brief .brief-reroll__text{display:none}
+.screen.brief .brief-factions{grid-column:2;grid-row:2;display:flex;flex-direction:row;align-items:center;justify-content:space-evenly;padding:0 calc(45 * var(--outer-px)) 0 calc(30 * var(--outer-px));gap:calc(12 * var(--outer-px))}
+.screen.brief .brief-factions>.brief-h{display:none}
+.screen.brief .brief-faction{display:flex;flex-direction:column;gap:calc(12 * var(--outer-px));border:0;background:none;padding:0;max-width:33%;text-align:center}
+.screen.brief .brief-faction__icon{width:calc(85 * var(--outer-px));height:calc(85 * var(--outer-px));background:none}
+.screen.brief .brief-faction__text b{font-size:calc(17 * var(--outer-px));color:#eee;font-weight:500}
+.screen.brief .brief-faction__text>span{display:none}
+.screen.brief .brief-stage,.screen.brief .brief-bosslist{grid-column:1/-1;margin:calc(8 * var(--outer-px)) calc(48 * var(--outer-px))}
+.screen.brief .brief-stage{background:#16191888;border:0;padding:calc(7 * var(--outer-px)) calc(16 * var(--outer-px))}
+.screen.brief .brief-bonds,.screen.brief .brief-banned,.minfo-dlg .brief-bonds,.minfo-dlg .brief-banned{padding:0;border:0;background:none}
+.brief-bonds__row{padding:0 calc(122 * min(.078125vw,.138889vh));gap:calc(3 * min(.078125vw,.138889vh));align-items:flex-start}
+.brief-bond{min-width:0!important;width:max-content!important}
+.brief-bond__ban{z-index:1}
+.screen.brief .brief-legend,.screen.brief .brief-banned__grid,.screen.brief .brief-banned__diy{margin:calc(8 * var(--outer-px)) calc(50 * var(--outer-px))}
+.screen.brief .brief__foot{background:linear-gradient(transparent,#101313 35%);padding:calc(12 * var(--outer-px)) calc(28 * var(--outer-px));gap:calc(20 * var(--outer-px))}
+.screen.brief .brief-ready{margin-left:auto}
+.stephead{position:relative!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;height:calc(100 * min(.078125vw,.138889vh))!important;min-height:calc(100 * min(.078125vw,.138889vh))!important;padding:0 calc(26 * min(.078125vw,.138889vh))!important;background:none!important;border:0!important;gap:0!important;box-shadow:none!important;z-index:2}
+.stephead::after{display:none}
+.stephead__left{gap:calc(25 * min(.078125vw,.138889vh))!important}
+.stephead__left>.btn:not(.stephead__info){width:calc(52 * min(.078125vw,.138889vh))!important;height:calc(52 * min(.078125vw,.138889vh))!important;min-height:0!important;padding:0!important;clip-path:none!important;border-radius:calc(5 * min(.078125vw,.138889vh))!important;border:0!important;background:#bfc3c1!important;color:#fff!important;box-shadow:0 0 8px #fff6!important}
+.stephead__left>.btn:not(.stephead__info) .icon{width:65%;height:65%}
+.stephead__meta{display:contents}
+.stephead .ping{position:absolute;left:calc(27 * min(.078125vw,.138889vh));top:calc(78 * min(.078125vw,.138889vh));padding:0;border:0;background:none;font-size:calc(14 * min(.078125vw,.138889vh));z-index:1}
+.stephead .ping__icon{display:none}
+.stephead .dtag{padding:0;border:0;background:none;gap:calc(6 * min(.078125vw,.138889vh));font-size:calc(21 * min(.078125vw,.138889vh));font-weight:500}
+.stephead .dtag__icon{width:calc(28 * min(.078125vw,.138889vh));height:calc(35 * min(.078125vw,.138889vh))}
+.stephead__center{display:block!important;padding-left:calc(24 * min(.078125vw,.138889vh));margin-left:calc(26 * min(.078125vw,.138889vh));border-left:1px solid #727572}
+.stephead__center>.micro{display:none}
+.stephead__title{font-size:calc(23 * min(.078125vw,.138889vh));letter-spacing:0;font-family:'SourceHanSansCN-Heavy',sans-serif;gap:calc(4 * min(.078125vw,.138889vh))}
+.stephead__title b{font-size:calc(39 * min(.078125vw,.138889vh));font-family:'Novecentowide-Medium',sans-serif;font-weight:500;text-shadow:none}
+.stephead__of{font-size:calc(29 * min(.078125vw,.138889vh));margin-right:calc(9 * min(.078125vw,.138889vh))}
+.stephead__right{margin-left:auto;gap:calc(12 * min(.078125vw,.138889vh))}
+.stephead__right .native-countdown{margin-right:calc(-25 * min(.078125vw,.138889vh))}
+.stephead__guide{font-size:calc(13 * min(.078125vw,.138889vh))}
+.stephead__info{min-height:0;padding:calc(5 * min(.078125vw,.138889vh)) calc(9 * min(.078125vw,.138889vh));font-size:calc(16 * min(.078125vw,.138889vh));border:0;border-radius:20px;background:#363b3888;gap:calc(6 * min(.078125vw,.138889vh));white-space:nowrap}
+.stephead__info .icon{width:calc(22 * min(.078125vw,.138889vh));height:calc(22 * min(.078125vw,.138889vh))}
+.brief-banned__heading{position:relative}
+.brief-banned__heading>.brief-banned__n{position:absolute;right:6%;top:30%;font-size:28px}
+.native-strategy-tile{display:block;position:relative;flex:none}
+.screen.draft .draft__main{grid-template-columns:minmax(0,45%) minmax(0,55%);gap:0;padding:calc(14 * var(--outer-px)) calc(35 * var(--outer-px)) calc(26 * var(--outer-px))}
+.screen.draft .draft-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:calc(12 * var(--outer-px));align-content:start;justify-items:center;overflow-y:auto;padding:calc(8 * var(--outer-px))}
+.screen.draft .dband{position:relative;display:block;min-width:0;width:max-content;max-width:100%;padding:0;border:0;background:none;box-shadow:none}
+.screen.draft .dband:hover,.screen.draft .dband.is-sel{background:none;box-shadow:none;outline:1px solid #6bffe0}
+.screen.draft .dband>.dband__name,.screen.draft .dband>.dband__lp{position:absolute;left:0;bottom:0;width:100%;height:1px;overflow:hidden;clip-path:inset(50%)}
+.screen.draft .dband>.dband__taken{display:none}
+.screen.draft .draft-order{padding:0 calc(48 * var(--outer-px));border:0;background:none}
+.screen.draft .draft-order__head{display:none}
+.screen.draft .dorder{position:relative;min-height:calc(100 * var(--outer-px));padding:calc(8 * var(--outer-px));border:0;background:#171a19aa;gap:calc(10 * var(--outer-px))}
+.screen.draft .dorder>.namecard-preview{position:absolute;inset:calc(7 * var(--outer-px)) calc(100 * var(--outer-px)) calc(7 * var(--outer-px)) calc(10 * var(--outer-px));width:auto;min-height:0;opacity:.8;pointer-events:none;overflow:hidden}
+.screen.draft .dorder>.namecard-preview>strong,.screen.draft .dorder>.namecard-preview>small{display:none}
+.screen.draft .dorder>.namecard-preview .namecard-preview__art{inset:0;width:100%;height:100%}
+.screen.draft .dorder>.namecard-preview .namecard-preview__art img{width:100%;height:100%;object-fit:cover}
+.screen.draft .dorder__idx{display:none}
+.screen.draft .dorder>.pavatar,.screen.draft .dorder__text,.screen.draft .dorder__box{position:relative;z-index:1}
+.screen.draft .dorder__box{width:calc(85 * var(--outer-px));height:calc(85 * var(--outer-px));background:#10131399}
+.screen.draft .dorder.is-self{outline:calc(2 * var(--outer-px)) solid #36c8a4;outline-offset:-2px}
+.screen.draft .dorder__text{flex:1;min-width:0;background:linear-gradient(90deg,#151717c0,transparent)}
+.screen.draft .dorder__name{font-size:calc(19 * var(--outer-px));color:#eee;font-weight:500}
+.screen.draft .dorder__state{font-size:calc(15 * var(--outer-px))}
+.native-strategy-dialog .draft-detail{display:grid;grid-template-columns:160px 1fr;gap:10px 22px;padding:20px;border:0;background:none;max-height:72vh;overflow:auto}
+.native-strategy-dialog .draft-detail__art{grid-row:1/4;width:160px;height:160px;margin:0}
+.native-strategy-dialog .draft-detail__hp{margin:0;justify-content:flex-start;gap:14px}
+.native-strategy-dialog .draft-detail__eff,.native-strategy-dialog .draft-detail__actions{grid-column:1/-1}
+.screen.draft.is-detail-open .draft__main{grid-template-columns:minmax(0,40%) minmax(0,36%) minmax(0,24%)}
+.screen.draft.is-detail-open .draft-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.screen.draft .native-strategy-detail[hidden]{display:none}
+.screen.draft .native-strategy-detail{position:relative;display:flex;flex-direction:column;min-width:0;padding:calc(18 * var(--outer-px));background:linear-gradient(90deg,#07554570,#102d2699);border:1px solid #4bba9a88;overflow:auto;animation:native-strategy-detail-in .22s ease-out both}
+.native-strategy-detail__close{position:absolute;right:5px;top:5px;background:none;border:0;color:#b5d7cd;padding:4px;z-index:1}
+.native-strategy-detail__close .icon{width:20px;height:20px}
+.native-strategy-detail .draft-detail__art{width:calc(112 * var(--outer-px));height:calc(112 * var(--outer-px));margin:0 auto}
+.native-strategy-detail .draft-detail__name{font-size:calc(22 * var(--outer-px));font-weight:500}
+.native-strategy-detail .draft-detail__hp{font-size:calc(14 * var(--outer-px))}
+.native-strategy-detail .draft-detail__eff{font-size:calc(14 * var(--outer-px));overflow:auto}
+.native-strategy-detail .draft-detail__btns{display:flex;flex-wrap:wrap;gap:5px}
+.native-strategy-detail .draft-detail__btns .btn{padding:8px;min-width:0;font-size:14px}
+@keyframes native-strategy-detail-in{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+@media(prefers-reduced-motion:reduce){.screen.draft .native-strategy-detail{animation:none}}
+.native-strategy-layout{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.native-strategy-canvas{--outer-px:1px}
+.screen.draft .native-strategy-canvas .draft-order{position:relative;width:100%;height:100%;padding:0;display:flex;flex-direction:column;gap:5px;pointer-events:auto;overflow:visible}
+.screen.draft .native-strategy-canvas .draft-order>.brief-h{display:none}
+.screen.draft .native-strategy-canvas .draft-order__list{flex:none;width:100%;max-height:410px;overflow-y:auto}
+.screen.draft .native-strategy-canvas .dorder{display:flex;height:100px;min-height:100px;margin-bottom:3px}
+.screen.draft .native-strategy-canvas .dorder>.namecard-preview{inset:7px 100px 7px 10px;height:auto;border:0}
+.screen.draft .native-strategy-canvas .draft-order__info{min-height:26px;font-size:12px;padding:3px 8px}
+.screen.draft .native-strategy-canvas .draft-order__tip{font-size:10px;margin:0}
+.screen.draft .native-strategy-canvas .draft-order__skip{min-height:24px;font-size:12px;padding:3px 8px}
+.screen.draft .native-strategy-canvas .draft-grid{position:absolute;inset:0;width:100%;height:100%;padding:9px 5px;display:grid;grid-template-columns:repeat(4,128px);gap:12px;justify-content:space-evenly;align-content:start;pointer-events:auto;overflow-y:auto}
+.screen.draft .native-strategy-canvas .native-strategy-detail{position:absolute;inset:0;height:100%;padding:125px 15px 18px;background:none;border:0;animation:none;pointer-events:auto}
+.native-strategy-detail-slot{position:absolute;inset:0}
+.screen.draft .native-strategy-canvas .draft-detail__btns>.btn--primary{background:#eee;color:#15251e;border:1px solid #cbd7d2}
+.screen.draft .native-strategy-canvas .native-strategy-detail .draft-detail__art{position:relative;inset:auto;flex:none;align-self:center;width:112px;height:112px;margin:0;overflow:hidden}
+.screen.draft .native-strategy-canvas .native-strategy-detail .draft-detail__art>*{width:100%;height:100%;max-width:100%;max-height:100%}
+.screen.draft .native-strategy-canvas .native-strategy-detail .draft-detail__hp{position:static;inset:auto;display:flex;flex:none;justify-content:center;align-items:center;gap:8px;height:28px;margin:4px 0;font-size:14px}
+.screen.draft .native-strategy-canvas .native-strategy-detail .draft-detail__name{position:static;inset:auto;margin:0 0 8px;font-size:22px;line-height:1.25}
+.screen.draft .native-strategy-canvas .native-strategy-detail .draft-detail__eff{position:static;inset:auto;min-height:0;max-height:none;flex:1;padding:0;border:0;background:none;font-size:14px;line-height:1.45}
+.screen.draft .native-strategy-canvas .native-strategy-detail .draft-detail__eff>.micro{display:none}
+.screen.draft .native-strategy-canvas .native-strategy-detail .draft-detail__desc{font-size:14px;line-height:1.45}
+.screen.draft .native-strategy-canvas .dorder__state{display:none}
+.screen.draft .native-strategy-canvas .dorder__box{display:grid;place-items:center;flex:none}
+.dorder__selecting{display:flex;flex-direction:column;align-items:center;gap:4px;color:#ddd;font-size:13px}
+.dorder__selecting>.icon{width:29px;height:37px}
+.native-confirmed-pane{pointer-events:auto}
+.native-confirmed-art>.bandicon{display:block;position:absolute;inset:0;width:100%;height:100%;max-width:none;max-height:none;background:none;border:0;box-shadow:none}
+.native-confirmed-art img{width:100%;height:100%;object-fit:contain}
+.native-confirmed-hp{position:absolute;left:-115px;top:0;width:230px;height:28px;display:flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;font:20px 'NotoSansHans-Medium',sans-serif;color:#eee}
+.native-confirmed-hp b{padding:0 5px;border-radius:2px;background:#17cea6;color:#062f26;font:20px 'Novecentowide-Medium',sans-serif}
+.native-confirmed-description{position:absolute;inset:0;overflow:auto;font:20px/1.1 'NotoSansHans-Medium',sans-serif;color:#eee}
+.native-confirmed-description .draft-detail__desc{margin:0;font:inherit;line-height:1.1}
+.native-confirmed-description .strategy-upgrade.is-compact{margin-top:15px;padding:8px;font-size:14px}
+.native-confirmed-description .strategy-upgrade.is-compact summary{cursor:pointer}
+.room-screen{--room-unit:min(.078125vw,.138889vh)}
+.room-screen .room-body .room-card-gallery[data-seats='4']{grid-template-columns:repeat(4,minmax(0,calc(234 * var(--room-unit))))!important;grid-template-rows:minmax(0,1fr)!important;align-items:center;justify-content:center;padding:calc(14 * var(--room-unit))!important;gap:calc(14 * var(--room-unit))!important}
+.room-screen .room-body .room-card-gallery[data-seats='4']>.seat-card{height:min(100%,calc(486 * var(--room-unit)))!important;max-height:none;aspect-ratio:234/486;width:100%;align-self:center}
+.room-screen .room-body .room-card-gallery .seat-card{background:transparent;border:0;box-shadow:none;overflow:visible}
+.native-room-skin{position:absolute;inset:0;z-index:-1;pointer-events:none}
+.room-screen .room-card-gallery .seat-card__header{position:relative;z-index:1;height:calc(32 * var(--room-unit));background:none;border:0;padding:calc(8 * var(--room-unit)) calc(12 * var(--room-unit));color:#cde3dc}
+.room-screen .room-card-gallery .seat-card__portrait{overflow:hidden;background:#14242055}
+.room-screen .room-card-gallery .seat-card__identity{position:relative;background:#142020d9}
+.room-screen .room-card-gallery .seat-card.is-ready .seat-card__header{color:#072f26}
+.room-screen .room-card-gallery .seat-card.is-ready .seat-card__state{padding:calc(8 * var(--room-unit));left:0;right:0;bottom:0;background:#1ed2a1c9;color:#052b23;justify-content:center}
+.room-screen .room-body .room-side{width:calc(180 * var(--room-unit))!important;min-width:0!important;max-width:340px;flex:none}
+/* ★ 2026-11-23：下面这段是上一轮顶栏移植时误加进来的商店规则，它用 viewport min() 重定义了 --shop-unit，
+   把商店专用样式表的 calc(n * var(--shop-unit)) 全部算错（卡片被放大 1.27 倍、价格与 LEVEL 数字错位）。
+   商店现在完全由 /css/battle-shop-ui/20261030-r1/battle-shop.css 负责，这段保留原文但停用，便于回退核对。 */
+/* .gm .shopbar__row>.lvcard{order:0} */
+/* .gm .shopbar__row>.shopbar__item{order:1;padding-left:0;border-left:0} */
+/* .gm .shopbar__row>.shopbar__cards,.gm .shopbar__row>.shopbar__reward{order:2} */
+/* .gm .shopbar__row>.funds{order:3} */
+/* .gm .shopbar .funds--reference .funds__collapse{left:50%;right:auto;bottom:.35rem!important;width:1.05rem;max-width:none;height:auto!important;min-height:.65rem!important;flex-direction:column!important;gap:.04rem!important;background:none!important;border:0;padding:0!important;font-size:.22rem} */
+/* .gm .shopbar .funds--reference .funds__collapse .funds__close-icon{width:.3rem;height:.3rem} */
+/* .gm .shopbar{--shop-unit:min(.078125vw,.138889vh);right:calc(8 * var(--shop-unit));bottom:calc(5 * var(--shop-unit))} */
+/* .gm .shopbar__row{gap:calc(3 * var(--shop-unit))!important;padding:0;align-items:flex-end} */
+/* .gm .shopbar__cards,.gm .shopbar__item{flex:none;gap:calc(3 * var(--shop-unit))!important} */
+/* .gm .shopbar .scard{width:calc(158 * var(--shop-unit))!important;height:calc(175 * var(--shop-unit))!important;flex:none} */
+/* .gm .shopbar .lvcard{width:calc(111 * var(--shop-unit))!important;height:calc(175 * var(--shop-unit))!important;flex:none} */
+/* .gm .shopbar .funds.funds--reference{width:calc(168 * var(--shop-unit))!important;height:calc(184 * var(--shop-unit))!important;min-height:0!important;flex:none} */
+/* .gm .shopbar .funds--reference .funds__hex{width:calc(140 * var(--shop-unit));height:calc(35 * var(--shop-unit));top:calc(5 * var(--shop-unit))} */
+/* .gm .shopbar .funds--reference .funds__num{font-size:calc(var(--funds-font,28) * var(--shop-unit));padding-right:calc(12 * var(--shop-unit))} */
+/* .gm .shopbar .funds--reference .funds__label{top:calc(49 * var(--shop-unit));font-size:calc(16 * var(--shop-unit))} */
+/* .gm .shopbar .funds--reference .funds__pool{top:auto!important;bottom:calc(6 * var(--shop-unit))!important;left:calc(6 * var(--shop-unit))!important;right:auto;width:calc(100% - 12 * var(--shop-unit))!important;min-width:0;font-size:calc(11 * var(--shop-unit))} */
+/* .gm:has(.shopbar__row) .gm__corner{bottom:calc(188 * min(.078125vw,.138889vh))} */
+/* .gm .shopbar .funds--reference .funds__collapse{bottom:calc(32 * var(--shop-unit))!important;font-size:calc(20 * var(--shop-unit));gap:calc(4 * var(--shop-unit))!important} */
+/* .gm .shopbar .funds--reference .funds__close-icon{width:calc(30 * var(--shop-unit));height:calc(30 * var(--shop-unit))} */
+/* .gm .shopbar .lvcard__num{font-family:'Novecentowide-Medium',sans-serif;font-size:calc(56 * var(--shop-unit));font-weight:500} */
+/* .gm .shopbar .scard__name{font-family:'NotoSansHans-Medium',sans-serif;font-size:calc(16 * var(--shop-unit));font-weight:500} */
+/* .native-shop-price{display:block;position:absolute;clip-path:none!important;background:none!important;border:0!important;box-shadow:none!important;overflow:visible} */
+.native-shop-empty{position:absolute;inset:0;pointer-events:none}
+/* 目标生命值护盾（2026-11-16）：HUD 生命值后面「50+2」—— 紧跟数字，小一号、薄荷绿 */
+.native-hud-shield{margin-left:1px;color:#70f4ce;font-size:16px;font-weight:600;line-height:1;letter-spacing:0;text-shadow:0 0 4px rgba(112,244,206,.5)}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   原生顶栏 · 胶囊组切换过渡（第 35 轮）
+   ──────────────────────────────────────────────────────────────────────────────
+   问题：packet 的 statuses 只用 `active` 开关 group_rest（「休息一下」）与
+        group_battle（敌人计数），Unity 里是瞬时硬切 —— 本地表现就是「没有过渡」。
+   依据：/motion-design —— 同槽位状态切换属 icon transition 级别（150–250ms）；
+        进场用 ease-out（decelerate，快起慢落），离场用 ease-in 且比进场短 30%。
+        位移控制在组高 45 的 1/3 以内（8px），不做大位移，避免盖住相邻的回合/生命区。
+   触发：renderNode 给这两个组挂 nth-capfx--rest / --battle，
+        且 key 带 fxSeq ⇒ 切换时重新挂载，动画从头播放（复用节点的 key 机制，不加 JS 计时器）。
+   ══════════════════════════════════════════════════════════════════════════════ */
+.nth-capfx{will-change:transform,opacity}
+.nth-capfx--rest,
+.nth-capfx--battle{
+  animation:nth-capfx-in 220ms cubic-bezier(0.05,0.7,0.1,1) both;
+}
+/* 纯装饰位移：进场自下而上 8px 淡入，收尾无回弹（UI 状态切换不该有 overshoot） */
+@keyframes nth-capfx-in{
+  from{opacity:0;transform:translateY(8px)}
+  to{opacity:1;transform:translateY(0)}
+}
+/* 「休息一下」→敌人计数之后，敌人数字持续可见；接下来若回到休息，同一套 in 动画反向不适用，
+   所以离场不做动画（旧组是被 active:false 直接移除的），只保证新组有进场 —— 单侧过渡，
+   视觉上等价于「新的内容顶上来」，且没有两套元素同时动（符合 1/3 规则）。 */
+@media (prefers-reduced-motion: reduce){
+  .nth-capfx--rest,.nth-capfx--battle{animation:none}
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   原生顶栏 · 胶囊场景动画层（第 36 轮）
+   ──────────────────────────────────────────────────────────────────────────────
+   线上在阶段切换时会于胶囊上播一段官方场景（精灵 hudPanel/trans_*）：
+     · 休整期 → 作战期：机器人持剑落下、怪物从右侧跳入，相遇处双剑交叉弹出「开始作战」
+     · 回合开始 → 休整期：三个小水壶（trans_cup）落下并晃动
+   本地旧顶栏（.gtop__cap）本来就有这套，但它的选择器挂在旧容器上，原生顶栏吃不到。
+   这里只做「作用域桥接」——**动画本体完全沿用** css/screens/game.css 里已有的 capfx 规则，
+   不复制、不重写关键帧，保证与旧顶栏/线上逐帧一致。
+
+   定位：胶囊 group_mid_screen 是 482×56、居中（anchoredPos y=3.99，设计坐标）；
+        场景层用同尺寸盒子盖上去，内部 .capfx 已有自己的 flex 布局与 inset。
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* 水壶本体的安全边距：game.css 给了 2px，这里不再覆写，避免贴边起跑 */
+.nth-scene .capfx .sprite{ image-rendering:pixelated }
+
+
+/* ── r73①：胶囊场景动画层补全定位（用户反馈「胶囊里的动画全部都没有」） ──────────
+   根因：`.nth-scene` 从来没有定位规则。`git show HEAD:public/css/topbar-reference.css`
+   里 grep nth-scene 的结果是 0 —— 第 36 轮那段「作用域桥接」只写了注释，
+   真正的盒模型一行都没落地。于是 .nth-scene 是个行内 span：无 position、
+   无 inset、无尺寸、无层级。它内部的 .capfx 是 position:absolute; inset:2px，
+   找不到最近的已定位祖先 ⇒ 一路落到 .nth-root（position:absolute，800×156 设计盒），
+   三个水壶被居中排在整条顶栏里 ⇒ 看起来「什么都没有」。
+   r72 那版还给它加了 contain:paint + clip-path:inset(0 round 23px)：
+   在 0×0 的行内盒上做裁剪 ⇒ 把场景裁成零面积，第二层原因，已一并撤掉。
+
+   几何（本轮实测，设计坐标 / .nth-root 800×156 为基准）：
+     group_mid_screen  左 159.00  上 2.00  宽 482  高 56
+     ⇒ left: calc(50% - 241px)（800 的 50% = 400，减 241 = 159，与原生 anchoredPos 同步）
+        top: 2px    width: 482px    height: 56px
+   内部 .capfx 回它自己的 inset:2px —— 与 game.css 的 .gtop__cap > .capfx 同义。
+   裁剪交给 .capfx 自己（它本就 overflow:hidden + border-radius:23px），不动祖先。 */
+.nth-scene{
+  position: absolute;
+  /* ★ 与 [data-nid="group_mid_screen"] 同盒：胶囊的内联样式是
+       left:calc(50% - 241px) top:calc(50% - 31.99px) width:calc(0% + 482px) height:calc(0% + 56px)，
+       但它的父级 group_hud 自带 left:calc(50% - 255px) top:calc(50% - 34px)，
+       两层 50% 的参照不同。实测胶囊相对 .nth-root 恒为 (159, 2)、482×56，
+       而 .nth-root 设计宽 800 ⇒ 159 = 400 - 241，所以下面这组值在任意缩放下都成立。
+       验算（本轮两次实测）：胶囊 (650,3,612,71)/scale1.26944 → 场景 (650,3,612,71)；
+                             胶囊 (369,2,518,60)      → 场景 (369,2,518,60)，均逐像素重合。 */
+  /* ★★ 第 73 轮六修 · 真正的几何根因：
+     上面那段注释把 .nth-scene 对齐到了 group_mid_screen（482x56 设计盒）——
+     但 group_mid_screen 只是个**容器**，可见的胶囊底板是它的子节点
+     group_rest / group_battle（名字就叫 .nth-capfx），尺寸约 156x44 设计，居中缩在里面。
+     实测：group_mid_screen 渲染 612x71，而 group_rest/battle 渲染仅 199x57。
+     ⇒ 场景层比可见胶囊**宽 400%**：虫一旦被 translate(1.1rem) 推出去，
+       仍在 482 宽的场景盒内、却早已在 156 宽的胶囊之外 ⇒ 用户看到「从胶囊外进来」。
+     修法：盒子按**可见胶囊**对齐，而不是按容器。
+       容器 482x56 中心 x = 400；胶囊 156x44 ⇒ 左 = 400 - 78 = 322 ⇒ calc(50% - 78px)；
+       纵向 (56-44)/2 = 6 ⇒ top = 2 + 6 = 8px。
+     验算：156*1.26944 = 198.0（实测 199）、44*1.26944 = 55.9（实测 57）、
+           322*1.26944 + 448.2 = 857.0（实测 856）、0.46 + 8*1.26944 = 10.6（实测 10）。
+     圆角：胶囊实测 23px 渲染 = 18.1 设计 ⇒ 取 18px。 */
+  left: calc(50% - 78px);
+  top: 8px;
+  width: 156px;
+  height: 44px;
+  z-index: 6;
+  display: block;
+  pointer-events: none;
+  /* ★ 场景层自身也必须是裁剪边界（第 73 轮第三次修）：
+     `.capfx` 的 clip-path 只裁它自己的 478×52 盒 —— 比可见胶囊底板（482×56）还小 2px；
+     虫一旦 flex 溢出 .capfx，就落到 .nth-scene 的 482×56 里，而这一层原本 overflow:visible，
+     于是一路画到胶囊右缘之外 —— 用户截图里那只挂在右侧的虫就是这么来的。
+     两层同时裁，任一层关住即可。 */
+  contain: paint;
+  overflow: clip;
+  overflow-clip-margin: 0;
+  clip-path: inset(0 round 18px);
+  -webkit-clip-path: inset(0 round 18px);
+  border-radius: 18px;
+}
+.nth-scene .capfx{
+  position: absolute;
+  inset: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .1rem;
+  border-radius: 21px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* ── r73①b：水壶「往上移动」必须留在胶囊内（r72⑥ 的正确实现） ────────────────
+   用户要求：水壶第二段往上飞时不能露出胶囊。
+   .capfx 已经 overflow:hidden，但它自己也是被 transform 移动的子元素的容器 ——
+   overflow:hidden 管不住 transform：capfx-up 把 .capfx__k 推到 translateY(-140%)，
+   transform 在绘制阶段生效、不参与 overflow 的裁切计算，所以水壶照样飞出去。
+   真正能关住 transform 的是 contain:paint（强制成为绘制与布局硬边界）。
+   这里作用在 .capfx 上 —— 它是有真实面积的那个盒子。 */
+.nth-scene .capfx{
+  contain: paint;
+  overflow: clip;
+  overflow-clip-margin: 0;
+}
+
+/* ── r73⑤：作战/联防场景的虫从胶囊右侧外飞入 —— 双重裁剪保险 ──────────────────
+ * 用户实测：「战斗开始的胶囊动画，原始虫会从右侧胶囊外进入」。
+ *
+ * 根因：@keyframes capfx-hop 的 0% 是 `translate(1.1rem, 0)` —— 虫被推到自身右侧约 35px。
+ * 而 .capfx 只有 overflow:hidden。**overflow 管不住 transform**：transform 在绘制阶段生效，
+ * 不参与 overflow 的裁切计算，所以起点那一帧虫已经画到胶囊外了。
+ *
+ * 两道保险一起上（任一生效即可关住）：
+ *   ① contain:paint —— 让 .capfx 成为绘制与布局的硬边界（已在上面声明）；
+ *   ② clip-path —— 在**合成之后**再强行裁形，这一层连 contain 都覆盖不到的情况也能兜住。
+ *      用 inset(0 round 23px) 与胶囊半圆同形，不留直角缝隙。
+ *
+ * 只挂 --clash / --unite 两个会横向位移的场景；--wait / --rest 的水壶是纵向位移，
+ * 已在 .capfx 的 contain:paint 里兜住，不重复加 clip-path（避免影响像素化渲染）。 */
+.nth-scene .capfx--clash,
+.nth-scene .capfx--unite{
+  clip-path: inset(0 round 23px);
+  -webkit-clip-path: inset(0 round 23px);
+}
+
+/* ── r73⑥：胶囊动画只能在胶囊内出现/消失（用户第 73 轮二次反馈） ────────────────
+ * 用户原话：「顶栏里的动画还是从胶囊外出现了，顶栏的所有动画只能在胶囊里出现和消失」。
+ *
+ * ★ 上一轮我裁错了对象。真实结构有**两套**胶囊动画层：
+ *   ① `.nth-scene > .capfx`（CapScene 场景层，作战开始/联防的虫与刀）—— 已裁好；
+ *   ② `.nth-capfx`（data-nid=group_rest / group_battle，**原生精灵**水壶动画）—— 一直没裁。
+ *      实测：胶囊盒 (856,10,199,57)，而 cup1 (936,**-16**)、cup2 (893,**-23**)、cup3 (978,-16)
+ *      —— 三个水壶全部跑到胶囊顶边之上 23px，父级 overflow:visible / contain:none 完全放行。
+ *      这就是用户截图里「动画从胶囊外出现」的来源。
+ *
+ * 为什么必须用 contain:paint 而不是 overflow:hidden：
+ *   水壶的动作来自 transform（精灵自身位移），**transform 在绘制阶段生效，不参与 overflow 裁切**。
+ *   contain:paint 才建立真正的绘制硬边界。三者一起上，任一生效即可关住。
+ *
+ * 圆角 23px 与胶囊半圆一致，避免裁出直角缺口。 */
+.nth-root .nth-capfx{
+  contain: paint;
+  overflow: clip;
+  overflow-clip-margin: 0;
+  clip-path: inset(0 round 23px);
+  -webkit-clip-path: inset(0 round 23px);
+  border-radius: 23px;
+}
+/* ★★ 场景播放时：**只盖住胶囊的内容，保留它的底板**。
+   一开始我把整个 group_rest / group_battle 都 visibility:hidden 了 —— 连底板一起没了，
+   所以用户看到「动画后面没有背景」。实测 group_rest 的子树是：
+     bg      (157×45, bg_rest 精灵)      ← 底板，必须保留
+     bg_trans / fx_trans (trans_glow)    ← 光晕，保留
+     root_mask → group_normal (绿小人 + 「休息一下」)  ← 内容，要隐藏
+               → group_trans  (三个杯子)              ← 内容，要隐藏
+   group_battle / group_boss 同构（根下挂 root_mask）。
+   所以隐藏目标 = **各组下的 root_mask**，而不是组本身。 */
+.native-hud-center[data-scene]:not([data-scene=""]) .nth-node[data-nid="root_mask"]{
+  visibility:hidden !important;
+}
+
+/* ── r71②：回合数底板去掉九宫格接缝 ────────────────────────────────────────────
+   用户在顶栏「回合 3」上看到竖/横向线条，要求背景还原成纯灰无线条。
+
+   根因不是图片：bg_round 35×18 整张只有 (187,187,187) 一色（仅最外 1px 圆角 178）。
+   nativeTopBar.js 的 imageStyle() 对 border 全 0 的小图走 9 宫格 slice 6 fill + stretch，
+   把 6px 的圆角过渡像素横向/纵向拉满整块 ⇒ 实测 x≈760、x≈789 两处竖缝（亮度
+   169.8 → 135.4）与 y≈45 一条横缝。
+
+   修法：只对回合数这一块把 border-image 停掉、改回普通背景图 100% 100% 拉伸。
+   圆角与纯色只差 1px（178 vs 187），肉眼不可见；接缝消失。
+   ★ 只选 [data-nid="round"]，不动 board / bg_trans / 血条等其它原生底板。 */
+.gm .nth-node[data-nid="round"]{
+  border-image-source:none!important;
+  border-style:none!important;
+  border-width:0!important;
+  background-image:url('/css/battle-shop-ui/20261030-r1/resources/assets/ui/native-autochess/bg_round_5200714332338140777.png')!important;
+  background-size:100% 100%!important;
+  background-repeat:no-repeat!important;
+}
+
+/* ── r72⑥：水壶动画限制在胶囊内 ────────────────────────────────────────────────
+   用户要求：顶栏胶囊里水壶动画第二段「往上移动」时飞出胶囊外，必须只能在胶囊内。
+
+   ★ 为什么原来 overflow:hidden 没挡住：
+     .nth-scene 只是普通绝对定位盒，overflow:hidden 对它自己是生效的 —— 但
+     ① 续行里的 border-radius:23px 只裁圆角，不参与「内容溢出」以外的判断；
+     ② 真正漏出去的是**动画元素自身的 transform 位移**：capfx-up 把每个水壶
+        推到 translateY(-140%)，水壶 .4rem 宽、盒高只有 45 设计 px，
+        -140% 的位移量远超盒高，只要父层没有强制的绘制裁剪就会露到胶囊外。
+     ③ 同时 .nth-scene .capfx{inset:0} 把 game.css 里 .capfx 原本的 2px 安全边距
+        抹掉了，水壶从贴边起跑，更容易在起始帧就压线。
+
+   处理三件事，一层一项：
+     ① contain:paint —— 让这个盒成为**绘制与布局的硬边界**，
+        子元素的 transform / filter / 阴影一律被强制裁在本盒内（overflow:hidden 单用管不住的正是这类）。
+     ② clip-path: inset(0 round 23px) —— 再用显式圆角裁剪把四角和两端半圆一起收干净，
+        与胶囊外形严格同形，不留直角缝隙。
+     ③ 把 .capfx 的安全边距还给胶囊内部 2px，水壶不再贴边起跑。 */
+
+
+/* ── r72⑦：顶栏两个放大镜的点击动效 ───────────────────────────────────────────
+   用户要求：给顶栏左右上角的两个放大镜（btn_check_player / btn_check_enemy）加点击动效。
+
+   ★ 这两个按钮不是 <button>，是原生预制体的 .nth-node 透明命中盒 ——
+     美术来自 border-image（imageStyle 写进内联样式），所以动效只能作用在**盒子**上，
+     不能换图、也不能改内联 border-image。
+
+   三层反馈，全部只动 transform/filter，不触发布局：
+     ① :active  —— 按下瞬间立刻缩到 .93 并压暗，给指尖一个「按到了」的确定感；
+     ② 松手后由自动播放的 pulse 动画接一下回弹（.is-tapped 类由 JS 打，见下）；
+     ③ focus-visible / hover 各自有独立的轻反馈 —— 悬停提亮、键盘聚焦画一圈描边。
+
+   ⚠ 命中盒是满高的（114×70 / 162×70），缩放一律以中心为原点，避免图像往一角跑。 */
+.gm .nth-node[data-nid="btn_check_player"],
+.gm .nth-node[data-nid="btn_check_enemy"]{
+  transform-origin: 50% 50%;
+  transition: transform 90ms ease-out, filter 120ms ease-out;
+  will-change: transform;
+}
+/* ① 按下 */
+.gm .nth-node[data-nid="btn_check_player"]:active,
+.gm .nth-node[data-nid="btn_check_enemy"]:active{
+  transform: scale(.93);
+  filter: brightness(.86) saturate(1.08);
+  transition-duration: 40ms;
+}
+/* ③ 悬停 / 键盘聚焦 */
+@media (hover: hover){
+  .gm .nth-node[data-nid="btn_check_player"]:hover,
+  .gm .nth-node[data-nid="btn_check_enemy"]:hover{
+    filter: brightness(1.12);
+  }
+}
+.gm .nth-node[data-nid="btn_check_player"]:focus-visible,
+.gm .nth-node[data-nid="btn_check_enemy"]:focus-visible{
+  outline: 2px solid rgba(120, 237, 205, .9);
+  outline-offset: -4px;
+}
+
+/* ② 松手回弹：JS 在 pointerup 时给节点打 .is-tapped，动画跑完自己摘掉 */
+@keyframes nth-mag-tap{
+  0%   { transform: scale(.93); }
+  45%  { transform: scale(1.06); }
+  72%  { transform: scale(.985); }
+  100% { transform: scale(1); }
+}
+@keyframes nth-mag-ring{
+  0%   { opacity: .85; transform: scale(.72); }
+  100% { opacity: 0;   transform: scale(1.28); }
+}
+.gm .nth-node[data-nid="btn_check_player"].is-tapped,
+.gm .nth-node[data-nid="btn_check_enemy"].is-tapped{
+  animation: nth-mag-tap 260ms cubic-bezier(.34, 1.56, .64, 1) both;
+}
+/* 点击时从中心扩出一圈冷色光环 —— 用 ::after 画，不吃命中盒、不挡点击 */
+.gm .nth-node[data-nid="btn_check_player"],
+.gm .nth-node[data-nid="btn_check_enemy"]{ position: relative; }
+.gm .nth-node[data-nid="btn_check_player"]::after,
+.gm .nth-node[data-nid="btn_check_enemy"]::after{
+  content: '';
+  position: absolute;
+  inset: 22% 30%;
+  border-radius: 50%;
+  border: 1px solid rgba(140, 232, 210, .9);
+  box-shadow: 0 0 10px rgba(120, 237, 205, .55);
+  opacity: 0;
+  pointer-events: none;
+}
+.gm .nth-node[data-nid="btn_check_player"].is-tapped::after,
+.gm .nth-node[data-nid="btn_check_enemy"].is-tapped::after{
+  animation: nth-mag-ring 300ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce){
+  .gm .nth-node[data-nid="btn_check_player"].is-tapped,
+  .gm .nth-node[data-nid="btn_check_enemy"].is-tapped{ animation: none; }
+  .gm .nth-node[data-nid="btn_check_player"].is-tapped::after,
+  .gm .nth-node[data-nid="btn_check_enemy"].is-tapped::after{ animation: none; }
+  .gm .nth-node[data-nid="btn_check_player"]:active,
+  .gm .nth-node[data-nid="btn_check_enemy"]:active{ transform: none; filter: brightness(.86); }
+}
+
+/* ── r73⑦：虫的进出必须在胶囊内部可见（用户第四次反馈） ─────────────────────
+ * 前三轮我一直在补裁剪容器，但根因不在裁剪：
+ *   @keyframes capfx-hop 的 0% 是 `translate(1.1rem, 0)`，**且整条关键帧没有任何 opacity**
+ *   ⇒ 虫在「胶囊右侧外面」那一刻是**完全不透明**的。裁剪只是最后一道绘制过滤，
+ *      任何一层没兜住它就直接露出来（已连续三轮印证）。
+ *
+ * 对照同类关键帧就能看出这是唯一缺口的：
+ *   capfx-drop  from{ translateY(-130%); opacity:0 }   ← 起始就在外侧，但有 opacity 兜底
+ *   capfx-up    to  { translateY(-140%); opacity:0 }   ← 结束飞出，也有 opacity 兜底
+ *   capfx-hop   0%  { translate(1.1rem) }              ← **唯独它没有** ← 真凶
+ *
+ * 修法：重写这条关键帧，把「在胶囊外」的那一段用 opacity:0 包住，进到内侧才渐显。
+ * 这样“出现与消失都在胶囊内”由动画本身保证，不再依赖任何裁剪是否生效。 */
+@keyframes nth-foe-in {
+  0%    { transform: translate(1.1rem, 0);      opacity: 0; }
+  8%    { transform: translate(1.04rem, -.02rem); opacity: 0; }
+  16%   { transform: translate(.96rem, -.06rem); opacity: .5; }
+  25%   { transform: translate(.82rem, 0);        opacity: 1; }
+  37.5% { transform: translate(.69rem, -.06rem); }
+  50%   { transform: translate(.55rem, 0); }
+  62.5% { transform: translate(.41rem, -.06rem); }
+  75%   { transform: translate(.28rem, 0); }
+  87.5% { transform: translate(.14rem, -.06rem); }
+  100%  { transform: none; opacity: 1; }
+}
+.nth-scene .capfx__foe{
+  animation-name: nth-foe-in;
+  animation-duration: 930ms;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+.nth-scene .capfx--unite .capfx__foe{ animation-duration: 800ms; }
+
+/* 水壶同理：capfx-up 飞出时虽已 opacity:0，但 `capfx-bob` 那段的自然位置仍略高于胶囊顶。
+   这里给「可见窗口」加一道同样的边界，确保任何一帧的可见像素都不越过胶囊盒。 */
+@keyframes nth-cup-out {
+  0%   { transform: none;              opacity: 1; }
+  55%  { transform: translateY(-70%);  opacity: .55; }
+  100% { transform: translateY(-110%); opacity: 0; }
+}
+.nth-capfx .capfx__k{ animation-name: nth-cup-out; }

@@ -1,0 +1,75 @@
+/* public/css/ui/poolDialog.css — 卡池详情弹窗 (ui/poolDialog.js).
+ *
+ * 版式:每个**分队**一块,块内三行 —— 分队名 + 总剩余 / 使用者头像 / 1..6 阶的余量条。
+ * 与「决策顺序」共用 `SQUAD_NAMES` 的叫法,所以这里不再画分队编号,只写名字。
+ *
+ * 本组(`is-mine`)用金色描边突出:owner 先问的是"所处分队",其他分队是附带的对照。
+ */
+
+.poolc__list { display: flex; flex-direction: column; gap: .14rem; }
+
+.poolc {
+  border: 1px solid var(--line);
+  background: rgba(12, 15, 14, .72);
+  padding: .1rem .12rem;
+  display: flex; flex-direction: column; gap: .08rem;
+}
+.poolc.is-mine { border-color: var(--amber); box-shadow: inset 0 0 0 1px rgba(246, 163, 41, .35); }
+
+.poolc__head { display: flex; align-items: baseline; gap: .08rem; }
+.poolc__name { font-size: .19rem; letter-spacing: .04em; color: var(--text-hi); }
+.poolc__self {
+  font-size: max(.11rem, 8px); padding: 0 .05rem; flex: none;
+  background: var(--amber); color: #1d1400; font-weight: 700;
+}
+.poolc__total { margin-left: auto; font-size: .15rem; color: var(--mint-400); }
+
+.poolc__members { display: flex; align-items: center; flex-wrap: wrap; gap: .08rem; }
+.poolc__mlabel { font-size: .12rem; color: var(--text-dim); flex: none; }
+.poolc__member { display: inline-flex; align-items: center; gap: .04rem; }
+.poolc__mname { font-size: .13rem; color: var(--text-lo); }
+
+.poolc__tiers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .04rem .16rem; }
+.poolc__tier { display: grid; grid-template-columns: auto auto auto 1fr; align-items: center; gap: .05rem; }
+.poolc__tlabel { font-size: .13rem; color: var(--text-dim); flex: none; }
+/* 剩余数是这一行的主角,给足对比度 —— 上一轮我在"分队名"上就因为用了 --text-dim 而近乎隐形 */
+.poolc__tleft { font-size: .17rem; color: var(--mint-400); min-width: .34rem; text-align: right; }
+.poolc__tcap { font-size: .12rem; color: var(--text-dim); }
+.poolc__tier.is-out .poolc__tleft { color: var(--orange); }
+
+.poolc__bar { position: relative; height: .06rem; background: rgba(255, 255, 255, .08); overflow: hidden; }
+.poolc__bar > i { position: absolute; inset: 0 auto 0 0; width: var(--pct, 0%); background: var(--mint-500); }
+.poolc__tier.is-out .poolc__bar > i { background: var(--orange); }
+
+/* 「卡池」按钮:与「查看历史消息」并排,做成同一档尺寸(见 draft.css 的 .sidechat__histbtn) */
+/*
+ * 「卡池」按钮 —— 在**调度中心资金区的右下角** (owner:「把查看其他分队卡池功能放在商店资金右下角 不要加到聊天里」)。
+ *
+ * 原来是贴在侧边聊天面板头部的小方钮(`.sidechat__poolbtn`),现在跟着功能一起搬到商店上。
+ * 资金区是个窄列(`.funds`),所以给 `--compact` 一档、**铺满列宽**,让它在「目前资金」下面自成一行,
+ * 不和 `收起` 挤在一起。
+ */
+.poolbtn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .04rem;
+  padding: .03rem .06rem; flex: none; cursor: pointer;
+  border: 1px solid var(--line-2); background: rgba(6, 9, 8, .7); color: var(--text-lo);
+  font-size: max(.11rem, 9px); line-height: 1.2;
+  transition: color var(--t-fast), border-color var(--t-fast);
+}
+.poolbtn:hover { color: var(--mint-400); border-color: var(--mint-700); }
+.poolbtn .icon { width: max(.14rem, 10px); height: max(.14rem, 10px); flex: none; }
+.poolbtn__label { white-space: nowrap; }
+/* 资金区里那一份:铺满列宽,自成一行 */
+.poolbtn--compact { width: 100%; }
+.funds__pool { margin-top: .04rem; }
+
+/*
+ * 窄屏:两列改一列,免得每格挤到读不出来。
+ *
+ * ⚠ 用 `pointer: coarse`(**主**输入是触屏)而不是 `any-pointer: coarse` —— 后者在**有触摸屏的电脑**上
+ * 也为真(owner 那台实测 `pointer:coarse=false` 但 `any-pointer:coarse=true`),会让电脑端也被当成手机。
+ * 这是"适配手机端不要动电脑的"那条规矩。
+ */
+@media (pointer: coarse) {
+  .poolc__tiers { grid-template-columns: minmax(0, 1fr); }
+}

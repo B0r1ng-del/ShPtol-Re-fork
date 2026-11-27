@@ -1,0 +1,188 @@
+/* public/css/codex.css — 档案 (ui/codex.js): 盟约 / 装备 / 敌人 图鉴的样式。
+ *
+ * 交互形态(owner:「滚动太麻烦了」):
+ *   · 顶部一条**翻页条**,一页一个分类 —— 不用一路滚到底。
+ *   · 盟约 / 装备是**折叠**,收起时一行,点开就地展开。
+ *   · 列表区固定高度 + 自己的滚动条,所以翻页条永远在视野里(不会被内容顶走)。
+ */
+
+.cdx { display: flex; flex-direction: column; gap: .08rem; min-height: 0; }
+
+/* ---- 标签行 --------------------------------------------------------------------------------------------------- */
+.cdx__tabs { display: flex; align-items: center; gap: .04rem; border-bottom: 1px solid var(--line-2); padding-bottom: .04rem; }
+.cdx__tab {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0;
+  padding: .06rem .16rem; font: inherit; font-size: max(.18rem, 12px); font-weight: 700;
+  color: var(--text-lo); background: none; border: 0; border-bottom: 2px solid transparent;
+  cursor: pointer; touch-action: manipulation;
+}
+.cdx__tab:hover { color: var(--text-hi); }
+.cdx__tab.is-on { color: var(--mint-400); border-bottom-color: var(--mint-500); }
+.cdx__tab .micro { font-size: max(.11rem, 8px); letter-spacing: .08em; }
+.cdx__total { font-family: var(--font-num); font-size: max(.16rem, 11px); color: var(--text-dim); margin-left: .06rem; }
+.cdx__search { margin-left: auto; min-width: max(2.2rem, 150px); }
+
+.cdx__loading { display: grid; place-items: center; min-height: 3rem; }
+
+/* ---- 翻页条 --------------------------------------------------------------------------------------------------- */
+.cdx-pager { display: flex; align-items: center; gap: .06rem; padding: .04rem .06rem; background: rgba(0, 0, 0, .3); border: 1px solid var(--line); }
+.cdx-pager__arrow {
+  flex: none; display: grid; place-items: center; width: max(.34rem, 24px); height: max(.34rem, 24px);
+  font: inherit; color: var(--mint-400); background: rgba(255, 255, 255, .04);
+  border: 1px solid var(--line-2); cursor: pointer; touch-action: manipulation;
+}
+.cdx-pager__arrow:hover:not(:disabled) { color: var(--text-on-mint); background: var(--mint-500); }
+.cdx-pager__arrow:disabled { color: var(--text-dim); opacity: .4; cursor: default; }
+.cdx-pager__arrow .icon { width: max(.18rem, 12px); height: max(.18rem, 12px); }
+.cdx-pager__mid { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: .08rem; }
+.cdx-pager__page { font-family: var(--font-num); font-size: max(.22rem, 14px); color: var(--text-hi); }
+.cdx-pager__page small { font-size: max(.14rem, 9px); color: var(--text-dim); }
+.cdx-pager__name { font-size: max(.17rem, 11px); font-weight: 700; color: var(--mint-400); }
+.cdx-pager__rounds { margin-left: auto; font-family: var(--font-num); font-size: max(.14rem, 9px); color: var(--amber); }
+/* 页码点:直接跳某一页,不用连点箭头 */
+.cdx-pager__dots { flex: none; display: flex; gap: .02rem; }
+.cdx-dot {
+  width: max(.26rem, 18px); height: max(.26rem, 18px); font: inherit; font-size: max(.13rem, 9px);
+  font-family: var(--font-num); color: var(--text-lo); background: none;
+  border: 1px solid var(--line-2); cursor: pointer; touch-action: manipulation;
+}
+.cdx-dot:hover { color: var(--text-hi); background: rgba(255, 255, 255, .06); }
+.cdx-dot.is-on { color: var(--text-on-mint); background: var(--mint-500); border-color: var(--mint-500); }
+
+/* ---- 类型栏(敌人档下的第二维)------------------------------------------------------------------------------
+ * 固定五格,空格子灰掉且不可点 —— 玩家一眼看出"这一档没有飞行敌人"。
+ * 首领 / 其他首领级两档本来就只有"普通",所以那两档是一格实心 + 四格灰的,这本身就是有用的信息
+ * (首领不填波次的特殊位)。 */
+.cdx-subs { display: flex; align-items: stretch; gap: .02rem; }
+.cdx-sub {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: .06rem;
+  padding: .05rem .04rem; font: inherit; font-size: max(.15rem, 10px);
+  color: var(--text-lo); background: rgba(255, 255, 255, .02);
+  border: 1px solid var(--line-2); border-bottom: 2px solid transparent;
+  cursor: pointer; touch-action: manipulation; white-space: nowrap;
+}
+.cdx-sub:hover:not(:disabled) { color: var(--text-hi); background: rgba(255, 255, 255, .06); }
+.cdx-sub.is-on { color: var(--mint-400); border-bottom-color: var(--mint-500); background: rgba(78, 216, 175, .12); font-weight: 700; }
+.cdx-sub b { font-family: var(--font-num); font-size: max(.13rem, 9px); color: var(--text-dim); }
+.cdx-sub.is-on b { color: var(--mint-400); }
+/* 空档:整格压暗。不用 display:none —— 留着位置,玩家才知道"有这一类,只是这档没有" */
+.cdx-sub.is-empty { opacity: .34; cursor: default; border-style: dashed; }
+
+/* 类型栏占了纵向空间,所以列表区矮一点,保证一屏能看到内容 */
+.cdx__body--sub { height: min(46vh, 5rem); }
+
+/* ---- 列表区(固定高度,翻页条不被顶走)------------------------------------------------------------------------- */
+.cdx__body { min-height: 0; height: min(56vh, 6.2rem); overflow-y: auto; padding-right: .04rem; }
+.cdx__empty { padding: .4rem; text-align: center; }
+.cdx__hits { display: flex; flex-direction: column; gap: .02rem; }
+.cdx__hitn { margin: 0 0 .04rem; font-size: max(.14rem, 9px); }
+.cdx-dim { color: var(--text-dim); }
+
+/* ---- 折叠项(盟约)------------------------------------------------------------------------------------------- */
+.cdx__acc-list { display: flex; flex-direction: column; gap: .02rem; }
+.cdx-acc { background: rgba(0, 0, 0, .28); border: 1px solid var(--line); border-left: 2px solid var(--line-2); }
+.cdx-acc.is-open { border-left-color: var(--mint-500); background: rgba(78, 216, 175, .05); }
+.cdx-acc__head {
+  width: 100%; display: flex; align-items: center; gap: .08rem; padding: .05rem .08rem;
+  font: inherit; font-size: max(.16rem, 11px); color: var(--text-md); text-align: left;
+  background: none; border: 0; cursor: pointer; touch-action: manipulation;
+}
+.cdx-acc__head:hover { background: rgba(255, 255, 255, .04); }
+.cdx-acc__name { color: var(--text-hi); }
+.cdx-acc__thr { margin-left: auto; flex: none; font-family: var(--font-num); font-size: max(.15rem, 10px); color: var(--mint-400); }
+.cdx-acc__body { padding: 0 .1rem .08rem .32rem; }
+.cdx-acc__foot { display: flex; align-items: center; gap: .1rem; margin-top: .05rem; font-size: max(.13rem, 9px); }
+
+/* 折叠箭头:chevronRight 转 90° = 向下(ICONS 里没有 chevronDown,见 ui/codex.js 的 Caret) */
+.cdx-caret { flex: none; width: max(.16rem, 11px); height: max(.16rem, 11px); color: var(--text-dim); transition: transform var(--t-fast); }
+.cdx-caret.is-open { transform: rotate(90deg); color: var(--mint-400); }
+
+/* ---- 折叠栏(装备的两级:级别 → 费用)------------------------------------------------------------------------- */
+.cdx__fold { display: flex; flex-direction: column; gap: .02rem; }
+.cdx-fold { background: rgba(0, 0, 0, .28); border: 1px solid var(--line); }
+.cdx-fold.is-open { border-left: 2px solid var(--mint-500); }
+.cdx-fold__head {
+  width: 100%; display: flex; align-items: center; gap: .08rem; padding: .05rem .08rem;
+  font: inherit; font-size: max(.16rem, 11px); color: var(--text-md); text-align: left;
+  background: none; border: 0; cursor: pointer; touch-action: manipulation;
+}
+.cdx-fold__head:hover { background: rgba(255, 255, 255, .04); }
+.cdx-fold__head b { color: var(--text-hi); }
+.cdx-fold__n { margin-left: auto; font-family: var(--font-num); font-size: max(.14rem, 9px); color: var(--text-dim); }
+.cdx-fold__body { padding: 0 .06rem .06rem; display: flex; flex-direction: column; gap: .02rem; }
+
+/* ---- 图标 ----------------------------------------------------------------------------------------------------- */
+.cdx-ico { flex: none; display: grid; place-items: center; width: max(.4rem, 26px); height: max(.4rem, 26px); }
+.cdx-ico img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.cdx-ico--lg { width: max(.6rem, 40px); height: max(.6rem, 40px); }
+.cdx-ph { display: block; width: 60%; height: 60%; background: var(--line-2); }
+
+/* ---- 标签 / 富文本 ------------------------------------------------------------------------------------------- */
+.cdx-tag {
+  font-style: normal; font-size: max(.11rem, 8px); line-height: 1.6; padding: 0 .05rem;
+  color: var(--text-dim); border: 1px solid var(--line-2); white-space: nowrap;
+}
+.cdx-tag--core { color: var(--gold); border-color: var(--gold); }
+.cdx-tag--sub { color: var(--text-lo); }
+.cdx-tag--boss { color: var(--amber); border-color: var(--amber); }
+.cdx-tag--hidden { color: var(--red-premium); border-color: var(--red-premium); }
+.cdx-tag--fly { color: var(--ice); border-color: var(--ice); }
+.cdx-tag--gold { color: var(--gold); border-color: var(--gold-2); }
+.cdx-tag--ms { color: var(--mint-400); border-color: var(--mint-700); }
+
+.cdx-rich { font-size: max(.14rem, 9px); line-height: 1.6; color: var(--text-md); }
+.cdx-rich p { margin: 0; }
+.cdx-lab { display: inline-block; font-size: max(.12rem, 8px); color: var(--mint-400); letter-spacing: .06em; }
+.cdx-lab--gold { color: var(--gold); }
+.cdx-need { margin: .03rem 0; font-size: max(.14rem, 9px); color: var(--amber); }
+.cdx-need b { margin-right: .04rem; color: var(--text-dim); font-weight: 400; }
+
+/* ---- 装备条目 ------------------------------------------------------------------------------------------------- */
+.cdx-item { display: flex; gap: .08rem; padding: .06rem .08rem; background: rgba(0, 0, 0, .34); border: 1px solid var(--line); }
+.cdx-item__main { flex: 1; min-width: 0; }
+.cdx-item__top { display: flex; align-items: center; gap: .06rem; }
+.cdx-item__top b { font-size: max(.16rem, 11px); color: var(--text-hi); }
+.cdx-item__price { margin-left: auto; font-family: var(--font-num); font-size: max(.16rem, 11px); color: var(--gold); }
+.cdx-item__desc { margin-top: .02rem; }
+/* 「精锐后变为」:整条并列,所以给它一条金左边线,一眼看出是升级后的数值 */
+.cdx-item__gold { margin-top: .04rem; padding-left: .08rem; border-left: 2px solid var(--gold); }
+.cdx-item__foot { display: flex; flex-wrap: wrap; gap: .04rem .12rem; margin-top: .04rem; font-size: max(.13rem, 9px); color: var(--text-dim); }
+.cdx-item__foot b { color: var(--text-md); }
+.cdx-up { color: var(--mint-400); }
+.cdx-give { color: var(--gold); }
+.cdx-req { color: var(--ice); }
+
+/* ---- 敌人条目 ------------------------------------------------------------------------------------------------- */
+.cdx-enemy { display: flex; gap: .08rem; padding: .06rem .08rem; background: rgba(0, 0, 0, .34); border: 1px solid var(--line); }
+.cdx-enemy__main { flex: 1; min-width: 0; }
+.cdx-enemy__top { display: flex; align-items: center; gap: .06rem; flex-wrap: wrap; }
+.cdx-enemy__top b { font-size: max(.16rem, 11px); color: var(--text-hi); }
+.cdx-enemy__desc { margin-top: .02rem; }
+.cdx-enemy__nums { display: flex; flex-wrap: wrap; gap: .03rem .12rem; margin-top: .04rem; padding-top: .03rem; border-top: 1px solid var(--line); }
+.cdx-enemy__nums span { display: inline-flex; align-items: baseline; gap: .04rem; font-size: max(.13rem, 9px); }
+.cdx-enemy__nums i { font-style: normal; color: var(--text-dim); }
+.cdx-enemy__nums b { font-family: var(--font-num); color: var(--text-hi); }
+
+/* ---- 盟约详情弹窗 --------------------------------------------------------------------------------------------- */
+.cdx-detail { display: flex; flex-direction: column; gap: .08rem; }
+.cdx-detail__head { display: flex; align-items: center; gap: .12rem; }
+.cdx-detail__tags { display: flex; flex-wrap: wrap; gap: .04rem; margin-bottom: .04rem; }
+.cdx-detail__thr { display: flex; flex-wrap: wrap; gap: .04rem; }
+.cdx-thr {
+  display: inline-flex; align-items: baseline; gap: .04rem; padding: .02rem .08rem;
+  border: 1px solid var(--mint-700); color: var(--mint-400);
+}
+.cdx-thr b { font-family: var(--font-num); font-size: max(.2rem, 13px); }
+.cdx-thr small { font-size: max(.11rem, 8px); color: var(--text-dim); }
+.cdx-dsec h4 {
+  display: flex; align-items: baseline; gap: .06rem; margin: 0 0 .03rem;
+  font-size: max(.16rem, 11px); color: var(--text-md);
+}
+.cdx-members { display: flex; flex-wrap: wrap; gap: .03rem .12rem; font-size: max(.14rem, 9px); color: var(--text-md); }
+
+/* 档案入口:和「预设」并列在干员调配的标签行里 */
+.lo-tab--codex { gap: .04rem; }
+.lo-tab--codex .lo-top__icon { width: max(.18rem, 12px); height: max(.18rem, 12px); }
+
+/* 弹窗放宽:档案的内容是卡片与折叠行,窄了会频繁换行 */
+.cdx-modal { max-width: 96vw; }

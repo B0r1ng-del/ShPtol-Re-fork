@@ -1,0 +1,23 @@
+/* One decoded original-pixel sheet. Cursor hiding is armed only with a visible replacement. */
+html.sp-pointer-rendered, html.sp-pointer-rendered *, html.sp-pointer-rendered::before, html.sp-pointer-rendered::after, html.sp-pointer-rendered *::before, html.sp-pointer-rendered *::after, html.sp-pointer-rendered *::backdrop { cursor: none !important; }
+.sp-pointer-feedback { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; color: inherit; z-index: 2147483646; pointer-events: none; overflow: hidden; contain: strict; }
+.sp-pointer-feedback::backdrop { display: none; }
+.sp-pointer-visual { position: absolute; left: 0; top: 0; width: 120px; height: 120px; pointer-events: none; will-change: transform; contain: layout style; }
+.sp-pointer-visual, .sp-pointer-sprite img { transition: none; }
+.sp-pointer-visual[hidden], .sp-pointer-click[hidden] { display: none; }
+.sp-pointer-sprite { width: 120px; height: 120px; overflow: hidden; contain: strict; }
+.sp-pointer-sprite img { display: block; width: 2040px; height: 120px; max-width: none; pointer-events: none; will-change: transform; }
+.sp-pointer-cue { display: none; position: absolute; left: 27px; top: 24px; width: 12px; height: 12px; box-sizing: border-box; color: #f0e6c4; filter: drop-shadow(0 0 1px #10252a); }
+.sp-pointer-visual[data-mode=blocked] .sp-pointer-cue { display: block; border: 2px solid; border-radius: 50%; }
+.sp-pointer-visual[data-mode=blocked] .sp-pointer-cue::after { content: ''; position: absolute; left: -1px; top: 3px; width: 10px; height: 2px; background: currentColor; transform: rotate(45deg); }
+.sp-pointer-visual[data-mode=text] .sp-pointer-cue { display: block; width: 8px; height: 17px; border-block: 2px solid; }
+.sp-pointer-visual[data-mode=text] .sp-pointer-cue::after { content: ''; position: absolute; left: 3px; top: 0; width: 2px; height: 13px; background: currentColor; }
+.sp-pointer-visual:is([data-mode=grab],[data-mode=grabbing]) .sp-pointer-cue { display: block; border-top: 2px solid; top: 31px; }
+.sp-pointer-visual:is([data-mode=grab],[data-mode=grabbing]) .sp-pointer-cue::before, .sp-pointer-visual:is([data-mode=grab],[data-mode=grabbing]) .sp-pointer-cue::after { content: ''; position: absolute; top: -4px; width: 5px; height: 5px; border-left: 2px solid; border-bottom: 2px solid; transform: rotate(45deg); }
+.sp-pointer-visual:is([data-mode=grab],[data-mode=grabbing]) .sp-pointer-cue::after { right: 0; transform: rotate(225deg); }
+.sp-pointer-visual[data-mode=grabbing] .sp-pointer-cue { width: 8px; left: 29px; }
+.sp-pointer-click { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; }
+.sp-pointer-click i { display: block; position: absolute; width: 23px; height: 23px; transform: translate(-50%,-50%) rotate(45deg); border: 1px solid #f0e6c4; background: radial-gradient(circle,#fff9,transparent 65%); box-shadow: inset 0 0 4px #fff4,0 0 3px #ffedb166; }
+.sp-pointer-click i::before,.sp-pointer-click i::after { content:''; position:absolute; left:50%; top:50%; width:35px; height:1px; background:linear-gradient(90deg,transparent,#fff,transparent); transform:translate(-50%,-50%); }
+.sp-pointer-click i::after { transform:translate(-50%,-50%) rotate(90deg); }
+.sp-pointer-click i.is-secondary { border-color: #a8dfec; }

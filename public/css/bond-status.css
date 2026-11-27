@@ -1,0 +1,244 @@
+/* Owner's 18.436s recording: original 584 x 379 panel below the centred HUD discs. */
+/* ★ 盟约条 top 与徽标净高：两个数必须一起看，否则数字会压在圆盘上。
+   实测基准（1910×914）：顶栏可见文字下沿 y=60.9；圆盘真实边缘 = root_icon 顶部，
+   不是 bg —— bg 是 80×80、从 58×58 的 root_icon 外溢 10.7px，
+   所以「贴着 bg」实际已经压进圆盘 10 多像素（这也是上一版数字压在盘上的原因）。
+   取 top=58 / tier-h=14：数字墨迹距顶栏 4.8px、距圆盘边缘 3.0px，比例与原版一致。
+   只动盟约条这一侧，顶栏一律不碰。 */
+.gm .gm__bonds { top: calc(58 * min(.078125vw, .138888889dvh)) !important; }
+/* 80% of the native disc pitch; .8 / NativeBondDisc's internal .85 scale. Keep small-screen hit areas usable. */
+.gm .bstrip .native-bond-disc {
+  /* 徽标位：--bstrip-tier-h 是阶段数字占的净高，所有圆盘一律预留，阶段升降不会重排整条。 */
+  --bstrip-tier-h: calc(14 * min(.078125vw, .138888889dvh));
+  position: relative; cursor: pointer; zoom: .941176471;
+  min-width: 46.75px; min-height: 46.75px;
+  padding-top: var(--bstrip-tier-h);
+  height: calc(73.1 * min(.078125vw, .138888889dvh) + var(--bstrip-tier-h)) !important;
+}
+/* 原生图面跟着让出徽标高度；横向居中口径与原值一致。 */
+.gm .bstrip .native-bond-disc > div { top: var(--bstrip-tier-h) !important; left: calc((100% - 70.55 * min(.078125vw, .138888889dvh)) / 2) !important; }
+/* ★ 阶段徽标：坐在「圆盘图面上沿」的正上方，不压图、不贴顶。
+   padding-top 撑出 --bstrip-tier-h 的净高，徽标在这个净高里底部对齐 ⇒
+   数字墨迹下沿永远落在图面上沿之上，I/II/III 换宽也不会挤到圆盘。
+   横向 left/right:0 + 居中 ⇒ 与圆盘同心（实测徽标 cx 与图面 cx 同为 870.7）。 */
+.gm .bstrip .native-bond-disc__tier {
+  position: absolute; left: 0; right: 0; top: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  height: var(--bstrip-tier-h); pointer-events: none;
+  font: 700 calc(11 * min(.078125vw, .138888889dvh))/1 'NotoSansHans-Medium', var(--font-cjk);
+  letter-spacing: .06em; color: #fff;
+  text-shadow: 0 0 2px #000, 0 0 2px #000, 0 1px 3px #000e;
+}
+/* 未激活/禁用时不显示阶段（组件已返回 null，这里只兜底空节点）。 */
+.gm .bstrip .native-bond-disc__tier:empty { display: none; }
+/* ★ 滚动容器会裁掉溢出的徽标：.bstrip 是 overflow-y:hidden + 定高，放开纵向裁切保证上行不切字。
+   ★ 第73轮修正：原选择器写成 `.gm .bstrip .bstrip` = 「.bstrip 的后代 .bstrip」，
+     而 .bstrip 内部只有 .bslot → .native-bond-disc，并不存在嵌套的 .bstrip（实测 querySelector 返回 null），
+     所以这条从未命中，.strip 的 overflow-y 一直是 hidden（实测 getComputedStyle = "hidden"）。
+     徽标回到盘顶上方（tier top:0，墨迹上沿 64.97 < .bstrip 顶 66.2）后必须放开，否则上半截被裁掉。
+     改为 `.gm .bstrip` 与 `.gm .bstrip-scroll` 自身，作用域仍在 .gm 内。 */
+/* ★ 第73轮实测补充：只写 overflow-y:visible 无效 —— topbar-reference.css:38 给 .gm .bstrip 设了
+   overflow-x:auto !important，按 CSS 规范，一轴为 auto/hidden 时另一轴的 visible 会被强制计算成 auto
+   （实测：仅 overflow-y:visible ⇒ 计算值仍为 "auto"，徽标上沿 64.97 < strip 顶 66.16 被裁）。
+   故横向改成 clip（保留「不滚动、不换行」的视觉，去掉 auto 才能让纵向 visible 生效）。
+   实测三方案：overflow:visible 两者 / overflow-x:clip+overflow-y:visible 两者均「shown」；
+   overflow-x:hidden+overflow-y:visible 仍是 "auto" 被裁。取 clip，尽量少动横向行为。 */
+.gm .bstrip, .gm .bstrip-scroll { overflow-x: clip !important; overflow-y: visible !important; }
+/* ★ 不加 drop-shadow：实测（_backup/ab-probe3.png）它让 81px 下的细描边更糊，是负优化。
+   描边不分明的主因是 .gm__vignette 顶部 0→18% 的暗场：圆盘正好落在 11.3%~20.2%，
+   上沿被压暗 0.29 → 下沿 0，导致「上灰下亮」。解法见文件末尾的暗角避让。 */
+/* 未激活圆盘不做任何加色，保持原底图的灰阶。 */
+.gm .bstrip .native-bond-disc:focus-visible { outline: 2px solid #70f4ce; outline-offset: -3px; }
+.gm .bstrip .bslot.is-off::after { content: '×'; position: absolute; top: 18%; left: 50%; transform: translateX(-50%); color: #ddd; font: 700 22px/1 sans-serif; pointer-events: none; }
+.gm .bstrip .bslot.is-off .bslot__off { display: block !important; font-size: max(.11rem, 10px); }
+.gm .bstrip.is-other .native-bond-disc { filter: drop-shadow(0 0 2px #bd8b3d88); }
+
+.native-bond-disc__theme-art,.native-bond-disc__theme-art img {display:block;width:100%;height:100%}
+.gm .native-bond-disc__theme-art,.gm .bpop__disc {--terminal-bond-active:var(--bond-skin-active);--terminal-bond-inactive:var(--bond-skin-inactive)}
+html[data-regulation-battle-theme="ac_n_initial"] .gm {
+  --bond-skin-active:url('/assets/regulation-ui-20261110/bond-status/ac_n_initial-active.png');
+  --bond-skin-inactive:url('/assets/regulation-ui-20261110/bond-status/ac_n_initial-inactive.png');
+  --bond-progress-ink:#56eacb;
+}
+html[data-regulation-battle-theme="ac_n_iron"] .gm {
+  --bond-skin-active:url('/assets/regulation-ui-20261110/bond-status/ac_n_iron-active.png');
+  --bond-skin-inactive:url('/assets/regulation-ui-20261110/bond-status/ac_n_iron-inactive.png');
+  --bond-progress-ink:#c3aa76;
+}
+html[data-regulation-battle-theme="ac_s_closur"] .gm {
+  --bond-skin-active:url('/assets/regulation-ui-20261110/bond-status/ac_s_closur-active.png');
+  --bond-skin-inactive:url('/assets/regulation-ui-20261110/bond-status/ac_s_closur-inactive.png');
+  --bond-progress-ink:#6a84ff;
+}
+html[data-regulation-battle-theme] .gm .native-bond-disc__theme-art {
+  position:relative;background:var(--terminal-bond-inactive) center / 100% 100% no-repeat;
+}
+html[data-regulation-battle-theme] .gm .native-bond-disc__theme-art[data-state="active"] {background-image:var(--terminal-bond-active)}
+html[data-regulation-battle-theme] .gm .native-bond-disc__theme-art img {visibility:hidden}
+html[data-regulation-battle-theme] .gm .native-bond-disc__theme-art::after {
+  content:'';position:absolute;inset:20%;border-radius:50%;
+  background:conic-gradient(var(--bond-progress-ink) var(--bond-fill),transparent 0);
+  mask:radial-gradient(closest-side,transparent 89%,#000 91%);
+}
+
+.gm .bpop.bond-status-popup {
+  --bond-unit: min(.078125vw, .138888889dvh);
+  position: fixed; inset: var(--bond-popup-top, 100px) auto auto var(--bond-popup-left, 20vw);
+  width: var(--bond-popup-width, 480px); height: var(--bond-popup-height, 312px);
+  max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px);
+  display: flex; flex-direction: column; gap: 0; overflow: hidden; padding: 0; margin: 0;
+  border: 0; border-radius: 0; background: #191a16f5 url('/assets/ui/native-autochess/detail_bg_684485951810904299.png') center / 100% 100%;
+  box-shadow: 0 2px 5px #0005; z-index: 12; animation: bond-status-in 120ms ease-out;
+  font-family: 'NotoSansHans-Medium', var(--font-cjk); color: #ddd;
+}
+.bond-status-popup::before, .bond-status-popup::after { display: none; }
+.bond-status-popup .bpop__head {
+  position: relative; flex: none; min-height: max(66px, calc(96 * var(--bond-unit)));
+  padding: calc(9 * var(--bond-unit)) calc(4 * var(--bond-unit)) calc(7 * var(--bond-unit));
+  gap: calc(2 * var(--bond-unit)); align-items: center;
+}
+.bond-status-popup .bpop__disc {
+  width: calc(80 * var(--bond-unit)); height: calc(80 * var(--bond-unit));
+  min-width: 36px; min-height: 36px; border: 0; border-radius: 0; box-shadow: none;
+  background: var(--bond-board) center / 100% 100% no-repeat;
+}
+.bond-status-popup .bpop__disc .bglyph { width: 48%; height: 48%; }
+.bond-status-popup .bpop__disc .bglyph img { filter: brightness(0) invert(.65); }
+.bond-status-popup .bpop__disc.is-active .bglyph img { filter: brightness(0) opacity(.9); }
+html[data-regulation-battle-theme] .gm .bond-status-popup .bpop__disc {background-image:var(--terminal-bond-inactive)}
+html[data-regulation-battle-theme] .gm .bond-status-popup .bpop__disc.is-active {background-image:var(--terminal-bond-active)}
+.bond-status-popup .bpop__titles { flex: 1; gap: calc(6 * var(--bond-unit)); }
+.bond-status-popup .bpop__titles > .micro { display: none; }
+.bond-status-popup .bpop__name { font-size: max(15px, calc(20 * var(--bond-unit))); font-weight: 500; line-height: 1.2; letter-spacing: 0; padding-right: 90px; }
+.bond-status-popup .bpop__facts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: max(11px, calc(16 * var(--bond-unit))); line-height: 1.4; }
+.bond-status-popup .bpop__presence { background: url('/assets/ui/native-autochess/bond_inactive_bg_224716960581683814.png') center / 100% 100%; color: #ff7a7a; padding: 0 4px; }
+.bond-status-popup .bpop__presence::before { content: ''; display: inline-block; width: 12px; height: 13px; margin-right: 4px; vertical-align: -2px; background: url('/assets/ui/native-autochess/title_char_icon_-810492859913044874.png') center / contain no-repeat; }
+.bond-status-popup.is-active .bpop__presence { background-image: url('/assets/ui/native-autochess/bond_active_bg_-3305967767924168703.png'); color: #74dfc1; }
+.bond-status-popup .bpop__facts b { font-size: inherit; color: inherit; font-weight: 500; }
+.bond-status-popup .bpop__facts small { font-size: inherit; }
+.bond-status-popup .bpop__state { color: #ff7a7a; }
+.bond-status-popup.is-active .bpop__state { color: #74dfc1; }
+.bond-status-popup .bpop__layers { position: absolute; right: calc(30 * var(--bond-unit)); top: calc(24 * var(--bond-unit)); white-space: nowrap; color: #ddd; }
+.bond-status-popup .bpop__layers b { margin-left: 4px; }
+.bond-status-popup .bpop__owner { font-size: 12px; }
+.bond-status-popup .bpop__close { position: absolute; z-index: 3; right: 0; top: 0; width: 24px; height: 24px; min-width: 0; min-height: 0; opacity: 0; border: 0; background: #191a16; float: none; }
+.bond-status-popup .bpop__close:focus-visible, .bond-status-popup:hover .bpop__close { opacity: 1; }
+.bond-status-popup .bpop__close .icon { width: 15px; height: 15px; }
+.bond-status-popup .bpop__tiers, .bond-status-popup .bpop__sec h4 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.bond-status-popup .bpop__body { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 0 calc(24 * var(--bond-unit)) calc(14 * var(--bond-unit)); scrollbar-width: thin; scrollbar-color: #8c8c8066 transparent; touch-action: pan-y; }
+.bond-status-popup .bpop__sec { gap: 0; margin: 0 0 calc(22 * var(--bond-unit)); }
+.bond-status-popup .bpop__sec--now { padding: 0; border: 0; background: none; }
+.bond-status-popup .bpop__desc { font-size: max(12px, calc(18 * var(--bond-unit))); line-height: 1.4; color: #d2d2ca; }
+.bond-status-popup .bpop__members { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: calc(24 * var(--bond-unit)) calc(30 * var(--bond-unit)); }
+.bond-status-popup .bpop__member { min-width: 0; gap: 4px; padding: 0; border: 0; box-shadow: none; background: transparent; }
+.bond-status-popup .bpop__member:hover { background: transparent; border: 0; }
+.bond-status-popup .bpop__member .uthumb { --ut: calc(80 * var(--bond-unit)); width: 100%; max-width: var(--ut); height: auto; aspect-ratio: 1; }
+.bond-status-popup .bpop__member .uthumb__art { border: 2px solid #777870; clip-path: none; background: #282925; }
+.bond-status-popup .bpop__member .uthumb__art img { filter: brightness(.7) saturate(.55); }
+.bond-status-popup .bpop__member.is-on .uthumb__art { border-color: #48e3b5; box-shadow: 0 0 4px #48e3b5; }
+.bond-status-popup .bpop__member.is-owned .uthumb__art { border-color: #c7cec7; }
+.bond-status-popup .bpop__member.is-on .uthumb__art img, .bond-status-popup .bpop__member.is-owned .uthumb__art img { filter: none; }
+.bond-status-popup .bpop__member .uthumb__tier { top: auto; bottom: -2px; left: -3px; transform: none; }
+.bond-status-popup .bpop__member .tier { --tier-h: max(17px, calc(25 * var(--bond-unit))); }
+.bond-status-popup .bpop__mname { font-size: max(10px, calc(16 * var(--bond-unit))); line-height: 1.25; color: #d7d7cf; width: 100%; }
+.bond-status-popup .bpop__member.is-on .bpop__mname { color: #eee; }
+.bond-status-popup .bpop__harmony { font-size: max(11px, calc(15 * var(--bond-unit))); margin-bottom: 10px; }
+.bond-status-popup .bpop__off { margin: 0 0 12px; font-size: 13px; }
+.bond-status-popup .bpop__supplement { font-size: 11px; color: #a3aaa4; }
+.bond-status-popup .bpop__supplement > summary { cursor: pointer; }
+.bond-status-popup .bpop__supplement .bpop__desc { margin-top: 8px; }
+.bond-status-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@keyframes bond-status-in { from { opacity: 0; translate: 0 -4px; } to { opacity: 1; translate: 0 0; } }
+@media (max-width: 900px) {
+  .bond-status-popup .bpop__head { min-height: 65px; padding: 9px 16px; gap: 8px; }
+  .bond-status-popup .bpop__body { padding: 0 16px 12px; }
+  .bond-status-popup .bpop__members { gap: 12px 16px; }
+  .bond-status-popup .bpop__layers { right: 28px; top: 10px; }
+  .bond-status-popup .bpop__name { padding-right: 80px; }
+  .bond-status-popup .bpop__member .uthumb { max-width: 68px; }
+  .bond-status-popup .bpop__close { width: 44px; height: 44px; top: 0; right: 0; background: transparent; }
+  .bond-status-popup .bpop__close:focus-visible { background: #191a16; }
+}
+@media (prefers-reduced-motion: reduce) { .gm .bpop.bond-status-popup { animation: none; } }
+
+/* r69：徽标定位只由文件头第 24-31 行那条基线负责（top:0 + padding-top 撑出净高、底部对齐）。
+   此前这里有一段末尾覆盖 top: calc(16px*scale - tier-h - 11px)，把数字又向上推了约 11px，
+   直接顶进顶栏（用户图1 箭头所指处）。删除覆盖后，徽标上沿回到 disc 内容区起点 61.78、
+   下沿落在图像上沿 78.5 —— 即「圆盘正中间上方」。字体/字重/颜色/居中口径一律沿用基线，未改值。 */
+
+/* r69：圆盘内阵营符号缩小。icon 节点内联 mask-size:contain 会把符号撑满 36.55px 节点，
+   而预制体 icon=36 / mask=45 / root_icon=58 是有层级的，原版符号在圆形遮罩里留白明显。
+   mask-position:center 与 no-repeat 已是内联值，此处只压尺寸即可保持居中。 */
+.gm .bstrip .native-bond-disc__native-layer [data-native-path$='/root_icon/icon'] i {
+  mask-size: 76% !important;
+}
+/* 未激活位图单独提高微对比度；激活盘保持原始位图，避免两种状态一起过处理。 */
+.gm .bstrip .native-bond-disc[data-bond-active='0'] .native-bond-disc__native-layer img {
+  image-rendering: auto;
+  filter: contrast(1.12) saturate(.94);
+}
+/* 盟约条回到原版式的中间留白：不钻进中心状态条，也不把圆盘推到过远。 */
+/* r69：54 → 60 设计单位，给徽标越过 disc 顶边的那 7px 腾出垂直空间；
+   圆盘整体下移后徽标既不压顶栏文字，也不压盘面。 */
+.gm .gm__bonds { top: calc(60 * min(.078125vw, .138888889dvh)) !important; }
+
+/* r70②：用户口径改为「插进圆盘正中间上方」——上一轮做成「恰好相切坐在盘上沿」方向不对。
+   实测：bond_2_2.png 的 alpha bbox 是 (1,1,76,76)，几乎满幅 —— 所以可见上沿不是图像节点
+   顶边 71.89，而是 71.89 + 81.23*(1/77) ≈ 72.94。徽标高 16.72，若 top:0 则落在 61.78~78.5，
+   压进盘面 5.56px（图3 原版是数字整个坐在盘上方）。
+   故把徽标上移越过 disc 顶边 7px（top:-7px），并同步把盟约条下移 6 设计单位给徽标腾空间 ——
+   方向与用户此前「顶栏与圆盘太近」的反馈一致，不是新开一处改动。
+   r70②：改为下沿压进可见盘面。激活盘可见上沿约在图像节点内 1/77 处，
+   徽标下移后落在盘顶内侧约 8~12px，与圆盘连成一体（用户图2 口径）；z-index 抬到 3 保证压在图面之上。
+   仍有顶栏余量：徽标上沿 = disc top 69.4 + 6 = 75.4，远在顶栏文字下沿 60.9 之下。
+
+   r71③：用户要求「再往下挪 12px」。
+   由 6px → 18px。徽标高 16.72，下移 12 后落在 disc 图像节点内 18~34.7px，
+   即下沿压进可见盘面 12.25 + 12 = 24.25px —— 数字更靠盘心，仍需 z-index:3 压在图面之上。
+   顶栏余量：徽标上沿 = 69.4 + 18 = 87.4，但顶栏可视下沿是 86.31 ⇒ 上沿恰好贴住顶栏下沿 1.1px，
+   不遮挡顶栏文字（文字最低到 60.9）。如需再下移，注意徽标上沿不要越过 86。 */
+/* ── 第73轮（任务A·盟约圆盘）：整盘上移 10px + 徽标回到盘顶正上方 + 圆盘内图标同心 ────────
+   ★ 单位换算（实测，1910×914 与 1256×774 均验证）：
+     .gm 内插入 10px 探针 getBoundingClientRect().width === 10，
+     且 .gm → body 整条祖先链 zoom:1 / transform:none ⇒ 1 CSS px === 1 视觉屏幕像素。
+     圆盘自身虽有 --bond-native-scale（= min(vw/1280,vh/720)*.85），但那只影响圆盘内部图面；
+     圆盘根元素在 CSS 像素坐标系里 ⇒ 「上移 10px」直接写 10px，不乘 scale。
+   ★ 上移口径：由 .gm__bonds 的 top 承担，而不是给 .native-bond-disc 加负 margin ——
+     整条盟约条是一个 flex 行，top 才是「整个圆盘」的定位点；改 margin 只会抬高单盘并把条顶歪。 */
+.gm .gm__bonds { top: calc(60 * min(.078125vw, .138888889dvh) - 10px) !important; }
+
+/* ★ 徽标（罗马数字）居圆盘正上方并保持水平同心；第 r111 轮按用户要求「往下移动 10px」。
+   ★ 下移口径取「改 top」而不是「改 --bstrip-tier-h」，理由（两者都实测过，见下）：
+     --bstrip-tier-h 同时是 .native-bond-disc 的 padding-top 与原生图面 (.native-bond-disc > div)
+     的 top，改它会把图面/图标一起往下推（语义错：用户只要求数字走），
+     并且它参与 .native-bond-disc 的 height 计算（第 16 行），整条盟约条的高度与下方布局都会动。
+     top 是纯视觉位移：圆盘盒高、图面、图标、条高全部不变，只有数字墨迹下移。
+   ★ 字号：**11 设计 px**（第 r111 轮用户明确指定「高度改为 11px」，不是估算值，不要改动）。
+     1256×774 下经 min() 换算后计算值 10.79px（11 × min(1256/1280, 774/720) 的比例项）。
+   ★ 下移后像素级实测（1256×774 / zoom .941176471）：
+     徽标盒顶由 48.88 → 58.28，即视觉位移 9.41px = 10 × zoom .941176471
+     （10px 写在 zoom 元素内部，与上一条 r71「再往下挪 12px」的写法口径一致）。
+     数字墨迹落在圆盘图面（top 61.80）上沿附近，这正是用户要的「往下挪」效果；
+     仍在 .bstrip 可见区内（overflow-y:visible，见第 46 行，实测 computed = "visible"；
+     条 48.88~129.31 完全包住墨迹），且不触及盘心的盟约图标主体（图标盒 73.55~101.81）。
+   ★ 徽标盒高由 --bstrip-tier-h 给出（14 设计 px × zoom），字号只决定盒内文字大小，两者互不影响布局。 */
+.gm .bstrip .native-bond-disc__tier {
+  top: 10px;
+  bottom: auto;
+  z-index: 3;
+}
+
+/* ── 空态盟约条（第72轮）──────────────────────────────────────────────────────
+   用户要求：删掉「BONDS 部署干员以激活盟约」这条虚线提示，同时去掉收起功能，让盟约圆盘一直显示。
+   JS 侧（bondStrip.js）的空态现在渲染一条 data-empty="1" 的 .bstrip，不再带 .bstrip--empty。
+   这里把它彻底做透明 —— 不占视觉、不出虚线框、不出文案，但保留布局高度，
+   这样干员一部署、成员一出现，圆盘就地长出，不会因为容器从 0 高度变成有高度而把上方顶栏顶动。 */
+.gm .bstrip[data-empty="1"]{
+  background:none!important;
+  border:0!important;
+  box-shadow:none!important;
+  min-height:0!important;
+  padding:0!important;
+}
+.gm .bstrip[data-empty="1"]::before,
+.gm .bstrip[data-empty="1"]::after{ content:none!important; display:none!important; }

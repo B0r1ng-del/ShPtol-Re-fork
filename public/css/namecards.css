@@ -1,0 +1,125 @@
+/* ★ 第 17 轮：从 ui-fixes.css 拆出的「名片系统」段（原文件第 53 行起，逐字，未改值）。
+ *
+ * 为什么要拆：ui-fixes.css 前 52 行是**离线演示版的局内动画层**
+ *   （.unite-intro* / .rdialog--battle-end / .round-intro* / .gtop__cap.is-fx-* / .capfx--* / .simulation-*），
+ * 实测命中局内根类的规则 43 条。而 game 版的 game.css 里**本来就有** gtop__cap.is-fx 与 capfx 的旧版实现，
+ * 这份后加载的离线版实现把旧版顶掉了 ⇒ 局内 HUD 开场动画、回合开场、战斗结束弹窗全都变样。
+ * 用户明确要求：局内一切保持旧版，不受离线版影响。
+ *
+ * 而 53 行之后是**名片系统**（.namecard-preview / .namecard-editor / .namecard-roster / .upload-*），
+ * 它不碰任何局内根类，且 .namecard-preview 的基类（--nc 变量、position、渐变底、边框）只有这里有定义；
+ * 删了它，图2/图3 的名片底图就没底了。所以按域名切开，各归各位。
+ */
+/* Personal namecards: an independent saved portrait, reused in rooms and settlement. */
+.profile-namecard{display:flex;align-items:center;justify-content:space-between;gap:20px;border-block:1px solid #3b5950;padding:16px 0}.profile-namecard h3{font-size:20px;margin:0 0 8px}.profile-namecard p{font-size:13px;color:#9db9ad}.profile-namecard>.namecard-preview{width:130px;height:185px;flex:none}
+.namecard-preview{--nc:#31d6b2;position:relative;height:350px;display:flex;flex-direction:column;overflow:hidden;background:linear-gradient(140deg,#23443b,#0b1414);border:2px solid var(--nc);color:#effffa}
+.namecard-preview.theme-amber{--nc:#f0b949}.namecard-preview.theme-red{--nc:#ed6d65}
+.namecard-preview>small{padding:9px;background:var(--nc);color:#133128;font-size:10px;letter-spacing:.04em;z-index:1;flex:none}
+.namecard-preview__art{flex:1;min-height:0;overflow:hidden;display:grid;place-items:center}.namecard-preview__art>img{width:100%;height:100%;object-fit:cover;object-position:50% 28%;transform-origin:50% 35%}.namecard-preview__art>.icon{width:80px;height:80px;opacity:.2}
+.namecard-preview>strong{padding:12px;font-size:17px;border-top:1px solid var(--nc);background:#0c2521d9;z-index:1}
+.namecard-editor__body{display:grid;grid-template-columns:280px minmax(0,1fr);gap:24px;height:min(65vh,650px);min-height:300px}
+.namecard-editor__body>aside{min-height:0;overflow:auto;display:flex;flex-direction:column;gap:12px}.namecard-editor__body>aside .namecard-preview{flex:none;height:350px}.namecard-editor__body label{display:flex;gap:8px;align-items:center;font-size:14px}.namecard-editor__body select{max-width:200px;color:#ddede7;background:#1d302b;padding:6px;min-width:0}
+.namecard-editor__body>section{display:flex;flex-direction:column;gap:12px;min-width:0;min-height:0}.namecard-editor__body input[type=search]{width:100%;background:#20342d;border:1px solid #557366;color:#fff;padding:10px;font-size:15px}
+.namecard-roster{overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));align-content:start;gap:10px;min-height:0}
+.namecard-roster button{padding:5px;color:#ecf5f1;background:#17251f;border:1px solid #425c4f;cursor:pointer;min-width:0}.namecard-roster button.is-on{border-color:#4be3b6}.namecard-roster img{width:100%;height:90px;object-fit:cover}.namecard-roster span{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seat__namecard{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 25%;opacity:.85}
+/* ★ 2026-11-22（第 18 轮）：原来这里紧跟一条
+     `.seat__art:has(.seat__namecard)>.avatar{...}`
+   两个原因去掉它：
+     ① `:has()` 在本项目是被禁用的 —— Firefox ESR 115 / Safari < 15.4 解析不了，
+        `test/client-static.test.js:1384` 会因此报错（本轮实测：`fail 1`，就是这一条）。
+     ② `.seat__namecard` 在整个 `public/js` 里**零渲染点**（grep 只有 CSS 命中），
+        它是第 17 轮从离线演示版 `ui-fixes.css:65` 逐字切过来时带进来的**死规则**，
+        永远不会命中任何真实节点，删掉不改变任何现有画面。
+   若将来真要按「有无名片」调整头像，请照本项目既有做法加一个类名
+   （参考 `crisis-s1.css:85-87` 把 `:has(.cs-seed-order)` 换成显式类的那次改动），
+   不要再用 `:has()`。 */
+.pcard__namecard{width:100%;height:190px;object-fit:cover;object-position:50% 25%;border-bottom:2px solid #2bdab0}
+.tcard.namecard-theme-amber{--namecard-accent:#efb74c}.tcard.namecard-theme-red{--namecard-accent:#ec675e}.tcard.namecard-theme-mint{--namecard-accent:#2ed6b0}.tcard[class*=namecard-theme] .tcard__head{background:var(--namecard-accent)}.tcard__img{transform-origin:50% 35%}
+@media(max-width:750px){.namecard-editor__body{grid-template-columns:190px minmax(0,1fr);gap:12px}.namecard-editor__body>aside .namecard-preview{height:240px}.namecard-editor__body select{max-width:130px}.namecard-roster{grid-template-columns:repeat(auto-fill,minmax(72px,1fr))}.namecard-roster img{height:75px}}
+@media(max-height:500px){.namecard-editor__body{height:56vh;min-height:180px}.namecard-editor__body>aside .namecard-preview{height:190px}.namecard-editor>.modal__head{padding-block:7px}.namecard-editor>.modal__actions{padding-block:8px}}
+
+/* Default appearances use the full original illustration, including in the namecard catalogue. */
+.namecard-roster img{height:132px;object-fit:contain;background:#13231e}
+.namecard-preview__art>img{object-fit:contain}
+.namecard-upload{flex:none;max-height:320px;overflow:auto;margin:0;padding:12px;font-size:14px}
+.namecard-upload p{font-size:14px;line-height:1.5}
+.namecard-upload h4{margin:0;font-size:16px}
+.namecard-upload .pf__upload-review img{width:64px;height:96px;object-fit:contain;flex:none}
+.namecard-upload .pf__upload-review p{overflow-wrap:anywhere}
+.namecard-upload .pf__upload-row{gap:6px}
+.upload-library{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:10px;max-height:360px;overflow:auto;margin-top:10px}
+.upload-entry{min-width:0;padding:10px;border:1px solid var(--line-2);background:var(--panel-2)}
+.upload-entry .pf__upload-review{margin:0 0 8px}.upload-entry .pf__upload-review>div{min-width:0;overflow-wrap:anywhere}
+.upload-entry .pf__upload-row{gap:5px}.upload-entry .btn{margin:0}
+.namecard-editor__body>section .namecard-roster{flex:1}
+/* Upload and namecard actions need their own readable foreground in the pale profile panel. */
+:is(.pf__upload,.profile-namecard,.namecard-editor) .btn{--btn-bg:#263b40;--btn-fg:#f4ffff;--btn-bd:#63828a;min-height:36px;font-size:max(14px,.16rem);line-height:1.35}
+:is(.pf__upload,.profile-namecard,.namecard-editor) .btn .btn__label{color:var(--btn-fg)}
+:is(.pf__upload,.profile-namecard,.namecard-editor) .btn--primary{--btn-bg:#37c9ab;--btn-fg:#092b27;--btn-bd:#278c77}
+:is(.pf__upload,.profile-namecard,.namecard-editor) .btn--ghost{--btn-bg:transparent;--btn-fg:var(--text-md);--btn-bd:transparent}
+:is(.pf__upload,.profile-namecard,.namecard-editor) .btn:disabled{--btn-bg:#34464a;--btn-fg:#c7d4d7;--btn-bd:#60767a}
+.profile-modal .profile-namecard p{font-size:14px;line-height:1.6;color:#36545d}
+.profile-modal .pf__upload p{font-size:14px;line-height:1.6;color:#36545d}
+.profile-modal .pf__upload .btn--ghost{--btn-fg:#294b55}
+@media(max-height:500px){.namecard-upload{max-height:170px}}
+@media(max-width:750px){.namecard-roster img{height:108px}}
+
+/* 最近同盟：改名后移到「加入同盟」标题右侧 */
+.home-connect__head > .recent-chips{margin-left:auto;display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.home-connect__head > .recent-chips .t-lo{font-size:10px;letter-spacing:1.2px;color:#aebfbd;white-space:nowrap}
+.home-connect__head > .recent-chips .code-chip{padding:3px 9px;font-size:11px}
+/* ===== 本轮 UI 调整（用户 11-15 17:1x 需求） ===== */
+
+/* ② SWEEP 报告：补一层「纸框叠层」增加层次感（与干员调配同款 paper-frame） */
+.lobby-screen.lobby-home .home-menu .home-secondary > button.home-report::before{
+  content:""; display:block; position:absolute; inset:0; z-index:-2; pointer-events:none;
+  border-style:solid; border-width:10px 10px 16px;
+  border-image:url('/assets/ui/entry-overhaul-20261102/paper-frame.png') 10 10 16 10 fill / 10px 10px 16px 10px / 0 stretch;
+  background:none; opacity:.96;
+}
+/* 第二层：右下偏移的浅色投影纸，做出「多叠一层」的层次 */
+.lobby-screen.lobby-home .home-menu .home-secondary > button.home-report::after{
+  content:""; display:block; position:absolute; z-index:-3; pointer-events:none;
+  inset:-7px;
+  background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(232,237,236,.75));
+  box-shadow:0 12px 26px -20px #001018cc;
+}
+
+/* ③ 加入同盟标题行：最近同盟靠左贴标题，中间一条浅色分隔线 */
+.lobby-screen.lobby-home .home-connect__head > .recent-chips{
+  margin-left:14px!important; padding-left:14px!important;
+  border-left:1px solid rgba(230,235,224,.28)!important;
+  justify-content:flex-start!important;
+}
+
+
+/* ③ 自选编队作为「子卡」：不要多余底层背景，字号降一级 */
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-diy::after{ display:none!important; }
+.lobby-screen.lobby-home .home-menu .home-operators.home-resources > button.home-diy > strong{
+  font-size:clamp(15px,1.15vw,20px)!important; letter-spacing:.05em!important;
+}
+.lobby-screen.lobby-home .home-menu .home-operators.home-resources > button.home-diy > small{
+  font-size:8px!important; letter-spacing:.18em!important;
+}
+.lobby-screen.lobby-home .home-menu .home-operators.home-resources > button.home-diy > .icon{
+  width:22px!important; height:22px!important;
+}
+
+
+.lobby-screen.lobby-home .home-menu > .home-operators.home-resources{
+  display:contents!important; position:static!important;
+}
+
+
+/* 最近同盟：排到 ALLIANCE ACCESS 之后（图二位置） */
+.lobby-screen.lobby-home .home-connect__head{ display:flex!important; align-items:center!important; gap:0!important; }
+.lobby-screen.lobby-home .home-connect__head > span:first-child{ flex:0 0 auto; }
+.lobby-screen.lobby-home .home-connect__head > small{ flex:0 0 auto; margin-left:10px!important; }
+.lobby-screen.lobby-home .home-connect__head > .recent-chips{
+  margin-left:14px!important; padding-left:14px!important;
+  border-left:1px solid rgba(230,235,224,.28)!important;
+  flex:0 0 auto;
+}
+.lobby-screen.lobby-home .home-connect__head > .recent-chips .t-lo{ margin-right:8px; }
+

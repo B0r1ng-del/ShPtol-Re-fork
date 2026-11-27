@@ -1,0 +1,226 @@
+/* public/css/mobile.css — 手机端(触屏)布局微调。
+ *
+ * ⚠ 两条铁律,改这个文件之前先读:
+ *
+ *   1. **只用触屏媒体查询**:`(pointer: coarse)` / `(any-pointer: coarse)` / `(orientation: portrait) and (max-width: …)`。
+ *      owner 反复强调「适配手机端不要动电脑的」—— 这个文件里**没有一条**规则会在鼠标设备上命中。
+ *   2. **它必须是最后一个样式表**(index.html 里排在 devices.css 之后)。里面的选择器大多和
+ *      各屏自己的规则同权重,靠"后面写的赢"来生效;插到前面就会静默失效。
+ *
+ * 内容按 owner 报的问题逐条编号,方便对照。
+ */
+
+/* ==================================================================================================================
+ * 图2 —— 对局内左下角那一排的字太大
+ * (「手机端左下角的字太大了」)
+ *
+ * 手机上 1rem 被钳到 40px 左右,而 `.ewheel__btn` 的字号是 `.18rem`(≈7px)+ `letter-spacing: .1em`,
+ * 「交流」两个字加上图标就把按钮撑得很长。触屏上把它压回一个和齿轮同高的方形按钮。
+ * ================================================================================================================ */
+@media (pointer: coarse), (any-pointer: coarse) {
+  .gm__corner { gap: max(.06rem, 4px); }
+  .ewheel__btn {
+    padding: 0 max(.12rem, 7px);
+    font-size: max(.13rem, 9px);
+    letter-spacing: .04em;
+    gap: max(.05rem, 3px);
+    height: max(.5rem, 31px);
+  }
+  .ewheel__btn .icon { width: max(.22rem, 13px); height: max(.22rem, 13px); }
+  .ewheel__label { font-size: inherit; }
+  /* 齿轮 / 全屏:跟着那一排一起小一号,免得"一个字很大、按钮很小" */
+  .gm__corner .gm__gear, .gm__fs-keep .gm__gear { width: max(.5rem, 31px); height: max(.5rem, 31px); }
+  .gm__corner .gm__gear .icon, .gm__fs-keep .gm__gear .icon { width: max(.24rem, 15px); height: max(.24rem, 15px); }
+  /* 聊天按钮和 `.gm__gear` 同尺寸,一起跟上 */
+  .gm__chatbtn { width: max(.5rem, 31px); height: max(.5rem, 31px); }
+}
+
+/* ==================================================================================================================
+ * 图9 —— 左侧「分队血量」往上挪
+ * (「分队血量应该网上再移移位置」)
+ * `.team` 的 `top: 2.36rem` 在手机上偏高(1rem≈40px → 94px),往下压一截让它更靠近上沿。
+ * ================================================================================================================ */
+@media (pointer: coarse), (any-pointer: coarse) {
+  .team { top: 1.92rem; gap: max(.1rem, 7px); max-height: calc(100vh - 3.9rem); }
+  /* 分队区块窄,横排会把「分队名 + 4/4 + 防守中」挤成一团 —— 竖排读起来清楚 */
+  .team__group .team__squadmeta { flex-wrap: wrap; row-gap: 0; }
+  .team__squadname { font-size: max(.13rem, 9px); }
+}
+
+/* ==================================================================================================================
+ * 图7 —— 多人房:左侧「特训敌人」太大,第三条超出屏幕
+ * (「左边的特训敌人太大第三条超出屏幕」)
+ * 确认本局信息页左侧那一列在手机上按桌面尺寸渲染:图标 .5rem + 名字 .2rem,三行加起来 + 头部就出屏了。
+ * 这里整体降一档字号与内边距,并把列表允许收缩(不溢出)。
+ * ================================================================================================================ */
+@media (pointer: coarse), (any-pointer: coarse) {
+  /*
+   * ⚠ 左列**必须能滚**(`.brief__left` 在电脑上没有 `overflow`,靠高度足够;手机上不够)。
+   * 这就是「左边的特训敌人太大第三条超出屏幕」的根:`__right` 有 `overflow: auto`、`__left` 没有,
+   * 所以超出的部分不是被卷走而是直接被切在屏幕外,连滚都滚不到。
+   */
+  .brief__left { overflow-y: auto; overscroll-behavior: contain; }
+  .brief__main { grid-template-columns: minmax(0, 1fr); gap: max(.14rem, 9px); padding: max(.14rem, 9px) max(.16rem, 10px) max(.06rem, 4px); }
+  /*
+   * 特训敌人那一条 (`.brief-faction`,结构见 screens/briefing.js:98-103)。
+   * 桌面上图标 .72rem、名字 .2rem,三条加起来在手机上溢出。
+   */
+  .brief-factions { min-width: 0; }
+  .brief-faction { gap: max(.08rem, 5px); padding: max(.06rem, 4px) max(.1rem, 6px); min-width: 0; }
+  .brief-faction__icon { width: max(.42rem, 27px); height: max(.42rem, 27px); }
+  .brief-faction__text { min-width: 0; }
+  .brief-faction__text b { font-size: max(.14rem, 10px); }
+  .brief-faction__text span { font-size: max(.12rem, 9px); }
+}
+
+/* ==================================================================================================================
+ * 图7 —— 多人房:「已就绪 19/20」太长,顶着左边
+ * (「在多人房 已就绪准备人数太长遮挡左边」)
+ * `.brief-ready__txt` 是 .2rem、数字 .4rem、分母 .24rem,20 人房里这一串能顶到左边的特训敌人列上。
+ * 触屏上把整组压小,并允许它在需要时换行。
+ * ================================================================================================================ */
+@media (pointer: coarse), (any-pointer: coarse) {
+  /* ⚠ 底栏要能换行:`已就绪 19/20` + 19 个头像 + 准备就绪按钮在手机上是一条挤不下的长链 */
+  .brief__foot { flex-wrap: wrap; justify-content: center; row-gap: max(.08rem, 5px); }
+  .brief-ready { gap: max(.1rem, 6px); flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
+  .brief-ready__txt { font-size: max(.14rem, 10px); white-space: nowrap; }
+  .brief-ready__txt b { font-size: max(.24rem, 16px); }
+  .brief-ready__txt span { font-size: max(.15rem, 10px); }
+  .brief-ready__pips { gap: max(.03rem, 2px); flex-wrap: wrap; }
+  .brief-ready__pips i { width: max(.18rem, 12px); height: max(.18rem, 12px); }
+}
+
+/* ==================================================================================================================
+ * 图6 —— 20 人房:左上角工具栏把标题顶掉
+ * (「左上角 设置会被顶到标题」)
+ * 房间页顶栏在 20 人时右侧内容很长,而 `.topbar` 是 `1fr auto 1fr` —— 轨道装不下就压中间的标题。
+ * 触屏上:右边那一堆缩一档、允许横向滚动(滚动比换行省地方),标题拿到 `min-width: 0` 自己缩。
+ * ================================================================================================================ */
+@media (pointer: coarse), (any-pointer: coarse) {
+  .topbar { gap: max(.1rem, 6px); padding: 0 max(.2rem, 12px); }
+  .topbar__right { gap: max(.04rem, 3px); overflow-x: auto; scrollbar-width: none; }
+  .topbar__right::-webkit-scrollbar { display: none; }
+  .topbar__right > * { flex: none; }
+  .topbar__center { min-width: 0; }
+  .topbar__title { font-size: max(.2rem, 13px); letter-spacing: .04em; gap: max(.08rem, 5px); }
+  .topbar__center .micro { font-size: max(.11rem, 8px); letter-spacing: .02em; }
+}
+
+/* ==================================================================================================================
+ * 图3 —— 大厅顶栏的 档案 / 预缓存资源 遮挡「选择模拟协议」
+ * (「档案 预缓存资源 遮挡了选择模拟协议」)
+ * 和上面同源:右侧按钮太多把中间的标题挤掉。触屏上缩小并让它自己滚。
+ * (顶栏的根 class 就叫 `.topbar`,没有 `.lobby-top` 这个东西 —— 别照屏幕名猜。)
+ * ================================================================================================================ */
+@media (pointer: coarse), (any-pointer: coarse) {
+  .topbar__right { min-width: 0; }
+  .topbar__right .btn { padding: 0 max(.12rem, 8px); font-size: max(.13rem, 9px); letter-spacing: .02em; }
+  .topbar__right .btn .icon { width: max(.18rem, 12px); height: max(.18rem, 12px); }
+  .me-chip { padding: max(.03rem, 2px) max(.1rem, 6px) max(.03rem, 2px) max(.03rem, 2px); gap: max(.06rem, 4px); }
+  .me-chip__name { font-size: max(.13rem, 9px); }
+  /* 顶栏本身在手机上矮一点,给下面的内容让出高度 */
+  .topbar { height: max(.82rem, 52px); }
+}
+
+/* ==================================================================================================================
+ * 图4 —— 手机端房间页:危机合约按钮占太大地方 / 「危机合约」四个字不齐
+ * (「危机合约占太大地方 而且 居然是 危机合 约字不平齐」)
+ *
+ * `.ctrbtn` 在电脑上是个带文字的横条;手机上那一列本来就窄,它被压成两行,
+ * 「危机合」「约」被拆开 —— 这就是"字不平齐"的原因(不是字体问题,是换行)。
+ * 触屏上:禁止换行 + 压小字号,让它成为一行紧凑的按钮。
+ * ================================================================================================================ */
+@media (pointer: coarse), (any-pointer: coarse) {
+  .ctrbtn {
+    white-space: nowrap;
+    padding: 0 max(.1rem, 6px);
+    font-size: max(.13rem, 9px);
+    letter-spacing: .02em;
+    gap: max(.04rem, 3px);
+    flex: none;
+  }
+  .ctrbtn .icon { width: max(.18rem, 12px); height: max(.18rem, 12px); flex: none; }
+  .ctrbtn__label { white-space: nowrap; }
+  .ctrbtn__pts { font-size: max(.13rem, 9px); }
+}
+
+/* ==================================================================================================================
+ * 图4 —— 手机端房间底栏:跟随电脑的调整并对齐
+ * 难度 / 公开·仅密钥 / 房间人数 三组在触屏上统一字号与间距,和电脑那条 `order` 规则对齐。
+ * ================================================================================================================ */
+@media (pointer: coarse), (any-pointer: coarse) {
+  .room-bar { gap: max(.1rem, 6px); }
+  .room-bar__left { gap: max(.12rem, 8px); }
+  .room-bar__label { font-size: max(.13rem, 9px); }
+  .cpick__label { font-size: max(.12rem, 9px); }
+  .cpick__opt { font-size: max(.13rem, 9px); }
+  /* 非房主看到的是 `.access-chip`(静态徽章),房主看到的是 `.access-switches` 里的按钮 —— 两种都要压小 */
+  .access-chip { font-size: max(.12rem, 9px); }
+  .access-switches .btn { font-size: max(.13rem, 9px); }
+  .room-bar__status { font-size: max(.12rem, 9px); }
+  /* 已就绪那一串在窄屏会顶到左边:允许换行、压小 */
+  .ready-count { flex-wrap: wrap; justify-content: center; row-gap: 0; }
+  .ready-count__icons { flex-wrap: wrap; margin-left: max(.06rem, 4px); }
+}
+
+/* ==================================================================================================================
+ * 图5 —— 手机端危机合约选择画面:无法显示当前合约 + 框太大
+ * (「无法显示当前合约 且框太大」)
+ *
+ * 中间那一栏(`.ctrdetail`)在 ≤1240px 时被 CSS 收掉、只留「返回」(见 contracts.css 末尾的媒体查询)——
+ * 那就是"看不到当前合约"的原因:手机上根本没有详情栏。这里把它**放回来**,并在触屏上把整屏压紧。
+ * ================================================================================================================ */
+@media (pointer: coarse), (any-pointer: coarse) {
+  .ctrscreen { padding: max(.14rem, 9px) max(.16rem, 10px); }
+  .ctrscreen__title { font-size: max(.3rem, 19px); letter-spacing: .04em; }
+  .ctrscreen__sub { font-size: max(.12rem, 9px); }
+  /* 瓦片小一点,一屏能多看几条 */
+  .ctile { min-height: max(.92rem, 58px); }
+  .ctile__name { font-size: max(.12rem, 9px); }
+  /* 分组标题的真名是 `.ctrset__head`(screens/contracts.js:390),不是 `.ctg__head` */
+  .ctrset__head { font-size: max(.13rem, 9px); }
+  .ctrset__name, .ctrset__names { min-width: 0; }
+  .ctrdetail { padding: max(.08rem, 5px) max(.1rem, 6px); }
+  .ctrdetail__head h3 { font-size: max(.18rem, 12px); }
+  .ctrdetail__body p { font-size: max(.13rem, 9px); line-height: 1.6; }
+  .ctrdetail__accepted, .ctrdetail__cascade { font-size: max(.12rem, 9px); }
+  /* 右侧总分那一栏在手机上不再 sticky,免得压住列表 */
+  .ctrscreen__side { position: static; }
+  .ctrscore__num { font-size: max(.5rem, 32px); }
+}
+
+/* ==================================================================================================================
+ * 图10 —— 手机端机变(悬赏)界面显示不完全,超出屏幕
+ * (「机变悬赏界面手机端显示不完全 会超出屏幕」)
+ *
+ * `.spov__inner` 是固定 `top: 1.14rem; bottom: .5rem` 的绝对盒子,里面的卡片网格按桌面尺寸排,
+ * 手机上就溢出了。触屏上把内边距收小、网格改成单列、允许整块纵向滚动。
+ * ================================================================================================================ */
+@media (pointer: coarse), (any-pointer: coarse) {
+  .spov__inner {
+    top: max(.7rem, 46px);
+    bottom: max(.3rem, 20px);
+    left: max(.14rem, 9px);
+    right: max(.14rem, 9px);
+    gap: max(.1rem, 7px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .spov__title { font-size: max(.28rem, 18px); letter-spacing: .04em; }
+  .spov__desc, .spov__sub { font-size: max(.12rem, 9px); }
+  .spov__turntxt { font-size: max(.16rem, 11px); }
+  .spov__turntxt .icon { width: max(.18rem, 12px); height: max(.18rem, 12px); }
+  /* 旧卡片网格使用单列回退；原始画布由自己的横屏三列布局管理。 */
+  .spov:not(:has(.spov__native-canvas)) .spov__grid, .spov__squads { grid-template-columns: minmax(0, 1fr) !important; }
+  .spcard { min-width: 0; }
+  .spcard__title { font-size: max(.18rem, 12px); }
+  .spcard__desc { font-size: max(.13rem, 9px); }
+  .spsquad__name { font-size: max(.13rem, 9px); }
+}
+
+/* ==================================================================================================================
+ * 图8 的布局面 —— 表情面板在手机上放大到 1.3(devices.css 已有),但它顶到屏幕边缘时会被裁掉
+ * ================================================================================================================ */
+@media (pointer: coarse), (any-pointer: coarse) {
+  .ewheel__panel { max-width: calc(100vw - max(.3rem, 18px)); }
+}

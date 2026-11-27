@@ -1,0 +1,1485 @@
+/* ==========================================================================
+   Briefing Screen — Official v024 Visual Restoration (Scoped to .brief--split)
+   Overrides shared/topbar-reference rules without affecting .minfo-dlg, .draft,
+   in-game .gm, or legacy non-split briefing layouts.
+   ========================================================================== */
+
+/* Hide split-only header legend outside .brief--split (e.g. .minfo-dlg in BAND_DRAFT) */
+.minfo-dlg .brief-h__legend,
+.brief:not(.brief--split) .brief-h__legend {
+  display: none;
+}
+
+.screen.brief.brief--split {
+  --p: min(calc(100vw / 1280), calc(100vh / 720));
+  background: #0d100f;
+}
+
+@supports (height: 100dvh) {
+  .screen.brief.brief--split {
+    --p: min(calc(100vw / 1280), calc(100dvh / 720));
+  }
+}
+
+.screen.brief.brief--split .brief__bg {
+  background:
+    radial-gradient(ellipse at 100% 0, #0e746240, transparent 28%),
+    url("/assets/briefing/mc/img_screen_line_repeat.png") 0 0 / calc(var(--p) * 128) repeat !important;
+  opacity: 1 !important;
+}
+
+/* ---------- Top Header Bar (.stephead) ---------- */
+.screen.brief.brief--split .stephead {
+  position: relative !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: calc(20 * var(--p)) !important;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: calc(22 * var(--p)) calc(33 * var(--p)) 0 calc(28 * var(--p)) !important;
+  border-bottom: 0 !important;
+  background: linear-gradient(180deg, rgba(5, 7, 7, 0.92), rgba(5, 7, 7, 0)) !important;
+  backdrop-filter: none !important;
+  z-index: 5 !important;
+}
+
+.screen.brief.brief--split .stephead__left {
+  display: flex !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  align-items: flex-start !important;
+  gap: calc(15 * var(--p)) !important;
+}
+
+.screen.brief.brief--split .stephead__exit {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: calc(6 * var(--p)) !important;
+  flex: none !important;
+  /* 2026-11-25 返回键点击无效（用户实测）：column 排列把 ping 顶到按钮下方，容器高 99 而按钮只有 57，
+     整块区域又和 .stephead__left 的横条重叠。pointerdown 落在别处、pointerup 才落到按钮时，浏览器
+     判定这不是同一次点击，click 冒泡到 header，onExit 永远收不到（实测事件链：
+     pointerdown→.brief-loadout / pointerup→.btn--danger / click→HEADER.stephead）。
+     做法：容器只占按钮本身的高度，并建立独立层叠上下文，让按钮在自己的区域内永远是最上层可点元素。 */
+  position: relative !important;
+  z-index: 3 !important;
+  isolation: isolate !important;
+  height: auto !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+}
+
+/* 按钮本体在最上层，且把内联 svg / path 的命中交给按钮，避免图标吃掉 pointerdown */
+.screen.brief.brief--split .stephead__exit > .btn--danger {
+  position: relative !important;
+  z-index: 1 !important;
+  pointer-events: auto !important;
+  touch-action: manipulation !important;
+}
+
+.screen.brief.brief--split .stephead__exit > .btn--danger > svg,
+.screen.brief.brief--split .stephead__exit > .btn--danger > svg *,
+.screen.brief.brief--split .stephead__exit > .btn--danger > .btn__icon {
+  pointer-events: none !important;
+}
+
+/* ping 是纯信息，整块让出命中，不再和按钮抢同一片区域 */
+.screen.brief.brief--split .stephead__exit > .ping,
+.screen.brief.brief--split .stephead__exit > .ping * {
+  pointer-events: none !important;
+}
+
+.screen.brief.brief--split .stephead__left > .stephead__exit > .btn--danger,
+.screen.brief.brief--split .stephead__exit .btn--danger {
+  width: calc(45 * var(--p)) !important;
+  height: calc(45 * var(--p)) !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: calc(1 * var(--p)) solid rgba(255, 255, 255, 0.28) !important;
+  border-radius: calc(2 * var(--p)) !important;
+  background: #8b8d8e !important;
+  color: #f3f5f5 !important;
+  box-shadow: 0 calc(4 * var(--p)) calc(12 * var(--p)) rgba(0, 0, 0, 0.45) !important;
+  justify-content: center !important;
+}
+
+.screen.brief.brief--split .stephead__exit .btn--danger:hover {
+  background: #9c9e9f !important;
+}
+
+.screen.brief.brief--split .stephead__exit .btn--danger .btn__icon {
+  width: calc(22 * var(--p)) !important;
+  height: calc(22 * var(--p)) !important;
+  margin: 0 !important;
+}
+
+.screen.brief.brief--split .stephead__exit .ping {
+  position: static !important;
+  inset: auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: calc(4 * var(--p)) !important;
+  padding: calc(2 * var(--p)) calc(7 * var(--p)) !important;
+  border-radius: calc(4 * var(--p)) !important;
+  background: rgba(10, 12, 12, 0.72) !important;
+  font-size: calc(13 * var(--p)) !important;
+  line-height: 1.2 !important;
+  color: #d6962a !important;
+  white-space: nowrap !important;
+  pointer-events: none !important;
+}
+
+.screen.brief.brief--split .stephead__exit .ping__icon {
+  display: none !important;
+}
+
+.screen.brief.brief--split .stephead__center {
+  position: static !important;
+  transform: none !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: calc(6 * var(--p)) !important;
+  flex-wrap: nowrap !important;
+  min-width: 0 !important;
+}
+
+.screen.brief.brief--split .stephead__mode {
+  display: flex !important;
+  align-items: center !important;
+  padding-top: calc(7 * var(--p)) !important;
+}
+
+.screen.brief.brief--split .stephead__mode .dtag {
+  padding: 0 !important;
+  border: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  gap: calc(10 * var(--p)) !important;
+  font-size: calc(20 * var(--p)) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+  white-space: nowrap !important;
+}
+
+.screen.brief.brief--split .stephead__mode .dtag__icon {
+  width: calc(22 * var(--p)) !important;
+  height: calc(22 * var(--p)) !important;
+}
+
+.screen.brief.brief--split .stephead__sep {
+  width: calc(1 * var(--p)) !important;
+  height: calc(34 * var(--p)) !important;
+  margin: calc(8 * var(--p)) calc(6 * var(--p)) 0 calc(15 * var(--p)) !important;
+  background: rgba(255, 255, 255, 0.28) !important;
+  flex: none !important;
+}
+
+.screen.brief.brief--split .stephead__name {
+  /* NOT positioned: v024's .setup-speaker is absolute and resolves against .stephead__title. Proof from
+     brief-dom.json at 1910x914 — title.left 541.3 − 6*--p(7.6) − speaker width 107.9 = 425.8, exactly the
+     measured speaker x. A `position:relative` here traps the mascot inside the capsule (right:100% of the
+     name span still sits between "1/3" and the text). */
+  position: static !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: calc(10 * var(--p)) !important;
+  margin-top: calc(3 * var(--p)) !important;
+}
+
+/* v024: the mascot is NOT inside the capsule. official-pages.css L2441 puts it outside the title box
+   (`right: calc(100% + 6*--p)`), and L2442 reserves room with `margin-left: 84*--p`. */
+.screen.brief.brief--split .stephead__name .setup-speaker {
+  position: absolute !important;
+  right: calc(100% + 6 * var(--p)) !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: calc(85 * var(--p)) !important;
+  height: calc(65 * var(--p)) !important;
+  margin: 0 !important;
+  flex: none !important;
+  pointer-events: none !important;
+  background: url("/assets/briefing/outer/setup-speaker.png") center bottom / contain no-repeat !important;
+}
+
+.screen.brief.brief--split .stephead__title {
+  position: relative !important;
+  margin-left: calc(84 * var(--p)) !important;
+  display: inline-flex !important;
+  align-items: baseline !important;
+  gap: calc(10 * var(--p)) !important;
+  padding: calc(4 * var(--p)) calc(14 * var(--p)) !important;
+  border-radius: calc(7 * var(--p)) !important;
+  background: #252628 !important;
+  font-size: calc(23 * var(--p)) !important;
+  font-weight: 500 !important;
+  color: #f1f3f3 !important;
+  white-space: nowrap !important;
+}
+
+.screen.brief.brief--split .stephead__title::after {
+  content: "";
+  position: absolute;
+  left: calc(-8 * var(--p));
+  top: 52%;
+  width: 0;
+  height: 0;
+  border-top: calc(6 * var(--p)) solid transparent;
+  border-bottom: calc(6 * var(--p)) solid transparent;
+  border-right: calc(9 * var(--p)) solid #252628;
+  transform: translateY(-50%);
+}
+
+/* 步数配色（用户图2 明确要求）：当前步 b.num 是绿色 #36d7b7，"/3" 那段 stephead__of 是灰色。
+   matchChrome.js 渲染的是 <b class="num">1</b><span class="num stephead__of">/3</span>，并没有
+   stephead__step 这个类名，所以旧规则从未命中过 —— 数字一直是继承来的白色。 */
+.screen.brief.brief--split .stephead__step,
+.screen.brief.brief--split .stephead__title > b.num {
+  font-size: calc(24 * var(--p)) !important;
+  font-weight: 700 !important;
+  color: #36d7b7 !important;
+}
+
+.screen.brief.brief--split .stephead__title > .stephead__of {
+  font-size: calc(20 * var(--p)) !important;
+  font-weight: 500 !important;
+  color: #8a8f92 !important;
+}
+
+.screen.brief.brief--split .stephead__micro {
+  display: none !important;
+}
+
+.screen.brief.brief--split .stephead__right {
+  margin-left: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: calc(14 * var(--p)) !important;
+  padding-top: calc(4 * var(--p)) !important;
+  flex: none !important;
+}
+
+/* v024 puts 重刷本局 as a compact 140.1x43.2 pill in the header, left of a separator and 玩法说明.
+   The shared .brief-reroll carried briefing.css's absolute "banner over the footer" placement
+   (right/bottom/left, y:-67 measured), so the button never appeared. Here it is an inline pill and the
+   explanatory sentence moves into the button's title, keeping the text in the DOM for screen readers. */
+.screen.brief.brief--split .stephead__status {
+  display: flex !important;
+  align-items: center !important;
+  gap: calc(14 * var(--p)) !important;
+  width: auto !important;
+  max-width: none !important;
+}
+
+.screen.brief.brief--split .stephead__status .brief-reroll {
+  position: static !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* v024 header row (brief-dom.json): 重刷本局 .btn--lg 140.1x43.2 @y=33, 玩法说明 .btn--sm 103.4x30.5
+   @y=39.3. Measured 43.2/1.26944 = 34 design units — the same height the status pills already use, so
+   all three header buttons now share one height/radius/padding instead of 38 vs 34 vs the guide's own. */
+.screen.brief.brief--split .stephead__right > .btn {
+  height: calc(34 * var(--p)) !important;
+  padding: 0 calc(14 * var(--p)) !important;
+  border-radius: calc(3 * var(--p)) !important;
+  border: calc(1 * var(--p)) solid rgba(255, 255, 255, 0.24) !important;
+  background: rgba(18, 21, 21, 0.85) !important;
+  color: #e4e7e7 !important;
+  font-size: calc(16 * var(--p)) !important;
+  gap: calc(7 * var(--p)) !important;
+}
+
+.screen.brief.brief--split .stephead__right > .btn:hover {
+  border-color: rgba(255, 255, 255, 0.45) !important;
+  background: rgba(34, 38, 38, 0.92) !important;
+}
+
+/* 玩法说明 arrives as .btn--sm (its own smaller box); give it the same row metrics as the other two. */
+.screen.brief.brief--split .stephead__right > .stephead__guide,
+.screen.brief.brief--split .stephead__right > .btn.btn--sm {
+  height: calc(34 * var(--p)) !important;
+  min-height: 0 !important;
+  padding: 0 calc(14 * var(--p)) !important;
+  border-radius: calc(3 * var(--p)) !important;
+  font-size: calc(16 * var(--p)) !important;
+}
+
+/* Reroll button inside .stephead__right */
+.screen.brief.brief--split .brief-reroll {
+  position: static;
+  display: flex;
+  align-items: center;
+  gap: calc(10 * var(--p));
+}
+
+/* Only the action shows in the header pill; the sentence stays in the DOM (sr-only) for assistive tech and
+   for the vote state, which still needs its player list. */
+.screen.brief.brief--split .stephead__status .brief-reroll__text {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+}
+
+.screen.brief.brief--split .stephead__status .brief-reroll__players {
+  position: absolute !important;
+  top: calc(100% + calc(8 * var(--p))) !important;
+  right: 0 !important;
+}
+
+.screen.brief.brief--split .stephead__status .btn,
+.screen.brief.brief--split .brief-reroll__btn {
+  height: calc(34 * var(--p)) !important;
+  padding: 0 calc(14 * var(--p)) !important;
+  border-radius: calc(3 * var(--p)) !important;
+  border: calc(1 * var(--p)) solid rgba(255, 255, 255, 0.24) !important;
+  background: rgba(18, 21, 21, 0.85) !important;
+  color: #e4e7e7 !important;
+  font-size: calc(16 * var(--p)) !important;
+  gap: calc(7 * var(--p)) !important;
+}
+
+.screen.brief.brief--split .brief-reroll__btn:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.55);
+  background: rgba(38, 42, 42, 0.95);
+}
+
+.screen.brief.brief--split .brief-reroll__players {
+  position: absolute;
+  top: calc(100% + calc(8 * var(--p)));
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(6 * var(--p));
+  min-width: calc(200 * var(--p));
+  padding: calc(10 * var(--p)) calc(12 * var(--p));
+  border: calc(1 * var(--p)) solid rgba(255, 255, 255, 0.2);
+  border-radius: calc(4 * var(--p));
+  background: rgba(14, 17, 17, 0.95);
+  box-shadow: 0 calc(8 * var(--p)) calc(24 * var(--p)) rgba(0, 0, 0, 0.65);
+  z-index: 20;
+}
+
+.screen.brief.brief--split .brief-reroll__p {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(8 * var(--p));
+  font-size: calc(13 * var(--p));
+  color: #c9cdcd;
+}
+
+.screen.brief.brief--split .brief-reroll__p.is-yes {
+  color: #5eead4;
+}
+
+.screen.brief.brief--split .brief-reroll__hint {
+  margin-top: calc(2 * var(--p));
+  font-size: calc(12 * var(--p));
+  color: #9ba1a1;
+}
+
+/* ---------- Main Two-Column Split Layout ---------- */
+.screen.brief.brief--split .brief__main {
+  display: flex !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  /* 用户 2026-11-25 参考图：左右两侧与边框有间距 —— 原左侧 padding 为 0，左栏直接贴边。 */
+  padding: calc(14 * var(--p)) calc(60 * var(--p)) calc(90 * var(--p)) calc(60 * var(--p)) !important;
+}
+
+.screen.brief.brief--split .brief__cols {
+  display: grid !important;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 2.6fr) !important;
+  gap: calc(20 * var(--p)) !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  align-items: stretch !important;
+}
+
+.screen.brief.brief--split .brief__left {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  /* 用户 2026-11-25 参考图：左列左右都要留出与边框的间距，右侧原来只有 8*--p 贴边。 */
+  padding: 0 calc(14 * var(--p)) calc(24 * var(--p)) 0 !important;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(170, 170, 170, 0.45) transparent;
+}
+
+.screen.brief.brief--split .brief__right {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: calc(8 * var(--p)) !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  padding: 0 0 calc(12 * var(--p)) 0 !important;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(170, 170, 170, 0.35) transparent;
+}
+
+.screen.brief.brief--split .brief-sec {
+  margin: 0 !important;
+  padding: 0 !important;
+  background: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* ---------- Section Title Bars (.brief-h) ---------- */
+.screen.brief.brief--split .brief-h {
+  display: flex !important;
+  align-items: center !important;
+  gap: calc(12 * var(--p)) !important;
+  height: calc(45 * var(--p)) !important;
+  margin: 0 !important;
+  padding: 0 calc(16 * var(--p)) 0 calc(20 * var(--p)) !important;
+  border: 0 !important;
+  background: url("/assets/briefing/outer/img_group_title.png") right center / 100% 100% no-repeat !important;
+  font-size: calc(22 * var(--p)) !important;
+  font-weight: 500 !important;
+  color: #ececec !important;
+  white-space: nowrap !important;
+}
+
+.screen.brief.brief--split .brief-h::before {
+  content: "" !important;
+  width: calc(30 * var(--p)) !important;
+  height: calc(38 * var(--p)) !important;
+  margin: 0 !important;
+  flex: none !important;
+  background-color: transparent !important;
+  -webkit-mask: none !important;
+  mask: none !important;
+}
+
+.screen.brief.brief--split .brief-sec--core .brief-h::before {
+  background: url("/assets/briefing/outer/img_title_icon_temp_bond.png") center / contain no-repeat !important;
+}
+
+.screen.brief.brief--split .brief-sec--addon .brief-h::before {
+  background: url("/assets/briefing/outer/img_title_icon_perm_bond.png") center / contain no-repeat !important;
+}
+
+.screen.brief.brief--split .brief-sec--banned .brief-h::before {
+  width: calc(30 * var(--p)) !important;
+  height: calc(38 * var(--p)) !important;
+  background-color: #d7dada !important;
+  /* briefing.css:156 defines --sec-icon (the person+X glyph); --sec-art only exists for .brief-sec--enemy in
+     v024 (official-pages.css:46, "本局禁用干员 has no icon in the pack: ours stays"), so the old rule resolved to
+     an empty mask and painted a bare #d7dada square. */
+  -webkit-mask: var(--sec-icon) center / contain no-repeat !important;
+  mask: var(--sec-icon) center / contain no-repeat !important;
+}
+
+.screen.brief.brief--split .brief-h .micro {
+  display: none !important;
+}
+
+.screen.brief.brief--split .brief-h__legend {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(8 * var(--p));
+  padding: calc(3 * var(--p)) calc(9 * var(--p));
+  margin-left: calc(4 * var(--p));
+  background: rgba(32, 34, 34, 0.74);
+  font-size: calc(15 * var(--p));
+  font-weight: 400;
+  color: #c2c6c6;
+  line-height: 1.25;
+}
+
+.screen.brief.brief--split .brief-h__legend i {
+  display: inline-block;
+  width: calc(20 * var(--p));
+  height: calc(20 * var(--p));
+  flex: none;
+  background: url("/assets/briefing/outer/img_bond_banned.png") center / contain no-repeat;
+}
+
+/* Keep .brief-legend text in DOM for tests while preventing layout bloat */
+.screen.brief.brief--split .brief-legend {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* ---------- Bond Disc Grid (.brief-bonds__row) ---------- */
+.screen.brief.brief--split .brief-bonds__row {
+  display: grid !important;
+  grid-template-columns: repeat(10, minmax(0, 1fr)) !important;
+  justify-items: center !important;
+  align-items: start !important;
+  gap: calc(20 * var(--p)) 0 !important;
+  padding: calc(24 * var(--p)) calc(8 * var(--p)) calc(20 * var(--p)) !important;
+  overflow: visible !important;
+}
+
+.screen.brief.brief--split .brief-bond {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  width: min(100%, calc(82 * var(--p))) !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+.screen.brief.brief--split .brief-bond .bond {
+  --disc: calc(54 * var(--p));
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: calc(12 * var(--p)) !important;
+  width: 100% !important;
+  border: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+
+.screen.brief.brief--split .brief-bond .bond__disc {
+  position: relative !important;
+  width: calc(56 * var(--p)) !important;
+  height: calc(56 * var(--p)) !important;
+  transform: scale(0.84);
+  overflow: visible !important;
+  background: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.screen.brief.brief--split .brief-bond .bond__disc::before {
+  content: "" !important;
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  pointer-events: none !important;
+  opacity: 1 !important;
+  border: 0 !important;
+  background-color: transparent !important;
+}
+
+.screen.brief.brief--split .brief-bond .bond.is-active .bond__disc::before {
+  width: calc(116 * var(--p)) !important;
+  height: calc(115 * var(--p)) !important;
+  background: url("/assets/briefing/outer/img_bond_bkg.png") center / contain no-repeat !important;
+}
+
+/* v024 renders BOTH discs at the same visual diameter: the two background PNGs are near-identical in size
+   (img_bond_bkg 131x130, img_bond_banned_bkg 136x132) and the ring box differs only in a few px
+   (official-pages.css L2344 88 vs L2345 131x130). Drawing the disabled ring at 88 next to an active 116 made the
+   disabled disc read as 75% of an active one — the "smaller banned disc" the maintainer kept seeing. */
+.screen.brief.brief--split .brief-bond .bond:not(.is-active) .bond__disc::before {
+  width: calc(116 * var(--p)) !important;
+  height: calc(115 * var(--p)) !important;
+  background: url("/assets/briefing/outer/img_bond_banned_bkg.png") center / contain no-repeat !important;
+}
+
+.screen.brief.brief--split .brief-bond .bond__ring,
+.screen.brief.brief--split .brief-bond .bond__ban {
+  display: none !important;
+}
+
+.screen.brief.brief--split .brief-bond .bond__core {
+  position: relative !important;
+  z-index: 1 !important;
+  background: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.screen.brief.brief--split .brief-bond .bond.is-active .bond__icon {
+  filter: brightness(0) !important;
+}
+
+.screen.brief.brief--split .brief-bond .bond:not(.is-active) .bond__icon {
+  filter: brightness(0) invert(0.78) !important;
+}
+
+.screen.brief.brief--split .brief-bond .bond__name {
+  font-size: max(10px, calc(15 * var(--p))) !important;
+  font-weight: 500 !important;
+  color: #c9cdcd !important;
+  white-space: nowrap !important;
+  text-align: center !important;
+}
+
+.screen.brief.brief--split .brief-bond[data-disabled="off"] .bond__name {
+  color: #8c9191 !important;
+  text-decoration: line-through !important;
+  text-decoration-color: rgba(173, 178, 178, 0.7) !important;
+}
+
+/* Incomplete/disabled badge using img_bond_banned.png while preserving text in DOM */
+.screen.brief.brief--split .brief-bond__ban {
+  position: absolute !important;
+  top: calc(-10 * var(--p)) !important;
+  right: calc(8 * var(--p)) !important;
+  width: calc(28 * var(--p)) !important;
+  height: calc(28 * var(--p)) !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: url("/assets/briefing/outer/img_bond_banned.png") center / contain no-repeat !important;
+  overflow: hidden !important;
+  z-index: 3 !important;
+  pointer-events: none !important;
+}
+
+.screen.brief.brief--split .brief-bond__ban > * {
+  opacity: 0 !important;
+}
+
+/* ---------- Banned Operators Section ---------- */
+.screen.brief.brief--split .brief-banned__n {
+  margin-left: auto !important;
+  font-size: calc(19 * var(--p)) !important;
+  font-weight: 500 !important;
+  color: #c9cdcd !important;
+  border: 0 !important;
+  background: none !important;
+}
+
+/* v024 (brief-dom.json, 1910x914): .brief-banned__groups is a single column of .brief-ban-group rows;
+   each row = one .brief-ban-group__bonds disc (127.7 wide) + a .brief-banned__grid that fills the remaining
+   1148.4 of the 1301.4 row. Stacking them in a flex row wrapped only two groups per line and left the grid
+   squeezed to 104 wide, so the 29 banned operators rendered as one avatar. */
+.screen.brief.brief--split .brief-banned__groups {
+  display: flex !important;
+  flex-direction: column !important;
+  flex-wrap: nowrap !important;
+  align-items: stretch !important;
+  /* 组间：12 -> 4（头像与圆盘缩小 30% 后行高变小，原间距显得空） */
+  gap: calc(4 * var(--p)) !important;
+  /* 用户 2026-11-25 参考图：左右两侧与边框有间距。原 12 的右侧几乎贴到滚动条，
+     改为左右各 18*--p（约 23px），与标题条 16/20 的内缩对齐。 */
+  padding: calc(10 * var(--p)) calc(18 * var(--p)) calc(6 * var(--p)) !important;
+}
+
+.screen.brief.brief--split .brief-ban-group {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-start !important;
+  /* 圆盘列与头像列之间：12 -> 8 */
+  gap: calc(8 * var(--p)) !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+/* v024 (official-pages.css L2355-2357): the rail is a flex row of discs, NOT a 34px gutter. Each disc is a
+   normal .brief-bond — `width: 85*--p` (L2342) inside `min-height: 96*--p` — so it renders at exactly the
+   size of an active bond. The old 34/30px box here is what shrank the whole disc instead of just the icon. */
+.screen.brief.brief--split .brief-ban-group__bonds {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: calc(3 * var(--p));
+  padding: calc(7 * var(--p)) calc(10 * var(--p)) 0 0;
+  border-right: calc(2 * var(--p)) solid rgba(116, 120, 120, 0.44);
+  /* 96 是按 60px 圆盘定的；缩小后 67.2 才贴合，否则每行被撑出大片空白 */
+  min-height: calc(67.2 * var(--p));
+  width: auto;
+  flex: none;
+}
+
+.screen.brief.brief--split .brief-ban-group__bonds .brief-bond {
+  width: calc(59.5 * var(--p)) !important;
+  height: auto !important;
+  min-width: 0 !important;
+  flex: none !important;
+}
+
+/* v024 has NO size override for the discs beside a ban group: they inherit the row's
+   `--disc: 54*--p` / 56px disc / 46px icon / 88px ring (official-pages.css L2343-2346, L2355). The old
+   28px override here is why the banned discs looked smaller than the active ones. */
+/* 同上：禁用区旁这一列盟约圆盘与头像一起缩 30%（×0.7）。
+   54/56/46 是一组、环 116x115 是另一组，必须同时缩，否则环会撑出圆盘（又变回「圆盘比环小」的老问题）。 */
+.screen.brief.brief--split .brief-ban-group__bonds .bond {
+  --disc: calc(37.8 * var(--p)) !important;
+  gap: calc(9.8 * var(--p)) !important;
+}
+
+.screen.brief.brief--split .brief-ban-group__bonds .bond__disc {
+  width: calc(39.2 * var(--p)) !important;
+  height: calc(39.2 * var(--p)) !important;
+  transform: scale(0.84) !important;
+}
+
+/* 遮罩环：.brief-bond .bond:not(.is-active) .bond__disc::before（L601，6 个类）特异性高于本段的 5 个类，
+   所以先前 116*--p 一直赢、环保持在 147.25px 撑在 42px 圆盘外。这里把 .brief-bond 也写进来压过它。 */
+.screen.brief.brief--split .brief-ban-group__bonds .brief-bond .bond__disc::before,
+.screen.brief.brief--split .brief-ban-group__bonds .brief-bond .bond.is-active .bond__disc::before,
+.screen.brief.brief--split .brief-ban-group__bonds .brief-bond .bond:not(.is-active) .bond__disc::before {
+  width: calc(81.2 * var(--p)) !important;
+  height: calc(80.5 * var(--p)) !important;
+  background: url("/assets/briefing/outer/img_bond_banned_bkg.png") center / contain no-repeat !important;
+}
+
+.screen.brief.brief--split .brief-ban-group__bonds .bond__name,
+.screen.brief.brief--split .brief-ban-group__bonds .brief-bond__ban {
+  display: none !important;
+}
+
+/* 本局禁用列表：盟约圆盘内的盟约标**统一反色为纯白**（owner 2026-11-26）。
+   作用域锁在 .brief-ban-group__bonds ⇒ 不影响局内、顶栏、左栏主盟约列等任何其他位置的盟约圆盘。
+   选择器刻意多一级（.brief-banned + .bond）是为了压过下面那两条
+     .screen.brief.brief--split .brief-bond .bond.is-active       .bond__icon { filter: brightness(0) }        (0,6,0)
+     .screen.brief.brief--split .brief-bond .bond:not(.is-active)  .bond__icon { filter: ... invert(0.78) }     (0,6,0)
+   —— 它们比原来的 0,5,0 更高，所以禁用列表里一度出现「一行里 8 个纯黑 + 8 个 0.78 灰」两种颜色。
+   现在 0,7,0 并带 !important，两种状态都强制为 brightness(0) invert(1) = 纯白。 */
+.screen.brief.brief--split .brief-banned .brief-ban-group__bonds .bond .bond__icon {
+  width: calc(32.2 * var(--p)) !important;
+  height: calc(32.2 * var(--p)) !important;
+  opacity: 1 !important;
+  filter: brightness(0) invert(1) !important;
+}
+
+.screen.brief.brief--split .brief-banned__grid {
+  display: flex !important;
+  flex: 1 1 0% !important;
+  flex-wrap: wrap !important;
+  align-content: flex-start !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  /* 头像间距：10 -> 4（缩小 30% 后原间距过大） */
+  gap: calc(4 * var(--p)) !important;
+  padding: 0 !important;
+}
+
+/* 用户 2026-11-25：禁用干员头像太大，头像连同旁边盟约圆盘一起缩 30%（×0.7）。
+   82 -> 57.4（*--p），实测 104px -> 约 73px。 */
+.screen.brief.brief--split .brief-banned__grid .uthumb {
+  position: relative !important;
+  --ut: calc(57.4 * var(--p)) !important;
+  width: var(--ut) !important;
+  height: var(--ut) !important;
+  filter: grayscale(0.45) brightness(0.86);
+}
+
+.screen.brief.brief--split .brief-banned__grid .uthumb::after {
+  content: "";
+  position: absolute;
+  top: calc(-10 * var(--p));
+  right: calc(-10 * var(--p));
+  width: calc(36.4 * var(--p));
+  height: calc(36.4 * var(--p));
+  background: url("/assets/briefing/outer/img_chess_banned.png") center / contain no-repeat;
+  pointer-events: none;
+  z-index: 4;
+}
+
+/* ---------- Right Column: Battlefield Map + Enemy Section ---------- */
+.screen.brief.brief--split .brief-map {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: calc(6 * var(--p)) !important;
+  padding: 0 !important;
+  background: none !important;
+  border: 0 !important;
+}
+
+.screen.brief.brief--split .brief-map__preview {
+  position: relative !important;
+  display: block !important;
+  width: 100% !important;
+  aspect-ratio: 16 / 9 !important;
+  padding: 0 !important;
+  border: calc(4 * var(--p)) solid #757775 !important;
+  border-radius: 0 !important;
+  background: #141918 !important;
+  overflow: hidden !important;
+  cursor: pointer;
+}
+
+.screen.brief.brief--split .brief-map__preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.screen.brief.brief--split .brief-map__empty {
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(45, 78, 72, 0.35), rgba(14, 18, 17, 0.95));
+}
+
+.screen.brief.brief--split .brief-map__zoom {
+  position: absolute;
+  right: calc(4 * var(--p));
+  bottom: calc(4 * var(--p));
+  display: grid;
+  place-items: center;
+  width: calc(30 * var(--p));
+  height: calc(30 * var(--p));
+  border-radius: calc(2 * var(--p));
+  background: rgba(235, 238, 238, 0.92);
+  color: #161818;
+  box-shadow: 0 calc(2 * var(--p)) calc(8 * var(--p)) rgba(0, 0, 0, 0.45);
+}
+
+.screen.brief.brief--split .brief-map__zoom svg {
+  width: calc(18 * var(--p));
+  height: calc(18 * var(--p));
+}
+
+.screen.brief.brief--split .brief-map__caption {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: calc(10 * var(--p));
+  padding: calc(2 * var(--p)) calc(2 * var(--p)) calc(4 * var(--p));
+  font-size: calc(14 * var(--p));
+  color: #aeb4b4;
+}
+
+.screen.brief.brief--split .brief-map__caption b {
+  font-weight: 500;
+  color: #d6dada;
+}
+
+/* Enemy module in right column — v024 geometry from brief-dom.json (1910x914; .brief__enemy-column 502.2 wide):
+     .brief-boss        portrait 137x137        at (1377.4, 465.4)
+     .brief-boss__text  x=1524.6 w=354.9 h=113  at (1524.6, 465.4)   -> beside the portrait, same top
+     .brief-factions    x=1377.4 w=502.2        at (1377.4, 612.6)   -> full width, one 55.8-tall row each
+   The earlier two-column grid dropped .brief-boss__text into the 137px track (the leader's name then ran one
+   character per line and the block stretched to 1000px), and let .brief-boss span every column so it landed
+   below the text. Explicit areas keep the three blocks where v024 has them. */
+.screen.brief.brief--split .brief-enemies > .brief-h,
+.screen.brief.brief--split .brief-stage {
+  display: none !important;
+}
+
+.screen.brief.brief--split .brief-enemy {
+  position: relative !important;
+  display: grid !important;
+  grid-template-columns: calc(108 * var(--p)) minmax(0, 1fr) !important;
+  grid-template-rows: auto auto !important;
+  grid-template-areas:
+    "portrait text"
+    "factions factions" !important;
+  column-gap: calc(8 * var(--p)) !important;
+  row-gap: calc(8 * var(--p)) !important;
+  align-items: start !important;
+  padding: calc(4 * var(--p)) 0 0 !important;
+}
+
+.screen.brief.brief--split .brief-boss {
+  grid-area: portrait !important;
+  position: relative !important;
+  display: block !important;
+  width: calc(108 * var(--p)) !important;
+  height: calc(108 * var(--p)) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: none !important;
+}
+
+.screen.brief.brief--split .brief-boss__art {
+  position: relative !important;
+  width: calc(108 * var(--p)) !important;
+  height: calc(108 * var(--p)) !important;
+  padding: calc(15 * var(--p)) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.screen.brief.brief--split .brief-boss__art::before,
+.screen.brief.brief--split .brief-boss__art::after {
+  display: none !important;
+}
+
+/* v024 draws the grey plate on the .brief-boss frame itself (official-pages.css L2376: `::after { width:100%;
+   height:100% }`), NOT inside __art — inside __art it was clipped to the 72% portrait box, so the plate
+   hugged the artwork instead of framing it. */
+.screen.brief.brief--split .brief-boss::after {
+  content: "" !important;
+  /* topbar-reference.css L88 用更宽的 .screen.brief 选择器把 ::before/::after 一起 display:none 了
+     （那条没有 !important，但我们的规则此前也没写 display，于是照样落到 none）。
+     灰框「少一圈」真正的原因就是它根本没被画出来，而不是 z-index 或尺寸。显式抢回来。 */
+  display: block !important;
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: url("/assets/briefing/outer/img_boss_bkg.png") center / 100% 100% no-repeat !important;
+  pointer-events: none !important;
+  /* v024 puts the plate at z-index:1 with __art also at 1 (official-pages.css L64); the portrait sits inside the
+     plate's window. Our z-index:2 painted the plate's border OVER the portrait, which reads as "the frame is missing
+     a ring" — the grid line is drawn but the art covers/overlaps it. Keep it at 1 and let the art sit above. */
+  z-index: 1 !important;
+}
+
+.screen.brief.brief--split .brief-boss__art img {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.screen.brief.brief--split .brief-boss__tag {
+  position: static !important;
+  align-self: flex-start !important;
+  left: auto !important;
+  top: auto !important;
+  width: calc(136 * var(--p)) !important;
+  height: calc(27 * var(--p)) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: calc(16 * var(--p)) !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
+  color: #e9a93a !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: url("/assets/briefing/outer/img_boss_name_bkg.png") 0 0 / 100% 100% no-repeat !important;
+}
+
+.screen.brief.brief--split .brief-boss__text {
+  grid-area: text !important;
+  padding-top: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: calc(5 * var(--p)) !important;
+  min-width: 0 !important;
+}
+
+.screen.brief.brief--split .brief-boss__name {
+  font-size: calc(24 * var(--p)) !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  color: #f3f5f5 !important;
+}
+
+.screen.brief.brief--split .brief-boss__wave {
+  font-size: calc(16 * var(--p)) !important;
+  font-weight: 500 !important;
+  color: #d68d28 !important;
+}
+
+/* v024's .brief-boss__text holds exactly three children (brief-dom.json, 1910x914):
+     span.brief-boss__tag (34.3) -> h2.brief-boss__name (36.5) -> span.brief-boss__when (24.8), total 113.3.
+   The 3-entry ability list has no counterpart in the original and, left in flow, pushed the text block to
+   412px and the whole right column past the viewport. It stays in the DOM (test/ui/match-info.test.js asserts
+   .brief-boss__abil li) but contributes no height in split mode. */
+.screen.brief.brief--split .brief-boss__abil {
+  display: none !important;
+}
+
+.screen.brief.brief--split .brief-traits {
+  grid-column: 1 / -1;
+  margin: calc(2 * var(--p)) 0 0 !important;
+  padding-left: calc(16 * var(--p)) !important;
+  font-size: calc(13 * var(--p)) !important;
+  line-height: 1.45 !important;
+  color: #9ea4a4 !important;
+}
+
+/* v024: each 特训敌人 is one full-width row (502.2 x 55.8 at 1.26944 device scale -> 44 design units), the icon
+   flush left and the name starting 81.2 device px in. Each row is wrapped in the Tooltip's
+   span.tt-anchor.tt-anchor--block, which is display:inline-block and would otherwise shrink-wrap the row, so the
+   wrapper is stretched too. */
+.screen.brief.brief--split .brief-factions {
+  grid-area: factions !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0 !important;
+  width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.screen.brief.brief--split .brief-factions > .tt-anchor {
+  display: block !important;
+  width: 100% !important;
+  align-self: stretch !important;
+}
+
+.screen.brief.brief--split .brief-faction {
+  width: 100% !important;
+  max-width: none !important;
+  flex: 1 1 auto !important;
+  height: calc(44 * var(--p)) !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: calc(18 * var(--p)) !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: rgba(117, 121, 120, 0.14) !important;
+  box-shadow: none !important;
+}
+
+.screen.brief.brief--split .brief-faction + .brief-faction {
+  margin-top: calc(6 * var(--p)) !important;
+}
+
+.screen.brief.brief--split .brief-faction__icon {
+  width: calc(46 * var(--p)) !important;
+  height: calc(44 * var(--p)) !important;
+  flex: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.screen.brief.brief--split .brief-faction__icon img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  filter: none !important;
+}
+
+.screen.brief.brief--split .brief-faction__text {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: calc(2 * var(--p)) !important;
+  min-width: 0 !important;
+}
+
+.screen.brief.brief--split .brief-faction__text b {
+  font-size: calc(19 * var(--p)) !important;
+  font-weight: 500 !important;
+  color: #e6eaea !important;
+}
+
+.screen.brief.brief--split .brief-faction__desc {
+  font-size: calc(12 * var(--p)) !important;
+  color: #9fa6a6 !important;
+  line-height: 1.3 !important;
+}
+
+/* ---------- Map Zoom Modal ---------- */
+.modal__box.brief-map-dialog {
+  width: min(88vw, 960px);
+  max-width: 96vw;
+  background: #131716;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.brief-map__full {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+/* ---------- Bottom-Right Floating Footer (.brief__foot) ---------- */
+.screen.brief.brief--split .brief__foot {
+  position: absolute !important;
+  left: auto !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: calc(740 * var(--p)) !important;
+  height: calc(92 * var(--p)) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  pointer-events: none !important;
+  z-index: 6 !important;
+}
+
+.screen.brief.brief--split .brief__foot::before {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: calc(301 * var(--p));
+  height: calc(123 * var(--p));
+  background: url("/assets/briefing/outer/img_confirm_btn_bkg.png") right bottom / contain no-repeat;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.screen.brief.brief--split .brief__foot::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: calc(740 * var(--p));
+  height: calc(140 * var(--p));
+  background: linear-gradient(180deg, transparent, rgba(5, 7, 7, 0.88) 72%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 干员调配 moved out of the footer into the header (beside 重刷本局, level with 玩法说明), so the old
+   `position:absolute; right:630px` footer placement must not survive — inside .stephead__status it would
+   float away from the pill row. Sizing comes from `.stephead__status .btn` (34*--p tall); only the hover
+   accent stays local. */
+.screen.brief.brief--split .stephead__status .brief-loadout {
+  position: static !important;
+  right: auto !important;
+  top: auto !important;
+  flex: none !important;
+  pointer-events: auto !important;
+}
+
+.screen.brief.brief--split .stephead__status .brief-loadout:hover {
+  border-color: #36d7b7 !important;
+  background: rgba(30, 36, 36, 0.96) !important;
+}
+
+.screen.brief.brief--split .brief-ready {
+  position: absolute !important;
+  right: calc(295 * var(--p)) !important;
+  top: calc(6 * var(--p)) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: calc(3 * var(--p)) !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: none !important;
+  border: 0 !important;
+  pointer-events: auto !important;
+  z-index: 3 !important;
+}
+
+.screen.brief.brief--split .brief-ready__txt {
+  font-size: calc(18 * var(--p)) !important;
+  font-weight: 500 !important;
+  color: #d0d4d4 !important;
+  white-space: nowrap !important;
+}
+
+.screen.brief.brief--split .brief-ready__txt b {
+  font-size: calc(22 * var(--p)) !important;
+  color: #36d7b7 !important;
+  margin: 0 calc(2 * var(--p));
+}
+
+.screen.brief.brief--split .brief-ready__pips {
+  display: flex !important;
+  align-items: center !important;
+  gap: calc(6 * var(--p)) !important;
+}
+
+.screen.brief.brief--split .brief-ready__pip {
+  width: calc(38 * var(--p)) !important;
+  height: calc(38 * var(--p)) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: url("/assets/briefing/outer/img_player_bkg.png") center / contain no-repeat !important;
+}
+
+.screen.brief.brief--split .brief-ready__pip.is-ready {
+  background-image: url("/assets/briefing/outer/img_player_confirmed.png") !important;
+}
+
+.screen.brief.brief--split .brief-ready__pip .ico {
+  display: none !important;
+}
+
+.screen.brief.brief--split .brief-go.btn--xl {
+  position: absolute !important;
+  right: calc(24 * var(--p)) !important;
+  top: calc(10 * var(--p)) !important;
+  width: calc(260 * var(--p)) !important;
+  min-width: 0 !important;
+  height: calc(68 * var(--p)) !important;
+  padding: 0 0 0 calc(58 * var(--p)) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  font-size: calc(28 * var(--p)) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+  color: #0d2a23 !important;
+  background: url("/assets/briefing/outer/btn_confirm.png") 0 0 / 100% 100% no-repeat !important;
+  pointer-events: auto !important;
+  z-index: 4 !important;
+}
+
+.screen.brief.brief--split .brief-go.btn--xl:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.screen.brief.brief--split .brief-go.btn--xl.is-active,
+.screen.brief.brief--split .brief-go.btn--xl:disabled {
+  background-image: url("/assets/briefing/outer/btn_confirmed.png") !important;
+  color: #e8e8e8 !important;
+}
+
+.screen.brief.brief--split .brief-go.btn--xl .btn__icon {
+  display: none !important;
+}
+
+/* ---------- Responsive & Compact Fallback ---------- */
+@media (max-aspect-ratio: 1 / 1) {
+  .screen.brief.brief--split .brief__main {
+    overflow-y: auto !important;
+    padding: calc(12 * var(--p)) calc(14 * var(--p)) calc(104 * var(--p)) calc(14 * var(--p)) !important;
+  }
+
+  .screen.brief.brief--split .brief__cols {
+    grid-template-columns: 1fr !important;
+    height: auto !important;
+  }
+
+  .screen.brief.brief--split .brief__left,
+  .screen.brief.brief--split .brief__right {
+    overflow: visible !important;
+    padding-right: 0 !important;
+  }
+
+  .screen.brief.brief--split .brief-bonds__row {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-height: 520px) {
+  .screen.brief.brief--split .brief__foot {
+    height: calc(74 * var(--p)) !important;
+  }
+
+  .screen.brief.brief--split .brief-go.btn--xl {
+    height: calc(56 * var(--p)) !important;
+    top: calc(8 * var(--p)) !important;
+  }
+}
+
+/* ==========================================================================
+   In-match 确认本局信息 (ui/enemyDrawer.js MatchInfoScreen) —— the screen the in-match green
+   magnifier opens (official btn_check_player). Everything it reuses — .screen.brief.brief--split,
+   .brief__main/.brief__cols/.brief__left/.brief__right/.brief-sec, .brief-h, .brief-bond, .brief-banned,
+   .brief-map, .brief-enemy — is styled by the rules above, so this block only adds what the briefing does
+   NOT have: the two-line title, the top-right white-box X, and the fact that there is no .brief__foot.
+   Every rule is scoped to .infocheck (a class only that screen's root carries), so the briefing, the draft
+   and the .minfo-dlg look exactly as before.
+   ========================================================================== */
+
+/* ★ 真正的挡住来源不是 .brief__bg，而是根节点自己的不透明底：
+   .screen（baseline）给 .screen.brief.infocheck 上了 background-color: rgb(13,16,15)，
+   它是**根节点**，在 .brief__bg 之下、也在战场 canvas 之上 —— 只改 .brief__bg 时，
+   实测 backgroundImage 已经是半透明灰了，屏幕上却仍几乎全黑，就是因为根节点这层把这层灰
+   又垫在不透明底色上。所以两处都必须改：根节点 transparent，半透明灰交给 .brief__bg。 */
+.screen.brief.brief--split.infocheck {
+  background-color: transparent !important;
+}
+
+.screen.brief.brief--split.infocheck .brief__bg {
+  background:
+    linear-gradient(180deg, rgba(26, 30, 30, 0.66), rgba(16, 19, 19, 0.74)) !important;
+  opacity: 1 !important;
+  /* 战场是 canvas 画的地形块，边缘硬、对比强；轻微模糊 + 降饱和让它退成"看得见的背景"而不是
+     抢字的前景。1px 足够，再多就糊成一团色块，反而看不出是战场。 */
+  backdrop-filter: blur(1px) saturate(0.82);
+}
+
+/* 顶部条：左侧两行英文字，右侧白框 X。与 briefing 的 .stephead 不同，这里没有步骤号、没有倒计时。 */
+/* 本屏在局内是 .gm__hud 的子节点（.gm__hud 是 z-index:3 的层）。.gm__hud 里还有 .gtop（原生顶栏）与
+   .chat / .gm__corner（聊天窗 z-index:6）—— 它们同样是 .gm__hud 的子节点，只按 DOM 顺序与各自 z-index 参与
+   同一个层叠上下文。若沿用 .screen 的 z-index:1，原生顶栏与聊天窗会盖在整屏界面之上（实测截图：顶栏压在
+   标题行上、聊天窗压住左栏）。这里提到 40：高于 .gm__hud 内的一切（聊天窗 6、抽屉 9），低于 --z-modal（80）
+   与 .modal，所以战场缩略图的放大对话框、设置等仍正常盖在本屏之上。isolation 让它自成层叠上下文，
+   内部元素的 z-index 不会外溢影响局内其他 UI。 */
+.screen.brief.brief--split.infocheck {
+  z-index: 40;
+  isolation: isolate;
+}
+
+/* ★ 本屏打开期间把局内顶栏、聊天窗、角落按钮整条让位（不是调透明度，而是彻底视觉隐藏）。
+   原因是它们和本屏是同一个层叠上下文里的兄弟节点：z-index 只决定谁在上，**不会让下面的消失**。
+   本屏顶栏的底色是渐隐的、左栏禁用干员网格底部也贴边，底下 .gtop 的白色徽记与红色退出圆钮
+   就从这些缝隙里透上来（实测：徽记压在 STRONGHOLD PROTOCOL 上、圆钮在标题左下露出一圈白边）。
+   ★ 必须是 display:none，不能只写 visibility:hidden。实测两种写法都试过：
+     visibility:hidden 时 .gtop 及其每个子元素的 computed visibility 都已是 hidden，但**截图里标题左下的
+     白色徽记残影仍然存在** —— 原生顶栏那层（.gtop__center--native 的 .nth-root）有自己独立的绘制路径，
+     visibility 收不住它。改成 display:none 后同一角落截图完全干净（A/B 对比：
+     test/e2e/out/diag-with-gtop.png 有残影 / diag-no-gtop.png 干净）。
+     安全性已核过：全仓 public/js 里没有任何 querySelector('.gtop') / getBoundingClientRect 读它
+     （grep 'gtop' × getBoundingClientRect|offsetWidth = 0 命中），所以移除盒模型不会让谁量到 0；
+     橙镜锚点量的是 .nth-node[data-nid="btn_check_enemy"]，与本屏互斥（togglePen 里 setDrawer(null)）。
+     本屏关闭后这些节点原样回来。 */
+/* ★ .gtop 这一条必须带 !important：public/css/official/topbar-reference.css 里写着
+   `.gm .gtop { display: block !important; … }`（原生顶栏的排版权威），普通声明压不过它 ——
+   实测：同一条规则里 .chat / .gm__corner 都变成了 none，只有 .gtop 仍是 block，就是被那条 !important 挡住的。
+   .chat 与 .gm__corner 没有别处的 !important，所以不需要跟。 */
+.screen.gm:has(> .gm__hud > .screen.brief.infocheck) .gtop {
+  display: none !important;
+}
+
+.screen.gm:has(> .gm__hud > .screen.brief.infocheck) .chat,
+.screen.gm:has(> .gm__hud > .screen.brief.infocheck) .gm__corner,
+.screen.gm:has(> .gm__hud > .screen.brief.infocheck) .gm__vignette {
+  display: none;
+}
+
+.screen.brief.brief--split.infocheck .infocheck__top {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: calc(20 * var(--p));
+  padding: calc(22 * var(--p)) calc(33 * var(--p)) 0 calc(28 * var(--p));
+  background: linear-gradient(180deg, rgba(20, 23, 23, 0.80), rgba(20, 23, 23, 0.42));
+  box-shadow: 0 calc(10 * var(--p)) calc(18 * var(--p)) calc(-8 * var(--p)) rgba(0, 0, 0, 0.45);
+}
+
+.screen.brief.brief--split.infocheck .infocheck__titles {
+  display: flex;
+  flex-direction: column;
+  gap: calc(2 * var(--p));
+  min-width: 0;
+}
+
+.screen.brief.brief--split.infocheck .infocheck__line {
+  font-size: calc(13 * var(--p));
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  line-height: 1.15;
+  color: #e7ecea;
+  text-shadow: 0 calc(1 * var(--p)) calc(3 * var(--p)) rgba(0, 0, 0, 0.75);
+}
+
+.screen.brief.brief--split.infocheck .infocheck__line--sub {
+  font-size: calc(11 * var(--p));
+  letter-spacing: 0.2em;
+  color: #97a5a1;
+}
+
+/* 右上角白色方框 X（用户参考图）：白底、细描边、黑色粗 X 带一点做旧阴影。
+   isolation + z-index 让按钮在自己的层叠上下文里永远是最上层可点元素 —— 与 briefing 的
+   return-key fix (2026-11-25) 同一个教训：pointerdown/pointerup 落在不同节点时 click 会丢。 */
+.screen.brief.brief--split.infocheck .infocheck__close {
+  position: relative;
+  z-index: 3;
+  isolation: isolate;
+  flex: none;
+  width: calc(46 * var(--p));
+  height: calc(46 * var(--p));
+  padding: 0;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  color: #14181a;
+  background: #f2f4f3;
+  border: calc(1 * var(--p)) solid rgba(255, 255, 255, 0.9);
+  border-radius: calc(2 * var(--p));
+  box-shadow:
+    0 calc(3 * var(--p)) calc(10 * var(--p)) rgba(0, 0, 0, 0.55),
+    inset 0 0 0 calc(1 * var(--p)) rgba(0, 0, 0, 0.12);
+  transition: background 120ms linear, transform 120ms linear;
+}
+
+.screen.brief.brief--split.infocheck .infocheck__close > svg {
+  width: calc(24 * var(--p));
+  height: calc(24 * var(--p));
+  display: block;
+  pointer-events: none;
+}
+
+.screen.brief.brief--split.infocheck .infocheck__close:hover {
+  background: #ffffff;
+  transform: translateY(calc(-1 * var(--p)));
+}
+
+.screen.brief.brief--split.infocheck .infocheck__close:active {
+  transform: translateY(0);
+}
+
+.screen.brief.brief--split.infocheck .infocheck__close:focus-visible {
+  outline: calc(2 * var(--p)) solid #f6a329;
+  outline-offset: calc(2 * var(--p));
+}
+
+/* 没有 .brief__foot（局内点绿镜绝不能触发 ready）⇒ 底部留白按 briefing 的 foot 高度收掉一半，
+   两栏照样滚到底。 */
+.screen.brief.brief--split.infocheck .brief__main {
+  padding-bottom: calc(24 * var(--p)) !important;
+}
+
+/* 观望队友时右栏顶部的「策略」块：沿用旧 InfoTab 的 .iband 观感（css/screens/game-panels.css:411），
+   但在整屏里要按 --p 缩放。 */
+.screen.brief.brief--split.infocheck .infocheck__band {
+  display: flex;
+  gap: calc(10 * var(--p));
+  align-items: flex-start;
+  margin-bottom: calc(10 * var(--p));
+  padding: calc(10 * var(--p));
+  background: rgba(78, 216, 175, 0.05);
+  border: calc(1 * var(--p)) solid rgba(78, 216, 175, 0.35);
+}
+
+.screen.brief.brief--split.infocheck .infocheck__band > div {
+  display: flex;
+  flex-direction: column;
+  gap: calc(3 * var(--p));
+  min-width: 0;
+}
+
+.screen.brief.brief--split.infocheck .infocheck__band b {
+  font-size: calc(19 * var(--p));
+  color: #eef3f1;
+}
+
+.screen.brief.brief--split.infocheck .infocheck__band b small {
+  margin-left: calc(6 * var(--p));
+  font-size: calc(14 * var(--p));
+  font-weight: 400;
+}
+
+.screen.brief.brief--split.infocheck .infocheck__band .iband__desc {
+  font-size: calc(14 * var(--p));
+  line-height: 1.6;
+  color: #b7c3bf;
+}
