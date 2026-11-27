@@ -304,6 +304,25 @@ h1, h2, h3, h4, p { margin: 0; }
 }
 /* 仍然被局内的 .awayov / .spov__inner 使用（screens/game.css、game-panels.css），不要删 */
 @keyframes screen-in { from { opacity: 0; } }
+/* ★ 2026-11-17（第 4 轮·返回主页缺过渡）：每块 .screen 自己带一段很短的入场淡入。
+   为什么现在才加：main.js 的 App 用 key=${viewRoute+':'+reloadKey} 换屏，旧屏是当场卸载的，
+   新屏若没有自己的入场动画，观感就是一次硬切（用户说的「直接切回」）。
+   为什么不会「闪黑」：.app-bg 是满屏不透明的地板（theme.css:263，铺了渐变+网格+噪点），
+   它不在 .screen 里、也不参与换屏，所以淡入期间底下始终是背景而不是黑。
+   这一点有先例：lobby.css:1165-1170 明确记着「背景不淡入，地板必须先在」。
+   时长取 160ms —— 与 .lo.is-leaving / .modal.is-leaving 的 160~180ms 同一档，不引入新节奏。
+   只动 opacity，不碰 transform：transform 会与局内绝对定位的 HUD 打架。 */
+.app-root > .screen:not(.crash) { animation: screen-in 160ms var(--ease-out) both; }
+/* ★ 正在退场的上一块屏（main.js 的 leavingRoute）：盖在新屏之上淡出，两屏交叉。
+   pointer-events:none 是关键 —— 它只是正在消失的画面，不能再吃点击（否则返回主页后
+   有 160ms 点不动任何东西，用户会当成「界面卡住」）。
+   animation-fill-mode: forwards 让末态保持 opacity:0 直到被卸载，避免闪回。
+   时长与 .screen 的入场 160ms 严格相同：两屏同时开始、同时结束，中途不会有单边空场。 */
+/* 注：这里曾经想给「正在退场的旧屏」加一段淡出（screen-out），但旧屏是被 key 当场卸载的，
+   要留住它就必须把整块屏再挂一次 —— 对 lobby 而言等于第二个 WebGL 上下文 + 第二个助理实例，
+   会造成本轮要消灭的「重复初始化」，所以撤掉了。过渡只做上面那一半（新屏淡入），
+   地板的 .app-bg 全程在场，因此不会出现「淡入时底下是黑的」。 */
+@media (prefers-reduced-motion: reduce) { .app-root > .screen { animation: none; } }
 /* 换屏过渡全部由 main.js 的 startRouteTransition 在真实 DOM 上做（见那里的注释）。
    这里曾经有 60 多行 ::view-transition-* 规则和几组 vt-running / vt-morph-prep 补丁，
    但 document.startViewTransition 在本项目里从未真正被调用过（拦截验证 window.__vt 一直是空数组），

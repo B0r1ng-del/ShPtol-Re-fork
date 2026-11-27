@@ -1,0 +1,132 @@
+/* Settings follow the owner's light terminal reference; all overrides are dialog-scoped. */
+.settings-veil.modal{grid-template-rows:minmax(0,1fr);grid-template-columns:minmax(0,1fr);overflow:hidden;padding:0;background:#202724bd;backdrop-filter:blur(12px)}
+.settings-modal.modal__box{--text-hi:#282e31;--text-md:#424b50;--text-lo:#576268;--text-dim:#707a7e;--mint-400:#086f97;--mint-500:#087aa7;--line:#9ba3a83d;--line-2:#9ba3a870;width:100%;max-width:none;height:100dvh;max-height:100dvh;min-height:0;overflow:hidden;border:0;border-radius:0;background:linear-gradient(110deg,#e0e3e4ec,#f4f5f3f5);box-shadow:none;color:#303638;color-scheme:light;animation:modal-fade .18s ease-out}
+.settings-modal.brackets::before,.settings-modal.brackets::after,.settings-modal>.modal__stripe,.settings-modal>.modal__head{display:none}
+.settings-modal>.modal__body{display:flex;flex:1;min-height:0;flex-direction:column;overflow:hidden;padding:0;color:inherit}
+.settings-toolbar{display:flex;align-items:center;min-height:84px;flex:none;background:linear-gradient(#353b3ce8,#444a49e8);border-bottom:10px solid #fafbf8;box-shadow:0 4px 12px #0003}
+.settings-back{margin:0 28px;width:100px;height:36px;display:grid;place-items:center;border:0;background:#fff;color:#424949;box-shadow:0 6px 15px #fff4;cursor:pointer}
+.settings-back .icon{width:28px;height:28px}
+.settings-toolbar h2{align-self:stretch;display:flex;align-items:center;gap:14px;padding:0 28px;background:#e1e3e3;color:#1f2528;font-size:23px;font-weight:600;letter-spacing:2px;margin:0}
+.settings-toolbar h2 .icon{width:36px;height:36px;color:#181d1f}
+.settings-reset{margin:0 30px 0 auto;min-width:150px;min-height:36px;padding:4px 18px;border:1px solid #d6dbd9;background:#3037377a;color:#fff;font-size:18px;letter-spacing:2px;cursor:pointer}
+.settings-reset:hover{background:#666f70}.settings-back:hover{background:#e5f2f7}
+.settings-shell{display:grid;grid-template-columns:210px minmax(0,1fr);flex:1;min-height:0}
+.settings-tabs{display:flex;flex-direction:column;gap:10px;padding:42px 24px;background:#cbd0d16b;border-right:1px solid #fff6}
+.settings-tabs>button{min-height:66px;display:flex;align-items:center;gap:18px;padding:10px 24px;border:0;background:#4c5354;color:#fff;font:600 21px var(--font-cjk);cursor:pointer;text-align:left;box-shadow:0 4px 7px #0000000a}
+.settings-tabs>button.is-on{color:#272e32;background:#fff;box-shadow:0 5px 18px #ffffff6b}
+.settings-tabs>button .icon{width:31px;height:31px;flex:none}
+.settings-content{min-width:0;min-height:0;overflow:auto;margin:12px 32px 0;border-top:8px solid #292d2d;padding:24px 20px 32px;scrollbar-color:#626c70 #e6e9e8;scrollbar-width:thin}
+.settings-modal .set-panel[hidden]{display:none!important}
+.settings-modal .set-list{gap:17px;max-width:1200px;margin:0 auto;padding:0}
+.settings-modal .set-row{grid-template-columns:minmax(220px,.95fr) minmax(250px,1.15fr) 60px;gap:22px;min-height:54px;align-items:center}
+.settings-modal .set-row__label{font-size:21px;line-height:1.4;color:#303638;gap:10px}
+.settings-modal .set-row__label .micro{display:none}.settings-modal .set-row__label>.icon{width:22px;height:22px;color:#626b70}
+.settings-modal .set-row__val{display:grid;place-items:center;min-width:60px;padding:5px 7px;background:#fff;color:#252b2e;font-size:20px;box-shadow:0 8px 12px #0002}
+.settings-modal .set-hint{font-size:15px;line-height:1.65;color:#667074;margin:-10px 0 8px;max-width:980px}
+.settings-modal .set-seg{display:flex;gap:12px;grid-column:2/-1;border:0;background:none;box-shadow:none;padding:0;flex-wrap:wrap}
+.settings-modal .set-seg button,.settings-modal .set-voice-btn,.settings-modal .set-native{min-width:92px;min-height:42px;flex:1;padding:6px 14px;background:#343b3e;color:#f3f6f7;border:1px solid #9aa2a7;border-radius:0;font:16px var(--font-cjk);box-shadow:0 7px 9px #0002;cursor:pointer}
+.settings-modal .set-seg button.is-on,.settings-modal .set-voice-btn.is-on,.settings-modal .set-native.is-on{background:#087dab;color:#fff;border-color:#0f678a;box-shadow:0 6px 10px #183a5340}
+.settings-modal .set-voice,.settings-modal .set-voice-lang{grid-column:2/-1;display:flex;flex-wrap:wrap;gap:10px}.settings-modal .set-voice .set-seg{flex:1}
+.settings-modal .set-toggle{grid-column:2;width:150px;height:42px;min-height:42px;border:1px solid #7b8589;border-radius:0;position:relative;background:#41494c;color:#fff;box-shadow:0 4px 8px #0002}
+.settings-modal .set-toggle i{position:absolute;left:4px;top:4px;right:auto;width:66px;height:32px;border-radius:0;transform:none;background:repeating-linear-gradient(45deg,#e5e8e8 0 1px,#fff 1px 3px);box-shadow:0 0 4px #0003}
+.settings-modal .set-toggle span{position:absolute;left:76px;right:auto;top:0;height:40px;display:flex;align-items:center;font-size:17px;line-height:1;color:#fff}
+.settings-modal .set-toggle i::after{display:none}
+.settings-modal .set-toggle.is-on{background:#087dab}.settings-modal .set-toggle.is-on i{left:78px;transform:none}.settings-modal .set-toggle.is-on span{left:13px}
+.settings-modal .set-range{width:100%;height:32px;margin:0;appearance:none;border:0;background:transparent;accent-color:#087dab;cursor:pointer}
+.settings-modal .set-range::-webkit-slider-runnable-track{height:4px;background:#42494c;border:0;border-radius:0}
+.settings-modal .set-range::-webkit-slider-thumb{appearance:none;clip-path:none;margin-top:-11px;width:16px;height:26px;border:1px solid #90999d;border-radius:0;background:#fff;box-shadow:0 5px 9px #0003}
+.settings-modal .set-range::-moz-range-track{height:4px;background:#42494c}.settings-modal .set-range::-moz-range-thumb{width:16px;height:26px;border:1px solid #90999d;border-radius:0;background:white}
+.settings-modal .set-home-scale .set-row__label{border-bottom:1px solid #8a939777;padding-bottom:9px}
+.settings-modal .set-keys__row,.settings-modal .set-diag,.settings-modal .set-storage,.settings-modal .set-fit{font-size:15px;color:#424b50}
+.settings-modal .set-keys__name,.settings-modal .set-section-title{font-size:16px;color:#303638}.settings-modal .set-key{font-size:15px;min-height:32px}
+.settings-modal .set-keys__head,.settings-modal .set-diag__head,.settings-modal .set-plugins__head,.settings-modal .set-storage__head{color:#303638}
+.settings-modal .set-plugins,.settings-modal .set-storage,.settings-modal .set-diag,.settings-modal .set-keys{border-color:#858f9466}
+.settings-modal .set-lang{grid-column:2/-1}.settings-modal .set-lang button{min-height:36px;font-size:15px}
+.settings-modal>.modal__actions{gap:12px;padding:10px 32px;min-height:62px;background:#dce1e1;border-top:1px solid #b4bcbd}
+.settings-modal .modal__actions .btn{min-height:36px;height:36px;padding:0 20px;border-radius:0;font-size:15px;box-shadow:none;background:#343c40;border-color:#566368;color:#fff}
+.settings-modal .modal__actions .btn--primary{background:#087dab;border-color:#09638a}.settings-modal .modal__actions .set-guide{margin-right:auto;background:transparent;color:#39464c;border-color:#8f999e}
+.settings-modal :is(button,input,select):focus-visible{outline:3px solid #0d85b4;outline-offset:3px}
+/* Home-only scale, anchored per control group; artwork and modal portals are not scaled. */
+.home-top{scale:var(--home-ui-scale,1);transform-origin:top left;right:auto;width:calc((100% - 64px)/var(--home-ui-scale,1))}
+.home-duel{z-index:2;scale:var(--home-ui-scale,1);transform-origin:top left}
+.lobby-home .home-menu{z-index:2;scale:var(--home-ui-scale,1);transform-origin:right top;max-height:calc(78%/var(--home-ui-scale,1));overflow-y:auto;scrollbar-width:thin;scrollbar-color:#a7b9c766 transparent}
+.home-identity,.home-personal{z-index:2;scale:var(--home-ui-scale,1);transform-origin:bottom left}
+.home-footer{z-index:2;scale:var(--home-ui-scale,1);transform-origin:bottom left;right:auto;width:calc((100% - 76px)/var(--home-ui-scale,1))}
+.assistant-dialogue{scale:var(--home-ui-scale,1);transform-origin:bottom left;max-height:45%;overflow-y:auto}
+.assistant-interact:disabled{cursor:default;opacity:1}
+/* Update notice: charcoal reading area, subdued Rhodes ship watermark, fixed black acknowledgement bar. */
+.notice-veil.modal{background:#090d10ae;backdrop-filter:blur(7px)}
+.notice-modal.modal__box{height:min(720px,90dvh);max-height:90dvh;border:1px solid #b7b9b6;background:#292c2c;color:#f1f1eb;box-shadow:0 20px 90px #0008;--text-hi:#f3f3ee;--text-md:#dedfdc;--text-lo:#d4d6d3;--text-dim:#aab2af}
+.notice-modal.brackets::before,.notice-modal.brackets::after,.notice-modal>.modal__stripe,.notice-modal>.modal__head{display:none}
+.notice-modal>.modal__body{padding:0;flex:1;min-height:0;display:flex;overflow:hidden}
+.notice-modal .pn__wrap{width:100%;display:flex;flex-direction:column;gap:0;min-height:0;align-items:stretch}
+.notice-modal .pn__side{display:flex;flex-direction:row;justify-content:space-between;align-items:center;gap:20px;overflow:visible;max-height:none;min-height:58px;padding:10px 32px;border-bottom:1px solid #ffffff12;flex:none}
+.pn__kicker{font:10px var(--font-num);letter-spacing:2px;color:#bdc4bf}
+.pn__version-label{display:flex;gap:12px;align-items:center;font-size:13px;color:#c5cdca}
+.pn__version-select{min-width:165px;max-width:240px;min-height:32px;padding:4px 30px 4px 10px;border:1px solid #9098948a;border-radius:0;background:#363d3d;color:#fff;font:14px var(--font-num);color-scheme:dark}
+.notice-modal .pn__main{position:relative;min-height:0;flex:1;overflow:hidden}
+.notice-modal .pn__main::before{content:'';position:absolute;inset:0;pointer-events:none;background:url('/assets/ui/battleReady/rhodes_white.png') 78% 50%/auto 116% no-repeat;opacity:.055;filter:grayscale(1)}
+.notice-modal .pn__main-inner{position:relative;height:100%;max-height:none;overflow:auto;padding:25px 42px 35px;scrollbar-width:thin;scrollbar-color:#969d98 #242929}
+.notice-modal .pn__head{text-align:center;border:0;margin:0 0 28px;padding:0}.notice-modal .pn__title{font-size:25px;font-weight:650;letter-spacing:1px;margin:0 0 12px}.notice-modal .pn__meta{justify-content:center;gap:12px;font-size:12px}
+.notice-modal .pn__meta-date{color:#b9c1bb}.notice-modal .pn__meta-ver{font-size:12px;padding:2px 8px;color:#c6ceca;border-color:#8e9790}.notice-modal .pn__tag{font-size:10px;padding:1px 6px;color:#c2c9c5;border-color:#6f7973}
+.notice-modal .pn__section{margin:0 0 24px}.notice-modal .pn__h{font-size:17px;line-height:1.6;color:#f0f1eb;font-weight:650;margin:0 0 9px;letter-spacing:0}.notice-modal .pn__items{padding-left:24px}.notice-modal .pn__items li,.notice-modal .pn__p{font-size:15px;line-height:1.8;color:#e0e3dd;margin-bottom:9px;overflow-wrap:anywhere}
+.notice-modal>.modal__actions{padding:0;border-top:1px solid #595f5c;background:#060808;flex:none}
+.notice-confirm{display:block;width:100%;min-height:62px;border:0;background:#060808;color:#f6f5ef;font:21px var(--font-cjk);letter-spacing:2px;cursor:pointer}.notice-confirm:hover{background:#171d1b}.notice-confirm:focus-visible{outline:2px solid #e1e9e1;outline-offset:-5px}
+@media(max-width:1050px){.home-top{width:calc((100% - 36px)/var(--home-ui-scale,1));overflow-x:auto;scrollbar-width:none}.home-footer{width:calc((100% - 44px)/var(--home-ui-scale,1))}.settings-shell{grid-template-columns:170px minmax(0,1fr)}.settings-tabs{padding:30px 15px}.settings-tabs>button{font-size:18px;padding:10px 18px;gap:12px}.settings-content{margin:12px 22px 0;padding:22px 10px}.settings-modal .set-row{grid-template-columns:minmax(165px,.95fr) minmax(160px,1.15fr) 55px;gap:15px}.settings-modal .set-row__label{font-size:18px}.settings-modal .set-seg{gap:8px}.settings-modal .set-seg button{min-width:64px;font-size:15px;padding:6px 10px}}
+@media(max-height:550px){.settings-toolbar{min-height:57px;border-bottom-width:6px}.settings-back{width:72px;height:29px;margin:0 20px}.settings-toolbar h2{font-size:20px;padding:0 20px;gap:10px}.settings-toolbar h2 .icon{width:27px;height:27px}.settings-reset{font-size:14px;min-height:29px;min-width:120px;margin-right:20px}.settings-shell{grid-template-columns:125px minmax(0,1fr)}.settings-tabs{padding:24px 13px;gap:8px}.settings-tabs>button{min-height:44px;font-size:15px;padding:8px 11px;gap:9px}.settings-tabs>button .icon{width:22px;height:22px}.settings-content{margin:9px 18px 0;border-top-width:5px;padding:14px 8px 24px}.settings-modal .set-list{gap:12px}.settings-modal .set-row{grid-template-columns:minmax(150px,.85fr) minmax(145px,1.15fr) 48px;gap:12px;min-height:42px}.settings-modal .set-row__label{font-size:16px}.settings-modal .set-row__val{font-size:15px;min-width:48px;padding:4px}.settings-modal .set-hint{font-size:12px;margin:-5px 0 4px;line-height:1.6}.settings-modal .set-seg button,.settings-modal .set-voice-btn,.settings-modal .set-native{font-size:13px;min-height:34px;min-width:52px;padding:4px 8px}.settings-modal .set-toggle{scale:.8;transform-origin:left center}.settings-modal>.modal__actions{min-height:45px;padding:6px 20px}.settings-modal .modal__actions .btn{height:30px;min-height:30px;font-size:12px;padding:0 12px}.notice-modal.modal__box{height:94dvh;max-height:94dvh}.notice-modal .pn__side{min-height:42px;padding:6px 22px}.notice-modal .pn__main-inner{padding:16px 25px 24px}.notice-modal .pn__head{margin-bottom:18px}.notice-modal .pn__title{font-size:20px;margin-bottom:8px}.notice-modal .pn__h{font-size:15px}.notice-modal .pn__items li,.notice-modal .pn__p{font-size:13px;line-height:1.65}.notice-confirm{min-height:44px;font-size:17px}.lobby-home .home-menu{max-height:calc((84% - 23px)/var(--home-ui-scale,1))}}
+@media(max-width:600px){.settings-shell{grid-template-columns:90px minmax(0,1fr)}.settings-tabs{padding:20px 7px}.settings-tabs>button{flex-direction:column;justify-content:center;gap:5px;font-size:13px;padding:8px;min-height:58px}.settings-content{margin:8px 10px 0;padding:14px 4px}.settings-modal .set-row{grid-template-columns:minmax(0,1fr) 54px;gap:10px}.settings-modal .set-row__label{grid-column:1/-1;font-size:16px}.settings-modal .set-seg,.settings-modal .set-voice,.settings-modal .set-voice-lang,.settings-modal .set-lang{grid-column:1/-1}.settings-modal .set-toggle{grid-column:1}.settings-toolbar h2{font-size:18px;padding:0 14px}.settings-back{width:46px;margin:0 12px}.settings-reset{font-size:12px;min-width:96px;margin-right:12px}.pn__kicker{display:none}.notice-modal .pn__side{justify-content:flex-end}.notice-modal .pn__main-inner{padding:18px 22px 24px}}
+@media(prefers-reduced-motion:reduce){.settings-modal.modal__box{animation:none}}
+
+/* Settings language and resource downloads use the same light control surface. */
+.settings-modal .lang-select select{width:100%;min-height:42px;padding:8px 14px;background:#fff;color:#29343a;border:1px solid #98a4aa;border-radius:0;box-shadow:0 3px 6px #0000000a;font:16px var(--font-cjk);color-scheme:light}
+.settings-modal .lang-select select option{background:#fff;color:#29343a}
+.settings-modal .set-voice-controls{grid-column:2/-1;display:flex;flex-wrap:wrap;gap:10px;min-width:0;align-items:stretch}
+.settings-modal .set-voice-controls .set-seg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));flex:1;min-width:240px;gap:8px}
+.settings-modal .set-voice-controls .set-seg button{min-width:0;padding:6px 8px;white-space:nowrap}
+.settings-modal .set-voice-controls>.set-voice-btn--alt{flex:none;min-width:94px}
+.set-downloads{border-top:1px solid #99a5ac66;margin:10px 0 12px;padding:24px 0 12px;color:#303b41}
+.set-downloads__head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:18px}
+.set-downloads__head h3{font-size:21px;line-height:1.5;margin:0 0 5px;font-weight:600}
+.set-downloads__head p{font-size:14px;line-height:1.6;color:#64727b;margin:0}
+.set-downloads button{min-height:38px;padding:6px 16px;border:1px solid #8b9aa4;border-radius:0;background:#f8fafb;color:#344851;font:14px var(--font-cjk);white-space:nowrap;cursor:pointer}
+.set-downloads button:disabled{opacity:.5;cursor:default}.set-downloads button:hover:not(:disabled){background:#e5f1f6}
+.set-downloads__packs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.set-resource-pack{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:12px;align-items:center;min-height:73px;padding:12px 15px;border:1px solid #aab7bf;background:#f4f7f7;cursor:pointer}
+.set-resource-pack.is-selected{border-color:#5596b2;background:#edf6fa}.set-resource-pack.is-unavailable{background:#e4e9eb;color:#6e7a80}
+.set-resource-pack input{appearance:auto;width:17px;height:17px;margin:0;accent-color:#087dab}
+.set-resource-pack__name{min-width:0;font-size:16px;line-height:1.45}.set-resource-pack__name small{display:block;margin-top:4px;font-size:11px;color:#63757d}
+.set-resource-pack__size{text-align:right;font:14px var(--font-num);line-height:1.5;white-space:nowrap}.set-resource-pack__size b{font-weight:500}.set-resource-pack__size small{display:block;font:11px var(--font-cjk);color:#526d7b;margin-top:4px}
+.set-downloads__status{min-height:24px;font-size:14px;color:#456275;margin-top:16px;line-height:1.65}
+.set-downloads__progress{display:block;width:100%;height:8px;margin:8px 0 12px;accent-color:#087dab;border:0;background:#c3d2da}
+.set-downloads__progress::-webkit-progress-bar{background:#c3d2da}.set-downloads__progress::-webkit-progress-value{background:#087dab}
+.set-downloads__error{font-size:14px;line-height:1.6;color:#a43d32;margin-top:7px}
+.set-downloads__actions{display:flex;gap:18px;justify-content:space-between;align-items:center;border-top:1px solid #9aaebc55;margin-top:14px;padding-top:14px;font-size:14px;color:#536771}
+.set-downloads__actions b{color:#203f51;font:600 16px var(--font-num);margin-left:8px}
+.set-downloads .set-downloads__start{background:#087dab;color:#fff;border-color:#08668d;min-width:150px}.set-downloads .set-downloads__start:hover:not(:disabled){background:#096b91}
+@media(max-height:550px){.settings-modal .lang-select select{font-size:14px;min-height:34px;padding:5px 10px}.settings-modal .set-voice-controls{gap:8px}.settings-modal .set-voice-controls .set-seg{min-width:210px;gap:5px}.settings-modal .set-voice-controls>.set-voice-btn--alt{min-width:70px}.set-downloads{padding:18px 0 8px;margin-top:6px}.set-downloads__head{gap:12px;margin-bottom:12px}.set-downloads__head h3{font-size:18px}.set-downloads__head p,.set-downloads__status,.set-downloads__actions{font-size:12px}.set-downloads button{min-height:32px;font-size:12px;padding:5px 11px}.set-resource-pack{min-height:61px;padding:9px 10px;gap:9px}.set-resource-pack__name{font-size:14px}.set-resource-pack__size{font-size:12px}.set-resource-pack__size small,.set-resource-pack__name small{font-size:10px}}
+@media(max-width:780px){.set-downloads__packs{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:600px){.settings-modal .set-voice-controls{grid-column:1/-1}.set-downloads__head{flex-wrap:wrap}.set-downloads__actions{flex-wrap:wrap}.set-downloads__actions .set-downloads__start{flex:1}}
+
+@media(max-height:550px){.settings-modal .set-voice-controls .set-seg button{font-size:12px;padding:4px 2px}}
+/* ---- 数值控制 − [值] + (需求方 2026-11-16) ---------------------------------------------------------
+   每一个滑块旁边都有一个可编辑的数值框与加减按钮，三者与滑块双向同步（ui/components.js NumberStepper）。
+   视觉延续本文件已有的终末地方形语言：直角、1px 细边、无渐变、无圆角阴影堆叠。
+   `is-on` 不用于这里 —— 状态强调色只在按钮的 :hover / :active 上短暂出现，避免「值被改动」看起来像选中。 */
+.settings-modal .set-stepper{display:inline-flex;align-items:center;gap:6px;flex:none}
+.settings-modal .set-stepper__btn{display:grid;place-items:center;width:34px;height:34px;min-width:34px;padding:0;
+  background:#343b3e;color:#f3f6f7;border:1px solid #9aa2a7;border-radius:0;
+  font:16px/1 var(--font-cjk);cursor:pointer;transition:background .12s,color .12s,border-color .12s}
+.settings-modal .set-stepper__btn:hover:not(:disabled){background:#087dab;border-color:#0f678a;color:#fff}
+.settings-modal .set-stepper__btn:active:not(:disabled){background:#065f83;border-color:#065f83}
+.settings-modal .set-stepper__btn:disabled{opacity:.35;cursor:default}
+/* 数值框：与 .set-row__val 同宽同高，去掉浏览器默认外观 —— 需求方要求「不能像浏览器默认输入框」 */
+.settings-modal .set-stepper__input{width:64px;min-width:64px;padding:5px 7px;text-align:center;
+  background:#fff;color:#252b2e;border:1px solid #9aa2a7;border-radius:0;outline:none;
+  font:20px var(--font-cjk);font-variant-numeric:tabular-nums;box-shadow:0 8px 12px #0002}
+.settings-modal .set-stepper__input:hover{border-color:#626b70}
+/* 聚焦：界面绿的左边框 + 无外发光 —— 需求方要求「清晰的边界和聚焦状态」，不要多余阴影 */
+.settings-modal .set-stepper__input:focus{border-color:#087dab;box-shadow:inset 3px 0 0 #087dab}
+.settings-modal .set-stepper__input:disabled{opacity:.5;cursor:default}
+.settings-modal .set-stepper__unit{color:#626b70;font-size:16px;margin-left:-2px}
+/* 行内竖直居中：图标、文字、滑块、数值框同一条基线 */
+.settings-modal .set-row{align-items:center}

@@ -27,6 +27,7 @@ import { workshopPanelFilesFor } from '../server/http/workshop.js';
 import { normalizePackManifest } from '../shared/workshop.js';
 import { createPanelRegistry, MOD_PANEL_SLOTS } from '../public/js/ui/extensions.js';
 import { MOD_COMPONENT_IDS } from '../public/js/ui/modComponents.js';
+import { copyTree } from './helpers/copyTree.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 /** 交付包（业主侧）。本机没有 ⇒ 全部跳过。 */
@@ -195,7 +196,7 @@ before(() => {
   if (!HAS_PACK) return;
   tmp = fs.mkdtempSync(path.join(tmpdir(), 'sp-pluginpack-'));
   staged = path.join(tmp, 'plugin-pack');
-  fs.cpSync(PACK_DIR, staged, { recursive: true });
+  copyTree(PACK_DIR, staged);
 });
 after(() => { if (tmp) fs.rmSync(tmp, { recursive: true, force: true }); });
 

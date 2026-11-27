@@ -103,7 +103,8 @@ export const closeGuide = () => guideStore.set({ open: false });
 /** Standard 玩法说明 trigger button. */
 export function GuideButton({ class: cls, size = 'sm', variant = 'ghost', label = t('玩法说明'), square = false }) {
   return html`<${Button} variant=${variant} size=${size} icon="book" square=${square} class=${cx('guide-btn', cls)}
-    onClick=${() => openGuide(0)} title=${t('玩法说明')} aria-label=${t('玩法说明')}>${square ? null : label}<//>`;
+    onClick=${() => openGuide(0)}
+    title=${t('玩法说明：查看游戏玩法、攻防规则与相关操作说明')} aria-label=${t('玩法说明')}>${square ? null : label}<//>`;
 }
 
 function preload(url) {

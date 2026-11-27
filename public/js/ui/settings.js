@@ -25,12 +25,12 @@
 // 异形屏适配 (ui/screenFit.js): imported here, ahead of main.js's first render, so the stored offsets are on at boot.
 
 import { useEffect, useLayoutEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { html, Modal, Button, Icon, MicroLabel, Tooltip, confirmDialog } from './components.js';
+import { html, Modal, Button, Icon, MicroLabel, Tooltip, confirmDialog, NumberStepper } from './components.js';
 import { GIcon } from './gameComponents.js';
 import { useStore, savePref, store } from '../store.js';
 import { settingsStore } from './settingsStore.js';
 export { settingsStore } from './settingsStore.js';
-import { sanitizeSettings, HOTKEY_ACTIONS, DEFAULT_HOTKEYS, hotkeyLabel, rebindHotkey, isDefaultHotkeys, captureHotkey, VOICE_LANGS, TEXT_SIZES } from './gameLogic.js';
+import { sanitizeSettings, HOTKEY_ACTIONS, DEFAULT_HOTKEYS, hotkeyLabel, rebindHotkey, isDefaultHotkeys, captureHotkey, VOICE_LANGS, TEXT_SIZES, DEFAULT_SETTINGS, HOME_UI_SCALE_RANGE, sanitizeHomeUiScale } from './gameLogic.js';
 import { audio } from '../audio.js';
 import { VOICE_CHAR_ID_RE, VOICE_OVERRIDE_MAX, VOICE_PICKS } from '../voicePrefs.js';
 // 工坊外观的门控（「设置 → 工坊外观」这条线**唯一**的写入面）：立绘 / 头像解析链的模块级开关，
@@ -76,12 +76,30 @@ export function applyTextSize(v) {
   if (el) el.dataset.text = TEXT_SIZES.includes(v) ? v : 'sm';
 }
 
+/**
+ * 主界面 UI 缩放 (settings 主界面 UI 缩放 → `homeUiScale`).
+ *
+ * Writes the ratio onto the document element; css/settings-notices.css consumes it on .home-top / .home-menu /
+ * .home-identity / .home-footer / .assistant-dialogue (`scale: var(--home-ui-scale, 1)`). The assistant and the
+ * battlefield keep their own scale — only the home screen's chrome grows.
+ *
+ * The fallback stays 1 rather than none: the stylesheet is the single source of the default, and 100% must paint
+ * exactly as no scale at all. A `position: fixed` descendant is therefore never inside a transformed ancestor here —
+ * Modal renders through <Portal> onto <body> (ui/components.js), which is what keeps the veil full-screen.
+ * @param {number} v percentage, HOME_UI_SCALE_RANGE
+ */
+export function applyHomeUiScale(v) {
+  const el = globalThis.document?.documentElement;
+  if (el) el.style.setProperty('--home-ui-scale', String(sanitizeHomeUiScale(v) / 100));
+}
+
 settingsStore.subscribe((s) => {
   savePref('settings', sanitizeSettings(s));
   audio.setVolumes(s);
   audio.setVoiceLang(s.voiceLang, s.voiceOverrides);
   audio.setVoiceNative(s.voiceNative);
   applyTextSize(s.textSize);
+  applyHomeUiScale(s.homeUiScale);
   setAppearanceFirst(s.workshopSkins);
 });
 audio.setVolumes(settingsStore.get());
@@ -89,6 +107,7 @@ audio.setVoiceLang(settingsStore.get().voiceLang, settingsStore.get().voiceOverr
 audio.setVoiceNative(settingsStore.get().voiceNative);
 // before the first render (main.js boot renders after its imports ran): the stored step is on screen without a flash
 applyTextSize(settingsStore.get().textSize);
+applyHomeUiScale(settingsStore.get().homeUiScale);
 // 与 applyTextSize 同一条纪律：**第一帧之前**把工坊外观的门控同步好。否则首帧用的是链的默认值、
 // 下一帧才改成玩家的选择（那一下闪动就是「装了时装却先画官方图」）。
 setAppearanceFirst(settingsStore.get().workshopSkins);
@@ -136,24 +155,31 @@ export const hotkeyLabelOf = (action) => hotkeyLabel(settingsStore.get().keys?.[
 
 function Slider({ label, micro, value, onInput, icon }) {
   const pct = Math.round(value * 100);
-  return html`<label class="set-row">
+  return html`<div class="set-row">
     <span class="set-row__label"><${Icon} name=${icon} />${label}<${MicroLabel}>${micro}<//></span>
     <input class="set-range" type="range" min="0" max="100" step="5" value=${pct} style=${`--pct:${pct}%`}
+      aria-label=${label}
       onInput=${(e) => onInput(Number(e.currentTarget.value) / 100)} />
-    <span class="set-row__val num">${pct}</span>
-  </label>`;
+    <${NumberStepper} value=${pct} min=${0} max=${100} step=${5} decimals=${0} label=${label}
+      testId=${`stepper-${icon}`}
+      onCommit=${(v) => onInput(v / 100)} />
+  </div>`;
 }
 
-function Toggle({ label, micro, value, onChange }) {
+function Toggle({ label, micro, value, onChange, icon }) {
   return html`<div class="set-row">
-    <span class="set-row__label">${label}<${MicroLabel}>${micro}<//></span>
+    <span class="set-row__label">${icon ? html`<${Icon} name=${icon} />` : null}${label}<${MicroLabel}>${micro}<//></span>
     <button type="button" class=${`set-toggle${value ? ' is-on' : ''}`} role="switch" aria-checked=${value ? 'true' : 'false'}
       onClick=${() => onChange(!value)}><i></i><span>${value ? tc('toggle', '开启') : tc('toggle', '关闭')}</span></button>
   </div>`;
 }
 
 /** Display order only: 低 / 中 / 高, the same direction as 官方特效 关 / 精简 / 完整. Stored values stay high | medium | low. */
+const SETTINGS_TABS = [['game', N_('游戏'), 'gear'], ['sound', N_('声音'), 'mic'], ['controls', N_('操作'), 'key'], ['other', N_('其他'), 'dots']];
+
 const QUALITY = [['low', N_('低')], ['medium', N_('中')], ['high', N_('高')]];
+/** 帧率上限: stored values are FRAME_RATES ('off' = no limit); shown lowest first, the same direction as 画面质量. */
+const FRAME_RATE = [['60', N_('60')], ['120', N_('120')], ['240', N_('240')], ['off', N_('无上限')]];
 /**
  * 官方特效 (0.3.0, render/vfx): the official battle effects the server's owner extracted from their own client (the
  * server serves them: every player of that server sees the owner's extraction) — normal attacks, projectiles, hits,
@@ -376,7 +402,7 @@ function CosmeticSection() {
  * @param {{ value: boolean, onSet: (v: boolean) => void }} props
  */
 function OtherSkinsRow({ value, onSet }) {
-  return html`<${Toggle} label=${t('显示其他玩家的皮肤')} micro="OTHER SKINS"
+  return html`<${Toggle} label=${t('显示其他玩家的皮肤')} micro="OTHER SKINS" icon="palette"
     value=${value} onChange=${(v) => onSet(v)} />`;
 }
 
@@ -387,7 +413,7 @@ function OtherSkinsRow({ value, onSet }) {
  */
 function WorkshopSkinsRow({ value }) {
   const s = useStore((x) => x, Object.is, settingsStore);
-  return html`<${Toggle} label=${t('工坊外观')} micro="WORKSHOP SKINS"
+  return html`<${Toggle} label=${t('工坊外观')} micro="WORKSHOP SKINS" icon="palette"
     value=${s.workshopSkins} onChange=${(v) => updateSettings({ workshopSkins: v })} />`;
 }
 
@@ -504,6 +530,7 @@ export function SettingsModal({ open, onClose }) {
   const s = useSettings();
   const [tested, setTested] = useState(false);
   const cheatBall = useCheatBall();
+  const [tab, setTab] = useState('game');
   // 作弊菜单 activation code (需求方 2026-10-17): turning the ball on asks for it first; the code is only compared
   // locally (ui/cheats.js cheatCodeOk) and the typed text is never stored or logged.
   const [codeOpen, setCodeOpen] = useState(false);
@@ -516,9 +543,6 @@ export function SettingsModal({ open, onClose }) {
   const [touchUi] = useState(() => detectFeatures().coarse && !detectFeatures().fine);
   const mtNote = machineTranslationNote(); // a pack marked as machine translation says so under the switch
   const [fxOk, setFxOk] = useState(false);  // effects extracted from the local client: the 官方特效 row shows
-  // only while it is open (the title page keeps the modal mounted, closed), and from the effects' own file list: the
-  // asset store (assets.js) is not loaded before a match (test/ui/plugins.e2e.test.js). A Phase 1a extraction (0.3.0
-  // development builds only) listed its effects in data/local-assets.json instead and shows no row: re-extract.
   useEffect(() => {
     if (!open) return undefined;
     let live = true;
@@ -528,41 +552,124 @@ export function SettingsModal({ open, onClose }) {
     return () => { live = false; off(); };
   }, [open]);
   const fxTier = resolveOfficialFx(s.officialFx, true);
-  return html`<${Modal} open=${open} onClose=${onClose} title=${t('设置')} micro="SETTINGS" width="7.4rem"
-                        actions=${html`<${Button} variant="secondary" icon="book" class="set-guide" onClick=${() => openGuide(0)}>${t('玩法说明')}<//>
-                        <${Button} variant="primary" icon="check" onClick=${onClose}>${t('完成')}<//>`}>
-    <div class="set-list">
+  const selectTab = (id, event) => {
+    setTab(id);
+    event?.currentTarget.closest('.settings-shell')?.querySelector('.settings-content')?.scrollTo(0, 0);
+  };
+  const tabKeys = (event, index) => {
+    const key = event.key;
+    if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(key)) return;
+    event.preventDefault();
+    const next = key === 'Home' ? 0 : key === 'End' ? SETTINGS_TABS.length - 1 : (index + (key === 'ArrowDown' ? 1 : -1) + SETTINGS_TABS.length) % SETTINGS_TABS.length;
+    selectTab(SETTINGS_TABS[next][0], event);
+    event.currentTarget.parentElement.querySelectorAll('[role="tab"]')[next]?.focus();
+  };
+  return html`<${Modal} open=${open} onClose=${onClose} title=${t('设置')} class="settings-modal" veilClass="settings-veil" width="100%"
+    actions=${html`<${Button} variant="secondary" icon="book" class="set-guide" onClick=${() => openGuide(0)}>${t('玩法说明')}<//>
+    <${Button} variant="primary" icon="check" onClick=${onClose}>${t('完成')}<//>`}>
+    <header class="settings-toolbar">
+      <button type="button" class="settings-back" aria-label=${t('返回')} onClick=${onClose} data-autofocus><${Icon} name="chevronLeft" /></button>
+      <h2><${Icon} name="gear" />${t('设置')}</h2>
+      <button type="button" class="settings-reset" onClick=${() => updateSettings(DEFAULT_SETTINGS)}>${t('重置设置')}</button>
+    </header>
+    <div class="settings-shell">
+      <nav class="settings-tabs" role="tablist" aria-label=${t('设置分类')} aria-orientation="vertical">
+        ${SETTINGS_TABS.map(([id, label, icon], index) => html`<button key=${id} id=${'settings-tab-'+id} type="button" role="tab" aria-selected=${tab===id} aria-controls=${'settings-panel-'+id} tabindex=${tab===id?0:-1} class=${tab===id?'is-on':''} onClick=${event=>selectTab(id,event)} onKeyDown=${event=>tabKeys(event,index)}><${Icon} name=${icon} /><span>${t(label)}</span></button>`)}
+      </nav>
+      <div class="settings-content">
+        <section id="settings-panel-game" class="set-list set-panel" role="tabpanel" aria-labelledby="settings-tab-game" hidden=${tab!=='game'}>
+
       <div class="set-row">
-        <span class="set-row__label">${t('语言')}<${MicroLabel}>LANGUAGE<//></span>
-        <${LangToggle} class="set-lang" />
+        <span class="set-row__label"><${Icon} name="monitor" />${t('画面质量')}<${MicroLabel}>QUALITY<//></span>
+        <div class="set-seg" role="radiogroup">
+          ${QUALITY.map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${s.quality === id ? 'true' : 'false'}
+            class=${s.quality === id ? 'is-on' : ''} onClick=${() => updateSettings({ quality: id })}>${t(label)}</button>`)}
+        </div>
       </div>
-      ${mtNote ? html`<p class="set-hint set-lang-note" data-testid="lang-mt-note">${mtNote}</p>` : null}
+      <label class="set-row set-home-scale">
+        <span class="set-row__label"><${Icon} name="expand" />${t('主界面 UI 缩放')}<${MicroLabel}>UI SCALE<//></span>
+        <input class="set-range" type="range" id="set-home-ui-scale" name="home-ui-scale" min=${HOME_UI_SCALE_RANGE.min} max=${HOME_UI_SCALE_RANGE.max} step=${HOME_UI_SCALE_RANGE.step} value=${s.homeUiScale} style=${'--pct:'+((s.homeUiScale-75)/50*100)+'%'} onInput=${event=>updateSettings({ homeUiScale: Number(event.currentTarget.value) })} />
+        <${NumberStepper} value=${s.homeUiScale} min=${HOME_UI_SCALE_RANGE.min} max=${HOME_UI_SCALE_RANGE.max} step=${HOME_UI_SCALE_RANGE.step} label=${t('主界面 UI 缩放')} testId="stepper-home-ui-scale" onCommit=${(v) => updateSettings({ homeUiScale: v })} />
+        
+      </label>
+      <p class="set-hint">${t('数值越大，主界面按钮、面板和文字越大。助理与战场保持原比例。')}</p>
+      <div class="set-row" data-testid="frame-rate">
+        <span class="set-row__label"><${Icon} name="gauge" />${t('帧率上限')}<${MicroLabel}>FRAME RATE<//></span>
+        <div class="set-seg" role="radiogroup" aria-label=${t('帧率上限')}>
+          ${FRAME_RATE.map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${s.frameRate === id ? 'true' : 'false'}
+            class=${s.frameRate === id ? 'is-on' : ''} onClick=${() => updateSettings({ frameRate: id })}>${t(label)}</button>`)}
+        </div>
+      </div>
+      <p class="set-hint">${t('限制每秒最多绘制多少帧，用来省电和降低显卡占用。只影响画面刷新，不影响战斗速度；显示器刷新率低于所选档位时，实际帧率仍以显示器为准。')}</p>
+      <${Toggle} label=${t('显示伤害数字')} micro="DAMAGE NUMBERS" icon="hash" value=${s.damageNumbers} onChange=${(v) => updateSettings({ damageNumbers: v })} />
+      <${Toggle} label=${t('官方伤害数字')} micro="OFFICIAL NUMBERS" icon="hash" value=${s.officialDamageNumbers} onChange=${(v) => updateSettings({ officialDamageNumbers: v })} />
+      <p class="set-hint">${t('只显示达到官方暴击条件的红色数字。关闭时仍显示每一次命中。')}</p>
+      <${Toggle} label=${t('显示弹药与能量数量')} micro="AMMO & ENERGY" icon="layers" value=${s.ammoEnergyCount} onChange=${(v) => updateSettings({ ammoEnergyCount: v })} />
+      <p class="set-hint">${t('弹药类技能开启时，在弹药条下方显示剩余弹药 / 总弹药数（如 13/14）；秘术师的血条下方显示储存的攻击能量 / 上限（如 2/3）。官方界面没有这些数字。')}</p>
+      <${Toggle} label=${t('作战统计')} micro="COMBAT STATS" icon="chart" value=${s.combatMetrics} onChange=${(v) => updateSettings({ combatMetrics: v })} />
+      <p class="set-hint">${t('打开后，对局左下角可以查看自己干员的伤害、治疗和 DPS / HPS。官方界面没有这个窗口。改变玩法的插件对局在 Worker 里演算，统计不到，按钮不显示。')}</p>
+      <${Toggle} label=${t('盟约效果剩余时间')} micro="BOND TIMERS" icon="hourglass" value=${s.bondTimers} onChange=${(v) => updateSettings({ bondTimers: v })} />
+      <p class="set-hint">${t('在选中单位的详情中显示叙拉古、萨尔贡效果的剩余时间；萨尔贡显示层数与下一层到期时间。官方界面没有这些数字。')}</p>
+      <${Toggle} label=${t('部署时收起商店')} micro="DEPLOY FOLD" icon="package" value=${s.prepDeployFold} onChange=${(v) => updateSettings({ prepDeployFold: v })} />
+      <p class="set-hint">${t('拖起干员、装备或召唤物，以及放下后选择朝向时，临时收起商店并放大棋盘。关闭后，拿起时既不改变商店的收起状态，也不缩放镜头。')}</p>
+      <${Toggle} label=${t('全屏时保持屏幕常亮')} micro="SCREEN WAKE LOCK" icon="sun" value=${s.fullscreenWakeLock} onChange=${(v) => updateSettings({ fullscreenWakeLock: v })} />
+      <p class="set-hint" data-testid="wake-lock-hint">${tParts(isIOS()
+        ? N_('全屏期间始终保持屏幕常亮（{support}）；iOS低电量模式下可能不生效。')
+        : N_('全屏期间始终保持屏幕常亮（{support}）。'), {
+        support: html`<${Tooltip} tap=${true} id="wake-lock-requirements" placement="bottom"
+          text=${t('需要 HTTPS 或可信的本地地址（如 localhost），浏览器支持 Screen Wake Lock API，且页面保持在前台。系统设置仍可能限制生效。')}>
+          <button type="button" class="set-hint__help" aria-describedby="wake-lock-requirements">${t('需要环境支持')}<${Icon} name="info" /></button>
+        <//>`,
+      })}</p>
+      ${fxOk ? html`<div class="set-row" data-testid="official-fx">
+        <span class="set-row__label"><${Icon} name="play" />${t('官方特效')}<${MicroLabel}>OFFICIAL FX<//></span>
+        <div class="set-seg" role="radiogroup" aria-label=${t('官方特效')}>
+          ${OFFICIAL_FX.map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${fxTier === id ? 'true' : 'false'}
+            class=${fxTier === id ? 'is-on' : ''} onClick=${() => updateSettings({ officialFx: id })}>${t(label)}</button>`)}
+        </div>
+      </div>
+      <p class="set-hint">${t('使用服主从自己的游戏客户端提取的官方战斗特效（普攻、弹道、命中、状态、阵亡、部署，干员、召唤物和敌人的技能与天赋，以及秘术师储存的能量），连到这台服务器的玩家看到的都是服主提取的这一份；提取里没有的或对战中没有时机的（如只在游戏内部条件下触发的天赋效果）仍为本作的特效。精简：半分辨率贴图、粒子减半，适合手机。只在 3D 棋盘上显示。')}</p>` : null}
+      <div class="set-row">
+        <span class="set-row__label"><${Icon} name="type" />${t('文字大小')}<${MicroLabel}>TEXT SIZE<//></span>
+        <div class="set-seg set-textsize" role="radiogroup" aria-label=${t('文字大小')} data-testid="text-size">
+          ${TEXT_SCALES.map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${s.textSize === id ? 'true' : 'false'}
+            class=${s.textSize === id ? 'is-on' : ''} onClick=${() => updateSettings({ textSize: id })}>${t(label)}</button>`)}
+        </div>
+      </div>
+      <p class="set-hint set-textsize-note">${t('调整界面文字大小，棋盘保持原比例。')}</p>
+        </section>
+        <section id="settings-panel-sound" class="set-list set-panel" role="tabpanel" aria-labelledby="settings-tab-sound" hidden=${tab!=='sound'}>
       <${Slider} label=${t('背景音乐')} micro="BGM" icon="play" value=${s.bgm} onInput=${(v) => updateSettings({ bgm: v })} />
       <${Slider} label=${t('干员语音')} micro="VOICE" icon="mic" value=${s.voice} onInput=${(v) => updateSettings({ voice: v })} />
       <div class="set-row">
-        <span class="set-row__label">${t('语音语言')}<${MicroLabel}>VOICE LANGUAGE<//></span>
-        <div class="set-voice">
-          <div class="set-seg" role="radiogroup" aria-label=${t('语音语言')} data-testid="voice-lang">
+        <span class="set-row__label"><${Icon} name="globe" />${t('配音语言')}<${MicroLabel}>VOICE LANGUAGE<//></span>
+        <div class="set-voice-controls">
+          <div class="set-seg" role="radiogroup" aria-label=${t('配音语言')} data-testid="voice-lang">
             ${VOICE_LANGS.map((id) => html`<button key=${id} type="button" role="radio" aria-checked=${s.voiceLang === id ? 'true' : 'false'}
               lang=${VOICE_LANG_TAGS[id]} class=${s.voiceLang === id ? 'is-on' : ''} onClick=${() => updateSettings({ voiceLang: id })}>${VOICE_LANG_NAMES[id]}</button>`)}
           </div>
-          <button type="button" class=${s.voiceNative ? 'set-native is-on' : 'set-native'} data-testid="voice-native" aria-pressed=${s.voiceNative ? 'true' : 'false'}
+          <button type="button" data-voice-lang="alt" class=${s.voiceNative ? 'set-voice-btn set-voice-btn--alt is-on' : 'set-voice-btn set-voice-btn--alt'} data-testid="voice-native" aria-pressed=${s.voiceNative ? 'true' : 'false'}
             title=${t('有本土语言配音时使用')} onClick=${() => updateSettings({ voiceNative: !s.voiceNative })}>${tc('voice-lang', '本土语言')}</button>
         </div>
       </div>
+      <p class="set-hint">${t('仅更改跟随设置的干员，单独设置的配音保持不变。')}</p>
+      <${Toggle} label=${t('优先本土配音')} micro="NATIVE VOICE" icon="volume" testId="voice-native-switch" value=${s.voiceNative} onChange=${(v) => updateSettings({ voiceNative: v })} />
+      <p class="set-hint">${t('有本土语言配音时使用')}</p>
       <${Slider} label=${t('音效')} micro="SFX" icon="signal" value=${s.sfx}
                  onInput=${(v) => { updateSettings({ sfx: v }); if (!tested) { setTested(true); setTimeout(() => setTested(false), 400); audio.sfx('click'); } }} />
-      <${Toggle} label=${t('静音')} micro="MUTE" value=${s.muted} onChange=${(v) => updateSettings({ muted: v })} />
-      <${Toggle} label=${t('显示伤害数字')} micro="DAMAGE NUMBERS" value=${s.damageNumbers} onChange=${(v) => updateSettings({ damageNumbers: v })} />
-      <${Toggle} label=${t('官方伤害数字')} micro="OFFICIAL NUMBERS" value=${s.officialDamageNumbers} onChange=${(v) => updateSettings({ officialDamageNumbers: v })} />
-      <p class="set-hint">${t('只显示达到官方暴击条件的红色数字。关闭时仍显示每一次命中。')}</p>
-      <${Toggle} label=${t('显示弹药与能量数量')} micro="AMMO & ENERGY" value=${s.ammoEnergyCount} onChange=${(v) => updateSettings({ ammoEnergyCount: v })} />
-      <p class="set-hint">${t('弹药类技能开启时，在弹药条下方显示剩余弹药 / 总弹药数（如 13/14）；秘术师的血条下方显示储存的攻击能量 / 上限（如 2/3）。官方界面没有这些数字。')}</p>
-      <${Toggle} label=${t('盟约效果剩余时间')} micro="BOND TIMERS" value=${s.bondTimers} onChange=${(v) => updateSettings({ bondTimers: v })} />
-      <p class="set-hint">${t('在选中单位的详情中显示叙拉古、萨尔贡效果的剩余时间；萨尔贡显示层数与下一层到期时间。官方界面没有这些数字。')}</p>
-      <${Toggle} label=${t('作战统计')} micro="COMBAT STATS" value=${s.combatMetrics} onChange=${(v) => updateSettings({ combatMetrics: v })} />
-      <p class="set-hint">${t('打开后，对局顶栏可以查看自己干员的伤害、治疗和 DPS / HPS。官方界面没有这个窗口。改变玩法的插件对局在 Worker 里演算，统计不到，按钮不显示。')}</p>
-      <${Toggle} label=${t('显示作弊菜单')} micro="CHEAT MENU" value=${cheatBall}
+      <${Toggle} label=${t('静音')} micro="MUTE" icon="volumeOff" value=${s.muted} onChange=${(v) => updateSettings({ muted: v })} />
+        </section>
+        <section id="settings-panel-controls" class="set-list set-panel" role="tabpanel" aria-labelledby="settings-tab-controls" hidden=${tab!=='controls'}>
+      <${ScreenFitSection} />
+      <${HotkeySection} keys=${s.keys} touchUi=${touchUi} />
+        </section>
+        <section id="settings-panel-other" class="set-list set-panel" role="tabpanel" aria-labelledby="settings-tab-other" hidden=${tab!=='other'}>
+      <div class="set-row">
+        <span class="set-row__label"><${Icon} name="globe" />${t('语言')}<${MicroLabel}>LANGUAGE<//></span>
+        <${LangToggle} class="set-lang" />
+      </div>
+      ${mtNote ? html`<p class="set-hint set-lang-note" data-testid="lang-mt-note">${mtNote}</p>` : null}
+      <${Toggle} label=${t('显示作弊菜单')} micro="CHEAT MENU" icon="terminal" value=${cheatBall}
                  onChange=${(v) => (v ? setCodeOpen(true) : setCheatBall(false))} />
       <p class="set-hint">${t('在备战阶段显示一个可拖动的悬浮球，用来开启仅对自己生效的作弊开关。默认关闭，开启需要激活码。')}</p>
       ${codeOpen ? html`<div class="set-row" data-testid="cheat-code-row">
@@ -574,47 +681,13 @@ export function SettingsModal({ open, onClose }) {
         <${Button} variant="primary" onClick=${submitCode}>${t('确认')}<//>
       </div>` : null}
       ${codeWrong ? html`<p class="set-hint set-hint--warn" data-testid="cheat-code-wrong">${t('激活码不正确。')}</p>` : null}
-      <p class="set-hint">${t('打开后，对局左下角可以查看自己干员的伤害、治疗和 DPS / HPS。官方界面没有这个窗口。改变玩法的插件对局在 Worker 里演算，统计不到，按钮不显示。')}</p>
-      <${Toggle} label=${t('部署时收起商店')} micro="DEPLOY FOLD" value=${s.prepDeployFold} onChange=${(v) => updateSettings({ prepDeployFold: v })} />
-      <p class="set-hint">${t('拖起干员、装备或召唤物，以及放下后选择朝向时，临时收起商店并放大棋盘。关闭后，拿起时既不改变商店的收起状态，也不缩放镜头。')}</p>
-      <${Toggle} label=${t('全屏时保持屏幕常亮')} micro="SCREEN WAKE LOCK" value=${s.fullscreenWakeLock} onChange=${(v) => updateSettings({ fullscreenWakeLock: v })} />
-      <p class="set-hint" data-testid="wake-lock-hint">${tParts(isIOS()
-        ? N_('全屏期间始终保持屏幕常亮（{support}）；iOS低电量模式下可能不生效。')
-        : N_('全屏期间始终保持屏幕常亮（{support}）。'), {
-        support: html`<${Tooltip} tap=${true} id="wake-lock-requirements" placement="bottom"
-          text=${t('需要 HTTPS 或可信的本地地址（如 localhost），浏览器支持 Screen Wake Lock API，且页面保持在前台。系统设置仍可能限制生效。')}>
-          <button type="button" class="set-hint__help" aria-describedby="wake-lock-requirements">${t('需要环境支持')}<${Icon} name="info" /></button>
-        <//>`,
-      })}</p>
-      <div class="set-row">
-        <span class="set-row__label">${t('画面质量')}<${MicroLabel}>QUALITY<//></span>        <div class="set-seg" role="radiogroup">
-          ${QUALITY.map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${s.quality === id ? 'true' : 'false'}
-            class=${s.quality === id ? 'is-on' : ''} onClick=${() => updateSettings({ quality: id })}>${t(label)}</button>`)}
-        </div>
-      </div>
-      ${fxOk ? html`<div class="set-row" data-testid="official-fx">
-        <span class="set-row__label">${t('官方特效')}<${MicroLabel}>OFFICIAL FX<//></span>
-        <div class="set-seg" role="radiogroup" aria-label=${t('官方特效')}>
-          ${OFFICIAL_FX.map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${fxTier === id ? 'true' : 'false'}
-            class=${fxTier === id ? 'is-on' : ''} onClick=${() => updateSettings({ officialFx: id })}>${t(label)}</button>`)}
-        </div>
-      </div>
-      <p class="set-hint">${t('使用服主从自己的游戏客户端提取的官方战斗特效（普攻、弹道、命中、状态、阵亡、部署，干员、召唤物和敌人的技能与天赋，以及秘术师储存的能量），连到这台服务器的玩家看到的都是服主提取的这一份；提取里没有的或对战中没有时机的（如只在游戏内部条件下触发的天赋效果）仍为本作的特效。精简：半分辨率贴图、粒子减半，适合手机。只在 3D 棋盘上显示。')}</p>` : null}
-      <div class="set-row">
-        <span class="set-row__label">${t('文字大小')}<${MicroLabel}>TEXT SIZE<//></span>
-        <div class="set-seg set-textsize" role="radiogroup" aria-label=${t('文字大小')} data-testid="text-size">
-          ${TEXT_SCALES.map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${s.textSize === id ? 'true' : 'false'}
-            class=${s.textSize === id ? 'is-on' : ''} onClick=${() => updateSettings({ textSize: id })}>${t(label)}</button>`)}
-        </div>
-      </div>
-      <p class="set-hint set-textsize-note">${t('调整界面文字大小，棋盘保持原比例。')}</p>
-      <${ScreenFitSection} />
-      <${HotkeySection} keys=${s.keys} touchUi=${touchUi} />
       <${CosmeticSection} />
       <${UiPluginSection} />
       <${StorageSection} />
       <${DiagSection} />
       <p class="set-hint">${touchUi ? t('触屏操作：点击单位选中（撤退 / 出售）· 长按单位或卡牌查看详情 · 拖动部署后滑动选择朝向') : t('右键查看详情')}</p>
+        </section>
+      </div>
     </div>
   <//>`;
 }

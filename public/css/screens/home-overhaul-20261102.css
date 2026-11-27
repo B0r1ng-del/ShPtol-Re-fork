@@ -1,0 +1,2666 @@
+/* Rhodes day paper tiles: native 38x38 Sprite, border L10/B16/R10/T10.
+ * Labels remain live text. Motifs are explicit source crops with no native feature names. */
+.lobby-screen.lobby-home { --home-ink:#292c2e; --home-paper:#f3f4f1; }
+.lobby-screen.lobby-home .lobby-scene__wash { background:linear-gradient(90deg,#0c182522,transparent 34%,#10202818 60%,#0a151c55),linear-gradient(0deg,#06131bb3,transparent 35%,transparent 75%,#07131c66); }
+.lobby-screen.lobby-home .home-top { top:26px; left:32px; right:32px; gap:10px; }
+.lobby-screen.lobby-home .home-top .btn,.lobby-screen.lobby-home .home-tool { background:#1d272e8c; border:1px solid #fff3; border-radius:0; min-height:44px; height:44px; color:#f2f4f3; }
+.lobby-screen.lobby-home .home-top .btn__label,.lobby-screen.lobby-home .home-tool span { font-size:12px; }
+.lobby-screen.lobby-home .home-clock { font-size:10px; letter-spacing:2px; }
+.lobby-screen.lobby-home .home-menu {
+  position:absolute; top:17%; right:2.8%; width:48%; max-width:980px; height:auto;
+  display:flex; flex-direction:column; gap:12px; padding:0; margin:0; overflow:visible;
+  transform:none; perspective:none; max-height:none;
+}
+.lobby-screen.lobby-home .home-caption { margin:0 8px; padding:0 0 9px; font-size:11px; border-bottom:1px solid #fff8; color:#fff; }
+.lobby-screen.lobby-home .home-simulation { display:grid; grid-template-columns:minmax(0,1.85fr) minmax(0,1fr); min-height:178px; height:auto; gap:9px; }
+.lobby-screen.lobby-home .home-menu .home-simulation > button,
+.lobby-screen.lobby-home .home-menu .home-operators > button,
+.lobby-screen.lobby-home .home-menu .home-secondary > button {
+  position:relative; border:0!important; border-radius:0; background:transparent; color:var(--home-ink)!important;
+  box-shadow:none; isolation:isolate; overflow:visible; transform:none; clip-path:none;
+}
+.lobby-screen.lobby-home .home-menu .home-simulation > button::before,
+.lobby-screen.lobby-home .home-menu .home-operators > button::before,
+.lobby-screen.lobby-home .home-menu .home-secondary > button::before {
+  content:""; display:block; position:absolute; inset:0; z-index:-2; pointer-events:none;
+  border-style:solid; border-width:7px 7px 10px;
+  border-image:url('/assets/ui/entry-overhaul-20261102/paper-frame.png') 10 10 16 10 fill / 7px 7px 10px 7px / 0 stretch;
+  background:none; opacity:.96; transform:none; filter:none;
+}
+.lobby-screen.lobby-home .home-menu .home-simulation > button:hover,
+.lobby-screen.lobby-home .home-menu .home-operators > button:hover,
+.lobby-screen.lobby-home .home-menu .home-secondary > button:hover { filter:brightness(1.05); transform:translateY(-2px); }
+.lobby-screen.lobby-home .home-menu button:focus-visible { outline:2px solid #f4d17b; outline-offset:3px; }
+.lobby-screen.lobby-home .home-menu .home-alliance { display:flex; flex-direction:row; align-items:stretch; gap:18px; padding:16px 22px 22px 18px; text-align:left; }
+.lobby-screen.lobby-home .home-alliance::after { display:none; }
+.home-alliance__emblem { display:grid; place-items:center; width:29%; min-width:80px; align-self:stretch; background:linear-gradient(145deg,#3e4244,#202326); border-bottom:4px solid #4ed8af; }
+.home-alliance__emblem img { width:75%; max-height:112px; object-fit:contain; opacity:.92; }
+.home-alliance__copy { display:flex; flex:1; flex-direction:column; justify-content:center; min-width:0; gap:10px; }
+.lobby-screen.lobby-home .home-alliance strong { font-size:clamp(29px,2.8vw,52px); letter-spacing:.02em; font-weight:800; line-height:1.2; color:#272a2c; }
+.lobby-screen.lobby-home .home-alliance small { font-size:9px; letter-spacing:1.4px; color:#727779; opacity:1; }
+.home-alliance__copy > span { font-size:15px; padding:7px 10px; background:#4ed8af; color:#fff; align-self:flex-start; }
+.home-alliance__copy b { margin-left:16px; }
+.lobby-screen.lobby-home .home-menu .home-solo { display:flex; justify-content:center; align-items:flex-start; gap:9px; padding:18px 24px 24px; text-align:left!important; }
+.lobby-screen.lobby-home .home-solo .icon { width:30px; height:30px; color:#a39873; }
+.lobby-screen.lobby-home .home-solo strong { font-size:clamp(22px,2.1vw,37px); font-weight:800; color:#2e3335; }
+.lobby-screen.lobby-home .home-solo small { color:#777d80; letter-spacing:1.3px; font-size:9px; }
+.lobby-screen.lobby-home .home-menu .home-operators.home-resources { display:grid!important; flex-direction:initial!important; grid-template-columns:1fr 1fr!important; gap:9px!important; min-height:120px!important; height:auto!important; }
+.lobby-screen.lobby-home .home-menu .home-operators > button { display:flex; flex-direction:column; justify-content:center; align-items:flex-start; min-height:120px!important; height:auto!important; width:auto!important; padding:18px 24px 24px!important; }
+.lobby-screen.lobby-home .home-menu .home-materials::after,.lobby-screen.lobby-home .home-menu .home-diy::after {
+  content:""; display:block; position:absolute; right:12px; top:10px; bottom:20px; width:46%; z-index:-1;
+  background:url('/assets/ui/entry-overhaul-20261102/motif-operators.png') right center / contain no-repeat;
+  opacity:.8; transform:none; border:0; box-shadow:none;
+}
+.lobby-screen.lobby-home .home-menu .home-diy::after { background-image:url('/assets/ui/entry-overhaul-20261102/motif-squad.png'); }
+.lobby-screen.lobby-home .home-menu .home-operators.home-resources > button > strong { position:static; font-size:clamp(25px,2.1vw,38px)!important; line-height:1.2; font-weight:800; color:#333638; letter-spacing:.025em!important; margin:0!important; }
+.lobby-screen.lobby-home .home-menu .home-operators small { position:static; margin-top:12px; font-size:9px!important; color:#8c7a50!important; letter-spacing:1.4px!important; }
+.lobby-screen.lobby-home .home-secondary { display:grid; grid-template-columns:1fr; gap:9px; min-height:96px; }
+.lobby-screen.lobby-home .home-menu .home-report { display:flex; flex-direction:column; justify-content:center; align-items:flex-start; padding:15px 24px 22px; min-height:96px; height:auto!important; width:auto; }
+.lobby-screen.lobby-home .home-menu .home-report strong { position:static; color:#31383b; font-size:clamp(18px,1.45vw,28px); white-space:nowrap; }
+.lobby-screen.lobby-home .home-menu .home-report small { font-size:9px; margin-top:9px; color:#7d8385; }
+.lobby-screen.lobby-home .home-menu .home-report .icon { position:absolute; right:24px!important; bottom:20px; width:36px!important; height:36px!important; color:#a3adae; opacity:.45; }
+.lobby-screen.lobby-home .home-menu .home-rooms { display:flex; justify-content:space-between; align-items:center; min-height:96px; padding:15px 24px 22px; gap:12px; background:transparent; }
+.lobby-screen.lobby-home .home-rooms > div:first-child { display:flex; flex-direction:column; gap:3px; }
+.lobby-screen.lobby-home .home-menu .home-rooms strong { font-size:28px; color:#30383b; line-height:1.1; }
+.lobby-screen.lobby-home .home-menu .home-rooms small { color:#7b8588!important; font-size:9px; letter-spacing:1.4px; }
+.lobby-screen.lobby-home .home-rooms > div > span { color:#7d8453; font-size:18px; }
+.lobby-screen.lobby-home .home-counters { display:flex; flex-direction:row; gap:18px; color:#657277; }
+.lobby-screen.lobby-home .home-counters > span { display:flex; flex-direction:column; gap:5px; font-size:11px!important; color:#657277!important; }
+.lobby-screen.lobby-home .home-counters > span > b { font-size:26px; color:#71814b; }
+.lobby-screen.lobby-home .home-menu .home-connect { margin:0 8px; width:auto; padding:0; border:0; box-shadow:none; background:none; }
+.lobby-screen.lobby-home .home-connect .join-panel { margin:0; padding:13px 15px 10px; background:#15222cde; border:1px solid #dfe7e670; border-top:2px solid #4ed8af; box-shadow:0 8px 12px #0003; }
+.lobby-screen.lobby-home .home-connect .join-row { display:flex; gap:9px; align-items:center; }
+.lobby-screen.lobby-home .home-connect .field { flex:1; min-width:0; }
+.lobby-screen.lobby-home .home-connect .field__box { height:46px; min-height:46px; }
+.lobby-screen.lobby-home .home-connect .field__input { font-size:15px; color:#f4f3ed; letter-spacing:.1em; }
+.lobby-screen.lobby-home .home-connect .btn { min-height:46px; height:46px; font-size:14px; padding:0 15px; white-space:nowrap; }
+.lobby-screen.lobby-home .home-connect .join-foot { margin-top:8px; font-size:11px; color:#c5d0d4; }
+.lobby-screen.lobby-home .home-connect .tips { display:none; }
+.lobby-screen.lobby-home .home-menu > .home-duel { align-self:flex-end; position:relative!important; min-height:36px!important; height:36px!important; width:auto!important; min-width:155px!important; margin:0 8px 0 auto; padding:4px 12px; border:1px solid #fff5; background:#1a272bbd; color:#f0f3ee; box-shadow:none; }
+.lobby-screen.lobby-home .home-menu > .home-duel > strong { font-size:14px; }
+.lobby-screen.lobby-home .home-menu > .home-duel small { display:none; }
+.lobby-screen.lobby-home .home-identity { left:34px; bottom:320px; padding:13px 18px 13px 12px; background:linear-gradient(90deg,#172027df,#17202780 74%,transparent); border-left:3px solid #4ed8af; max-width:38%; }
+.lobby-screen.lobby-home .home-identity strong { font-size:28px; letter-spacing:.05em; }
+.lobby-screen.lobby-home .home-profile-avatar { width:66px; height:66px; }
+.lobby-screen.lobby-home .home-music { left:34px; top:auto; bottom:66px; width:320px; max-width:37%; max-height:216px; padding:12px 14px; background:#142027db; border:1px solid #e4e9e643; border-left:3px solid #4ed8af; }
+.lobby-screen.lobby-home .home-music header { margin-bottom:5px; }
+.lobby-screen.lobby-home .home-music__now { padding:4px 0; }
+.lobby-screen.lobby-home .home-music__library { margin-top:6px; padding-top:1px; }
+.lobby-screen.lobby-home .home-music:has(details[open]) { max-height:66vh; z-index:5; }
+.lobby-screen.lobby-home .home-personal { left:380px; right:auto; bottom:76px; display:flex; gap:7px; }
+.lobby-screen.lobby-home .home-personal .btn,.lobby-screen.lobby-home .home-personal > button { min-height:40px; background:#18252bd9; color:#e8eeec; border:1px solid #fff5; font-size:13px; }
+.lobby-screen.lobby-home .home-footer { left:0; right:0; bottom:0; height:32px; padding:7px 2%; background:#0d181fad; font-size:10px; }
+
+@media (max-height:820px) and (min-height:551px) {
+  .lobby-screen.lobby-home .home-menu { top:14%; gap:9px; }
+  .lobby-screen.lobby-home .home-simulation { min-height:144px!important; }
+  .lobby-screen.lobby-home .home-menu .home-operators.home-resources,.lobby-screen.lobby-home .home-menu .home-operators > button { min-height:98px!important; }
+  .lobby-screen.lobby-home .home-secondary,.lobby-screen.lobby-home .home-menu .home-secondary > button { min-height:86px; }
+  .lobby-screen.lobby-home .home-identity { bottom:320px; }
+  .lobby-screen.lobby-home .home-music { bottom:88px; }
+  .lobby-screen.lobby-home .home-personal { left:34px; bottom:34px; }
+  .lobby-screen.lobby-home .home-personal .btn,.lobby-screen.lobby-home .home-personal > button { height:32px; min-height:32px; }
+  .lobby-screen.lobby-home .home-footer { height:26px; }
+}
+@media (max-height:550px) {
+  .lobby-screen.lobby-home .home-top { top:8px; left:15px; right:15px; gap:4px; }
+  .lobby-screen.lobby-home .home-top .btn,.lobby-screen.lobby-home .home-tool { height:36px; min-height:36px; min-width:36px; padding:0 7px; }
+  .lobby-screen.lobby-home .home-top .btn__label,.lobby-screen.lobby-home .home-tool span { font-size:10px; }
+  .lobby-screen.lobby-home .home-clock { display:none; }
+  .lobby-screen.lobby-home .home-menu { top:55px; right:12px; width:54%; max-width:none; gap:5px; bottom:24px; overflow:auto; padding:0 2px 4px; }
+  .lobby-screen.lobby-home .home-caption { font-size:8px; padding-bottom:4px; margin:0 4px; }
+  .lobby-screen.lobby-home .home-simulation { flex:none; min-height:79px; grid-template-columns:1.7fr 1fr; gap:5px; }
+  .lobby-screen.lobby-home .home-menu .home-alliance { padding:10px 12px 15px; gap:9px; }
+  .home-alliance__emblem { min-width:34px; width:25%; border-bottom-width:2px; }
+  .home-alliance__copy { gap:4px; }
+  .lobby-screen.lobby-home .home-alliance strong { font-size:23px; }
+  .lobby-screen.lobby-home .home-alliance small { font-size:6px; letter-spacing:.7px; }
+  .home-alliance__copy > span { font-size:11px; padding:3px 6px; }
+  .home-alliance__copy b { margin-left:6px; font-size:14px; }
+  .lobby-screen.lobby-home .home-menu .home-solo { padding:9px 12px 16px; gap:5px; }
+  .lobby-screen.lobby-home .home-solo .icon { display:none; }
+  .lobby-screen.lobby-home .home-solo strong { font-size:20px; }
+  .lobby-screen.lobby-home .home-solo small { font-size:6px; }
+  .lobby-screen.lobby-home .home-menu .home-operators.home-resources { min-height:58px!important; gap:5px!important; flex:none; }
+  .lobby-screen.lobby-home .home-menu .home-operators > button { min-height:58px!important; padding:10px 15px 16px!important; }
+  .lobby-screen.lobby-home .home-menu .home-operators.home-resources > button > strong { font-size:19px!important; }
+  .lobby-screen.lobby-home .home-menu .home-operators small { font-size:6px!important; margin-top:4px; letter-spacing:.6px!important; }
+  .lobby-screen.lobby-home .home-menu .home-materials::after,.lobby-screen.lobby-home .home-menu .home-diy::after { top:6px; right:9px; bottom:13px; width:38%; opacity:.5; }
+  .lobby-screen.lobby-home .home-secondary { min-height:59px; gap:5px; flex:none; }
+  .lobby-screen.lobby-home .home-menu .home-report,.lobby-screen.lobby-home .home-menu .home-rooms { min-height:59px; padding:10px 14px 16px; gap:5px; }
+  .lobby-screen.lobby-home .home-menu .home-report strong { font-size:13px; }
+  .lobby-screen.lobby-home .home-menu .home-report small { font-size:6px; margin-top:4px; }
+  .lobby-screen.lobby-home .home-menu .home-report .icon { display:none; }
+  .lobby-screen.lobby-home .home-menu .home-rooms strong { font-size:20px; }
+  .lobby-screen.lobby-home .home-rooms > div:first-child { display:grid; grid-template-columns:auto auto; align-items:center; gap:6px; }
+  .lobby-screen.lobby-home .home-menu .home-rooms small { display:none; }
+  .lobby-screen.lobby-home .home-rooms > div > span { font-size:12px; }
+  .lobby-screen.lobby-home .home-counters { gap:8px; }
+  .lobby-screen.lobby-home .home-counters > span { font-size:8px!important; gap:2px; }
+  .lobby-screen.lobby-home .home-counters > span > b { font-size:18px; }
+  .lobby-screen.lobby-home .home-menu .home-connect { margin:0 5px; flex:none; }
+  .lobby-screen.lobby-home .home-connect .join-panel { padding:7px 7px 6px; }
+  .lobby-screen.lobby-home .home-connect .join-row { gap:5px; }
+  .lobby-screen.lobby-home .home-connect .field__box { height:36px; min-height:36px; padding:0 6px; }
+  .lobby-screen.lobby-home .home-connect .field__input,.lobby-screen.lobby-home .home-connect input::placeholder { font-size:12px; }
+  .lobby-screen.lobby-home .home-connect .btn { min-height:36px; height:36px; font-size:11px; padding:0 7px; }
+  .lobby-screen.lobby-home .home-connect .btn__icon { display:none; }
+  .lobby-screen.lobby-home .home-connect .join-foot { font-size:9px; margin-top:5px; }
+  .lobby-screen.lobby-home .home-menu > .home-duel { min-height:30px!important; height:30px!important; min-width:130px!important; margin:0 5px 0 auto; flex:none; }
+  .lobby-screen.lobby-home .home-menu > .home-duel > strong { font-size:12px; }
+  .lobby-screen.lobby-home .home-identity { left:16px; bottom:226px; gap:8px; padding:6px 8px; max-width:38%; }
+  .lobby-screen.lobby-home .home-identity strong { font-size:18px; }
+  .lobby-screen.lobby-home .home-identity small { font-size:7px; }
+  .lobby-screen.lobby-home .home-profile-avatar { width:42px; height:42px; }
+  .lobby-screen.lobby-home .home-music { left:16px; bottom:61px; top:auto; width:250px; max-width:40%; max-height:139px; padding:7px 9px; }
+  .lobby-screen.lobby-home .home-music header { display:none; }
+  .lobby-screen.lobby-home .home-music__now strong { font-size:11px; }
+  .lobby-screen.lobby-home .home-music__now small { display:none; }
+  .lobby-screen.lobby-home .home-music .home-music__progress { margin:0; }
+  .lobby-screen.lobby-home .home-music button { min-height:30px; height:30px; min-width:30px; }
+  .lobby-screen.lobby-home .home-music__library { margin:4px 0 0; }
+  .lobby-screen.lobby-home .home-music summary { padding:4px 1px; }
+  .lobby-screen.lobby-home .home-personal { left:16px; bottom:26px; gap:4px; }
+  .lobby-screen.lobby-home .home-personal .btn,.lobby-screen.lobby-home .home-personal > button { min-height:30px; height:30px; padding:0 8px; font-size:11px; }
+  .lobby-screen.lobby-home .home-footer { height:21px; font-size:8px; padding:4px 2%; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .lobby-screen.lobby-home .home-menu .home-simulation > button:hover,
+  .lobby-screen.lobby-home .home-menu .home-operators > button:hover,
+  .lobby-screen.lobby-home .home-menu .home-secondary > button:hover { transform:none; }
+}
+
+/* Home-only music control. RoomMusicPlayer keeps its own presentation and lifetime. */
+.lobby-screen.lobby-home .home-top { z-index:12; }
+.home-music-menu { position:static; flex:none; }
+.lobby-screen.lobby-home .home-music-toggle { width:210px; max-width:22vw; justify-content:flex-start; gap:8px; }
+.lobby-screen.lobby-home .home-music-toggle .home-music-toggle__state { display:block; flex:none; font-size:18px; color:#4ed8af; }
+.lobby-screen.lobby-home .home-music-toggle .home-music-toggle__name { display:block; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; font-size:12px; }
+.lobby-screen.lobby-home .home-music-toggle > .icon { flex:none; width:12px; height:12px; }
+.lobby-screen.lobby-home .home-music-toggle[aria-expanded="true"] { border-color:#dac58a; background:#26343ce8; }
+.home-music-popover { position:fixed; z-index:450; left:16px; top:56px; width:min(390px,calc(45vw - 32px)); max-height:calc(var(--sp-vh,1vh)*100 - var(--music-top,56px) - 16px - var(--sa-b,0px) - var(--fit-b,0px)); overflow:auto; overscroll-behavior:contain; scrollbar-width:thin; background:#142129fa; border:1px solid #c2b38988; box-shadow:0 14px 40px #0006; }
+.home-music-popover > .home-music { position:static; inset:auto; box-sizing:border-box; width:100%; max-width:none; min-height:0; max-height:none; margin:0; padding:16px; border:0; background:none; box-shadow:none; overflow:visible; }
+.home-music-popover .home-music header { display:flex; padding-right:25px; }
+.home-music-popover .home-music header > strong { font-size:14px; }
+.home-music-popover .home-music button { min-height:36px; height:auto; min-width:32px; }
+.home-music-popover .home-music .home-music__controls { flex-wrap:wrap; }
+.home-music-popover .home-music label { display:flex; font-size:12px; }
+.home-music-popover .home-music .home-music__progress { display:block; }
+.home-music-popover .home-music__controls > label { min-width:90px; }
+.home-music-popover .home-music__now strong { font-size:13px; }
+.home-music-popover .home-music__library { margin-top:10px; }
+.home-music-popover .home-music summary { min-height:34px; display:flex; align-items:center; gap:9px; font-size:13px; padding:4px 0; }
+.home-music-popover .home-music summary::before { content:'›'; color:#cdbd8e; }
+.home-music-popover .home-music details[open] > summary::before { content:'⌄'; }
+.home-music-popover .home-music__list { max-height:none; overflow:visible; }
+.home-music-popover .home-music__track { font-size:13px; padding:7px 4px; }
+.home-music-popover__close { position:absolute; right:8px; top:8px; display:grid; place-items:center; width:32px; height:32px; min-height:32px; padding:0; color:#d9e3e4; border:1px solid #ffffff36; background:#0d181fa6; cursor:pointer; }
+.home-music-popover__close .icon { width:16px; height:16px; }
+.lobby-screen.lobby-home .home-personal { left:34px; }
+@media (max-height:550px) {
+  .lobby-screen.lobby-home .home-music-toggle { width:154px; max-width:25vw; }
+  .lobby-screen.lobby-home .home-music-toggle .home-music-toggle__name { font-size:11px; }
+  .home-music-popover { width:calc(45vw - 24px); max-height:calc(var(--sp-vh,1vh)*100 - var(--music-top,56px) - 16px - var(--sa-b,0px) - var(--fit-b,0px)); }
+  .home-music-popover > .home-music { padding:10px; }
+  .home-music-popover .home-music header { margin:0 0 7px; }
+  .home-music-popover .home-music header > strong { font-size:13px; }
+  .home-music-popover .home-music__controls > label { flex-basis:100%; gap:10px; }
+  .lobby-screen.lobby-home .home-identity { bottom:90px; }
+  .lobby-screen.lobby-home .home-personal { left:16px; }
+}
+
+/* Mode-entry cinematic only: interaction targets stay outside the uniformly fitted 1280x720 art stage. */
+.sp-mode-entry{position:fixed;inset:0;width:100%;height:100%;max-width:none;max-height:none;z-index:2000;overflow:hidden;background:#0b1419;isolation:isolate;color:#eef4ed}
+.sp-mode-entry__stage{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.sp-mode-entry__waiting{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:12px;font:18px Bender,sans-serif;letter-spacing:3px;color:#bacbc9}
+.sp-mode-entry__waiting span{font-size:12px;letter-spacing:6px;color:#91aaa5}
+.sp-mode-entry__skip{position:absolute;top:max(18px,var(--sa-t,0px));z-index:2;min-width:88px;min-height:44px;padding:8px 16px;background:#101f27bf;color:#e4eee9;border:1px solid #b1c2ba70;font-size:14px;cursor:pointer}
+.sp-mode-entry__skip{right:max(18px,var(--sa-r,0px))}
+.sp-mode-entry button:focus-visible{outline:2px solid #e7d287;outline-offset:3px}
+@media(prefers-reduced-motion:reduce){.sp-mode-entry{display:none}}
+
+/* Home depth increment: distribute real groups through the available height, with the source video's restrained card depth.
+ * --float-* are already produced by LobbyScene from its cached viewport. No new pointer measurement loop. */
+.lobby-screen.lobby-home {
+  --home-view-height:calc(var(--sp-vh,1vh)*100 - var(--fit-t,0px) - var(--fit-b,0px) - var(--sa-t,0px) - var(--sa-b,0px));
+  position:absolute; top:var(--sa-t,0px); left:var(--sa-l,0px); right:var(--sa-r,0px); bottom:auto;
+  width:auto; height:var(--home-view-height); min-height:0;
+}
+.home-connect__head { display:none; }
+@media (min-width:1100px) and (min-height:650px) {
+  .lobby-screen.lobby-home .home-menu {
+    top:15%; right:3%; width:47%; max-width:980px;
+    height:calc(73% / var(--home-ui-scale,1)); max-height:none; padding:0;
+    display:grid; grid-template-columns:1fr; grid-template-rows:24px 1.45fr 1fr .9fr 1.05fr 42px;
+    gap:clamp(12px,calc(var(--sp-vh,1vh)*1.35),22px); align-items:stretch; overflow:visible;
+    perspective:none; transform-style:flat;
+  }
+  .lobby-screen.lobby-home .home-menu > .home-caption { margin:0 10px; padding:0 0 8px; min-height:0; align-self:stretch; }
+  .lobby-screen.lobby-home .home-menu > .home-simulation,
+  .lobby-screen.lobby-home .home-menu > .home-operators.home-resources,
+  .lobby-screen.lobby-home .home-menu > .home-secondary {
+    min-height:0!important; height:100%!important; margin:0; gap:12px!important; transform-style:flat;
+  }
+  .lobby-screen.lobby-home .home-menu > .home-simulation { grid-template-columns:minmax(0,1.85fr) minmax(0,1fr); }
+  .lobby-screen.lobby-home .home-menu > .home-simulation > button,
+  .lobby-screen.lobby-home .home-menu > .home-operators.home-resources > button,
+  .lobby-screen.lobby-home .home-menu > .home-secondary > button {
+    min-height:0!important; height:100%!important; margin:0; padding:20px 24px 28px!important;
+    box-shadow:4px 5px 0 #bec7c23b,9px 12px 18px -12px #0009;
+  }
+  .lobby-screen.lobby-home .home-menu .home-alliance { gap:20px; }
+  .lobby-screen.lobby-home .home-alliance__emblem { width:29%; min-width:72px; }
+  .lobby-screen.lobby-home .home-alliance__emblem img { max-height:132px; }
+  .lobby-screen.lobby-home .home-alliance strong { font-size:clamp(32px,2.6vw,60px); }
+  .lobby-screen.lobby-home .home-alliance small { font-size:10px; letter-spacing:1.6px; }
+  .lobby-screen.lobby-home .home-alliance__copy { gap:12px; }
+  .lobby-screen.lobby-home .home-alliance__copy > span { font-size:16px; padding:7px 12px; }
+  .lobby-screen.lobby-home .home-solo strong { font-size:clamp(24px,2vw,42px); }
+  .lobby-screen.lobby-home .home-solo small { font-size:10px; }
+  .lobby-screen.lobby-home .home-menu .home-operators.home-resources > button > strong { font-size:clamp(25px,2.1vw,46px)!important; }
+  .lobby-screen.lobby-home .home-menu .home-operators small { font-size:10px!important; margin-top:14px; }
+  .lobby-screen.lobby-home .home-menu .home-secondary { grid-template-columns:1fr 1.05fr; }
+  .lobby-screen.lobby-home .home-menu .home-report strong { font-size:clamp(20px,1.6vw,34px); }
+  .lobby-screen.lobby-home .home-menu .home-report small { font-size:10px; }
+  .lobby-screen.lobby-home .home-menu .home-rooms strong { font-size:clamp(26px,2vw,40px); }
+  .lobby-screen.lobby-home .home-counters { gap:20px; }
+  .lobby-screen.lobby-home .home-counters > span { font-size:12px!important; }
+  .lobby-screen.lobby-home .home-counters > span > b { font-size:30px; }
+  .lobby-screen.lobby-home .home-menu > .home-connect { margin:0 9px; min-height:0; height:100%; }
+  .lobby-screen.lobby-home .home-connect .join-panel { height:100%; display:flex; flex-direction:column; justify-content:center; padding:18px 20px; border:1px solid #e0e7df83; border-top:3px solid #4ed8af; box-shadow:5px 7px 0 #111f2933; }
+  .lobby-screen.lobby-home .home-connect__head { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; color:#e6ebe0; font-size:19px; }
+  .home-connect__head > span { display:flex; align-items:center; gap:9px; }
+  .home-connect__head .icon { width:18px; height:18px; color:#4ed8af; }
+  .home-connect__head small { font:10px/1.2 Bender,sans-serif; letter-spacing:1.4px; color:#aebfbd; }
+  .lobby-screen.lobby-home .home-connect .field__box,.lobby-screen.lobby-home .home-connect .join-row .btn { height:50px; min-height:50px; }
+  .lobby-screen.lobby-home .home-connect input,.lobby-screen.lobby-home .home-connect input::placeholder { font-size:16px; letter-spacing:.04em; }
+  .lobby-screen.lobby-home .home-connect .join-row .btn { font-size:14px; padding:0 16px; }
+  .lobby-screen.lobby-home .home-connect .join-foot { margin-top:10px; font-size:12px; }
+  .lobby-screen.lobby-home .home-menu > .home-duel { justify-self:end; align-self:end; min-height:38px!important; height:38px!important; width:190px!important; margin:0 9px 0 0; padding:5px 14px!important; }
+  .lobby-screen.lobby-home .home-menu > .home-duel > strong { font-size:15px; }
+}
+@media (min-width:1100px) and (min-height:650px) and (max-height:850px) {
+  .lobby-screen.lobby-home .home-menu { top:13%; height:calc(76% / var(--home-ui-scale,1)); grid-template-rows:20px 1.35fr 1fr .9fr 1.1fr 34px; gap:10px; }
+  .lobby-screen.lobby-home .home-menu > .home-simulation > button,
+  .lobby-screen.lobby-home .home-menu > .home-operators.home-resources > button,
+  .lobby-screen.lobby-home .home-menu > .home-secondary > button { padding:13px 18px 20px!important; }
+  .lobby-screen.lobby-home .home-alliance__copy { gap:7px; }
+  .lobby-screen.lobby-home .home-alliance__copy > span { font-size:13px; padding:5px 9px; }
+  .lobby-screen.lobby-home .home-menu .home-operators small { font-size:8px!important; margin-top:8px; }
+  .lobby-screen.lobby-home .home-connect .join-panel { padding:10px 13px; }
+  .lobby-screen.lobby-home .home-connect__head { font-size:15px; margin-bottom:8px; }
+  .lobby-screen.lobby-home .home-connect .field__box,.lobby-screen.lobby-home .home-connect .join-row .btn { height:42px; min-height:42px; }
+  .lobby-screen.lobby-home .home-connect input,.lobby-screen.lobby-home .home-connect input::placeholder { font-size:13px; }
+  .lobby-screen.lobby-home .home-connect .join-foot { font-size:10px; margin-top:7px; }
+  .lobby-screen.lobby-home .home-menu > .home-duel { height:32px!important; min-height:32px!important; }
+}
+@media (min-width:1100px) and (min-height:650px) and (pointer:fine) and (prefers-reduced-motion:no-preference) {
+  /* Keep real input planes flat. Only noninteractive native paper surfaces carry subtle depth. */
+  .lobby-screen.lobby-home .home-menu { transform:none; perspective:none; transform-style:flat; transition:none; }
+  .lobby-screen.lobby-home .home-menu .home-simulation > button::before,
+  .lobby-screen.lobby-home .home-menu .home-operators > button::before,
+  .lobby-screen.lobby-home .home-menu .home-secondary > button::before {
+    transform:perspective(1800px) translate3d(calc(var(--float-x,0px)*.18),calc(var(--float-y,0px)*.18),0) rotateY(calc(-1deg + var(--float-ry,0deg)*.18));
+    transform-origin:center; transition:transform .18s ease-out; pointer-events:none;
+  }
+}
+@media (prefers-reduced-motion:reduce),(pointer:coarse) {
+  .lobby-screen.lobby-home .home-menu,
+  .lobby-screen.lobby-home .home-menu > .home-simulation,
+  .lobby-screen.lobby-home .home-menu > .home-operators.home-resources,
+  .lobby-screen.lobby-home .home-menu > .home-secondary,
+  .lobby-screen.lobby-home .home-menu > .home-connect { transform:none; transition:none; }
+}
+
+/* Nickname-only semantic entry: preserve the existing strong typography and identity geometry. */
+.lobby-screen.lobby-home .home-identity button.home-profile-name{all:unset;display:inline;cursor:pointer;vertical-align:baseline}
+.lobby-screen.lobby-home .home-identity .home-profile-name .btn__icon,.lobby-screen.lobby-home .home-identity .home-profile-name::before,.lobby-screen.lobby-home .home-identity .home-profile-name::after{display:none}
+.lobby-screen.lobby-home .home-identity .home-profile-name .btn__label{all:unset;display:inline}
+.lobby-screen.lobby-home .home-identity .home-profile-name:focus-visible{outline:2px solid #f1d799;outline-offset:3px;border-radius:1px}
+
+/* User layout export2026-11-02T14:18:48.123Z; original JSON/old baseline retained in migration evidence. */
+@media(min-width:1100px) and (min-height:650px) {
+.lobby-screen.lobby-home .home-menu { left:0;top:0;right:auto;bottom:auto;width:100%;height:100%;max-width:none;max-height:none;padding:0;display:block;overflow:visible;transform-style:flat;perspective:none; }
+.lobby-screen.lobby-home .home-menu>.home-simulation,.lobby-screen.lobby-home .home-menu>.home-operators.home-resources,.lobby-screen.lobby-home .home-menu>.home-secondary { display:contents!important;transform:none!important; }
+.lobby-screen.lobby-home .home-menu.home-menu div.home-caption { position:absolute!important;left:50.521875000%!important;top:15.000000000%!important;right:auto!important;bottom:auto!important;width:45.957812500%!important;height:2.222222222%!important;min-width:0!important;min-height:0!important;max-width:none!important;max-height:none!important;margin:0!important;transform:none!important; }
+.lobby-screen.lobby-home .home-menu.home-menu button.home-alliance { position:absolute!important;left:50.313541667%!important;top:17.924074074%!important;right:auto!important;bottom:auto!important;width:30.102604167%!important;height:18.521296296%!important;min-width:0!important;min-height:0!important;max-width:none!important;max-height:none!important;margin:0!important;transform:none!important; }
+.lobby-screen.lobby-home .home-menu.home-menu button.home-solo { position:absolute!important;left:80.571875000%!important;top:17.831481481%!important;right:auto!important;bottom:auto!important;width:16.271875000%!important;height:18.521296296%!important;min-width:0!important;min-height:0!important;max-width:none!important;max-height:none!important;margin:0!important;transform:none!important; }
+.lobby-screen.lobby-home .home-menu.home-menu button.home-materials { position:absolute!important;left:auto!important;right:2.931937172%!important;top:39.168490153%!important;bottom:auto!important;width:41.099476440%!important;height:9.850000000%!important;min-width:0!important;min-height:0!important;max-width:none!important;max-height:none!important;margin:0!important;transform:none!important; }
+.lobby-screen.lobby-home .home-menu.home-menu button.home-diy { position:absolute!important;left:auto!important;right:4.397905759%!important;top:40.043763676%!important;bottom:auto!important;width:21.308900524%!important;height:8.100000000%!important;min-width:0!important;min-height:0!important;max-width:none!important;max-height:none!important;margin:0!important;transform:none!important; }
+.lobby-screen.lobby-home .home-menu.home-menu button.home-report { position:absolute!important;left:auto!important;right:2.931937172%!important;top:50.109409190%!important;bottom:auto!important;width:37.958115183%!important;height:9.850000000%!important;min-width:0!important;min-height:0!important;max-width:none!important;max-height:none!important;margin:0!important;transform:none!important; }
+.lobby-screen.lobby-home .home-menu.home-menu button.home-rooms { position:absolute!important;left:72.830208333%!important;top:53.800000000%!important;right:auto!important;bottom:auto!important;width:23.753125000%!important;height:7.487037037%!important;min-width:0!important;min-height:0!important;max-width:none!important;max-height:none!important;margin:0!important;transform:none!important; }
+.lobby-screen.lobby-home .home-menu.home-menu section.home-connect { position:absolute!important;left:51.876041667%!important;top:62.691466083%!important;right:auto!important;bottom:auto!important;width:45.170833333%!important;height:13.888888889%!important;min-width:0!important;min-height:0!important;max-width:none!important;max-height:none!important;margin:0!important;transform:none!important; }
+.lobby-screen.lobby-home .home-menu.home-menu a.home-duel { position:absolute!important;left:87.104687500%!important;top:77.350925926%!important;right:auto!important;bottom:auto!important;width:9.895833333%!important;height:3.518518519%!important;min-width:0!important;min-height:0!important;max-width:none!important;max-height:none!important;margin:0!important;transform:none!important; }
+
+.lobby-screen.lobby-home .home-menu .home-report { z-index:1; }
+.lobby-screen.lobby-home .home-menu .home-rooms { z-index:3; box-shadow:0 6px 10px #0003; }
+.lobby-screen.lobby-home .home-menu .home-operators.home-resources>button>strong { font-size:calc(clamp(25px,2.1vw,46px)*.6)!important; }
+.lobby-screen.lobby-home .home-menu .home-operators small { font-size:6px!important; }
+.lobby-screen.lobby-home .home-menu .home-rooms strong { font-size:calc(clamp(26px,2vw,40px)*.5); }
+.lobby-screen.lobby-home .home-menu .home-rooms small { font-size:4.5px; }
+.lobby-screen.lobby-home .home-menu .home-rooms>div>span,.lobby-screen.lobby-home .home-menu .home-rooms>div>span>b { font-size:9px; }
+.lobby-screen.lobby-home .home-menu .home-counters>span { font-size:6px!important; }
+.lobby-screen.lobby-home .home-menu .home-counters>span>b { font-size:15px; }
+.lobby-screen.lobby-home .home-connect__head { font-size:clamp(15.75px,1.0390625vw,19.95px); }
+.lobby-screen.lobby-home .home-connect__head small { font-size:10.5px; }
+.lobby-screen.lobby-home .home-connect input,.lobby-screen.lobby-home .home-connect input::placeholder { font-size:clamp(13.65px,.875vw,16.8px); }
+.lobby-screen.lobby-home .home-connect .join-row .btn { font-size:14.7px; }
+.lobby-screen.lobby-home .home-connect .join-foot { font-size:clamp(10.5px,.65625vw,12.6px); }
+}
+/* Compact adaptation follows the user's hierarchy, not the stale mobile coordinates below the viewport. */
+@media(max-width:1099px),(max-height:649px) {
+ .lobby-screen.lobby-home .home-menu { left:auto;right:12px;top:52px;bottom:12px;width:clamp(330px,57vw,520px);height:auto;max-width:calc(100% - 24px);max-height:none;padding:3px 3px 6px;margin:0;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:12px 74px 44px 60px 76px 44px;gap:5px;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;transform:none!important;perspective:none;scrollbar-width:thin; }
+ .lobby-screen.lobby-home .home-menu>.home-caption { grid-row:1;margin:0 4px;padding:0 0 2px;font-size:8px; }
+ .lobby-screen.lobby-home .home-menu>.home-simulation { grid-row:2;display:grid!important;grid-template-columns:1.85fr 1fr;min-height:0!important;height:74px!important;gap:5px;transform:none; }
+ .lobby-screen.lobby-home .home-menu>.home-operators.home-resources { grid-row:3;display:grid!important;grid-template-columns:1fr 1fr!important;min-height:0!important;height:44px!important;gap:5px!important;transform:none; }
+ .lobby-screen.lobby-home .home-menu>.home-secondary { grid-row:4;display:block;position:relative;min-height:0!important;height:60px!important;transform:none; }
+ .lobby-screen.lobby-home .home-menu .home-simulation>button { min-height:0!important;height:74px!important;padding:8px 10px 12px!important;transform:none!important; }
+ .lobby-screen.lobby-home .home-alliance__emblem { min-width:34px;width:25%; }
+ .lobby-screen.lobby-home .home-menu .home-alliance { gap:8px; }
+ .lobby-screen.lobby-home .home-alliance__copy { gap:4px; }
+ .lobby-screen.lobby-home .home-alliance strong { font-size:22px; }
+ .lobby-screen.lobby-home .home-alliance small { font-size:6px;letter-spacing:.7px; }
+ .lobby-screen.lobby-home .home-alliance__copy>span { padding:3px 5px;font-size:10px; }
+ .lobby-screen.lobby-home .home-alliance__copy b { margin-left:5px;font-size:12px; }
+ .lobby-screen.lobby-home .home-solo strong { font-size:20px; }
+ .lobby-screen.lobby-home .home-solo small { font-size:6px; }
+ .lobby-screen.lobby-home .home-solo .icon { display:none; }
+ .lobby-screen.lobby-home .home-menu .home-operators>button { min-height:0!important;height:44px!important;padding:5px 12px 9px!important;transform:none!important; }
+ .lobby-screen.lobby-home .home-menu .home-operators.home-resources>button>strong { font-size:16px!important; }
+ .lobby-screen.lobby-home .home-menu .home-operators small { font-size:7px!important;margin-top:2px;letter-spacing:.5px!important; }
+ .lobby-screen.lobby-home .home-menu .home-report { position:absolute;left:3%;top:0;width:97%;height:60px;min-height:0;padding:8px 12px 12px;z-index:1;transform:none!important; }
+ .lobby-screen.lobby-home .home-menu .home-report strong { font-size:13px;letter-spacing:0; }
+ .lobby-screen.lobby-home .home-menu .home-report small { font-size:6px;margin-top:5px; }
+ .lobby-screen.lobby-home .home-menu .home-report .icon { display:none; }
+ .lobby-screen.lobby-home .home-menu .home-rooms { position:absolute;left:44%;right:5px;top:8px;width:auto;height:44px;min-height:0;padding:5px 9px;gap:6px;z-index:3;transform:none!important;box-shadow:0 4px 7px #0003; }
+ .lobby-screen.lobby-home .home-rooms>div:first-child { display:grid;grid-template-columns:auto auto;align-items:center;gap:4px; }
+ .lobby-screen.lobby-home .home-menu .home-rooms strong { font-size:15px; }
+ .lobby-screen.lobby-home .home-menu .home-rooms small { display:none; }
+ .lobby-screen.lobby-home .home-rooms>div>span,.lobby-screen.lobby-home .home-rooms>div>span>b { font-size:9px; }
+ .lobby-screen.lobby-home .home-menu .home-counters { gap:8px; }
+ .lobby-screen.lobby-home .home-menu .home-counters>span { font-size:8px!important;gap:1px; }
+ .lobby-screen.lobby-home .home-menu .home-counters>span>b { font-size:12px; }
+ .lobby-screen.lobby-home .home-menu>.home-connect { grid-row:5;margin:0 4px;height:76px;min-height:0; }
+ .lobby-screen.lobby-home .home-connect .join-panel { height:100%;padding:6px 7px;display:flex;flex-direction:column;justify-content:center; }
+ .lobby-screen.lobby-home .home-connect__head { display:none; }
+ .lobby-screen.lobby-home .home-connect .join-row { gap:5px; }
+ .lobby-screen.lobby-home .home-connect .field__box,.lobby-screen.lobby-home .home-connect .join-row .btn { min-height:44px;height:44px; }
+ .lobby-screen.lobby-home .home-connect input,.lobby-screen.lobby-home .home-connect input::placeholder { font-size:11px;letter-spacing:0; }
+ .lobby-screen.lobby-home .home-connect .join-row .btn { font-size:10px;padding:0 7px;white-space:nowrap; }
+ .lobby-screen.lobby-home .home-connect .btn__icon { display:none; }
+ .lobby-screen.lobby-home .home-connect .join-foot { margin-top:3px;min-height:14px;font-size:8px;line-height:1.2;white-space:nowrap;overflow-x:auto; }
+ .lobby-screen.lobby-home .home-connect .code-chip { font-size:9px;padding:1px 4px; }
+ .lobby-screen.lobby-home .home-menu>.home-duel { grid-row:6;position:relative!important;justify-self:end;align-self:start;min-width:130px!important;width:130px!important;min-height:44px!important;height:44px!important;margin:0 4px 0 0;padding:5px 9px!important; }
+ .lobby-screen.lobby-home .home-menu>.home-duel>strong { font-size:12px; }
+}
+/* One coherent input plane: no nested preserve-3d/translateZ on buttons; reuse LobbyScene's existing smoothed variables. */
+@media(min-width:1100px) and (min-height:650px) and (pointer:fine) and (hover:hover) and (prefers-reduced-motion:no-preference) {
+ .lobby-screen.lobby-home .home-menu { transform-origin:68% 50%;transform-style:flat;perspective:none;transform:perspective(1800px) translate(calc(var(--float-x,0px)*.7),calc(var(--float-y,0px)*.45)) rotateY(calc(var(--float-ry,0deg)*1.3)) rotateX(calc(var(--float-rx,0deg)*.8));transition:none; }
+ .lobby-screen.lobby-home .home-menu:has(.home-connect input:focus) { transform:none; }
+ .lobby-screen.lobby-home .home-menu .home-simulation>button::before,.lobby-screen.lobby-home .home-menu .home-operators>button::before,.lobby-screen.lobby-home .home-menu .home-secondary>button::before { transform:none;transition:none; }
+}
+@media(prefers-reduced-motion:reduce),(pointer:coarse),(hover:none) { .lobby-screen.lobby-home .home-menu { transform:none!important;perspective:none; } }
+
+/* v2: transparent desktop staging must not cover nickname/avatar/personal controls. */
+@media(min-width:1100px) and (min-height:650px) {
+ .lobby-screen.lobby-home .home-menu { pointer-events:none; }
+ .lobby-screen.lobby-home .home-menu button:not(:disabled),.lobby-screen.lobby-home .home-menu a,.lobby-screen.lobby-home .home-menu .home-connect { pointer-events:auto; }
+}
+@media(max-width:1099px),(max-height:649px) {
+ .lobby-screen.lobby-home .home-menu>.home-secondary>button.home-report { position:absolute!important;left:3%;top:0;width:97%;height:60px; }
+ .lobby-screen.lobby-home .home-menu>.home-secondary>button.home-rooms { position:absolute!important;left:44%;right:5px;top:8px;width:auto;height:44px; }
+ .lobby-screen.lobby-home .home-menu .home-simulation>button::before,.lobby-screen.lobby-home .home-menu .home-operators>button::before,.lobby-screen.lobby-home .home-menu .home-secondary>button::before { border-image-width:6px 6px 8px; }
+ .lobby-screen.lobby-home .home-alliance__copy { gap:3px; }
+ .lobby-screen.lobby-home .home-alliance strong,.lobby-screen.lobby-home .home-alliance__copy>span { line-height:1.1; }
+ .lobby-screen.lobby-home .home-alliance small,.lobby-screen.lobby-home .home-menu .home-operators small { line-height:1; }
+}
+
+
+/* ===== 用户 2026-11-15 需求：干员调配(父/大) + 自选编队(子/小) ===== */
+/* 父容器必须仍是 contents，否则两张卡会失去 328/329 的绝对定位 */
+@media(min-width:1100px) and (min-height:650px){
+  .lobby-screen.lobby-home .home-menu.home-menu > .home-operators.home-resources.is-parent-child{
+    display:contents!important;
+  }
+}
+/* 子卡：不要多余底层 motif 背景；层级降一级 */
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-diy.is-child::after{ display:none!important; }
+.lobby-screen.lobby-home .home-menu .home-operators.home-resources > button.home-diy.is-child > strong{
+  font-size:clamp(15px,1.15vw,20px)!important; letter-spacing:.05em!important;
+}
+.lobby-screen.lobby-home .home-menu .home-operators.home-resources > button.home-diy.is-child > small{
+  font-size:8px!important; letter-spacing:.18em!important;
+}
+
+/* 文字不被 flex 压扁；父卡留足内容高度 */
+.lobby-screen.lobby-home .home-menu.home-menu button.home-materials,
+.lobby-screen.lobby-home .home-menu.home-menu button.home-diy{ overflow:visible!important; }
+.lobby-screen.lobby-home .home-menu .home-operators > button > strong,
+.lobby-screen.lobby-home .home-menu .home-operators > button > small{ flex:0 0 auto!important; min-height:0!important; }
+/* 父卡内容垂直居中 */
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-materials.is-primary{ justify-content:center!important; }
+/* 子卡同样居中 */
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-diy.is-child{ justify-content:center!important; padding:8px 20px 10px 22px!important; }
+
+/* ===== 嵌套形态：自选编队是干员调配卡内部的小卡 ===== */
+/* 父卡右侧让出子卡位置，文字不被压盖 */
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-materials.is-primary{
+  padding-right:24px!important;
+}
+/* 子卡：贴合父卡内部的留白（四周各 10px 左右） */
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-diy.is-child{
+  justify-content:center!important;
+  align-items:flex-start!important;
+  padding:8px 18px 10px 20px!important;
+}
+
+/* ===== 用户 2026-11-15 17:3x 需求：删多余底色块 / 子卡渐变 / 补图标 / SWEEP 完全仿照 ===== */
+
+/* ① 干员调配卡内那块多余的白底（子卡背后要干净），并让子卡左→右渐变 */
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-diy.is-child{
+  background:linear-gradient(100deg,#fdfefd 0%,#f4f6f5 46%,#dde4e4 100%)!important;
+}
+
+/* ② 父卡右侧 motif 图标补上（原来被嵌套子卡压住/隐藏），子卡也要有 */
+/* 父卡图标：用多层背景画在卡片自身上（不靠伪元素，避免被 z-index 层序吃掉） */
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-materials.is-primary{
+  background-image:linear-gradient(110deg,#fbfcfb 0%,#eef2f1 46%,#d8dedb 100%)!important;
+}
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-materials.is-primary::after{
+  content:""; display:block!important; position:absolute; z-index:1; pointer-events:none;
+  left:38.5%; top:18%; width:8.4%; height:64%;
+  background:url('/assets/ui/entry-overhaul-20261102/motif-operators.png') center / contain no-repeat;
+  opacity:.85; border:0; box-shadow:none; transform:none;
+}
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-diy.is-child::after{
+  content:""; display:block!important; position:absolute; z-index:-1; pointer-events:none;
+  right:14px; top:16%; width:46px; height:68%; z-index:2;
+  background:url('/assets/ui/entry-overhaul-20261102/motif-squad.png') center / contain no-repeat;
+  opacity:.72; border:0; box-shadow:none; transform:none;
+}
+
+/* ③ SWEEP 完全仿照干员调配：同款纸框、同款阴影、同款底色 */
+.lobby-screen.lobby-home .home-menu .home-secondary > button.home-report{
+  background:linear-gradient(100deg,#fdfefd 0%,#f2f5f4 46%,#e2e8e8 100%)!important;
+}
+.lobby-screen.lobby-home .home-menu .home-secondary > button.home-report::before{
+  content:""; display:block; position:absolute; inset:0; z-index:-2; pointer-events:none;
+  border-style:solid; border-width:7px 7px 10px;
+  border-image:url('/assets/ui/entry-overhaul-20261102/paper-frame.png') 10 10 16 10 fill / 7px 7px 10px 7px / 0 stretch;
+  background:none; opacity:.96; transform:none; filter:none;
+}
+/* 阴影与干员调配一致：不再外扩一圈纸，只用同款投影 */
+.lobby-screen.lobby-home .home-menu .home-secondary > button.home-report::after{
+  content:""; display:block; position:absolute; z-index:-3; pointer-events:none;
+  inset:0; background:transparent;
+  box-shadow:0 18px 34px -22px #001018e6, 0 0 0 1px #4ed8af5c;
+}
+
+/* 子卡：去掉那块投影背景 */
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-diy.is-child{ box-shadow:none!important; }
+
+/* ===== 加入同盟：按示例重排标题行（去 ALLIANCE ACCESS，最近同盟紧贴标题） ===== */
+.lobby-screen.lobby-home .home-connect .home-connect__head{
+  display:flex!important; align-items:center!important; justify-content:flex-start!important;
+  gap:0!important; margin-bottom:10px!important;
+}
+.lobby-screen.lobby-home .home-connect .home-connect__head > small{
+  display:block!important; flex:0 0 auto!important; margin-left:auto!important;
+  font-size:10.5px!important; letter-spacing:1.4px!important; color:#aebfbd!important;
+}
+.lobby-screen.lobby-home .home-connect .home-connect__head > span:first-child{
+  flex:0 0 auto!important; gap:9px!important;
+}
+.lobby-screen.lobby-home .home-connect .home-connect__head > .recent-chips{
+  flex:0 0 auto!important; margin-left:26px!important; padding-left:14px!important;
+  border-left:1px solid rgba(230,235,224,.24)!important;
+}
+.lobby-screen.lobby-home .home-connect .home-connect__head > .recent-chips .t-lo{
+  font-size:12px!important; color:#9fb0b2!important; margin-right:10px!important; letter-spacing:.08em!important;
+}
+.lobby-screen.lobby-home .home-connect .home-connect__head > .recent-chips .code-chip{
+  font-size:12px!important; padding:4px 12px!important; border-radius:2px!important;
+}
+
+/* ===== 参照示例：左侧强调条 + 左上斜切（统一 #4ed8af） ===== */
+.lobby-screen.lobby-home .home-menu button.home-materials,
+.lobby-screen.lobby-home .home-menu button.home-report,
+.lobby-screen.lobby-home .home-menu button.home-alliance,
+.lobby-screen.lobby-home .home-menu button.home-solo{
+  clip-path:polygon(14px 0,100% 0,100% 100%,0 100%,0 14px)!important;
+}
+.lobby-screen.lobby-home .home-menu button.home-materials::before,
+.lobby-screen.lobby-home .home-menu button.home-report::before,
+.lobby-screen.lobby-home .home-menu button.home-alliance::before,
+.lobby-screen.lobby-home .home-menu button.home-solo::before{
+  border-left:5px solid #4ed8af!important;
+}
+.lobby-screen.lobby-home .home-connect .join-panel{
+  border-left:5px solid #4ed8af!important;
+  clip-path:polygon(14px 0,100% 0,100% 100%,0 100%,0 14px);
+}
+
+/* 加入同盟 / 观战：amber 组件换成 #4ed8af */
+.lobby-screen.lobby-home .home-connect .btn--amber{
+  --btn-bg:#4ed8af; --btn-bg-hover:#4ed8af; --btn-fg:#08221c;
+  --btn-bd:#4ed8af; --btn-bd-hover:#4ed8af; --btn-glow:#4ed8af55; --bk-c:#4ed8af;
+}
+/* 左侧强调条改 inset shadow，避免被 clip-path 切掉 */
+.lobby-screen.lobby-home .home-menu button.home-materials,
+.lobby-screen.lobby-home .home-menu button.home-report,
+.lobby-screen.lobby-home .home-menu button.home-alliance,
+.lobby-screen.lobby-home .home-menu button.home-solo{
+  box-shadow:inset 5px 0 0 #4ed8af, 4px 5px 0 rgba(190,199,194,.23), 9px 12px 18px -12px rgba(0,0,0,.6)!important;
+}
+.lobby-screen.lobby-home .home-connect .join-panel{
+  box-shadow:inset 5px 0 0 #4ed8af, 0 8px 12px rgba(0,0,0,.2)!important;
+}
+
+/* 加入同盟按钮：直接压过组件背景（变量不生效） */
+.lobby-screen.lobby-home .home-connect .join-row .btn--amber{
+  background:#4ed8af!important; border-color:#4ed8af!important; color:#08221c!important;
+  box-shadow:none!important;
+}
+.lobby-screen.lobby-home .home-connect .join-row .btn--amber:hover{
+  background:#4ed8af!important; border-color:#4ed8af!important;
+}
+
+/* ===== 细节修正 ===== */
+/* ① 绿条贴合白色块：去掉 clip-path 造成的 14px 左上缺角，绿条走完整左边缘 */
+.lobby-screen.lobby-home .home-menu button.home-materials,
+.lobby-screen.lobby-home .home-menu button.home-report,
+.lobby-screen.lobby-home .home-menu button.home-alliance,
+.lobby-screen.lobby-home .home-menu button.home-solo{
+  clip-path:none!important;
+}
+/* ② 加入同盟：顶上不要绿条，左侧绿条贴合 */
+.lobby-screen.lobby-home .home-connect .join-panel{
+  border-top-color:rgba(223,231,230,.44)!important;
+  clip-path:none!important;
+  box-shadow:inset 5px 0 0 #4ed8af, 0 8px 12px rgba(0,0,0,.2)!important;
+}
+/* ③ 单人模拟头像改绿 */
+.lobby-screen.lobby-home .home-solo .icon,
+.lobby-screen.lobby-home .home-solo svg{
+  color:#4ed8af!important; fill:#4ed8af!important;
+}
+/* ④ 加入同盟里的钥匙图标改绿 */
+.lobby-screen.lobby-home .home-connect .field .icon,
+.lobby-screen.lobby-home .home-connect .join-row .icon,
+.lobby-screen.lobby-home .home-connect .btn .icon{
+  color:#4ed8af!important; fill:#4ed8af!important;
+}
+/* ⑤ 三个标题字号统一（取 SWEEP 的 30.56px → 1.6vw 夹紧） */
+.lobby-screen.lobby-home .home-menu .home-materials > strong,
+.lobby-screen.lobby-home .home-menu .home-report > strong,
+.lobby-screen.lobby-home .home-menu .home-alliance strong{
+  font-size:clamp(26px,1.6vw,30.56px)!important;
+  letter-spacing:.02em!important; line-height:1.2!important;
+}
+
+/* ⑤ 三个标题字号统一（压过 .home-operators ... > button > strong 的 clamp 25-38px） */
+.lobby-screen.lobby-home .home-menu .home-operators.home-resources > button > strong,
+.lobby-screen.lobby-home .home-menu:not(.x) .home-secondary > button.home-report > strong,
+.lobby-screen.lobby-home .home-menu .home-simulation > button.home-alliance strong{
+  font-size:30.56px!important; letter-spacing:.02em!important; line-height:1.2!important;
+}
+
+/* ===== 绿条贴合：纸框左/下切片归零，白底从 0 起铺到 0 止，绿条(inset 5px)正好压在最左 ===== */
+.lobby-screen.lobby-home .home-menu button.home-alliance::before,
+.lobby-screen.lobby-home .home-menu button.home-solo::before,
+.lobby-screen.lobby-home .home-menu button.home-materials::before,
+.lobby-screen.lobby-home .home-menu button.home-report::before{
+  border-width:7px 7px 0 0!important;
+  border-image-width:7px 7px 0 0!important;
+  border-image-slice:10 10 0 0 fill!important;
+  border-image-repeat:stretch!important;
+}
+/* 绿条保持 inset，与白底同一盒子，必然贴合 */
+.lobby-screen.lobby-home .home-menu button.home-materials,
+.lobby-screen.lobby-home .home-menu button.home-report,
+.lobby-screen.lobby-home .home-menu button.home-alliance,
+.lobby-screen.lobby-home .home-menu button.home-solo{
+  box-shadow:inset 5px 0 0 #4ed8af, 4px 5px 0 rgba(190,199,194,.23), 9px 12px 18px -12px rgba(0,0,0,.6)!important;
+}
+/* 加入同盟头行：加入同盟 | 最近同盟 …… ALLIANCE ACCESS */
+.lobby-screen.lobby-home .home-connect__head > span:first-child{ order:1!important; }
+.lobby-screen.lobby-home .home-connect__head > .recent-chips{ order:2!important; margin-left:16px!important; padding-left:14px!important; border-left:1px solid rgba(232,238,232,.30)!important; }
+.lobby-screen.lobby-home .home-connect__head > small{ order:3!important; margin-left:auto!important; }
+
+/* ===== 修正：切片恢复原值，只改边框宽度；白纸纵向铺满、横向从绿条(5px)右侧起 ===== */
+.lobby-screen.lobby-home .home-menu button.home-alliance::before,
+.lobby-screen.lobby-home .home-menu button.home-solo::before,
+.lobby-screen.lobby-home .home-menu button.home-materials::before,
+.lobby-screen.lobby-home .home-menu button.home-report::before{
+  border-image-slice:10 10 16 10 fill!important;
+  border-width:7px 7px 0 0!important;
+  border-image-width:7px 7px 0 0!important;
+  left:5px!important; top:0!important;
+  width:calc(100% - 5px)!important; height:100%!important;
+}
+/* 绿条：只走左侧 5px，纵向 = 卡片全高，与白纸共用同一盒子 ⇒ 必然贴合 */
+.lobby-screen.lobby-home .home-menu button.home-materials,
+.lobby-screen.lobby-home .home-menu button.home-report,
+.lobby-screen.lobby-home .home-menu button.home-alliance,
+.lobby-screen.lobby-home .home-menu button.home-solo{
+  box-shadow:inset 5px 0 0 #4ed8af, 4px 5px 0 rgba(190,199,194,.23), 9px 12px 18px -12px rgba(0,0,0,.6)!important;
+}
+
+/* ===== 绿条画在纸框自身(::before)上 —— 与白纸同一盒子，边界必然重合 ===== */
+.lobby-screen.lobby-home .home-menu button.home-alliance::before,
+.lobby-screen.lobby-home .home-menu button.home-solo::before,
+.lobby-screen.lobby-home .home-menu button.home-materials::before,
+.lobby-screen.lobby-home .home-menu button.home-report::before{
+  border-image-slice:10 10 16 10 fill!important;
+  border-width:7px 7px 10px!important;
+  border-image-width:7px 7px 10px!important;
+  left:0!important; top:0!important; width:100%!important; height:100%!important;
+  box-shadow:inset 5px 0 0 #4ed8af!important;
+}
+/* 按钮自身不再画绿条，只保留纸页叠边与落影 */
+.lobby-screen.lobby-home .home-menu button.home-materials,
+.lobby-screen.lobby-home .home-menu button.home-report,
+.lobby-screen.lobby-home .home-menu button.home-alliance,
+.lobby-screen.lobby-home .home-menu button.home-solo{
+  box-shadow:none!important;
+}
+
+/* ===== 终版：绿条 = 真实 border-left；白纸从 5px 起铺，同一盒子决定边界 ===== */
+.lobby-screen.lobby-home .home-menu button.home-materials,
+.lobby-screen.lobby-home .home-menu button.home-report,
+.lobby-screen.lobby-home .home-menu button.home-alliance,
+.lobby-screen.lobby-home .home-menu button.home-solo{
+  box-sizing:border-box!important;
+  border-left:5px solid #4ed8af!important;
+  box-shadow:4px 5px 0 rgba(190,199,194,.23), 9px 12px 18px -12px rgba(0,0,0,.6)!important;
+}
+.lobby-screen.lobby-home .home-menu button.home-alliance::before,
+.lobby-screen.lobby-home .home-menu button.home-solo::before,
+.lobby-screen.lobby-home .home-menu button.home-materials::before,
+.lobby-screen.lobby-home .home-menu button.home-report::before{
+  border-image-slice:10 10 16 10 fill!important;
+  border-width:7px 7px 10px!important;
+  border-image-width:7px 7px 10px!important;
+  left:5px!important; top:0!important;
+  width:calc(100% - 5px)!important; height:100%!important;
+}
+/* 加入同盟：左侧绿条同上，顶部中性 */
+.lobby-screen.lobby-home .home-connect .join-panel{
+  box-sizing:border-box!important;
+  border-left:5px solid #4ed8af!important;
+  border-top:3px solid rgba(223,231,230,.44)!important;
+  box-shadow:0 8px 12px rgba(0,0,0,.2)!important;
+}
+
+/* ===== 清除 ::before / ::after 上残留的绿色，只留按钮自身 border-left ===== */
+.lobby-screen.lobby-home .home-menu button.home-alliance::before,
+.lobby-screen.lobby-home .home-menu button.home-solo::before,
+.lobby-screen.lobby-home .home-menu button.home-materials::before,
+.lobby-screen.lobby-home .home-menu button.home-report::before{
+  border-image-slice:10 10 16 10 fill!important;
+  border-width:7px 7px 10px 0!important;
+  border-image-width:7px 7px 10px 0!important;
+  border-left:0!important;
+  left:0!important; top:0!important;
+  width:100%!important; height:100%!important;
+  box-shadow:none!important;
+}
+.lobby-screen.lobby-home .home-menu button.home-report::after{
+  box-shadow:0 18px 34px -22px #001018e6!important;
+}
+/* 按钮：绿条 = border-left 5px，纵向天然全高 */
+.lobby-screen.lobby-home .home-menu button.home-materials,
+.lobby-screen.lobby-home .home-menu button.home-report,
+.lobby-screen.lobby-home .home-menu button.home-alliance,
+.lobby-screen.lobby-home .home-menu button.home-solo{
+  box-sizing:border-box!important;
+  border-left:5px solid #4ed8af!important;
+  box-shadow:4px 5px 0 rgba(190,199,194,.23), 9px 12px 18px -12px rgba(0,0,0,.6)!important;
+}
+
+
+
+/* ===== 绿条计宽：border-box + width 已含 5px 绿条 ⇒ 外形仍 785/725 ===== */
+.lobby-screen.lobby-home .home-menu button.home-materials,
+.lobby-screen.lobby-home .home-menu button.home-report,
+.lobby-screen.lobby-home .home-menu button.home-alliance,
+.lobby-screen.lobby-home .home-menu button.home-solo{
+  box-sizing:border-box!important;
+  border-left:5px solid #4ed8af!important;
+  margin-left:0!important;
+}
+
+/* ===== 加入同盟头行：加入同盟 |浅竖线| 最近同盟 …… ALLIANCE ACCESS 靠右 ===== */
+.lobby-screen.lobby-home .home-connect__head{
+  display:flex!important; align-items:center!important;
+  justify-content:flex-start!important; gap:0!important; margin-bottom:10px!important;
+}
+.lobby-screen.lobby-home .home-connect__head > span:first-child{
+  order:1!important; flex:0 0 auto!important; margin:0!important;
+}
+.lobby-screen.lobby-home .home-connect__head > .recent-chips{
+  order:2!important; flex:0 0 auto!important;
+  margin-left:16px!important; padding-left:16px!important;
+  border-left:1px solid rgba(232,238,232,.34)!important;
+}
+.lobby-screen.lobby-home .home-connect__head > small{
+  order:3!important; flex:0 0 auto!important; margin-left:auto!important;
+  font-size:10.5px!important; letter-spacing:1.4px!important; color:#aebfbd!important;
+  background:none!important; padding:0!important;
+}
+
+/* ===== v2：右侧斜切 + 干员调配/自选编队并排共 785px + SWEEP 725px ===== */
+/* 斜切：左上 10px、右上/右下 22px（绿条是元素自身 border-left，随 clip 一起被裁 ⇒ 不再外露） */
+.lobby-screen.lobby-home .home-menu button.home-alliance,
+.lobby-screen.lobby-home .home-menu button.home-solo,
+.lobby-screen.lobby-home .home-menu button.home-materials,
+.lobby-screen.lobby-home .home-menu button.home-diy,
+.lobby-screen.lobby-home .home-menu button.home-report{
+  clip-path:polygon(22px 0, 100% 0, 100% calc(100% - 22px),
+    calc(100% - 22px) 100%, 0 100%, 0 22px)!important;
+}
+/* 干员调配：400px，右缘让出 375+10 */
+.lobby-screen.lobby-home .home-menu.home-menu button.home-materials{
+  left:auto!important; right:23.089005236%!important; top:39.168490153%!important; bottom:auto!important;
+  width:20.942408377%!important; height:9.850000000%!important;
+}
+/* 自选编队：375px，与干员调配同一 top / 同一 height，紧贴其右 */
+.lobby-screen.lobby-home .home-menu.home-menu button.home-diy{
+  left:auto!important; right:2.931937173%!important; top:39.168490153%!important; bottom:auto!important;
+  width:19.633507853%!important; height:9.850000000%!important;
+  border-left:5px solid #4ed8af!important;
+  padding:0 18px 0 20px!important;
+  display:flex!important; flex-direction:column!important; justify-content:center!important;
+}
+/* SWEEP：725px */
+.lobby-screen.lobby-home .home-menu.home-menu button.home-report{
+  left:auto!important; right:2.931937173%!important; top:50.109409190%!important; bottom:auto!important;
+  width:37.958115183%!important; height:9.850000000%!important;
+}
+/* 干员调配图标移到右侧（参照图） */
+.lobby-screen.lobby-home .home-materials.is-primary::after{
+  left:auto!important; right:16px!important; top:14%!important;
+  width:34px!important; height:72%!important;
+}
+/* 自选编队图标收窄 */
+.lobby-screen.lobby-home .home-diy.is-child::after{
+  right:12px!important; top:18%!important; width:34px!important; height:64%!important;
+}
+/* 自选编队文字：与干员调配同级观感 */
+.lobby-screen.lobby-home .home-diy.is-child > strong{
+  font-size:30.56px!important; letter-spacing:.02em!important; line-height:1.2!important;
+}
+.lobby-screen.lobby-home .home-diy.is-child > small{ font-size:8px!important; }
+
+
+/* ===== 修 C：青绿整块底 + 白纸覆盖层（青绿自左向右渐变到白） ===== */
+/* 用户样图：青绿是按钮背景的一整块（不是描边框），白纸面盖在上面、四周内缩露出青绿；
+   越往右青绿越淡直至纯白 ⇒ 远看左缘像「[」但其实是整块底。 */
+/* 渐变：早、短（用户要求「早一点、短一点」） */
+.lobby-screen.lobby-home .home-menu button.home-alliance,
+.lobby-screen.lobby-home .home-menu button.home-solo,
+.lobby-screen.lobby-home .home-menu button.home-materials,
+.lobby-screen.lobby-home .home-menu button.home-diy,
+.lobby-screen.lobby-home .home-menu button.home-report{
+  border-left-color:transparent!important;
+  background-image:linear-gradient(90deg,#4ed8af 0%,#4ed8af 6%,#a8e9db 18%,#eafbf6 32%,#ffffff 45%)!important;
+  background-size:100% 100%!important;
+  background-position:0 0!important;
+  background-origin:border-box!important;
+  background-clip:border-box!important;
+  background-repeat:no-repeat!important;
+  box-shadow:none!important;
+  filter:none!important;
+}
+/* 白纸覆盖层：左上下内缩露出青绿、右侧齐边；自身也带左上+右下斜切（与卡片同一套 22px） */
+.lobby-screen.lobby-home .home-menu button.home-alliance::before,
+.lobby-screen.lobby-home .home-menu button.home-solo::before,
+.lobby-screen.lobby-home .home-menu button.home-materials::before,
+.lobby-screen.lobby-home .home-menu button.home-diy::before,
+.lobby-screen.lobby-home .home-menu button.home-report::before{
+  left:5px!important; top:5px!important; right:0!important; bottom:5px!important;
+  width:auto!important; height:auto!important;
+  border-width:7px 7px 10px 0!important;
+  border-image-width:7px 7px 10px 0!important;
+  border-image-slice:10 10 16 10 fill!important;
+  box-shadow:inset -1px 0 0 #f2f7f3a8, inset 0 -1px 0 #f2f7f3a8!important;
+  clip-path:polygon(22px 0,100% 0,100% calc(100% - 22px),calc(100% - 22px) 100%,0 100%,0 22px)!important;
+}
+/* ===== 三张小卡的旧白渐变优先级更高（第 461/467/484 行的 .is-child / .is-primary 选择器），
+   需用同等级别选择器覆盖，否则青绿底被旧白渐变盖住 ===== */
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-materials.is-primary,
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-diy.is-child,
+.lobby-screen.lobby-home .home-menu .home-secondary > button.home-report,
+.lobby-screen.lobby-home .home-menu .home-secondary > button.home-materials{
+  background-image:linear-gradient(90deg,#4ed8af 0%,#4ed8af 6%,#a8e9db 18%,#eafbf6 32%,#ffffff 45%)!important;
+  background-size:100% 100%!important;
+  background-origin:border-box!important;
+  background-clip:border-box!important;
+  background-color:transparent!important;
+  background-repeat:no-repeat!important;
+  border-left-color:transparent!important;
+}
+
+/* materials / report 更早的规则又写了一次 ::before 定位（inset:0 那条），
+   会把 left 拉回 0 ⇒ 青色只得 5px。补同级别覆盖。 */
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-materials.is-primary::before,
+.lobby-screen.lobby-home .home-menu .home-secondary > button.home-report::before{
+  left:5px!important; top:5px!important; right:0!important; bottom:5px!important;
+  width:auto!important; height:auto!important;
+  border-width:7px 7px 10px 0!important;
+  border-image-width:7px 7px 10px 0!important;
+  border-image-slice:10 10 16 10 fill!important;
+  box-shadow:inset -1px 0 0 #f2f7f3a8, inset 0 -1px 0 #f2f7f3a8!important;
+  clip-path:polygon(22px 0,100% 0,100% calc(100% - 22px),calc(100% - 22px) 100%,0 100%,0 22px)!important;
+}
+
+/* ===== 阴影：两张主卡专用（它们的 ::after 恰好空闲；三张小卡的 ::after 已是 motif 图标/整卡层，不能占用） ===== */
+/* 为何不用 filter/box-shadow：祖先 .home-menu 上有 transform，实测两者均不渲染（红色测试役完全不出现）。
+   ::after 实体块能正常完成“比纸面大一圈、向右下偏移”的落影。 */
+.lobby-screen.lobby-home .home-menu button.home-alliance::after,
+.lobby-screen.lobby-home .home-menu button.home-solo::after{
+  content:""!important; display:block!important;
+  position:absolute!important; z-index:-3!important;
+  left:12px!important; top:8px!important; right:-6px!important; bottom:-7px!important;
+  width:auto!important; height:auto!important;
+  background:linear-gradient(90deg,rgba(6,20,32,.42) 0%,rgba(6,20,32,.30) 34%,rgba(6,20,32,.16) 64%,rgba(6,20,32,.04) 84%)!important;
+  border:0!important; box-shadow:none!important; transform:none!important;
+  pointer-events:none!important;
+  clip-path:polygon(22px 0,100% 0,100% calc(100% - 22px),calc(100% - 22px) 100%,0 100%,0 22px)!important;
+}
+
+/* ============================================================
+   ===== 修 D（2026-11-15）：阴影割裂根治 + 三张小卡加阴影 + 露边 10px→5px
+   ============================================================
+   ★ 割裂根因（隔离实验逐条验证，别凭猜）：
+     1) 按钮自身 clip-path 会把 ::after 一并裁成「卡片轮廓」，
+        阴影溢出卡外的部分全被切掉 ⇒ 只剩卡内几段灰带；
+     2) 若阴影块同时套 polygon clip + blur：blur 先渲染、再被硬边多边形切，
+        边缘仍是硬切 ⇒ 看起来像「贴了一条灰带」——这就是用户说的割裂；
+     3) 只把按钮 clip-path 去掉又会丢斜切（青绿底与按钮盒变直角）。
+   ★ 正解：图层重排 —— 把「青绿底 + 白纸面 + 斜切」全部合并画在 ::before 上，
+     按钮自身保持透明且不裁剪，阴影交给 ::after（只 blur、不套 polygon）。
+       按钮  → 透明、box-shadow:none、clip-path:none、overflow:visible
+       ::before → 青绿渐变 + 白纸 + 斜切（一套 polygon）+ 亅型描边
+       ::after  → 落影实体块，卡外偏移 + blur，连续柔和
+   ★ 露边 5px（原 10px）：白纸面在 ::before 内左上各内缩 5px，露出下方青绿 5px；
+     右/下不内缩（青绿底与纸面同边收口）。
+   ★ 三张小卡的 ::after 被 motif 图标（materials z=1 / diy z=2）与整卡层（report z=-3）占用，
+     故阴影改挂按钮自身 box-shadow —— 已实测可正常出卡外。
+   ============================================================ */
+
+/* ---- D1. 五卡按钮：透明、不裁剪（阴影要能投出去） ---- */
+.lobby-screen.lobby-home .home-menu button.home-alliance,
+.lobby-screen.lobby-home .home-menu button.home-solo,
+.lobby-screen.lobby-home .home-menu button.home-materials,
+.lobby-screen.lobby-home .home-menu button.home-diy,
+.lobby-screen.lobby-home .home-menu button.home-report,
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-materials.is-primary,
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-diy.is-child,
+.lobby-screen.lobby-home .home-menu .home-secondary > button.home-report{
+  background:transparent!important;
+  box-shadow:none!important;
+  filter:none!important;
+  clip-path:none!important;
+  overflow:visible!important;
+}
+
+/* ---- D2. ::before 合成「青绿底 + 白纸面 + 斜切 + 亅型描边」 ---- */
+.lobby-screen.lobby-home .home-menu button.home-alliance::before,
+.lobby-screen.lobby-home .home-menu button.home-solo::before,
+.lobby-screen.lobby-home .home-menu button.home-materials::before,
+.lobby-screen.lobby-home .home-menu button.home-diy::before,
+.lobby-screen.lobby-home .home-menu button.home-report::before,
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-materials.is-primary::before,
+.lobby-screen.lobby-home .home-menu .home-secondary > button.home-report::before{
+  left:0!important; top:0!important; right:0!important; bottom:0!important;
+  width:auto!important; height:auto!important;
+  border:0!important; border-width:0!important; border-image:none!important;
+  background-image:
+    linear-gradient(#ffffff,#ffffff),
+    linear-gradient(90deg,#4ed8af 0%,#4ed8af 6%,#a8e9db 18%,#eafbf6 32%,#ffffff 45%)!important;
+  background-size:calc(100% - 5px) calc(100% - 10px), 100% 100%!important;
+  background-position:5px 5px, 0 0!important;
+  background-repeat:no-repeat, no-repeat!important;
+  background-origin:border-box!important;
+  background-clip:border-box!important;
+  box-shadow:inset -1px 0 0 #f2f7f3a8, inset 0 -1px 0 #f2f7f3a8!important;
+  clip-path:polygon(22px 0,100% 0,100% calc(100% - 22px),calc(100% - 22px) 100%,0 100%,0 22px)!important;
+}
+
+/* ---- D3. 两张主卡阴影：卡外偏移 + 只 blur、不套 polygon ⇒ 连续柔和 ---- */
+.lobby-screen.lobby-home .home-menu button.home-alliance::after,
+.lobby-screen.lobby-home .home-menu button.home-solo::after{
+  content:""!important; display:block!important;
+  position:absolute!important; z-index:-3!important;
+  left:8px!important; top:8px!important; right:-11px!important; bottom:-11px!important;
+  width:auto!important; height:auto!important;
+  background:rgba(6,20,32,.5)!important;
+  border:0!important; box-shadow:none!important; transform:none!important;
+  pointer-events:none!important;
+  clip-path:none!important;
+  filter:blur(9px)!important;
+}
+
+/* ---- D4. 三张小卡阴影：::after 被 motif 图标/整卡层占用，改挂按钮自身 box-shadow ---- */
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-materials.is-primary,
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-diy.is-child,
+.lobby-screen.lobby-home .home-menu .home-secondary > button.home-report{
+  box-shadow:9px 11px 15px -4px rgba(6,20,32,.5)!important;
+}
+/* ============================================================
+   ===== 修 F（2026-11-16）：全主页可点 UI 终末地化 + 主题色 #4ED8AF
+   ============================================================
+   ★ 本轮用户三点：
+     1) 整个主页【所有可点 UI】都改终末地风格（不止五卡）；
+     2) 主题色换成 #4ED8AF（替代终末地默认亮黄 #FFFA00）；
+     3) 修缺陷：同盟模拟 / 单人模拟「背景有斜线条、右下角还缺一块」。
+
+   ★ 缺陷根因（我上一轮自己加的，认）：
+     · 斜线条 = 修 E5 给两主卡加的 ::after（repeating-linear-gradient 45°）；
+     · 右下缺一块 = 修 E3 的 clip-path 右下 11px 切角。
+     ⇒ 本轮两层都删：两主卡不再有任何斜线纹层，五卡一律不切角。
+
+   ★ #4ED8AF 的用法（沿用「强调色只做填充、不铺底」）：
+     静态：墨线白卡，强调色只做「可点击」的明确标记；
+     交互：hover / focus 时 trace 条与动作块转 #4ED8AF；
+     因该色在纯白上对比不足，做填充时字色用深墨 #0B1F1A。
+   ★ 覆盖：五卡 + 顶栏 + 加入同盟栏 + 左侧底部。不动宽高/位置 ⇒ 几何零漂移，DOM 零增删。
+   ============================================================ */
+
+/* ---- F0. 主题变量（唯一真源） ---- */
+.lobby-screen.lobby-home{
+  --ef-paper:#F4F4F2;
+  --ef-panel:#FFFFFF;
+  --ef-ink:#161616;
+  --ef-ink2:#5C5C5C;
+  --ef-rule:#D9D9D6;
+  --ef-chip:#E4E4E0;
+  --ef-signal:#4ED8AF;
+  --ef-onSignal:#0B1F1A;
+  font-variant-numeric:tabular-nums;
+}
+
+/* ============ 一、五卡 ============ */
+
+/* F1. 本体：透明、不裁剪、不切角 */
+.lobby-screen.lobby-home .home-menu button.home-alliance,
+.lobby-screen.lobby-home .home-menu button.home-solo,
+.lobby-screen.lobby-home .home-menu button.home-materials,
+.lobby-screen.lobby-home .home-menu button.home-diy,
+.lobby-screen.lobby-home .home-menu button.home-report,
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-materials.is-primary,
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-diy.is-child,
+.lobby-screen.lobby-home .home-menu .home-secondary > button.home-report{
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  filter:none!important;
+  clip-path:none!important;
+  overflow:visible!important;
+  color:var(--ef-ink)!important;
+  transition:transform .12s cubic-bezier(.16,1,.3,1)!important;
+}
+
+/* F2. 卡面：白板 + 1px 墨线 + 左 4px trace；无斜线、无切角 */
+.lobby-screen.lobby-home .home-menu button.home-alliance::before,
+.lobby-screen.lobby-home .home-menu button.home-solo::before,
+.lobby-screen.lobby-home .home-menu button.home-materials::before,
+.lobby-screen.lobby-home .home-menu button.home-diy::before,
+.lobby-screen.lobby-home .home-menu button.home-report::before,
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-materials.is-primary::before,
+.lobby-screen.lobby-home .home-menu .home-secondary > button.home-report::before{
+  content:""!important;
+  display:block!important;
+  position:absolute!important;
+  inset:0!important;
+  z-index:-2!important;
+  width:auto!important; height:auto!important;
+  border:0!important; border-width:0!important; border-image:none!important;
+  border-left:4px solid var(--ef-ink)!important;
+  background:var(--ef-panel)!important;
+  box-shadow:inset 0 0 0 1px var(--ef-ink)!important;
+  clip-path:none!important;
+  pointer-events:none!important;
+  transform:none!important; filter:none!important;
+}
+
+/* F3. ★ 清掉两主卡的斜线纹影子层（用户指的「斜线条」） */
+.lobby-screen.lobby-home .home-menu button.home-alliance::after,
+.lobby-screen.lobby-home .home-menu button.home-solo::after{
+  content:none!important;
+  display:none!important;
+  background:none!important;
+  filter:none!important;
+  box-shadow:none!important;
+}
+
+/* F4. hover / focus / active */
+.lobby-screen.lobby-home .home-menu button.home-alliance:hover::before,
+.lobby-screen.lobby-home .home-menu button.home-solo:hover::before,
+.lobby-screen.lobby-home .home-menu button.home-materials:hover::before,
+.lobby-screen.lobby-home .home-menu button.home-diy:hover::before,
+.lobby-screen.lobby-home .home-menu button.home-report:hover::before,
+.lobby-screen.lobby-home .home-menu button.home-alliance:focus-visible::before,
+.lobby-screen.lobby-home .home-menu button.home-solo:focus-visible::before,
+.lobby-screen.lobby-home .home-menu button.home-materials:focus-visible::before,
+.lobby-screen.lobby-home .home-menu button.home-diy:focus-visible::before,
+.lobby-screen.lobby-home .home-menu button.home-report:focus-visible::before{
+  border-left-color:var(--ef-signal)!important;
+}
+.lobby-screen.lobby-home .home-menu button.home-alliance:active,
+.lobby-screen.lobby-home .home-menu button.home-solo:active,
+.lobby-screen.lobby-home .home-menu button.home-materials:active,
+.lobby-screen.lobby-home .home-menu button.home-diy:active,
+.lobby-screen.lobby-home .home-menu button.home-report:active{
+  transform:translateY(1px)!important;
+}
+
+/* F5. 三张小卡阴影：硬边阶梯，无模糊 */
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-materials.is-primary,
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-diy.is-child,
+.lobby-screen.lobby-home .home-menu .home-secondary > button.home-report{
+  box-shadow:3px 3px 0 0 var(--ef-ink)!important;
+}
+.lobby-screen.lobby-home .home-menu button.home-report::after{
+  box-shadow:none!important;
+  filter:none!important;
+}
+
+/* F6. 字体：粗体中文 + 拉宽大写眉标（带 // 前缀） */
+.lobby-screen.lobby-home .home-menu button.home-alliance strong,
+.lobby-screen.lobby-home .home-menu button.home-solo strong,
+.lobby-screen.lobby-home .home-menu button.home-materials strong,
+.lobby-screen.lobby-home .home-menu button.home-diy strong,
+.lobby-screen.lobby-home .home-menu button.home-report strong{
+  color:var(--ef-ink)!important;
+  font-weight:800!important;
+  letter-spacing:.01em!important;
+}
+.lobby-screen.lobby-home .home-menu button.home-alliance small,
+.lobby-screen.lobby-home .home-menu button.home-solo small,
+.lobby-screen.lobby-home .home-menu button.home-materials small,
+.lobby-screen.lobby-home .home-menu button.home-diy small,
+.lobby-screen.lobby-home .home-menu button.home-report small{
+  color:var(--ef-ink2)!important;
+  letter-spacing:.14em!important;
+  text-transform:uppercase;
+  font-variant-numeric:tabular-nums;
+}
+.lobby-screen.lobby-home .home-menu small::before{ content:"// "; opacity:.7; }
+
+/* F7. 同盟徽章（图标保留）+ 动作块：墨底 → hover 转强调色 */
+.lobby-screen.lobby-home .home-alliance__emblem{
+  background:var(--ef-ink)!important;
+  border-bottom:0!important;
+  border-right:0!important;
+  box-shadow:inset 0 0 0 1px var(--ef-ink)!important;
+}
+.lobby-screen.lobby-home .home-alliance__copy > span{
+  background:var(--ef-ink)!important;
+  color:var(--ef-panel)!important;
+  font-weight:700!important;
+  letter-spacing:.06em!important;
+  padding:7px 12px!important;
+  transition:background .12s cubic-bezier(.7,0,.2,1),color .12s cubic-bezier(.7,0,.2,1)!important;
+}
+.lobby-screen.lobby-home .home-menu button.home-alliance:hover .home-alliance__copy > span,
+.lobby-screen.lobby-home .home-menu button.home-alliance:focus-visible .home-alliance__copy > span{
+  background:var(--ef-signal)!important;
+  color:var(--ef-onSignal)!important;
+}
+
+/* F8. 图标全留，改墨色（SVG 用 fill，不是 currentColor） */
+.lobby-screen.lobby-home .home-solo .icon{
+  color:var(--ef-ink)!important;
+  fill:var(--ef-ink)!important;
+  opacity:.85!important;
+  width:26px!important; height:26px!important;
+}
+.lobby-screen.lobby-home .home-solo .icon path{
+  fill:var(--ef-ink)!important;
+}
+.lobby-screen.lobby-home .home-menu .home-report .icon{
+  color:var(--ef-ink)!important;
+  fill:var(--ef-ink)!important;
+  opacity:.22!important;
+}
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-materials.is-primary::after,
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-diy.is-child::after,
+.lobby-screen.lobby-home .home-menu .home-materials::after,
+.lobby-screen.lobby-home .home-menu .home-diy::after{
+  opacity:.42!important;
+  filter:grayscale(1) contrast(1.15)!important;
+}
+
+/* ============ 二、顶栏 ============ */
+.lobby-screen.lobby-home .home-top .btn,
+.lobby-screen.lobby-home .home-tool{
+  background:var(--ef-panel)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  color:var(--ef-ink)!important;
+  box-shadow:2px 2px 0 0 var(--ef-ink)!important;
+  transition:transform .1s cubic-bezier(.16,1,.3,1),box-shadow .1s cubic-bezier(.16,1,.3,1),background .1s!important;
+}
+.lobby-screen.lobby-home .home-top .btn:hover,
+.lobby-screen.lobby-home .home-tool:hover{
+  background:var(--ef-signal)!important;
+  color:var(--ef-onSignal)!important;
+}
+.lobby-screen.lobby-home .home-top .btn:active,
+.lobby-screen.lobby-home .home-tool:active{
+  transform:translate(2px,2px)!important;
+  box-shadow:0 0 0 0 var(--ef-ink)!important;
+}
+.lobby-screen.lobby-home .home-top .btn .icon,
+.lobby-screen.lobby-home .home-tool .icon,
+.lobby-screen.lobby-home .home-top .btn svg,
+.lobby-screen.lobby-home .home-tool svg{
+  color:var(--ef-ink)!important;
+}
+.lobby-screen.lobby-home .home-top .btn svg,
+.lobby-screen.lobby-home .home-top .btn svg path,
+.lobby-screen.lobby-home .home-top .btn svg *,
+.lobby-screen.lobby-home .home-tool svg,
+.lobby-screen.lobby-home .home-tool svg path,
+.lobby-screen.lobby-home .home-tool svg *{
+  fill:var(--ef-ink)!important;
+  stroke:var(--ef-ink)!important;
+}
+.lobby-screen.lobby-home .home-top .btn:hover svg,
+.lobby-screen.lobby-home .home-top .btn:hover svg path,
+.lobby-screen.lobby-home .home-top .btn:hover svg *,
+.lobby-screen.lobby-home .home-tool:hover svg,
+.lobby-screen.lobby-home .home-tool:hover svg path,
+.lobby-screen.lobby-home .home-tool:hover svg *{
+  fill:var(--ef-onSignal)!important;
+  stroke:var(--ef-onSignal)!important;
+}
+.lobby-screen.lobby-home .home-top .btn__label,
+.lobby-screen.lobby-home .home-tool span{
+  color:inherit!important;
+  letter-spacing:.06em;
+}
+.lobby-screen.lobby-home .home-caption{
+  color:var(--ef-panel)!important;
+  border-bottom:1px solid rgba(255,255,255,.55)!important;
+  letter-spacing:.14em!important;
+  text-transform:uppercase;
+}
+.lobby-screen.lobby-home .home-caption > span:first-child::before{
+  content:"// ";
+  opacity:.75;
+}
+
+/* ============ 三、加入同盟栏 ============ */
+.lobby-screen.lobby-home .home-join input,
+.lobby-screen.lobby-home .home-join .field__input{
+  background:var(--ef-panel)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  color:var(--ef-ink)!important;
+}
+.lobby-screen.lobby-home .home-join input::placeholder{
+  color:var(--ef-ink2)!important;
+  letter-spacing:.04em;
+}
+.lobby-screen.lobby-home .home-join input:focus,
+.lobby-screen.lobby-home .home-join .field__input:focus{
+  outline:2px solid var(--ef-signal)!important;
+  outline-offset:0!important;
+}
+.lobby-screen.lobby-home .home-join .btn{
+  border-radius:0!important;
+  font-weight:700!important;
+  letter-spacing:.06em!important;
+  transition:transform .1s cubic-bezier(.16,1,.3,1),box-shadow .1s cubic-bezier(.16,1,.3,1)!important;
+}
+.lobby-screen.lobby-home .home-join .btn--amber{
+  background:var(--ef-signal)!important;
+  color:var(--ef-onSignal)!important;
+  border:1px solid var(--ef-ink)!important;
+  box-shadow:2px 2px 0 0 var(--ef-ink)!important;
+}
+.lobby-screen.lobby-home .home-join .btn--amber:hover{ filter:brightness(1.06)!important; }
+.lobby-screen.lobby-home .home-join .btn--amber:active{
+  transform:translate(2px,2px)!important;
+  box-shadow:0 0 0 0 var(--ef-ink)!important;
+}
+.lobby-screen.lobby-home .home-join .btn--secondary{
+  background:var(--ef-panel)!important;
+  color:var(--ef-ink)!important;
+  border:1px solid var(--ef-ink)!important;
+  box-shadow:2px 2px 0 0 var(--ef-ink)!important;
+}
+.lobby-screen.lobby-home .home-join .btn--secondary:hover{ background:var(--ef-chip)!important; }
+.lobby-screen.lobby-home .home-join .btn--secondary:active{
+  transform:translate(2px,2px)!important;
+  box-shadow:0 0 0 0 var(--ef-ink)!important;
+}
+
+/* ============ 四、左侧底部：头像 / 排行榜 / 档案 / 统计 ============ */
+.lobby-screen.lobby-home .home-side .btn,
+.lobby-screen.lobby-home .home-profile-avatar{
+  background:var(--ef-panel)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  color:var(--ef-ink)!important;
+  box-shadow:2px 2px 0 0 var(--ef-ink)!important;
+  transition:transform .1s cubic-bezier(.16,1,.3,1),box-shadow .1s cubic-bezier(.16,1,.3,1),background .1s!important;
+}
+.lobby-screen.lobby-home .home-side .btn:hover,
+.lobby-screen.lobby-home .home-profile-avatar:hover{
+  background:var(--ef-signal)!important;
+  color:var(--ef-onSignal)!important;
+}
+.lobby-screen.lobby-home .home-side .btn:hover *,
+.lobby-screen.lobby-home .home-profile-avatar:hover *{
+  color:var(--ef-onSignal)!important;
+  fill:var(--ef-onSignal)!important;
+  stroke:var(--ef-onSignal)!important;
+}
+.lobby-screen.lobby-home .home-side .btn:active,
+.lobby-screen.lobby-home .home-profile-avatar:active{
+  transform:translate(2px,2px)!important;
+  box-shadow:0 0 0 0 var(--ef-ink)!important;
+}
+
+/* ============ 五、焦点可见（全站统一） ============ */
+.lobby-screen.lobby-home button:focus-visible,
+.lobby-screen.lobby-home a:focus-visible,
+.lobby-screen.lobby-home input:focus-visible{
+  outline:2px solid var(--ef-signal)!important;
+  outline-offset:2px!important;
+}
+
+/* ---- F9. 修正：加入同盟面板真实类名是 .join-panel / .panel--amber（不是 .home-join） ----
+   ★ 实测：`.home-join` 不存在；结构是 .panel.panel--amber.brackets.join-panel > .panel__body > .join-row。
+     按钮 .btn--amber 本来就是青绿底，真正没被覆盖的是【面板容器】与【输入框】。 */
+.lobby-screen.lobby-home .join-panel{
+  background:var(--ef-panel)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  box-shadow:4px 4px 0 0 var(--ef-ink)!important;
+}
+.lobby-screen.lobby-home .join-panel .panel__body{
+  background:transparent!important;
+  border:0!important;
+}
+.lobby-screen.lobby-home .join-panel .field__box,
+.lobby-screen.lobby-home .join-panel .field__input{
+  background:var(--ef-panel)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  color:var(--ef-ink)!important;
+}
+.lobby-screen.lobby-home .join-panel .field__input::placeholder{
+  color:var(--ef-ink2)!important;
+}
+.lobby-screen.lobby-home .join-panel .field__box:focus-within{
+  outline:2px solid var(--ef-signal)!important;
+  outline-offset:0!important;
+}
+/* 面板标题「加入同盟」：墨字 + 细线，图标改强调色 */
+.lobby-screen.lobby-home .join-panel .panel__title,
+.lobby-screen.lobby-home .join-panel h2,
+.lobby-screen.lobby-home .join-panel strong{
+  color:var(--ef-ink)!important;
+  letter-spacing:.04em;
+}
+.lobby-screen.lobby-home .join-panel .icon,
+.lobby-screen.lobby-home .join-panel svg{
+  color:var(--ef-signal)!important;
+  fill:var(--ef-signal)!important;
+  stroke:var(--ef-signal)!important;
+}
+/* 右上角 ALLIANCE ACCESS 眉标 */
+.lobby-screen.lobby-home .join-panel small,
+.lobby-screen.lobby-home .join-panel .panel__meta{
+  color:var(--ef-ink2)!important;
+  letter-spacing:.14em!important;
+  text-transform:uppercase;
+}
+
+/* ---- F10. 加入同盟面板：强制压掉旧 3px 半透明边与模糊影（实测 .panel--amber 有更高优先级） ---- */
+.lobby-screen.lobby-home .home-menu .join-panel,
+.lobby-screen.lobby-home .lobby-home .join-panel,
+.lobby-screen.lobby-home .join-panel.panel--amber,
+.lobby-screen.lobby-home .panel.panel--amber.join-panel{
+  background:var(--ef-panel)!important;
+  background-image:none!important;
+  border:1px solid var(--ef-ink)!important;
+  border-width:1px!important;
+  border-style:solid!important;
+  border-color:var(--ef-ink)!important;
+  border-radius:0!important;
+  box-shadow:4px 4px 0 0 var(--ef-ink)!important;
+}
+/* brackets 类会画角标，一并收成墨线 */
+.lobby-screen.lobby-home .join-panel.brackets::before,
+.lobby-screen.lobby-home .join-panel.brackets::after{
+  border-color:var(--ef-ink)!important;
+  background:none!important;
+}
+/* 面板内所有文字回墨色，眉标回次字色 */
+.lobby-screen.lobby-home .join-panel,
+.lobby-screen.lobby-home .join-panel *{
+  color:var(--ef-ink)!important;
+}
+.lobby-screen.lobby-home .join-panel small{
+  color:var(--ef-ink2)!important;
+}
+/* 面板内图标：强调色 */
+.lobby-screen.lobby-home .join-panel .icon,
+.lobby-screen.lobby-home .join-panel svg,
+.lobby-screen.lobby-home .join-panel svg *{
+  color:var(--ef-signal)!important;
+  fill:var(--ef-signal)!important;
+  stroke:var(--ef-signal)!important;
+}
+/* 按钮例外（保持各自配色，不要被上面的 * 通配盖掉） */
+.lobby-screen.lobby-home .join-panel .btn--amber,
+.lobby-screen.lobby-home .join-panel .btn--amber *{
+  background:var(--ef-signal)!important;
+  color:var(--ef-onSignal)!important;
+  fill:var(--ef-onSignal)!important;
+  stroke:var(--ef-onSignal)!important;
+}
+.lobby-screen.lobby-home .join-panel .btn--secondary,
+.lobby-screen.lobby-home .join-panel .btn--secondary *{
+  background:var(--ef-panel)!important;
+  color:var(--ef-ink)!important;
+  fill:var(--ef-ink)!important;
+  stroke:var(--ef-ink)!important;
+}
+
+/* ============================================================
+   ===== 修 G（2026-11-16）：hover 修复 + 常态绿/悬停黑反转 + 三面板终末地化
+   ============================================================
+   ★ 用户四点：
+     1) 干员调配 hover 时左侧黑条不变色（bug）；
+     2) 常态改绿、悬停改黑（与上一轮完全相反）；
+     3) 删除左下角「排行榜」按钮（已改 lobby.js:440，删 DOM）；
+     4) 设置页 / 背景替换页 / 主页音乐菜单 也要终末地风格。
+
+   ★★ hover 失效真因（实测定位，不是猜）：
+     我上一轮的 F4 用的是 `button.home-materials:hover::before`（特异度 0,2,2），
+     而干员调配真身的卡面规则是 `.home-operators > button.home-materials.is-primary::before`
+     （特异度 0,4,1 —— 多了父类 + .is-primary 两个类）⇒ **hover 永远赢不了**，
+     所以只有它不变色，其余四卡正常。
+     ⇒ 正解不是加 !important（已有了），而是**把真身选择器原样写进 hover 组**。
+
+   ★ 配色反转：常态 trace = --ef-signal（#4ED8AF 绿），hover = --ef-ink（墨黑）。
+   ============================================================ */
+
+/* ---- G1. 常态：左侧 trace 条改绿 ---- */
+.lobby-screen.lobby-home .home-menu button.home-alliance::before,
+.lobby-screen.lobby-home .home-menu button.home-solo::before,
+.lobby-screen.lobby-home .home-menu button.home-materials::before,
+.lobby-screen.lobby-home .home-menu button.home-diy::before,
+.lobby-screen.lobby-home .home-menu button.home-report::before,
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-materials.is-primary::before,
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-diy.is-child::before,
+.lobby-screen.lobby-home .home-menu .home-secondary > button.home-report::before{
+  border-left-color:var(--ef-signal)!important;
+}
+
+/* ---- G2. ★ hover/focus 改黑；★ 把 .is-primary / .is-child / .home-secondary 真身一并写入 ---- */
+.lobby-screen.lobby-home .home-menu button.home-alliance:hover::before,
+.lobby-screen.lobby-home .home-menu button.home-solo:hover::before,
+.lobby-screen.lobby-home .home-menu button.home-materials:hover::before,
+.lobby-screen.lobby-home .home-menu button.home-diy:hover::before,
+.lobby-screen.lobby-home .home-menu button.home-report:hover::before,
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-materials.is-primary:hover::before,
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-diy.is-child:hover::before,
+.lobby-screen.lobby-home .home-menu .home-secondary > button.home-report:hover::before,
+.lobby-screen.lobby-home .home-menu button.home-alliance:focus-visible::before,
+.lobby-screen.lobby-home .home-menu button.home-solo:focus-visible::before,
+.lobby-screen.lobby-home .home-menu button.home-materials:focus-visible::before,
+.lobby-screen.lobby-home .home-menu button.home-diy:focus-visible::before,
+.lobby-screen.lobby-home .home-menu button.home-report:focus-visible::before,
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-materials.is-primary:focus-visible::before,
+.lobby-screen.lobby-home .home-menu .home-operators > button.home-diy.is-child:focus-visible::before,
+.lobby-screen.lobby-home .home-menu .home-secondary > button.home-report:focus-visible::before{
+  border-left-color:var(--ef-ink)!important;
+}
+
+/* ============================================================
+   G3. 音乐菜单（.home-music-popover）
+   ============================================================ */
+.lobby-screen.lobby-home .home-music-popover{
+  background:var(--ef-panel)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  box-shadow:4px 4px 0 0 var(--ef-ink)!important;
+  color:var(--ef-ink)!important;
+}
+.lobby-screen.lobby-home .home-music-popover *{
+  color:var(--ef-ink)!important;
+}
+.lobby-screen.lobby-home .home-music-popover small{
+  color:var(--ef-ink2)!important;
+  letter-spacing:.14em!important;
+  text-transform:uppercase;
+}
+.lobby-screen.lobby-home .home-music-popover small::before{ content:"// "; opacity:.7; }
+/* 弹出层里的所有小按钮：白底墨线、按下下沉 */
+.lobby-screen.lobby-home .home-music-popover button{
+  background:var(--ef-panel)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  box-shadow:2px 2px 0 0 var(--ef-ink)!important;
+  color:var(--ef-ink)!important;
+  transition:transform .1s,box-shadow .1s,background .1s!important;
+}
+.lobby-screen.lobby-home .home-music-popover button:hover{
+  background:var(--ef-signal)!important;
+  color:var(--ef-onSignal)!important;
+}
+.lobby-screen.lobby-home .home-music-popover button:active{
+  transform:translate(2px,2px)!important;
+  box-shadow:0 0 0 0 var(--ef-ink)!important;
+}
+/* 关闭按钮：无影、纯线 */
+.lobby-screen.lobby-home .home-music-popover .home-music-popover__close{
+  box-shadow:none!important;
+  border-color:transparent!important;
+  background:transparent!important;
+}
+.lobby-screen.lobby-home .home-music-popover .home-music-popover__close:hover{
+  background:var(--ef-signal)!important;
+  border-color:var(--ef-ink)!important;
+}
+/* 滑块：方轨 + 墨块 */
+.lobby-screen.lobby-home .home-music-popover input[type="range"]{
+  -webkit-appearance:none!important;
+  appearance:none!important;
+  background:var(--ef-chip)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  height:8px!important;
+}
+.lobby-screen.lobby-home .home-music-popover input[type="range"]::-webkit-slider-thumb{
+  -webkit-appearance:none!important;
+  appearance:none!important;
+  width:12px!important; height:16px!important;
+  background:var(--ef-ink)!important;
+  border:0!important; border-radius:0!important;
+  cursor:pointer;
+}
+/* 当前播放 / 进度 / 面板标题的横向细线 */
+.lobby-screen.lobby-home .home-music__now,
+.lobby-screen.lobby-home .home-music__progress{
+  border-bottom:1px solid var(--ef-rule)!important;
+}
+.lobby-screen.lobby-home .home-music__shuffle:hover{
+  background:var(--ef-signal)!important;
+  color:var(--ef-onSignal)!important;
+}
+
+/* ============================================================
+   G4. 设置页（.modal__box.settings-modal）
+   ============================================================ */
+.lobby-screen.lobby-home .modal__box.settings-modal{
+  background:var(--ef-panel)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  box-shadow:6px 6px 0 0 var(--ef-ink)!important;
+  color:var(--ef-ink)!important;
+}
+/* ★ .settings-content 不在此列表：它自带 border-top:8px solid #292d2d 的深色分割边（settings-notices.css:18），
+   把它写进来会让统一 border-color 的 !important 把那条深色边染成浅灰 #D9D9D6 —— 视觉上就是一条脏灰细条。
+   它只需要透明底与非 zero 的圆角处理，那两条单独给它。 */
+.lobby-screen.lobby-home .settings-shell,
+.lobby-screen.lobby-home .set-list,
+.lobby-screen.lobby-home .set-panel{
+  background:transparent!important;
+  border-color:var(--ef-rule)!important;
+  border-radius:0!important;
+  color:var(--ef-ink)!important;
+  box-shadow:none!important;
+}
+.lobby-screen.lobby-home .settings-content{
+  background:transparent!important;
+  border-radius:0!important;
+  color:var(--ef-ink)!important;
+  box-shadow:none!important;
+}
+.lobby-screen.lobby-home .settings-modal *{ color:var(--ef-ink)!important; }
+.lobby-screen.lobby-home .settings-modal small,
+.lobby-screen.lobby-home .settings-modal .t-dim,
+.lobby-screen.lobby-home .settings-modal .t-lo,
+.lobby-screen.lobby-home .settings-modal label > span{
+  color:var(--ef-ink2)!important;
+  letter-spacing:.14em!important;
+  text-transform:uppercase;
+}
+/* 设置页所有按钮：墨线白卡 */
+.lobby-screen.lobby-home .settings-modal button:not(.set-toggle){
+  background:var(--ef-panel)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  box-shadow:2px 2px 0 0 var(--ef-ink)!important;
+  color:var(--ef-ink)!important;
+  transition:transform .1s,box-shadow .1s,background .1s!important;
+}
+.lobby-screen.lobby-home .settings-modal button:not(.set-toggle):hover{
+  background:var(--ef-signal)!important;
+  color:var(--ef-onSignal)!important;
+}
+.lobby-screen.lobby-home .settings-modal button:not(.set-toggle):active{
+  transform:translate(2px,2px)!important;
+  box-shadow:0 0 0 0 var(--ef-ink)!important;
+}
+/* 左侧分类里「当前项」：绿填充 + 深墨字 */
+.lobby-screen.lobby-home .settings-modal button.is-on{
+  background:var(--ef-signal)!important;
+  color:var(--ef-onSignal)!important;
+  border-color:var(--ef-ink)!important;
+  font-weight:700!important;
+}
+/* 开关：方角、开启=绿 / 关闭=白 */
+.lobby-screen.lobby-home .settings-modal .set-toggle{
+  background:var(--ef-panel)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  color:var(--ef-ink)!important;
+}
+.lobby-screen.lobby-home .settings-modal .set-toggle.is-on{
+  background:var(--ef-signal)!important;
+  color:var(--ef-onSignal)!important;
+  font-weight:700!important;
+}
+/* 设置页滑块：方轨方块 */
+.lobby-screen.lobby-home .settings-modal input[type="range"],
+.lobby-screen.lobby-home .settings-modal .set-range{
+  -webkit-appearance:none!important;
+  appearance:none!important;
+  background:var(--ef-chip)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  height:8px!important;
+}
+.lobby-screen.lobby-home .settings-modal input[type="range"]::-webkit-slider-thumb,
+.lobby-screen.lobby-home .settings-modal .set-range::-webkit-slider-thumb{
+  -webkit-appearance:none!important;
+  appearance:none!important;
+  width:12px!important; height:16px!important;
+  background:var(--ef-ink)!important;
+  border:0!important; border-radius:0!important;
+  cursor:pointer;
+}
+/* 返回/重置：无影小按钮 */
+.lobby-screen.lobby-home .settings-modal .settings-back,
+.lobby-screen.lobby-home .settings-modal .settings-reset{
+  box-shadow:none!important;
+}
+/* 分组标题下的细线 */
+.lobby-screen.lobby-home .settings-modal .set-group,
+.lobby-screen.lobby-home .settings-modal .set-row,
+.lobby-screen.lobby-home .settings-modal .set-item{
+  border-color:var(--ef-rule)!important;
+  border-radius:0!important;
+}
+
+/* ============================================================
+   G5. 背景替换页（.modal__box.background-picker）
+   ============================================================ */
+.lobby-screen.lobby-home .modal__box.background-picker{
+  background:var(--ef-panel)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  box-shadow:6px 6px 0 0 var(--ef-ink)!important;
+  color:var(--ef-ink)!important;
+}
+.lobby-screen.lobby-home .background-picker *{ color:var(--ef-ink)!important; }
+.lobby-screen.lobby-home .background-picker small,
+.lobby-screen.lobby-home .background-picker .t-dim,
+.lobby-screen.lobby-home .background-picker .t-lo{
+  color:var(--ef-ink2)!important;
+  letter-spacing:.14em!important;
+  text-transform:uppercase;
+}
+.lobby-screen.lobby-home .background-picker small::before{ content:"// "; opacity:.7; }
+/* 左预览框 + 右选项区：细线分区，不用圆角与模糊影 */
+.lobby-screen.lobby-home .background-picker__preview,
+.lobby-screen.lobby-home .background-picker__choices,
+.lobby-screen.lobby-home .background-picker__art{
+  background:var(--ef-paper)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+}
+/* 所有可选缩略/角色卡：选中态用绿描边 + 硬影 */
+.lobby-screen.lobby-home .background-picker button{
+  background:var(--ef-panel)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  box-shadow:2px 2px 0 0 var(--ef-ink)!important;
+  color:var(--ef-ink)!important;
+  transition:transform .1s,box-shadow .1s,background .1s!important;
+}
+.lobby-screen.lobby-home .background-picker button:hover{
+  background:var(--ef-signal)!important;
+  color:var(--ef-onSignal)!important;
+}
+.lobby-screen.lobby-home .background-picker button:active{
+  transform:translate(2px,2px)!important;
+  box-shadow:0 0 0 0 var(--ef-ink)!important;
+}
+.lobby-screen.lobby-home .background-picker button.is-on,
+.lobby-screen.lobby-home .background-picker button[aria-pressed="true"]{
+  background:var(--ef-signal)!important;
+  color:var(--ef-onSignal)!important;
+  border-color:var(--ef-ink)!important;
+  font-weight:700!important;
+}
+
+/* ---- G6. 补充：设置页 select / 面板标题细线 / 三面板方角滚动条 ---- */
+.lobby-screen.lobby-home .settings-modal select{
+  background:var(--ef-panel)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  color:var(--ef-ink)!important;
+}
+.lobby-screen.lobby-home .settings-modal .set-title,
+.lobby-screen.lobby-home .settings-modal h2,
+.lobby-screen.lobby-home .settings-modal h3{
+  color:var(--ef-ink)!important;
+  font-weight:800!important;
+  border-bottom:1px solid var(--ef-ink)!important;
+  padding-bottom:6px!important;
+}
+.lobby-screen.lobby-home .background-picker .background-picker__title,
+.lobby-screen.lobby-home .background-picker h2,
+.lobby-screen.lobby-home .background-picker h3{
+  color:var(--ef-ink)!important;
+  font-weight:800!important;
+  border-bottom:1px solid var(--ef-ink)!important;
+  padding-bottom:6px!important;
+}
+.lobby-screen.lobby-home .settings-modal ::-webkit-scrollbar,
+.lobby-screen.lobby-home .background-picker ::-webkit-scrollbar,
+.lobby-screen.lobby-home .home-music-popover ::-webkit-scrollbar{
+  width:8px!important; height:8px!important;
+}
+.lobby-screen.lobby-home .settings-modal ::-webkit-scrollbar-thumb,
+.lobby-screen.lobby-home .background-picker ::-webkit-scrollbar-thumb,
+.lobby-screen.lobby-home .home-music-popover ::-webkit-scrollbar-thumb{
+  background:var(--ef-ink)!important;
+  border-radius:0!important;
+}
+.lobby-screen.lobby-home .settings-modal ::-webkit-scrollbar-track,
+.lobby-screen.lobby-home .background-picker ::-webkit-scrollbar-track,
+.lobby-screen.lobby-home .home-music-popover ::-webkit-scrollbar-track{
+  background:var(--ef-chip)!important;
+}
+
+/* ============================================================
+   ===== 修 H（2026-11-16）：三面板修正 —— 它们是 portal 到 body 的！
+   ============================================================
+   ★★ 真因（实测）：音乐菜单 / 设置页 / 背景替换页 全部渲染在
+      `<div class="portal-host">` 下，是 `body` 的直接子树，
+      **不在** `.lobby-screen.lobby-home` 里面。
+      ⇒ 我上一轮所有以 `.lobby-screen.lobby-home .home-music-popover` 开头的选择器
+        **特异度再高也匹配不到**（matches() 实测 false）。
+      ⇒ 正解：直接挂面板自身类名，不带 .lobby-screen 前缀；
+        同时用 `:root` 变量兜底（变量定义在 .lobby-screen 上，panel 里取不到，故在此重声明）。
+   ============================================================ */
+
+/* H0. 变量兜底（panel 在 body 下，取不到 .lobby-screen 上的变量） */
+.portal-host{
+  --ef-paper:#F4F4F2;
+  --ef-panel:#FFFFFF;
+  --ef-ink:#161616;
+  --ef-ink2:#5C5C5C;
+  --ef-rule:#D9D9D6;
+  --ef-chip:#E4E4E0;
+  --ef-signal:#4ED8AF;
+  --ef-onSignal:#0B1F1A;
+}
+
+/* ============ H1. 音乐菜单 .home-music-popover ============ */
+.home-music-popover{
+  background:var(--ef-panel)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  box-shadow:4px 4px 0 0 var(--ef-ink)!important;
+  color:var(--ef-ink)!important;
+}
+.home-music-popover *{ color:var(--ef-ink)!important; }
+.home-music-popover small{
+  color:var(--ef-ink2)!important;
+  letter-spacing:.14em!important;
+  text-transform:uppercase;
+}
+.home-music-popover small::before{ content:"// "; opacity:.7; }
+.home-music-popover button{
+  background:var(--ef-panel)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  box-shadow:2px 2px 0 0 var(--ef-ink)!important;
+  color:var(--ef-ink)!important;
+  transition:transform .1s,box-shadow .1s,background .1s!important;
+}
+.home-music-popover button:hover{
+  background:var(--ef-signal)!important;
+  color:var(--ef-onSignal)!important;
+}
+.home-music-popover button:hover *{ color:var(--ef-onSignal)!important; }
+.home-music-popover button:active{
+  transform:translate(2px,2px)!important;
+  box-shadow:0 0 0 0 var(--ef-ink)!important;
+}
+.home-music-popover .home-music-popover__close{
+  box-shadow:none!important;
+  border-color:transparent!important;
+  background:transparent!important;
+}
+.home-music-popover .home-music-popover__close:hover{
+  background:var(--ef-signal)!important;
+  border-color:var(--ef-ink)!important;
+}
+.home-music-popover input[type="range"]{
+  -webkit-appearance:none!important; appearance:none!important;
+  background:var(--ef-chip)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  height:8px!important;
+}
+.home-music-popover input[type="range"]::-webkit-slider-thumb{
+  -webkit-appearance:none!important; appearance:none!important;
+  width:12px!important; height:16px!important;
+  background:var(--ef-ink)!important;
+  border:0!important; border-radius:0!important;
+}
+.home-music__now,.home-music__progress{ border-bottom:1px solid var(--ef-rule)!important; }
+.home-music__shuffle:hover{ background:var(--ef-signal)!important; color:var(--ef-onSignal)!important; }
+
+/* ============ H2. 设置页 .settings-veil / .settings-modal ============ */
+.modal__box.settings-modal{
+  background:var(--ef-panel)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  box-shadow:6px 6px 0 0 var(--ef-ink)!important;
+  color:var(--ef-ink)!important;
+}
+/* ★ 与上文 .lobby-screen.lobby-home 那条同理：.settings-content 不参与统一 border-color，
+   否则它自带的 8px 深色上分割边会被染成浅灰，看起来就是一条脏灰细条。 */
+.settings-modal .settings-shell,
+.settings-modal .set-list,
+.settings-modal .set-panel{
+  background:transparent!important;
+  border-color:var(--ef-rule)!important;
+  border-radius:0!important;
+  color:var(--ef-ink)!important;
+  box-shadow:none!important;
+}
+/* 分割边整条去掉（需求方 2026-11-16 截图指出）：settings-notices.css:18 的 8px 深色 border-top 是为离线版深底
+   弹窗设计的；终末地是纸白底，一条 8px 深杠压在内容顶上只会显得脏，用户明确要求去掉。 */
+.settings-modal .settings-content{
+  background:transparent!important;
+  border-top:0!important;
+  border-radius:0!important;
+  color:var(--ef-ink)!important;
+  box-shadow:none!important;
+}
+.settings-modal *{ color:var(--ef-ink)!important; }
+.settings-modal small,
+.settings-modal .t-dim,
+.settings-modal .t-lo,
+.settings-modal label > span{
+  color:var(--ef-ink2)!important;
+  letter-spacing:.14em!important;
+  text-transform:uppercase;
+}
+.settings-modal button:not(.set-toggle){
+  background:var(--ef-panel)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  box-shadow:2px 2px 0 0 var(--ef-ink)!important;
+  color:var(--ef-ink)!important;
+  transition:transform .1s,box-shadow .1s,background .1s!important;
+}
+.settings-modal button:not(.set-toggle):hover{
+  background:var(--ef-signal)!important;
+  color:var(--ef-onSignal)!important;
+}
+.settings-modal button:not(.set-toggle):hover *{ color:var(--ef-onSignal)!important; }
+.settings-modal button:not(.set-toggle):active{
+  transform:translate(2px,2px)!important;
+  box-shadow:0 0 0 0 var(--ef-ink)!important;
+}
+.settings-modal button.is-on{
+  background:var(--ef-signal)!important;
+  color:var(--ef-onSignal)!important;
+  border-color:var(--ef-ink)!important;
+  font-weight:700!important;
+}
+.settings-modal .set-toggle{
+  background:var(--ef-panel)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  color:var(--ef-ink)!important;
+}
+.settings-modal .set-toggle.is-on{
+  background:var(--ef-signal)!important;
+  color:var(--ef-onSignal)!important;
+  font-weight:700!important;
+}
+.settings-modal input[type="range"],
+.settings-modal .set-range{
+  -webkit-appearance:none!important; appearance:none!important;
+  background:var(--ef-chip)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  height:8px!important;
+}
+.settings-modal input[type="range"]::-webkit-slider-thumb,
+.settings-modal .set-range::-webkit-slider-thumb{
+  -webkit-appearance:none!important; appearance:none!important;
+  width:12px!important; height:16px!important;
+  background:var(--ef-ink)!important;
+  border:0!important; border-radius:0!important;
+}
+.settings-modal select{
+  background:var(--ef-panel)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  color:var(--ef-ink)!important;
+}
+.settings-modal .settings-back,
+.settings-modal .settings-reset{ box-shadow:none!important; }
+.settings-modal .set-title,
+.settings-modal h2,
+.settings-modal h3{
+  color:var(--ef-ink)!important;
+  font-weight:800!important;
+  border-bottom:1px solid var(--ef-ink)!important;
+  padding-bottom:6px!important;
+}
+.settings-modal .set-group,
+.settings-modal .set-row,
+.settings-modal .set-item{
+  border-color:var(--ef-rule)!important;
+  border-radius:0!important;
+}
+.settings-veil{ background:rgba(12,18,22,.56)!important; }
+
+/* ============ H3. 背景替换页 .background-picker ============ */
+.modal__box.background-picker{
+  background:var(--ef-panel)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  box-shadow:6px 6px 0 0 var(--ef-ink)!important;
+  color:var(--ef-ink)!important;
+}
+.background-picker *{ color:var(--ef-ink)!important; }
+.background-picker small,
+.background-picker .t-dim,
+.background-picker .t-lo{
+  color:var(--ef-ink2)!important;
+  letter-spacing:.14em!important;
+  text-transform:uppercase;
+}
+.background-picker small::before{ content:"// "; opacity:.7; }
+.background-picker__preview,
+.background-picker__choices,
+.background-picker__art{
+  background:var(--ef-paper)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+}
+.background-picker button{
+  background:var(--ef-panel)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  box-shadow:2px 2px 0 0 var(--ef-ink)!important;
+  color:var(--ef-ink)!important;
+  transition:transform .1s,box-shadow .1s,background .1s!important;
+}
+.background-picker button:hover{
+  background:var(--ef-signal)!important;
+  color:var(--ef-onSignal)!important;
+}
+.background-picker button:hover *{ color:var(--ef-onSignal)!important; }
+.background-picker button:active{
+  transform:translate(2px,2px)!important;
+  box-shadow:0 0 0 0 var(--ef-ink)!important;
+}
+.background-picker button.is-on,
+.background-picker button[aria-pressed="true"]{
+  background:var(--ef-signal)!important;
+  color:var(--ef-onSignal)!important;
+  border-color:var(--ef-ink)!important;
+  font-weight:700!important;
+}
+.background-picker .background-picker__title,
+.background-picker h2,
+.background-picker h3{
+  color:var(--ef-ink)!important;
+  font-weight:800!important;
+  border-bottom:1px solid var(--ef-ink)!important;
+  padding-bottom:6px!important;
+}
+.background-picker-veil{ background:rgba(12,18,22,.56)!important; }
+
+/* ============ H4. 三面板方角滚动条 ============ */
+.settings-modal ::-webkit-scrollbar,
+.background-picker ::-webkit-scrollbar,
+.home-music-popover ::-webkit-scrollbar{ width:8px!important; height:8px!important; }
+.settings-modal ::-webkit-scrollbar-thumb,
+.background-picker ::-webkit-scrollbar-thumb,
+.home-music-popover ::-webkit-scrollbar-thumb{ background:var(--ef-ink)!important; border-radius:0!important; }
+.settings-modal ::-webkit-scrollbar-track,
+.background-picker ::-webkit-scrollbar-track,
+.home-music-popover ::-webkit-scrollbar-track{ background:var(--ef-chip)!important; }
+
+/* ---- H5. 设置页开关内层的 45° 斜线纹要去掉（用户明确反对斜线条） ---- */
+.settings-modal .set-toggle > *{
+  background-image:none!important;
+  background:transparent!important;
+  border-color:var(--ef-ink)!important;
+  border-radius:0!important;
+}
+/* 关闭态：内层给他一个空心方指示，不要斜线 */
+.settings-modal .set-toggle:not(.is-on)::before{
+  background-image:none!important;
+}
+/* 开启/关闭文字要压在色块上可读 */
+.settings-modal .set-toggle{
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+}
+.settings-modal .set-toggle.is-on{ color:var(--ef-onSignal)!important; }
+.settings-modal .set-toggle:not(.is-on){ color:var(--ef-ink)!important; background:var(--ef-panel)!important; }
+
+/* ---- H6. 背景替换页：搜索框 + 三条定位滑块（实测仍为 rgb(59,59,59)） ---- */
+.background-picker input[type="text"],
+.background-picker input[type="search"],
+.background-picker input:not([type="range"]){
+  background:var(--ef-panel)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  color:var(--ef-ink)!important;
+}
+.background-picker input::placeholder{ color:var(--ef-ink2)!important; }
+.background-picker input:focus{
+  outline:2px solid var(--ef-signal)!important;
+  outline-offset:0!important;
+}
+.background-picker input[type="range"]{
+  -webkit-appearance:none!important;
+  appearance:none!important;
+  background:var(--ef-chip)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  height:8px!important;
+}
+.background-picker input[type="range"]::-webkit-slider-thumb{
+  -webkit-appearance:none!important;
+  appearance:none!important;
+  width:12px!important;
+  height:16px!important;
+  background:var(--ef-signal)!important;
+  border:1px solid var(--ef-ink)!important;
+  border-radius:0!important;
+  cursor:pointer;
+}
+/* 角色卡内的小字幕不参与抖动 */
+.background-picker .home-actors,
+.background-picker__actors{ background:transparent!important; }
+/* 预览区与选项区之间的竖向分隔 */
+.background-picker__layout{ gap:12px!important; }
+
+/* ============================================================
+   ===== 修 K（2026-11-16）：窗口缩放适配（窄视口全乱）
+   ============================================================
+   ★ 用户原话：「你没有适配窗口缩放，窗口一边小所有都乱了」。
+
+   ★★ 根因（实测定位，不是猜）：
+     桌面端（≥1100×650）五卡用的是**按 1910 宽算出来的百分比绝对定位**：
+       `.home-menu.home-menu button.home-materials{ height:9.85%!important; top:39.1685%!important;
+                                            width:20.9424%!important; right:23.089%!important }`
+       `.home-menu.home-menu button.home-report{ height:9.85%!important; top:50.1094%!important;
+                                            width:37.9581%!important; right:2.93194%!important }`
+     这些**只在 1910×914 成立**。窗口一小，原版的 `@media(max-width:1099px),(max-height:649px)`
+     本来会把 `.home-menu` 切成 grid 并给卡片重设 `height:44px` 等 ——
+     但上面那些规则带 `!important` 且特异度是 `.home-menu.home-menu button.xxx`（双写类名抬高特异度），
+     **窄屏 media 里的同特异度声明赢不了**，于是三张小卡塌成 52×14 / 49×18 / 191×20。
+
+   ★ 正解：在窄屏 media 里用**同等或更高特异度 + !important** 把桌面定位整组还原成
+     `position:relative/absolute + 百分比复位 + 高度交给 grid`，并且不能碰 1910 桌面态。
+   ★ 同时给 1440 / 1280 等中间档补一个「按 vw 缩放」的档，避免 1099→1100 之间跳变。
+   ============================================================ */
+
+/* ---------- K1. 窄视口（<1100 或 <650）：把桌面百分比定位全部复位 ---------- */
+@media (max-width:1099px),(max-height:649px){
+  /* 三张小卡：取消桌面百分比绝对定位，交回 grid 单元格 */
+  .lobby-screen.lobby-home .home-menu.home-menu button.home-materials,
+  .lobby-screen.lobby-home .home-menu.home-menu button.home-diy,
+  .lobby-screen.lobby-home .home-menu.home-menu button.home-report{
+    position:relative!important;
+    left:auto!important; right:auto!important; top:auto!important; bottom:auto!important;
+    width:auto!important; height:auto!important;
+    min-height:44px!important;
+    margin:0!important;
+    transform:none!important;
+    grid-column:auto / span 1!important;
+  }
+  /* 干员调配 / 自选编队两卡各占一半；SWEEP 独占一行 */
+  .lobby-screen.lobby-home .home-menu > .home-operators.home-resources > button.home-materials,
+  .lobby-screen.lobby-home .home-menu > .home-operators.home-resources > button.home-diy{
+    min-height:44px!important; height:44px!important;
+  }
+  .lobby-screen.lobby-home .home-menu > .home-secondary > button.home-report{
+    position:relative!important; left:auto!important; width:100%!important;
+    height:60px!important; min-height:0!important;
+  }
+  /* 卡面伪元素：窄屏不要桌面那套 left:5px/top:5px 内缩（会把 44px 卡压没） */
+  .lobby-screen.lobby-home .home-menu button.home-alliance::before,
+  .lobby-screen.lobby-home .home-menu button.home-solo::before,
+  .lobby-screen.lobby-home .home-menu button.home-materials::before,
+  .lobby-screen.lobby-home .home-menu button.home-diy::before,
+  .lobby-screen.lobby-home .home-menu button.home-report::before,
+  .lobby-screen.lobby-home .home-menu .home-operators > button.home-materials.is-primary::before,
+  .lobby-screen.lobby-home .home-menu .home-operators > button.home-diy.is-child::before,
+  .lobby-screen.lobby-home .home-menu .home-secondary > button.home-report::before{
+    inset:0!important;
+    left:0!important; top:0!important; right:0!important; bottom:0!important;
+    width:auto!important; height:auto!important;
+    border-left-width:3px!important;
+  }
+  /* 小卡阴影在窄屏收小，避免溢出 */
+  .lobby-screen.lobby-home .home-menu .home-operators > button.home-materials.is-primary,
+  .lobby-screen.lobby-home .home-menu .home-operators > button.home-diy.is-child,
+  .lobby-screen.lobby-home .home-menu .home-secondary > button.home-report{
+    box-shadow:2px 2px 0 0 var(--ef-ink)!important;
+  }
+  /* motif 在窄屏直接隐藏（44px 高塞不下） */
+  .lobby-screen.lobby-home .home-menu .home-operators > button.home-materials.is-primary::after,
+  .lobby-screen.lobby-home .home-menu .home-operators > button.home-diy.is-child::after{
+    display:none!important;
+  }
+  /* 加入同盟面板：窄屏去掉硬边影，避免横向溢出 */
+  .lobby-screen.lobby-home .join-panel{
+    box-shadow:2px 2px 0 0 var(--ef-ink)!important;
+  }
+  .lobby-screen.lobby-home .join-panel .field__box,
+  .lobby-screen.lobby-home .join-panel input{
+    min-width:0!important;
+  }
+}
+
+/* ---------- K2. 中间档（1100–1600）：按视口缩放，避免 1099↔1100 跳变 ---------- */
+@media (min-width:1100px) and (max-width:1600px) and (min-height:650px){
+  /* 桌面百分比定位在中间档同样失真 ⇒ 改成按容器百分比（与 1910 等比），
+     并给小卡一个最小高度兜底，防止被压扁 */
+  .lobby-screen.lobby-home .home-menu.home-menu button.home-materials,
+  .lobby-screen.lobby-home .home-menu.home-menu button.home-diy{
+    min-height:60px!important;
+  }
+  .lobby-screen.lobby-home .home-menu.home-menu button.home-report{
+    min-height:60px!important;
+  }
+  /* ★ 字号交给原版的 clamp（39/59/254/263 行），此处不再覆盖 —— 
+     曾经写过 clamp(18px,2.2vw,30px)!important，在 1440 下算出 30.56px，
+     把 89px 高的干员调配卡挤成"干员…"，S.W.E.E.P.报告 也被切。已删。 */
+}
+
+/* ---------- K3. 中等高度（650–820）：收紧纵向间距，避免卡片互相压 ---------- */
+@media (min-height:650px) and (max-height:820px) and (min-width:1100px){
+  .lobby-screen.lobby-home .home-menu button.home-alliance::before,
+  .lobby-screen.lobby-home .home-menu button.home-solo::before{ border-left-width:3px!important; }
+  .lobby-screen.lobby-home .home-menu .home-operators > button.home-materials.is-primary,
+  .lobby-screen.lobby-home .home-menu .home-operators > button.home-diy.is-child,
+  .lobby-screen.lobby-home .home-menu .home-secondary > button.home-report{
+    box-shadow:2px 2px 0 0 var(--ef-ink)!important;
+  }
+}
+
+/* ---------- K4. 超宽（>2000）：封顶，别让卡片拉太长 ---------- */
+@media (min-width:2001px){
+  .lobby-screen.lobby-home .home-menu{ max-width:1920px; }
+}
+
+/* ---------- K5. 窄屏细节：阴影不再与相邻卡视觉重叠 / 超窄兜底 / 文字不压 ---------- */
+@media (max-width:1099px),(max-height:649px){
+  /* 五卡统一无阴影 —— 5px 间距下 2px 硬边影会和下一张卡糊在一起 */
+  .lobby-screen.lobby-home .home-menu button.home-alliance,
+  .lobby-screen.lobby-home .home-menu button.home-solo,
+  .lobby-screen.lobby-home .home-menu button.home-materials,
+  .lobby-screen.lobby-home .home-menu button.home-diy,
+  .lobby-screen.lobby-home .home-menu button.home-report,
+  .lobby-screen.lobby-home .home-menu .home-operators > button.home-materials.is-primary,
+  .lobby-screen.lobby-home .home-menu .home-operators > button.home-diy.is-child,
+  .lobby-screen.lobby-home .home-menu .home-secondary > button.home-report{
+    box-shadow:none!important;
+  }
+  /* 窄屏文字：所有 strong 收字号并禁止溢出 */
+  .lobby-screen.lobby-home .home-menu button strong{
+    font-size:clamp(13px,1.9vw,20px)!important;
+    line-height:1.15!important;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .lobby-screen.lobby-home .home-menu small{
+    font-size:clamp(6px,.85vw,8px)!important;
+    letter-spacing:.06em!important;
+  }
+  /* 加入同盟面板：窄屏输入框与按钮不挤成一团 */
+  .lobby-screen.lobby-home .join-panel .join-row{
+    flex-wrap:wrap!important;
+    gap:5px!important;
+  }
+  .lobby-screen.lobby-home .join-panel .field__box{
+    flex:1 1 100%!important;
+    min-width:0!important;
+  }
+  .lobby-screen.lobby-home .join-panel .btn{
+    flex:0 0 auto!important;
+  }
+  /* 顶栏在窄屏收紧 */
+  .lobby-screen.lobby-home .home-top{
+    flex-wrap:wrap!important;
+    gap:5px!important;
+  }
+}
+
+/* ---------- K6. 超窄（<700）：再降一档，保证不压 --------------------------------- */
+@media (max-width:699px){
+  .lobby-screen.lobby-home .home-menu{
+    width:calc(100% - 16px)!important;
+    right:8px!important;
+    left:auto!important;
+  }
+  .lobby-screen.lobby-home .home-menu > .home-simulation{
+    grid-template-columns:1fr!important;
+  }
+  .lobby-screen.lobby-home .home-menu > .home-operators.home-resources{
+    grid-template-columns:1fr!important;
+  }
+  .lobby-screen.lobby-home .home-menu button strong{
+    font-size:clamp(12px,3.2vw,17px)!important;
+  }
+}
+
+/* ---------- K7. 极矮（<500 高）：允许菜单内部滚动，不裁切 ------------------------ */
+@media (max-height:499px){
+  .lobby-screen.lobby-home .home-menu{
+    overflow-y:auto!important;
+    max-height:calc(100vh - 60px)!important;
+  }
+}
+
+/* ---------- K8. 中间档小卡高度兜底（字号已交回原版 clamp，见 K2 注释） ---------- */
+@media (min-width:1100px) and (max-width:1600px) and (min-height:650px){
+  .lobby-screen.lobby-home .home-menu.home-menu button.home-materials,
+  .lobby-screen.lobby-home .home-menu.home-menu button.home-diy,
+  .lobby-screen.lobby-home .home-menu.home-menu button.home-report{
+    min-height:60px!important;
+  }
+}
+/* 窄屏那套 clamp 也放宽上限，给长标题留余量 */
+@media (max-width:1099px),(max-height:649px){
+  .lobby-screen.lobby-home .home-menu button strong{
+    font-size:clamp(13px,1.6vw,18px)!important;
+    text-overflow:clip;
+    overflow:visible;
+  }
+}
+
+/* =====================================================================
+   修 L. 字号移植原站 —— 全部走 rem，随根字号等比缩放
+   ---------------------------------------------------------------------
+   ★ 原站机制（实测 5 档尺寸逐一命中）：
+       html { font-size: min(100vw / 19.2, 100vh / 10.8) }
+     整个页面像一张 16:9 的图整体等比缩放 ⇒ 拉大拉小，字号/卡片/间距的
+     **比例关系恒定**，所以「UI 基础长度和位置不受影响」。
+     1910×914→84.63（受高度限） / 1440×900→75（受宽度限）
+     1280×720→66.67 / 2560×1440→133.33
+   ★ 本地演示页本就继承同一套 html 字号（实测同为 84.6296px），
+     间隔也早已一致（menuGap 两站同为 0.1458rem；卡内 gap 20px/9px/2px 12px；
+     padding 20px 24px 28px 全同）。**唯一真差异是字号。**
+   ★ 病根：597 / 605 行把字号硬写成 30.56px —— 那是原站 1910 宽下的绝对值，
+     宽屏看着对，一缩小就完全不跟着变。
+   ★ 抄写陷阱（已实测，必须用真身全选择器）：
+     压制我的是 337 行 `.home-operators.home-resources>button>strong`（5 类）
+     与 605 行 `.home-menu:not(.x) .home-secondary > button.home-report > strong`（6 类）。
+     只写 4 类的选择器输给它们 ⇒ 五卡里只有 home-solo 改成功，其余 rem 反向漂移。
+     ⇒ 本节一律用真身路径，特异度对齐后再加 !important。
+
+   ── rem 值来源（原站 1912×922，html=85.3704px 时 px ÷ html）──
+     同盟 strong 49.712px→0.5823rem  lh 0.699rem  ls 0.01164em
+     单人 strong 38.240px→0.4479rem  lh 0.672rem  ls 0.02615em
+     干员 strong 24.091px→0.2822rem  lh 0.339rem  ls 0.025em
+     自选 strong 24.091px→0.2822rem  lh 0.339rem  ls 0.025em
+     SWEEP strong 30.592px→0.3583rem lh 0.448rem  ls 0.08em
+     眉标 small 10/10/6/6/8.5px → 0.1171/0.1171/0.0703/0.0703/0.0996rem
+     眉标 mt    0/0/14/14/9px    → 0/0/0.164/0.164/0.105rem
+   ===================================================================== */
+
+/* L1. 根字号公式（与原站同式；写在此处只作自证，实际由 html 继承） */
+.lobby-screen.lobby-home{
+  --ef-rem: min(100vw / 19.2, 100vh / 10.8);
+}
+
+/* L2. 同盟模拟 —— 真身 main > .home-simulation > button > span.home-alliance__copy > strong */
+.lobby-screen.lobby-home .home-menu .home-simulation > button.home-alliance .home-alliance__copy > strong{
+  font-size:0.5823rem!important;
+  line-height:0.699rem!important;
+  letter-spacing:0.02024em!important;
+}
+.lobby-screen.lobby-home .home-menu .home-simulation > button.home-alliance .home-alliance__copy > small{
+  font-size:0.1171rem!important;
+  letter-spacing:0.0159em!important;
+}
+
+/* L3. 单人模拟 */
+.lobby-screen.lobby-home .home-menu .home-simulation > button.home-solo > strong{
+  font-size:0.4479rem!important;
+  line-height:0.672rem!important;
+  letter-spacing:0.02615em!important;
+}
+.lobby-screen.lobby-home .home-menu .home-simulation > button.home-solo > small{
+  font-size:0.1171rem!important;
+  letter-spacing:0.0159em!important;
+}
+
+/* L4. 干员调配 + 自选编队 —— 真身带 .home-operators.home-resources.is-parent-child 与 .is-primary/.is-child */
+.lobby-screen.lobby-home .home-menu .home-operators.home-resources.is-parent-child > button.home-materials.is-primary > strong,
+.lobby-screen.lobby-home .home-menu .home-operators.home-resources.is-parent-child > button.home-diy.is-child > strong{
+  font-size:0.2822rem!important;
+  line-height:0.339rem!important;
+  letter-spacing:0.025em!important;
+}
+.lobby-screen.lobby-home .home-menu .home-operators.home-resources.is-parent-child > button.home-materials.is-primary > small,
+.lobby-screen.lobby-home .home-menu .home-operators.home-resources.is-parent-child > button.home-diy.is-child > small{
+  font-size:0.0703rem!important;
+  letter-spacing:0.2333em!important;
+  margin-top:0.164rem!important;
+}
+
+/* L5. SWEEP 报告 —— 真身带 .home-secondary
+   ★ 必须补 :not(.x)：605 行用的是 `.home-menu:not(.x) .home-secondary > button.home-report > strong`，
+     类数 7；只写 5 类会被它压住（实测字号恒为 30.56px，rem 反向漂移到 0.73）。
+     补上 :not(.x) 即同特异度，本节在后 ⇒ 本节生效。 */
+.lobby-screen.lobby-home .home-menu:not(.x) .home-secondary > button.home-report > strong{
+  font-size:0.3583rem!important;
+  line-height:0.448rem!important;
+  letter-spacing:0.08em!important;
+}
+.lobby-screen.lobby-home .home-menu:not(.x) .home-secondary > button.home-report > small{
+  font-size:0.0996rem!important;
+  letter-spacing:0.24em!important;
+  margin-top:0.105rem!important;
+}
+
+/* L6. 卡片内边距 rem 化（原站窄屏会缩到 13/18/20 与 8/10/12） */
+@media (max-width:1299px){
+  .lobby-screen.lobby-home .home-menu button.home-alliance,
+  .lobby-screen.lobby-home .home-menu button.home-solo,
+  .lobby-screen.lobby-home .home-menu button.home-materials,
+  .lobby-screen.lobby-home .home-menu button.home-diy,
+  .lobby-screen.lobby-home .home-menu button.home-report{
+    padding:0.156rem 0.211rem 0.234rem!important;
+  }
+}
+@media (max-width:999px){
+  .lobby-screen.lobby-home .home-menu button.home-alliance,
+  .lobby-screen.lobby-home .home-menu button.home-solo,
+  .lobby-screen.lobby-home .home-menu button.home-materials,
+  .lobby-screen.lobby-home .home-menu button.home-diy,
+  .lobby-screen.lobby-home .home-menu button.home-report{
+    padding:0.107rem 0.128rem 0.160rem!important;
+  }
+}
+
+/* ---------- L7. 间隔也归一到原站公式（修移植 bug） ----------
+   ★ 实测 bug：本地 gap 用 clamp(12px, 100vh*1.35/100, 22px)（235 行），只跟 vh 走；
+     原站 gap ≈ 0.146–0.175rem，跟的是 min(vw/19.2, vh/10.8)。
+     ⇒ html 84.63→83.33 时本地 gap 纹丝不动（gapRem 0.1458→0.1745 漂移），
+       原站同公式下稳定。这就是「移植过来会有 bug」。
+   ★ 修法：不删原规则（别的断点依赖其上下限），只在两档里写 rem 版，
+     并盖掉各断点的 px 硬写（95 行 9px / 110 行 5px）。
+   ★ 0.146rem = 原站 1912 宽实测 12.447 / 85.3704。 */
+@media (min-width:1100px) and (min-height:650px){
+  .lobby-screen.lobby-home .home-menu{ gap:0.146rem!important; }
+}
+@media (max-width:1099px),(max-height:649px){
+  .lobby-screen.lobby-home .home-menu{ gap:0.06rem!important; }
+}
+
+/* ---------- L8. 修 grid 行重叠：窄屏下 report 与 solo 压在一起 ----------
+   ★ 实测 bug（576×806）：home-menu 已是 grid（rows: 12px 74px 44px 60px 76px 44px），
+     但 .home-simulation / .home-operators / .home-secondary 都是 display:contents，
+     无法作为 grid item 占行 ⇒ 它们里面的 button 直接参与父级自动排布，
+     而桌面端那套 top/right 绝对定位被 L1–L5 复位后仍留着 z-index:1（home-report），
+     结果 y 坐标打架：solo y=148、materials y=145、report y=191、
+     而 diy y=194 —— **solo 被 materials 盖住、diy 被 report 盖住**，
+     截图上正是「单人模拟」和「自选编队」看不见。
+   ★ 修法：窄屏给三个 wrapper 明确的行号（grid-row），并强制 z-index:auto，
+     取消 report 的 z-index:1 抢层。 */
+@media (max-width:1099px),(max-height:649px){
+  .lobby-screen.lobby-home .home-menu > .home-simulation{ grid-row:2 / 3; }
+  .lobby-screen.lobby-home .home-menu > .home-operators.home-resources{ grid-row:3 / 4; }
+  .lobby-screen.lobby-home .home-menu > .home-secondary{ grid-row:4 / 5; }
+  .lobby-screen.lobby-home .home-menu > .join-panel{ grid-row:5 / 6; }
+  .lobby-screen.lobby-home .home-menu button.home-alliance,
+  .lobby-screen.lobby-home .home-menu button.home-solo,
+  .lobby-screen.lobby-home .home-menu button.home-materials,
+  .lobby-screen.lobby-home .home-menu button.home-diy,
+  .lobby-screen.lobby-home .home-menu button.home-report{
+    z-index:auto!important;
+  }
+  /* display:contents 的 wrapper 内的卡要让父级 grid 看见 —— 保持 contents 但行由上面锁死 */
+  .lobby-screen.lobby-home .home-menu > .home-simulation,
+  .lobby-screen.lobby-home .home-menu > .home-operators.home-resources,
+  .lobby-screen.lobby-home .home-menu > .home-secondary{
+    align-self:stretch!important;
+  }
+}
+
+/* ---------- L9. 窄屏改为自动行高（根治行重叠） ----------
+   ★ 实测：`grid-template-rows: 12px 74px 44px 60px 76px 44px` 只有 6 行，
+     而三个 wrapper 是 display:contents ⇒ 展开后实际 7 个 grid item（caption +
+     alliance + solo + materials + diy + report + join），
+     多出来的项被压进已有行 ⇒ solo/materials 同 y=148/146、diy/report 同 y=194/191 重叠。
+   ★ L8 给 wrapper 写 grid-row 对 display:contents 无效（它不生成盒子）。
+   ⇒ 正解：窄屏废掉固定行模板，改自动行，让每张卡各占一行。 */
+@media (max-width:1099px),(max-height:649px){
+  .lobby-screen.lobby-home .home-menu{
+    grid-template-rows:none!important;
+    /* ★ 2026-11-17 第6轮：原为 grid-auto-rows:auto —— 在「容器高度固定(top:52px;bottom:12px)」的 grid 里，
+       auto 行会把剩余空间均分，三个内容行各得 72.5px；但 .home-simulation / .home-operators 在
+       下面 :2411-2424 被设成 flex column（alliance+solo 竖排需 150px、materials+diy 竖排需 90px），
+       于是子卡溢出父行，与相邻面板重叠（实测窄屏 820x396 有 3 对重叠：solo×materials 42px、solo×diy 30px、diy×report 15px）。
+       改 max-content ⇒ 行高严格按内容取整，不再被容器拉伸。*/
+    grid-auto-rows:max-content!important;
+    grid-auto-flow:row!important;
+    align-content:start!important;
+  }
+  .lobby-screen.lobby-home .home-menu > .home-caption{ grid-row:1!important; }
+  .lobby-screen.lobby-home .home-menu button.home-alliance,
+  .lobby-screen.lobby-home .home-menu button.home-solo,
+  .lobby-screen.lobby-home .home-menu button.home-materials,
+  .lobby-screen.lobby-home .home-menu button.home-diy,
+  .lobby-screen.lobby-home .home-menu button.home-report{
+    grid-column:1 / -1!important;
+    position:relative!important;
+    min-height:44px!important;
+  }
+  .lobby-screen.lobby-home .home-menu button.home-alliance,
+  .lobby-screen.lobby-home .home-menu button.home-solo{ min-height:74px!important; }
+  .lobby-screen.lobby-home .home-menu button.home-report{ min-height:60px!important; }
+}
+
+/* ---------- L10. 窄屏把 wrapper 从 display:contents 改为实体盒子（根治重叠） ----------
+   ★ 根因确认：.home-simulation / .home-operators / .home-secondary 是 display:contents，
+     它们**不生成盒子**，所以 grid-row 对它们无效（L8 白写）；
+     里面的 button 直接参与父级 grid 自动排布，而父级行模板只有 6 行却要容纳 7 项
+     ⇒ solo/materials 落同一 y、diy/report 落同一 y，互相盖住。
+     L9 把行模板放开成 auto 也没用 —— 因为自动排布只按 DOM 顺序塞，
+     contents 展开后的顺序是 alliance, solo, materials, diy, report,
+     但 report 带 z-index:1 且尺寸更大，视觉上就压住了 solo/diy。
+   ⇒ 正解：窄屏给 wrapper 实体 display（flex column），它自己成为 grid item 占一行，
+     内部卡纵向堆叠。DOM 完全不动，只是不再 contents。 */
+@media (max-width:1099px),(max-height:649px){
+  .lobby-screen.lobby-home .home-menu > .home-simulation,
+  .lobby-screen.lobby-home .home-menu > .home-operators.home-resources,
+  .lobby-screen.lobby-home .home-menu > .home-secondary{
+    display:flex!important;
+    flex-direction:column!important;
+    gap:0.06rem!important;
+    width:100%!important;
+    min-width:0!important;
+    height:auto!important;
+    min-height:0!important;
+    grid-column:1 / -1!important;
+    position:relative!important;
+    inset:auto!important;
+  }
+  .lobby-screen.lobby-home .home-menu > .home-simulation > button.home-alliance,
+  .lobby-screen.lobby-home .home-menu > .home-simulation > button.home-solo,
+  .lobby-screen.lobby-home .home-menu > .home-operators.home-resources > button.home-materials,
+  .lobby-screen.lobby-home .home-menu > .home-operators.home-resources > button.home-diy,
+  .lobby-screen.lobby-home .home-menu > .home-secondary > button.home-report{
+    position:relative!important;
+    inset:auto!important;
+    left:auto!important; right:auto!important; top:auto!important; bottom:auto!important;
+    width:100%!important;
+    height:auto!important;
+    z-index:auto!important;
+  }
+  .lobby-screen.lobby-home .home-menu > .home-simulation > button.home-alliance,
+  .lobby-screen.lobby-home .home-menu > .home-simulation > button.home-solo{ min-height:74px!important; }
+  .lobby-screen.lobby-home .home-menu > .home-operators.home-resources > button.home-materials,
+  .lobby-screen.lobby-home .home-menu > .home-operators.home-resources > button.home-diy{ min-height:44px!important; }
+  .lobby-screen.lobby-home .home-menu > .home-secondary > button.home-report{ min-height:60px!important; }
+}
+
+/* ---------- 修 M. 加入同盟：输入框聚焦怪绿框 + 历史编号不可读 ----------
+   ★ 实测（点进输入框前后对比 computed）：
+     聚焦前 input/box 都是 outline:none；聚焦后**两层同时**出现
+        input.field__input      → outline: rgb(78,216,175) solid 2px
+        span.field__box.brackets → outline: rgb(78,216,175) solid 2px
+     两个 2px 绿线在同一个 625×50 的盒子上叠着画 ⇒ 眼睛看到的就是「很奇怪的绿框」。
+   ★ .code-chip.num（历史编号 VEGD 那类）实测：
+        background-color: rgb(25, 58, 77)   ← 深藏青
+        color:            rgb(22, 22, 22)   ← 近黑
+     深底近黑字，几乎看不见 —— 这就是用户说的「变成全黑，看不到」。
+   ⇒ 两处一并改成**白底 + 绿字**。 */
+
+/* M1. 聚焦只保留一层绿线，且不用 outline（避免与外框叠） */
+.lobby-screen.lobby-home .join-panel input.field__input:focus,
+.lobby-screen.lobby-home .join-panel input.field__input:focus-visible{
+  outline:none!important;
+  box-shadow:none!important;
+  border-color:var(--ef-signal,#4ED8AF)!important;
+  background:#FFFFFF!important;
+  color:var(--ef-ink,#161616)!important;
+}
+/* 外框承接唯一的聚焦提示线 */
+.lobby-screen.lobby-home .join-panel .field__box:focus-within{
+  outline:none!important;
+  box-shadow:none!important;
+  border-color:var(--ef-signal,#4ED8AF)!important;
+  background:#FFFFFF!important;
+}
+/* 兜底：其它输入框若也被写成聚焦绿 outline，一律收敛成一条边框线 */
+.lobby-screen.lobby-home .join-panel input:focus,
+.lobby-screen.lobby-home .join-panel textarea:focus{
+  outline:none!important;
+}
+
+/* M2. 历史同盟编号 chip：白底绿字 */
+.lobby-screen.lobby-home .join-panel .code-chip,
+.lobby-screen.lobby-home .join-panel .code-chip.num,
+.lobby-screen.lobby-home .join-panel .recent-chips .code-chip,
+.lobby-screen.lobby-home .join-panel .recent-chips button.code-chip,
+.lobby-screen.lobby-home .join-panel .recent-chips button.code-chip.num{
+  background:#FFFFFF!important;
+  background-color:transparent!important;
+  background-image:none!important;
+  color:var(--ef-signal,#4ED8AF)!important;
+  border:1px solid var(--ef-signal,#4ED8AF)!important;
+  box-shadow:none!important;
+  text-shadow:none!important;
+  font-weight:700!important;
+}
+/* 白底要坐实：用实心白底 + 绿框，而不是透明蹭底 */
+.lobby-screen.lobby-home .join-panel .recent-chips button.code-chip,
+.lobby-screen.lobby-home .join-panel .recent-chips button.code-chip.num{
+  background-color:#FFFFFF!important;
+}
+/* chip 内的图标 / span 也统一绿 */
+.lobby-screen.lobby-home .join-panel .code-chip *,
+.lobby-screen.lobby-home .join-panel .recent-chips button.code-chip *{
+  color:var(--ef-signal,#4ED8AF)!important;
+  fill:var(--ef-signal,#4ED8AF)!important;
+}
+/* hover / focus 态：轻微加深填充，但仍是白底绿字 */
+.lobby-screen.lobby-home .join-panel .recent-chips button.code-chip:hover,
+.lobby-screen.lobby-home .join-panel .recent-chips button.code-chip:focus-visible{
+  background-color:#F2FBF8!important;
+  color:var(--ef-signal,#4ED8AF)!important;
+  border-color:var(--ef-signal,#4ED8AF)!important;
+  outline:none!important;
+}
+/* 「最近同盟」小标题：从灰调提到可读 */
+.lobby-screen.lobby-home .join-panel .recent-chips .t-lo{
+  color:#5C5C5C!important;
+}
+
+/* ---------- M3. 收掉 .brackets 的橙色角标（它才是「怪框」的剩余碎片） ----------
+   ★ 实测：`.field__box.brackets::after` 是原版的**橙色角标**层
+       （background-image: linear-gradient(rgb(237,209,163), …)），
+        尺寸 624.75×50、inset -1px，正好铺满整个输入框外沿。
+     我只把 input 的 outline 去掉后，它仍露在左下/右下 —— 截图里的橙绿碎片就是它。
+   ⇒ 终末地语汇里不需要这种暖色角标：直接收成 1px 绿线，或者清空。这里选清空，
+     只保留 field__box 自己的 1px 绿边框作为唯一聚焦指示。 */
+.lobby-screen.lobby-home .join-panel .field__box.brackets::after,
+.lobby-screen.lobby-home .join-panel .field__box.brackets::before{
+  content:none!important;
+  background:none!important;
+  background-image:none!important;
+  border:0!important;
+  box-shadow:none!important;
+}
+/* 其它带 .brackets 的容器（按钮 / 观战）同理，避免同类橙角再次出现 */
+.lobby-screen.lobby-home .join-panel .btn.brackets::after,
+.lobby-screen.lobby-home .join-panel .btn.brackets::before,
+.lobby-screen.lobby-home .join-panel .join-spectate::after,
+.lobby-screen.lobby-home .join-panel .join-spectate::before{
+  content:none!important;
+  background:none!important;
+  background-image:none!important;
+  border:0!important;
+}
+
+/* ---------- M4. 只留外框一条绿线（内层 input 不再描边） ----------
+   ★ 实测：聚焦后 input 与 .field__box 都拿到 border 1px 绿，
+     两者右端各画一条 ⇒ 输入框最右侧出现一小段双竖线（截图可见）。
+   ⇒ 聚焦提示统一由外框承担：内层 input 的边框设为透明，
+     输入区依旧白底黑字，视觉上就只剩一条干净的绿框。 */
+.lobby-screen.lobby-home .join-panel input.field__input,
+.lobby-screen.lobby-home .join-panel input.field__input:focus,
+.lobby-screen.lobby-home .join-panel input.field__input:focus-visible{
+  border:0!important;
+  border-color:transparent!important;
+  background:#FFFFFF!important;
+  outline:none!important;
+  box-shadow:none!important;
+}
+.lobby-screen.lobby-home .join-panel .field__box{
+  border:1px solid var(--ef-signal,#4ED8AF)!important;
+  background:#FFFFFF!important;
+}
+.lobby-screen.lobby-home .join-panel .field__box:focus-within{
+  border:1px solid var(--ef-signal,#4ED8AF)!important;
+  outline:none!important;
+  box-shadow:none!important;
+}
+/* ============================================================
+   修 N. 等级头像改成网页版圆形（对齐 cn.zuoyeyuanche.online:10443）
+   ------------------------------------------------------------
+   ★ 网页版实测 .home-profile-avatar：
+       56×56 / border-radius:50% / background rgba(21,35,45,.5)
+       border 1px rgba(255,255,255,.376) / color #fff / overflow:hidden
+   ★ 本项目原来是「白底 + 直角 + 1px 墨黑 + 2px 硬边影」的终末地方块。
+   ★ 只换皮，不改几何：66px（常规）/ 42px（max-height:550px）两档尺寸保持原值
+     —— .home-identity 的布局节奏就是按这两个尺寸排的，改尺寸会连带位移。
+   ★ DOM 零改动：内部结构本来就是 <span>SP<b>03</b></span> 上下堆叠，
+     与目标图的「小字 SP 在上、大字等级在下」完全一致。
+   ============================================================ */
+.lobby-screen.lobby-home .home-profile-avatar{
+  background:rgba(21,35,45,.5)!important;
+  border:1px solid rgba(255,255,255,.376)!important;
+  border-radius:50%!important;
+  color:#fff!important;
+  box-shadow:none!important;
+  /* 只过渡真正会变的三个属性：不用 all，避免布局属性被顺带动画（emil：transition all 是反模式） */
+  transition:background-color 140ms cubic-bezier(.23,1,.32,1),
+             border-color 140ms cubic-bezier(.23,1,.32,1),
+             transform 140ms cubic-bezier(.23,1,.32,1)!important;
+}
+
+/* 内层两行文字：竖向居中，白字，数字用等宽数字防抖动 */
+.lobby-screen.lobby-home .home-profile-avatar > span{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  line-height:1!important;
+  letter-spacing:.06em!important;
+  color:#fff!important;
+  text-shadow:none!important;
+}
+.lobby-screen.lobby-home .home-profile-avatar > span > b{
+  color:#fff!important;
+  font-variant-numeric:tabular-nums!important;
+  letter-spacing:0!important;
+}
+
+/* 悬停：环变亮、底色加深一档；文字始终白（覆盖原版「hover 变绿底黑字」） */
+.lobby-screen.lobby-home .home-profile-avatar:hover{
+  background:rgba(21,35,45,.72)!important;
+  border-color:rgba(255,255,255,.72)!important;
+  color:#fff!important;
+}
+.lobby-screen.lobby-home .home-profile-avatar:hover > span,
+.lobby-screen.lobby-home .home-profile-avatar:hover > span > b{
+  color:#fff!important;
+  fill:#fff!important;
+  stroke:#fff!important;
+}
+.lobby-screen.lobby-home .home-profile-avatar:hover *{
+  color:#fff!important;
+  fill:#fff!important;
+  stroke:#fff!important;
+}
+
+/* 按下：只缩不位移 —— 圆形按钮平移 2px 会看起来「跳出」圆环（emil：press 用 scale(.97)） */
+.lobby-screen.lobby-home .home-profile-avatar:active{
+  transform:scale(.97)!important;
+  box-shadow:none!important;
+}
+
+/* ★ break-ui 最坏情况：等级是 3 位数（如 100）时，42px 圆内 24px 字会顶破环。
+   实测「03」在 24px 下宽 23px；「100」会到 ~40px，而 42px 圆减 2px 边只剩 40px。
+   ⇒ 矮屏档位同步缩小字号，保证 3 位数也装得下。 */
+@media (max-height:550px){
+  .lobby-screen.lobby-home .home-profile-avatar > span{ font-size:6px!important; }
+  .lobby-screen.lobby-home .home-profile-avatar > span > b{ font-size:16px!important; }
+}
+
+/* ============================================================
+   ★ break-ui 实测缺陷：等级位数增长会顶破圆环
+   ------------------------------------------------------------
+   最坏用例与实测（1910 / 900×500 / 700×400 三档一致）：
+     "03"   w=27  limit=45  ok        "100"  w=38  limit=45  ok
+     "9999" w=56  limit=45  ★越界    "99999" w=64  limit=45  ★越界
+   矮屏 42px 档（字号 16px）："9999" w=37 > limit=28 ★越界
+   根因：内层 span/b 是 overflow:visible，数字只受自身 font-size 约束，
+        没有任何「宽度上限」的意识。
+   修法（不改 DOM、不改字号）：给圆圈裁剪 + 数字按容器宽度自适应压缩。
+     · overflow:hidden 已在 .home-profile-avatar 上（原版就有）⇒ 真正越界的是
+       比圆内接正方形还宽的文本，会贴到圆环上看着像「压边」。
+     · 用 container query 单位不可靠（旧浏览器），改用 SVG 式做法：
+       给数字加 transform:scale() 无法自适应未知位数 ⇒ 用 CSS 的
+       「按字符数逼近」不成立。最终采用**不引入新结构**的最小解：
+       限制字号上限为 min(24px, 圆内接正方形/字符数) 不可能用纯 CSS 表达，
+       因此改为「裁剪 + 中心对齐」，让越界部分被圆裁掉而不破坏圆环，
+       同时给 3 位数（真实上限）留足空间（38 < 45）。
+   ★ 结论：真实等级上限是 3 位数（100），已实测通过；4/5 位数属于
+     「schema 里不存在」的输入，按 break-ui 规则记录为报告项而不是当场改结构。
+   ============================================================ */
+.lobby-screen.lobby-home .home-profile-avatar > span > b{
+  white-space:nowrap!important;
+  font-variant-numeric:tabular-nums!important;
+}

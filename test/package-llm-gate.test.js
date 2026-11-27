@@ -15,6 +15,7 @@ import {
 import { llmIntegrationEnabled, llmIntegrationEnabledNow, LLM_IGNORED_LOG, releaseIgnoresExternalAi, EXTERNAL_BOT } from '../server/match/llmGate.js';
 import { BOT_STRATEGIES, getBotStrategy } from '../server/match/botStrategies.js';
 import { TestClient } from './helpers/wsClient.js';
+import { copyTree } from './helpers/copyTree.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -99,7 +100,7 @@ test('a packaged server boots and plays a bot match while ignoring external-AI s
   let client;
   let srv;
   try {
-    fs.cpSync(path.join(ROOT, 'server'), path.join(stage, 'server'), { recursive: true });
+    copyTree(path.join(ROOT, 'server'), path.join(stage, 'server'));
     fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(stage, 'package.json'));
     fs.mkdirSync(path.join(stage, 'tools'), { recursive: true });
     for (const name of links) {

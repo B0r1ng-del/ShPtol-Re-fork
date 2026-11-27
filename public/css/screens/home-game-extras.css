@@ -1,0 +1,154 @@
+/* game 独有入口排进演示版主页 + 五卡实心白底补丁（移植任务，2026-11-16）。
+
+   两件事，都只在 game 侧生效，不改演示版 CSS 原件：
+
+   1) 白底补丁。演示版 home-overhaul-20261102.css:17-20 里有一条
+        .home-simulation > button, .home-operators > button, .home-secondary > button
+        { background: transparent; }
+      而演示版的白底写在 lobby-home.css:25 的 .home-alliance（特异度更低），
+      于是白底被它自己压掉了 —— 演示版原项目也有这个问题（台账修 R 的 R2 记录过同样成因）。
+      这里用 .home-menu 一级补回来，特异度高于那条 transparent 规则。
+
+   2) game 独有入口定位。home-overhaul 的 1910×914 绝对定位体系只认识它自己的五张卡；
+       game 多出来的 弧光作战 / 重燃作战 / 扩展模拟 必须走同一套坐标系，否则它们以
+       static 参与文档流、把 .home-menu 撑出屏外（实测 774px 被撑到 808px）。
+       ⇒ 容器 display:contents 展平，每张卡自己 position:absolute 落到空位。 */
+
+/* ---- 1. 五卡实心白底（演示版本来的样子） ---- */
+.lobby-screen.lobby-home .home-menu > .home-simulation > button.home-alliance {
+  background: linear-gradient(115deg, #f4f4ee, #d5e0e4) !important;
+  /* 用户 2026-11-16：「同盟模拟左边多出一条黄色竖线删除」。
+     那条线是 lobby-home.css:25 的 border-left:4px solid #dcad67，
+     home-overhaul:17-20 的 border:0!important 本该压掉它，但那一组选择器没覆盖到
+     .home-alliance 的 border-left（只写了 border:0）。这里显式清零。 */
+  border: 0 !important;
+}
+.lobby-screen.lobby-home .home-menu > .home-simulation > button.home-solo {
+  background: linear-gradient(160deg, #f4f4ee, #dfe6e8) !important;
+}
+.lobby-screen.lobby-home .home-menu > .home-operators > button.home-materials,
+.lobby-screen.lobby-home .home-menu > .home-operators > button.home-diy {
+  background: #f7f6f1 !important;
+}
+.lobby-screen.lobby-home .home-menu > .home-secondary > button.home-report {
+  background: #f7f6f1 !important;
+}
+
+/* ---- 2. game 独有入口 ---- */
+.lobby-screen.lobby-home .home-menu > .home-modes { display: contents !important; }
+
+@media (min-width: 1100px) and (min-height: 650px) {
+  /* 三张 game 独有入口统一放在页面最底那条空带：89.4%–95.4%（774px 下 = 692–738）。
+     为什么是这里：实测 home-connect 只到 76.6%，但它内部还挂着「成就统计」hub-ach
+     （593–690，97px 高），任何落在 76.6%–89% 的卡片都会被它盖住 —— 上一版把 banner 放
+     79.2% 就是这么被吞掉的。底部 690–748 只剩这条 58px 的空带，footer 从 748 起。
+     ⇒ 三张卡整行排开，右边界统一 96.3%（与 home-connect 的 97.05% 对齐内缩）。 */
+  .lobby-screen.lobby-home .home-menu > .home-modes > .home-modes__banner {
+    position: absolute !important;
+    top: 89.4% !important;
+    width: 14.4% !important;
+    height: 6.0% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    max-width: none !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 1px solid #ffffff40 !important;
+    background: #1a272bcc !important;
+    overflow: hidden !important;
+    cursor: pointer;
+  }
+  .lobby-screen.lobby-home .home-menu > .home-modes > .home-modes__banner:nth-of-type(1) { left: 51.876% !important; }
+  .lobby-screen.lobby-home .home-menu > .home-modes > .home-modes__banner:nth-of-type(2) { left: 66.9% !important; }
+
+  .lobby-screen.lobby-home .home-menu > .home-modes > .home-modes__banner .cc-card__banner {
+    width: 100%; height: 100%; object-fit: cover; object-position: center; opacity: .92;
+  }
+
+  /* 扩展模拟：同一行最右（前面两次放错位置的记录 —— 31% 压「单人模拟」，
+     88%/74.6% 压「成就统计」，都是实测出来的重叠，不是猜的）。 */
+  .lobby-screen.lobby-home .home-menu > .home-modes > .home-mode-chip--ultimate {
+    position: absolute !important;
+    left: 81.9% !important;
+    top: 89.4% !important;
+    width: 14.4% !important;
+    height: 6.0% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    max-width: none !important;
+    max-height: none !important;
+    margin: 0 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    padding: 0 12px !important;
+    border: 1px solid #ffffff40 !important;
+    background: #1a272bcc !important;
+    color: #f0f3ee !important;
+    cursor: pointer;
+  }
+  .lobby-screen.lobby-home .home-menu > .home-modes > .home-mode-chip--ultimate .icon { width: 17px; height: 17px; opacity: .85; }
+  .lobby-screen.lobby-home .home-menu > .home-modes > .home-mode-chip--ultimate strong { font-size: 14px; font-weight: 800; letter-spacing: .04em; white-space: nowrap; }
+  .lobby-screen.lobby-home .home-menu > .home-modes > .home-mode-chip--ultimate small { display: none; }
+}
+
+/* ---- 3. 成就统计回到 game 原版尺寸，落地左下角（用户 2026-11-16） ----
+   组件是 game 原版 AchievementCard（.hub-ach，lobby.css:266），原本宽高由 .hub-stage 的
+   网格决定；这里给它一个固定槽位，尺寸按 game 原版的 196×97 给（改前实测值）。 */
+.lobby-screen.lobby-home .home-ach-slot {
+  position: absolute;
+  left: 3.2%;
+  bottom: 12.5%;
+  width: 196px;
+  height: 97px;
+  z-index: 2;
+}
+.lobby-screen.lobby-home .home-ach-slot .hub-ach {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+/* ---- 4. 背景替换：入口按钮（演示版 home-tool 的位置，game 用 topbar 里的方形按钮） ---- */
+.lobby-screen.lobby-home .home-top .lobby-bg-button {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 10px;
+}
+
+/* ---- 5. 背景替换 + 干员立绘层（移植自离线演示版 ui/lobbyScene.js） ----
+   层级：背景图最底 → wash → 立绘 → 页面内容（.home-top 等都是 absolute 且有更高 z）。
+   立绘只吃自身区域，不吃整屏指针（pointer-events:none，点击穿透给卡片）。 */
+.lobby-screen.lobby-home .lobby-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.lobby-screen.lobby-home .lobby-backdrop__image {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center 22%;
+  background-repeat: no-repeat;
+}
+.lobby-screen.lobby-home .lobby-backdrop.is-cg .lobby-backdrop__image {
+  background-position: center 12%;
+}
+/* 与 HomeBackdrop 的暗角叠加，保证白底卡片上的深色文字仍可读。 */
+.lobby-screen.lobby-home .lobby-backdrop__wash {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, #0b171cb8 0%, #0b171c55 42%, #0b171c22 60%, #0b171c66 100%);
+}
+.lobby-screen.lobby-home .lobby-backdrop__actor {
+  position: absolute;
+  max-width: none;
+  object-fit: contain;
+  pointer-events: none;
+  filter: drop-shadow(0 10px 26px #0006);
+}

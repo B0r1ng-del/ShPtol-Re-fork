@@ -15,6 +15,7 @@ import { DATA_DIR, ROOT, getData, versionDataDir } from '../server/data.js';
 import { DATA_SHIM_JS } from '../server/http/static.js';
 import { contentHashOf, csUrlPart, canonicalJson } from '../shared/plugins/identity.js';
 import { DEFAULT_VERSION } from '../shared/versions.js';
+import { copyTree } from './helpers/copyTree.js';
 
 const sha = (b) => createHash('sha256').update(b).digest('hex');
 const vanilla = computeVanillaContent({ simDir: path.join(ROOT, 'server', 'sim'), sharedDir: path.join(ROOT, 'shared'), dataDir: DATA_DIR, shim: DATA_SHIM_JS });
@@ -153,7 +154,7 @@ test('a version whose data passed the boot checks but fails to load is remembere
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-versions-'));
   try {
     const dir = path.join(tmp, 'versions', 'act1autochess');
-    fs.cpSync(versionDataDir('act1autochess'), dir, { recursive: true });
+    copyTree(versionDataDir('act1autochess'), dir);
     const errors = [];
     const v = createVersionSets({ enabled: ['act2autochess', 'act1autochess'], dataDir: tmp, vanilla, defaultData: getData(), log: { ...quiet, error: (m) => errors.push(m) } });
     assert.deepEqual([...v.ids], ['act2autochess', 'act1autochess'], 'the boot checks hash the files: enabled');
@@ -180,7 +181,7 @@ test('a version whose data passed the boot checks but fails to load is remembere
 test('a configured default (not 第二期下半) whose data fails to load: the welcome marks 第二期下半 the default', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-versions-'));
   try {
-    for (const id of ['act1autochess', 'act2autochess@V2_1']) fs.cpSync(versionDataDir(id), versionDataDir(id, tmp), { recursive: true });
+    for (const id of ['act1autochess', 'act2autochess@V2_1']) copyTree(versionDataDir(id), versionDataDir(id, tmp));
     const v = createVersionSets({ enabled: ['act2autochess', 'act1autochess', 'act2autochess@V2_1'], defaultId: 'act1autochess', dataDir: tmp, vanilla,
       defaultData: getData(), log: quiet });
     assert.equal(v.welcome().find((e) => e.default)?.id, 'act1autochess');
@@ -196,7 +197,7 @@ test('a configured default (not 第二期下半) whose data fails to load: the w
 test('a configured default whose data fails to load, 第二期下半 not enabled: the welcome marks the first version that loads the default', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-versions-'));
   try {
-    for (const id of ['act1autochess', 'act2autochess@V2_1']) fs.cpSync(versionDataDir(id), versionDataDir(id, tmp), { recursive: true });
+    for (const id of ['act1autochess', 'act2autochess@V2_1']) copyTree(versionDataDir(id), versionDataDir(id, tmp));
     const v = createVersionSets({ enabled: ['act1autochess', 'act2autochess@V2_1'], defaultId: 'act1autochess', dataDir: tmp, vanilla,
       defaultData: getData(), log: quiet });
     assert.equal(v.welcome().find((e) => e.default)?.id, 'act1autochess');

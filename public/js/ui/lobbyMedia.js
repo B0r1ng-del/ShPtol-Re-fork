@@ -15,7 +15,7 @@
 // site CSP allows blob: media for that video and for the music's length check (server/http/csp.js); the music itself
 // is decoded from its bytes (no media element). Texts go through t() (docs/I18N.md).
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
-import { html, Button, Icon, MicroLabel, Modal, Tooltip } from './components.js';
+import { html, Button, Icon, MicroLabel, Modal, Tooltip, NumberStepper } from './components.js';
 import { createStore, useStore, loadPref, savePref } from '../store.js';
 import { audio } from '../audio.js';
 import { toast } from './toasts.js';
@@ -503,12 +503,13 @@ export function LobbyMediaDialog({ onClose }) {
     <${SceneRow} scene=${s.prefs.scene} />
     <${MediaRow} slot="backdrop" title=${t('大厅背景')} micro="BACKDROP" file=${s.backdrop} on=${s.prefs.backdrop} busy=${s.busy}
       accept="image/png,image/jpeg,image/webp,image/gif,image/avif,video/mp4,video/webm" chooseText=${t('选择图片或视频')} officialText=${t('默认背景')} />
-    ${s.backdrop && s.prefs.backdrop ? html`<label class="set-row lmedia__dim">
-      <span class="set-row__label">${t('暗度')}<${MicroLabel}>DIM<//></span>
+    ${s.backdrop && s.prefs.backdrop ? html`<div class="set-row lmedia__dim">
+      <span class="set-row__label"><${Icon} name="sun" />${t('暗度')}<${MicroLabel}>DIM<//></span>
       <input class="set-range" type="range" min="0" max="80" step="5" value=${dim} style=${`--pct:${dim / 0.8}%`}
         onInput=${(e) => setBackdropDim(Number(e.currentTarget.value) / 100)} data-testid="media-dim" />
-      <span class="set-row__val num">${dim}</span>
-    </label>` : null}
+      <${NumberStepper} value=${dim} min=${0} max=${80} step=${5} label=${t('暗度')} testId="media-dim-stepper"
+        onCommit=${(v) => setBackdropDim(v / 100)} />
+    </div>` : null}
     <${MediaRow} slot="music" title=${t('大厅音乐')} micro="MUSIC" file=${s.music} on=${s.prefs.music} busy=${s.busy}
       accept="audio/*,.mp3,.m4a,.aac,.ogg,.opus,.wav,.flac,.webm" chooseText=${t('选择音乐文件')} officialText=${t('默认音乐')} />
     <p class="lmedia__note"><${Icon} name="info" />${t('文件只保存在这台浏览器里，不会上传，队友也看不到。图片不超过 20 MB，最长边超过 2560 像素时缩小后保存（动图不能超过 2560 像素）；视频不超过 60 MB、最高 1080p，静音循环播放；音乐不超过 20 MB、6 分钟，替换标题、大厅、房间、开局前和结算时的音乐（外观插件的大厅音乐也被替换），音量跟随「背景音乐」。')}</p>

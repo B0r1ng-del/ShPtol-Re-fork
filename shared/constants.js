@@ -705,3 +705,12 @@ export const CHAT_BARRAGE_MS = 11000;
 export const CHAT_BARRAGE_KEEP = 12;
 /** How many flat lanes a 聊天弹幕 line may travel along (ui/chat.js barrageTrack picks one from the line's `seq`). */
 export const CHAT_BARRAGE_LANES = 6;
+
+/**
+ * Display names of the shop-pool groups ("squads", 分队) by 1-based pool id.
+ *
+ * 移植自离线演示版 public/shared/constants.js:65 —— 策略轮选（screens/bandDraft.js）与分队面板
+ * 用它把 poolId 说成「Alpha分队」。game 原本没有这张表（它自己的对局不用分队名），
+ * 补上只是为了让搬过来的界面有名字可取；不改任何现有逻辑。
+ */
+export const SQUAD_NAMES = Object.freeze(['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta', 'Eta', 'Theta']);

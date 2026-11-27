@@ -1,0 +1,365 @@
+/* Dark interpretation of the reference title: graphite, silver lettering and restrained gold. */
+.app-root.is-reference-title .title-dark {
+  --login-x:0px; --login-y:0px; --mint-500:#cfb56d; --mint-400:#ead69b; --mint-glow:#e2ca81;
+  color:#dfe4e7; background:#0a0d12; overflow:hidden;
+}
+.is-reference-title .title-dark .title-kinetic {
+  display:block; background:radial-gradient(ellipse at 50% 42%,#293239 0,#171e25 36%,#0c1118 70%,#070a0f);
+}
+.title-dark .title-kinetic::after {
+  content:""; position:absolute; inset:0; background:linear-gradient(0deg,#06090de8,transparent 30%,transparent 65%,#05080c70),radial-gradient(ellipse,transparent 30%,#02040870); pointer-events:none;
+}
+.app-root.is-reference-title .title-dark .title-network {
+  display:block; width:360px; height:360px; left:50%; top:50%; background:none;
+  z-index:-1; pointer-events:none; translate:-50% -50%; scale:1;
+  color:#d0b864; clip-path:none; mask-image:none; opacity:.52; transform-origin:50% 50%;
+  animation:none;
+}
+.title-dark .title-network svg {display:block;width:100%;height:100%;stroke-width:.65;transform:translate3d(calc(var(--login-x)*.6),calc(var(--login-y)*.6),0)}
+.app-root.is-reference-title .title-dark .title-shard {
+  border:0; filter:none; background:linear-gradient(140deg,#a9b6bc13,#7a909929 35%,#07101870 70%);
+  box-shadow:none; animation:dark-shard 20s ease-in-out infinite alternate;
+}
+.title-dark .title-shard::after {content:"";position:absolute;inset:0;background:linear-gradient(120deg,transparent 48.7%,#c7d1d431 49%,transparent 49.3%);}
+.app-root.is-reference-title .title-dark .title-shard--a {left:-4%;top:22%;width:43vw;height:78vh;rotate:-28deg;opacity:.75;animation-delay:-3s}
+.app-root.is-reference-title .title-dark .title-shard--b {right:-9%;top:5%;width:47vw;height:95vh;rotate:22deg;opacity:.6;animation-delay:-10s}
+.app-root.is-reference-title .title-dark .title-shard--c {left:27%;bottom:-60%;width:53vw;height:87vh;rotate:70deg;opacity:.38;animation-delay:-16s}
+.app-root.is-reference-title .title-dark .title-light {background:linear-gradient(113deg,transparent 44%,#a7b2bc08 49%,#d7e1e612 50%,transparent 56%);opacity:.4;animation:dark-light 18s ease-in-out infinite alternate;}
+.app-root.is-reference-title .title-dark .title-dust {opacity:.17;background-image:radial-gradient(circle,#d2d4d8 0 .7px,transparent 1.5px),radial-gradient(circle,#dac287 0 .5px,transparent 1.2px);background-size:191px 171px,337px 293px;animation:login-dust 45s linear infinite;}
+.title-dark .title-horizon {position:absolute;left:-20%;right:-20%;height:45%;bottom:-24%;transform:perspective(500px) rotateX(55deg) translateX(calc(var(--login-x)*-.4));background:repeating-linear-gradient(90deg,transparent 0 139px,#b9c4ca0b 140px),repeating-linear-gradient(0deg,transparent 0 89px,#bac6c90a 90px);mask-image:linear-gradient(transparent,#0008);}
+.title-dark .title-grain {position:absolute;inset:0;opacity:.22;background:repeating-linear-gradient(0deg,#ffffff02 0 1px,transparent 1px 4px);pointer-events:none;}
+.app-root.is-reference-title .title-dark .title-main {position:relative;width:min(640px,84vw);margin:0;padding:0;display:flex;align-items:center;flex-direction:column;gap:0;transform:none;}
+.app-root.is-reference-title .title-dark .emblem {display:none;position:absolute;top:-105px;left:calc(50% - 85px);width:170px;height:185px;margin:0;filter:none;opacity:.065;pointer-events:none;animation:dark-insignia 9s ease-in-out infinite;}
+.title-dark .emblem__bracket {display:none}.title-dark .emblem__svg {width:170px;height:185px}.title-dark .emblem__svg circle,.title-dark .emblem__svg circle.is-accent {fill:#edf1f3;filter:none;animation:none;}
+.app-root.is-reference-title .title-dark .title-cn {position:relative;isolation:isolate;order:1;margin:0;font-size:clamp(44px,4.3vw,72px);font-weight:900;letter-spacing:.12em;line-height:1.18;color:#e9edef;text-shadow:0 3px 15px #0004;animation:dark-wordmark .8s ease-out both;white-space:nowrap;}
+.app-root.is-reference-title .title-dark .title-cn--latin {font-size:clamp(28px,3.5vw,50px);letter-spacing:.03em;white-space:normal;text-align:center;}
+.app-root.is-reference-title .title-dark .title-cn__colon {display:none}
+.app-root.is-reference-title .title-dark .title-cn em {display:block;margin:12px auto 0;padding-left:.6em;color:#c9b77b;text-shadow:none;font-size:20px;letter-spacing:.6em;line-height:1.2;font-weight:500;}
+.app-root.is-reference-title .title-dark .title-en {order:2;display:flex;flex-direction:row;gap:12px;margin-top:17px;opacity:.75;animation:none;}
+.title-dark .title-en__a,.title-dark .title-en__b {font:500 9px/1.2 Bender,Arial,sans-serif;letter-spacing:3px;padding:0;color:#8a969f;text-shadow:none;}
+.title-dark .title-en__b {border-left:1px solid #68716d6b;padding-left:12px;color:#b4aa86}
+.app-root.is-reference-title .title-dark .title-login {order:3;position:static;width:390px;max-width:100%;padding:28px 0 0;margin:0;display:flex;gap:15px;background:none;border:0;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;animation:dark-console .7s .12s ease-out both;}
+.title-dark .title-login::before,.title-dark .title-login::after {display:none}
+.app-root.is-reference-title .title-dark .field__label {font-size:12px;color:#adb5bb;letter-spacing:1px;margin-bottom:8px;}
+.title-dark .field__label .micro {font:9px/1.2 Bender,Arial,sans-serif;color:#5c6a75;letter-spacing:1.8px}
+.app-root.is-reference-title .title-dark .field__box {height:47px;min-height:47px;padding:0 15px;background:linear-gradient(110deg,#10161ee6,#151c23bf);border:1px solid #64747e3b;border-bottom-color:#82939b5c;box-shadow:0 5px 16px #0002;transition:border-color .18s,background .18s;--bk-c:#727b7d66;}
+.title-dark .field__box:focus-within {border-color:#d5bd76aa;background:#182128;--bk-c:#ddc484}
+.app-root.is-reference-title .title-dark .title-login input {height:100%;padding:0;border:0;background:transparent;color:#e0e6e9;font-size:16px;caret-color:#e5c983;box-shadow:none;}
+.title-dark .field__input::placeholder {color:#66727d}.title-dark .field__icon {color:#7b8992;width:16px;height:16px;}
+.app-root.is-reference-title .title-dark .title-accessnote {padding:0 2px;margin:0;font-size:10px;line-height:1.7;text-align:left;color:#6e7c87;border:0;background:none;}
+.app-root.is-reference-title .title-dark .title-login>.btn--primary {
+  position:relative;isolation:isolate;align-self:center;min-height:54px;height:54px;max-width:none;width:260px;margin:12px 0 0;padding:0 30px;
+  border:1px solid #d1d7d6;border-bottom:3px solid #bfa65d;background:linear-gradient(110deg,#e5e9e6,#c3cbd0);color:#19222a;
+  font-size:20px;letter-spacing:.3em;box-shadow:0 8px 35px #0005;clip-path:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,7px 100%,0 calc(100% - 7px));transition:filter .18s,transform .18s;
+}
+.title-dark .title-login>.btn--primary::before {content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(110deg,transparent 30%,#fff9 50%,transparent 70%);transform:translateX(-120%);transition:transform .5s ease-out;}
+.title-dark .title-login>.btn--primary:hover:not(:disabled)::before {transform:translateX(120%)}
+.title-dark .title-login>.btn--primary:hover:not(:disabled) {filter:brightness(1.12);transform:translateY(-2px)}
+.title-dark .title-login>.btn--primary:active:not(:disabled) {transform:translateY(1px) scale(.985)}
+.title-dark .title-login>.btn--primary:disabled {background:#2b343d;color:#7e8991;border-color:#4c5963;border-bottom-color:#756a46;opacity:.72;}
+.app-root.is-reference-title .title-dark .title-conn {position:fixed;left:50%;bottom:79px;transform:translateX(-50%);width:max-content;max-width:94vw;display:flex;align-items:center;justify-content:center;gap:12px;margin:0;flex-wrap:wrap;color:#7f8b94;font-size:11px;}
+.title-dark .title-conn .btn {color:#aab4bc;background:#151c23;border:1px solid #5a667536;min-height:33px;font-size:12px;letter-spacing:.02em;}
+.title-dark .title-conn .btn:hover {border-color:#baaa7888;color:#e4d4a5;background:#202830;}
+.title-dark .title-conn .status-dot.is-on {background:#8db6a2;box-shadow:none}
+.app-root.is-reference-title .title-dark .title-corner--tl {display:flex;left:3%;top:4%;opacity:.75}.title-dark .title-corner__mark {border-color:#b3a16f;background:#b3a16f13}
+.title-dark .title-corner--tl .micro {color:#8b979d;font-size:8px;letter-spacing:1.7px}.title-dark .title-corner--tl .micro--mint {color:#b9ae8b}
+.title-dark .title-corner--tr {right:3%;top:4%}.title-dark .title-corner--tr .micro {color:#64717c;font-size:8px;letter-spacing:1.6px}.title-dark .title-lang select {background:#141b23;border:1px solid #64737c40;color:#bcc6cb}
+.app-root.is-reference-title .title-dark .title-foot {position:fixed;inset:auto 0 0;min-height:46px;margin:0;padding:12px 3%;background:#090d12dc;border-top:1px solid #77879329;color:#687680;box-shadow:0 -10px 30px #05080d33;font-size:10px;gap:20px;}
+.title-dark .title-foot .micro {color:#7f8c93;letter-spacing:1.3px}.title-dark .title-foot .btn {color:#9aa7ae;background:transparent;border-color:#66747b40;}
+@keyframes dark-shard {from{transform:translate3d(calc(var(--login-x)*1.5),calc(var(--login-y)*1.5),0)}to{transform:translate3d(calc(var(--login-x)*1.5 + 12px),calc(var(--login-y)*1.5 - 22px),0) rotate(4deg)}}
+@keyframes dark-light {from{translate:-6% 0;opacity:.2}to{translate:6% 0;opacity:.5}}
+@keyframes dark-insignia {50%{opacity:.095;translate:0 -5px}}
+@keyframes dark-wordmark {from{opacity:0;transform:translateY(10px);filter:blur(3px)}to{opacity:1;transform:none;filter:blur(0)}}
+@keyframes dark-console {from{opacity:0}to{opacity:1}}
+@media(max-height:760px) and (min-height:551px){.app-root.is-reference-title .title-dark .title-main{margin-top:-18px}.app-root.is-reference-title .title-dark .title-cn{font-size:48px}.app-root.is-reference-title .title-dark .title-login{padding-top:20px;gap:12px}.app-root.is-reference-title .title-dark .title-cn em{margin-top:8px;font-size:17px}.app-root.is-reference-title .title-dark .title-en{margin-top:12px}.app-root.is-reference-title .title-dark .title-conn{bottom:64px}}
+@media(max-height:550px){
+ .app-root.is-reference-title .title-dark .title-main{width:min(740px,88vw);max-width:none;display:grid;grid-template-columns:.85fr 1fr;column-gap:35px;align-items:center;margin-top:-12px;}
+ .app-root.is-reference-title .title-dark .title-cn{grid-column:1;grid-row:1;align-self:end;font-size:clamp(29px,4.4vw,43px);letter-spacing:.07em;white-space:normal;}
+ .app-root.is-reference-title .title-dark .title-cn--latin{font-size:clamp(22px,3.3vw,32px);grid-row:1 / 3;align-self:center;}
+ .app-root.is-reference-title .title-dark .title-cn em{font-size:15px;margin-top:12px}.app-root.is-reference-title .title-dark .title-en{grid-column:1;grid-row:2;align-self:start;justify-content:center;flex-wrap:wrap;margin-top:14px;gap:8px}.title-dark .title-en__a,.title-dark .title-en__b{font-size:7px;letter-spacing:1.5px}
+ .app-root.is-reference-title .title-dark .emblem{left:calc(22% - 60px);top:calc(50% - 115px);width:120px;height:145px}.title-dark .emblem__svg{width:120px;height:145px}
+ .app-root.is-reference-title .title-dark .title-login{grid-column:2;grid-row:1 / 3;max-width:330px;width:100%;padding:0;gap:9px}.app-root.is-reference-title .title-dark .field__box{height:35px;min-height:35px;padding:0 10px}.app-root.is-reference-title .title-dark .field__label{font-size:10px;margin-bottom:5px}.app-root.is-reference-title .title-dark .title-login input{font-size:13px}.app-root.is-reference-title .title-dark .title-accessnote{font-size:8px;line-height:1.55}.app-root.is-reference-title .title-dark .title-login>.btn--primary{width:205px;height:39px;min-height:39px;font-size:16px;margin-top:3px}
+ .app-root.is-reference-title .title-dark .title-conn{bottom:38px;gap:8px;font-size:9px;flex-wrap:nowrap}.title-dark .title-conn .btn{min-height:25px;height:25px;font-size:10px;padding:0 8px}.title-dark .title-conn .ping-pill{display:none}.app-root.is-reference-title .title-dark .title-foot{min-height:25px;padding:6px 2%;font-size:7px;gap:8px}.title-dark .title-foot .micro{font-size:7px}.title-dark .title-foot .btn{height:19px;min-height:19px;font-size:8px;}
+ .app-root.is-reference-title .title-dark .title-corner--tl{left:3%;top:5%}.title-dark .title-corner--tl .micro{font-size:6px}.title-dark .title-corner--tr{top:4%;right:3%}.title-dark .title-corner--tr .micro,.title-dark .title-corner--tr br{display:none}.app-root.is-reference-title .title-dark .title-network{width:230px;height:230px;left:50%;top:50%;scale:1;}
+}
+@media(pointer:coarse){.app-root.is-reference-title .title-dark .title-grain{display:none}.app-root.is-reference-title .title-dark .title-shard{animation-duration:30s}.title-dark .title-login>.btn--primary:hover:not(:disabled){transform:none}}
+@media(prefers-reduced-motion:reduce){.app-root.is-reference-title .title-dark *{animation:none!important;scroll-behavior:auto}.title-dark .title-kinetic *{transition:none}.title-dark .title-network svg{transform:none}}
+
+/* Ribbed orbital ribbons, travelling signals and fine terminal coordinates. */
+.title-filaments{position:absolute;inset:0;overflow:hidden;pointer-events:none;mask-image:linear-gradient(90deg,#000 0%,#000 25%,transparent 43%,transparent 57%,#000 75%,#000 100%)}
+.title-filaments canvas,.title-circuit{position:absolute;inset:0;width:100%;height:100%}
+.title-filaments canvas{opacity:.88;transform:translate(calc(var(--login-x)*.35),calc(var(--login-y)*.35))}
+.title-circuit{color:#b8a77a;opacity:.34}.title-circuit__pulse{stroke:#e5c587;stroke-width:1.4;stroke-dasharray:10 420;animation:title-signal 16s linear infinite}
+.title-coordinate{position:absolute;top:70%;width:145px;color:#a3afb3;font:8px/1.9 var(--font-num);letter-spacing:1.8px;opacity:.65}.title-coordinate--left{left:5%}.title-coordinate--right{right:5%;text-align:right;top:25%}.title-coordinate span{color:#d1bc87}.title-coordinate i{display:block;height:1px;background:linear-gradient(90deg,#a5966e80,transparent);margin:10px 0}.title-coordinate--right i{rotate:180deg}.title-coordinate small{font-size:7px;color:#9cabb3}
+.title-dark .title-kinetic::after{background:linear-gradient(0deg,#06090dd9,transparent 24%,transparent 76%,#05080c40),radial-gradient(ellipse at 50% 45%,transparent 34%,#02040840)}
+.app-root.is-reference-title .title-dark .title-shard--a{opacity:.35}.app-root.is-reference-title .title-dark .title-shard--b{opacity:.3}.app-root.is-reference-title .title-dark .title-shard--c{opacity:.2}
+@keyframes title-signal{to{stroke-dashoffset:-860}}
+@media(max-height:550px){.title-filaments{mask-image:linear-gradient(90deg,#000,#000 18%,transparent 45%,transparent 80%,#000)}.title-coordinate{font-size:6px;width:90px;top:78%}.title-coordinate--right{top:17%}.title-coordinate small{font-size:5px}.title-coordinate i{margin:5px 0}.title-filaments canvas{opacity:.65}}
+@media(prefers-reduced-motion:reduce){.title-filaments canvas{transform:none}.title-circuit__pulse{animation:none}}
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+   标题页外观打磨 (UI polish pass, 2026-10-23)
+
+   只改这一屏的观感：舞台光、标题字组、登录卡片、开始按钮、底部状态坞与页脚。
+   不增删任何 DOM、不改结构、不动文案，因此 title.js、文案测试与 i18n 都不受影响。
+
+   分层意图（从上到下）：
+     · 舞台：在原有暗场上补两团很弱的光 —— 标题上方偏冷、卡片下方偏金，让主体从背景里浮起来；
+     · 标题：几何球收小并加径向遮罩，不再横穿「卫戍协议」和「盟约」；字上补暗色光晕，把笔画和线条分开；
+     · 卡片：从"凭空浮着的输入框"改成一块真正的控制台面板（极细边、顶部一道金线、右下角括角）；
+     · 按钮：同一块面板里的金属亮片 CTA，保留浅色高对比，但做出厚度、扫光与"上锁"的未启用态；
+     · 底部：状态栏收成一条悬浮胶囊坞，页脚改成更安静的一条。
+
+   所有规则都带 `.app-root.is-reference-title .title-dark` 前缀，只对这一屏生效。
+   关键尺寸走 clamp：1920 宽下就是注释里标的基准值，更宽的屏线性放大，窄屏不缩到不可读；
+   短屏与"减少动态"的覆盖放在末尾，和本文件原有的断点同序。
+   ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* ---- 1. 舞台光 ---------------------------------------------------------------------------------- */
+.app-root.is-reference-title .title-dark .title-kinetic::after {
+  background:
+    radial-gradient(56% 40% at 50% 30%, #7e98aa1f, transparent 70%),
+    radial-gradient(72% 44% at 50% 86%, #cfb56d12, transparent 72%),
+    linear-gradient(0deg, #06090dd9, transparent 24%, transparent 76%, #05080c40),
+    radial-gradient(ellipse at 50% 45%, transparent 34%, #02040840);
+}
+
+/* ---- 2. 标题字组 -------------------------------------------------------------------------------- */
+/* 几何球：收小、压暗、边缘淡出；缓慢自转（rotate 与已有的 translate3d 视差互不干扰）。 */
+.app-root.is-reference-title .title-dark .title-network {
+  width: clamp(300px, 17.2vw, 430px); height: clamp(300px, 17.2vw, 430px); opacity: .40;
+  -webkit-mask-image: radial-gradient(circle at 50% 46%, #000 30%, #0009 56%, transparent 74%);
+  mask-image: radial-gradient(circle at 50% 46%, #000 30%, #0009 56%, transparent 74%);
+}
+.app-root.is-reference-title .title-dark .title-network svg { animation: title-sphere 96s linear infinite }
+@keyframes title-sphere { to { rotate: 360deg } }
+
+.app-root.is-reference-title .title-dark .title-cn {
+  font-size: clamp(46px, 3.96vw, 96px);          /* 1920 → 76px */
+  letter-spacing: .15em; text-indent: .15em;      /* letter-spacing 会在末字后留一格，补回来才是真居中 */
+  text-shadow: 0 2px 10px #0000008c, 0 10px 40px #00000073, 0 0 90px #96afbe1a;
+}
+/* 「盟约」两侧加一对渐隐细线，把标题和下面的英文铭牌分开 */
+.app-root.is-reference-title .title-dark .title-cn em {
+  display: flex; align-items: center; justify-content: center; gap: clamp(10px, 1.4vw, 18px);
+  margin: 14px auto 0; font-size: clamp(19px, 1vw, 24px);
+  letter-spacing: .52em; text-indent: .52em; color: #cdbb80;
+}
+.app-root.is-reference-title .title-dark .title-cn em::before,
+.app-root.is-reference-title .title-dark .title-cn em::after {
+  content: ""; flex: 0 0 clamp(26px, 4vw, 54px); height: 1px;
+  background: linear-gradient(90deg, transparent, #cdbb8099);
+}
+.app-root.is-reference-title .title-dark .title-cn em::after { background: linear-gradient(90deg, #cdbb8099, transparent) }
+
+/* 英文铭牌：从两行散字改成一块细边小牌，球体的线不再从字里穿过去 */
+.app-root.is-reference-title .title-dark .title-en {
+  display: inline-flex; flex-direction: row; align-items: center; gap: 14px;
+  margin-top: 20px; padding: 7px 16px; opacity: 1;
+  border: 1px solid #beced91f; border-radius: 2px;
+  background: linear-gradient(180deg, #121920b8, #090d12c7);
+  box-shadow: 0 6px 20px -12px #000;
+  -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+}
+.title-dark .title-en__a {
+  font-family: Bender, Arial, sans-serif; font-weight: 500; line-height: 1;
+  font-size: clamp(9px, .5vw, 11px); letter-spacing: 3.2px; color: #95a2ab;
+}
+.title-dark .title-en__b { padding-left: 14px; border-left: 1px solid #96a5af47; color: #bfae7c; letter-spacing: 3.2px }
+
+/* ---- 3. 登录控制台 ------------------------------------------------------------------------------ */
+.app-root.is-reference-title .title-dark .title-login {
+  position: relative; width: clamp(432px, 22.4vw, 540px); max-width: 92vw;
+  margin-top: 38px;
+  padding: clamp(26px, 1.35vw, 34px) clamp(26px, 1.35vw, 34px) clamp(24px, 1.3vw, 32px);
+  gap: clamp(16px, .85vw, 20px);
+  background:
+    radial-gradient(120% 90% at 50% -10%, #cfb56d1a, transparent 62%),
+    linear-gradient(180deg, #1a232fb8, #0c1116e0 46%, #080c10eb);
+  border: 1px solid #bccad624; border-top-color: #e2cb824d;
+  box-shadow: 0 30px 70px -28px #000000e6, 0 1px 0 #ffffff0d inset, 0 0 60px -20px #d2be821a;
+  /*
+   * ⚠ 这里**不能**用 backdrop-filter：过滤/模糊会让元素成为 position:fixed 子元素的包含块，
+   * 而底部状态坞 `.title-conn` 正是 `.title-login` 的子节点、靠 fixed 贴屏底 —— 一加模糊它就被拽进卡片。
+   * 玻璃感改由足够不透明的渐变 + 内高光来做，视觉差别很小。
+   */
+  animation: dark-console .7s .12s ease-out both;
+}
+/* 顶部一道金线 + 右下角括角：卡片的"仪器感"来源，不用额外 DOM */
+.title-dark .title-login::before {
+  display: block; content: ""; position: absolute; left: -1px; right: -1px; top: -1px; height: 2px;
+  background: linear-gradient(90deg, #e2cb8200, #e2cb82d9 18%, #e2cb822e 62%, transparent);
+}
+.title-dark .title-login::after {
+  display: block; content: ""; position: absolute; right: -1px; bottom: -1px; width: 46px; height: 46px; pointer-events: none;
+  background:
+    linear-gradient(#e2cb8280, #e2cb8280) right bottom / 18px 1px no-repeat,
+    linear-gradient(#e2cb8280, #e2cb8280) right bottom / 1px 18px no-repeat;
+}
+.app-root.is-reference-title .title-dark .title-login .field__label {
+  font-size: clamp(11px, .58vw, 13px); letter-spacing: .16em; color: #93a1ab; margin-bottom: 2px;
+}
+.app-root.is-reference-title .title-dark .title-login .field__label .micro { font-size: 8px; letter-spacing: .26em; color: #5f6e79 }
+.app-root.is-reference-title .title-dark .title-login .field__input { font-size: clamp(16px, .85vw, 19px) }
+.app-root.is-reference-title .title-dark .title-login .field__box {
+  height: clamp(50px, 2.6vw, 60px); min-height: clamp(50px, 2.6vw, 60px); padding: 0 14px; border-radius: 1px;
+  border: 1px solid #96aab633; border-bottom-color: #96aab652;
+  background: linear-gradient(180deg, #060a0eb8, #0a0f148c);
+  box-shadow: 0 1px 0 #ffffff08 inset, 0 6px 18px -14px #000;
+  transition: border-color .18s, background .18s, box-shadow .22s;
+}
+.app-root.is-reference-title .title-dark .title-login .field__box:hover { border-color: #becdd252 }
+.app-root.is-reference-title .title-dark .title-login .field__box:focus-within {
+  border-color: #e2cb829e; background: linear-gradient(180deg, #0e141ae6, #0a0f14b8);
+  box-shadow: 0 0 0 1px #e2cb8229, 0 0 24px -6px #e2cb8240, 0 1px 0 #ffffff0a inset;
+}
+.app-root.is-reference-title .title-dark .title-login .title-accessnote {
+  margin-top: 2px; padding: 12px 2px 0; font-size: clamp(11px, .58vw, 13px); line-height: 1.8; color: #8a97a1;
+  border-top: 1px solid #a0b4c31f;
+}
+
+/* ---- 4. 「开始」：面板里的金属亮片 --------------------------------------------------------------- */
+.app-root.is-reference-title .title-dark .title-login > .btn--primary {
+  width: 100%; height: clamp(56px, 2.9vw, 68px); min-height: clamp(56px, 2.9vw, 68px);
+  margin-top: 4px; padding: 0 34px 0 16px;
+  border: 1px solid #ffffffb3; border-bottom: 2px solid #a98a45;
+  background: linear-gradient(180deg, #f6f8f5 0%, #e3e9e6 42%, #c8d1d3 100%);
+  color: #111a20; font-size: clamp(18px, .95vw, 21px); font-weight: 600; letter-spacing: normal; text-indent: 0;
+  box-shadow: 0 14px 34px -14px #000000d9, 0 1px 0 #ffffffe6 inset, 0 -1px 0 #0000001a inset;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  transition: filter .18s, transform .18s, box-shadow .22s;
+}
+/* 字距只加在文字上，并用 padding 抵掉末字后的那一格 —— 否则「开始」+ 右箭头整体偏右 */
+.app-root.is-reference-title .title-dark .title-login > .btn--primary .btn__label {
+  letter-spacing: .34em; padding-left: .34em;
+}
+.app-root.is-reference-title .title-dark .title-login > .btn--primary:hover:not(:disabled) {
+  filter: brightness(1.06); transform: translateY(-1px);
+  box-shadow: 0 18px 40px -16px #000, 0 0 0 1px #e2cb8259, 0 0 34px -10px #e2cb8273, 0 1px 0 #fff inset;
+}
+.app-root.is-reference-title .title-dark .title-login > .btn--primary:active:not(:disabled) { transform: translateY(1px) scale(.994) }
+/*
+ * 未填令牌时按钮是 disabled —— 这是玩家第一眼看到的「开始」，不能是一块死灰板：
+ * 做成上锁的暗色金属片（斜纹 + 金边压线），和启用后的亮片是同一族，只是没点亮。
+ */
+.app-root.is-reference-title .title-dark .title-login > .btn--primary:disabled {
+  border-color: #33404a; border-bottom-color: #6d6446;
+  background:
+    repeating-linear-gradient(135deg, #ffffff06 0 5px, transparent 5px 11px),
+    linear-gradient(180deg, #1c252e, #131a21);
+  color: #8b99a3; opacity: 1; cursor: not-allowed;
+  box-shadow: 0 10px 26px -18px #000, 0 1px 0 #ffffff08 inset;
+}
+.app-root.is-reference-title .title-dark .title-login > .btn--primary:focus-visible { outline: 2px solid #e2cb82bf; outline-offset: 3px }
+
+/* ---- 5. 底部状态坞 / 语言选择 / 页脚 -------------------------------------------------------------- */
+.app-root.is-reference-title .title-dark .title-conn {
+  bottom: 84px; gap: 6px; padding: clamp(7px, .4vw, 10px) clamp(12px, .65vw, 16px);
+  width: max-content; max-width: 96vw;
+  border: 1px solid #96aab61a; border-radius: 999px;
+  background: linear-gradient(180deg, #0e141a8c, #080c109e);
+  box-shadow: 0 12px 30px -18px #000, 0 1px 0 #ffffff0a inset;
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  color: #7e8b95; font-size: clamp(11px, .58vw, 13px);
+}
+.title-dark .title-conn .status-dot { margin-left: 2px }
+.title-dark .title-conn .btn {
+  min-height: clamp(30px, 1.56vw, 36px); height: clamp(30px, 1.56vw, 36px); padding: 0 8px;
+  border: 1px solid transparent; background: transparent; color: #93a0a9;
+  transition: color .16s, background .16s, border-color .16s;
+}
+.title-dark .title-conn .btn:hover { border-color: #becdd22e; background: #becdd212; color: #e6d9b4 }
+/* 全屏按钮是坞里的第 5 个控件，原来 40×40 比同排的图标按钮高一圈，破口了 —— 收到同高 */
+.title-dark .title-conn .title-fs {
+  width: clamp(30px, 1.56vw, 36px); height: clamp(30px, 1.56vw, 36px); min-width: clamp(30px, 1.56vw, 36px);
+  border: 1px solid transparent; border-radius: 2px; background: transparent; color: #93a0a9;
+  transition: color .16s, background .16s, border-color .16s;
+}
+.title-dark .title-conn .title-fs:hover { border-color: #becdd22e; background: #becdd212; color: #e6d9b4 }
+
+.app-root.is-reference-title .title-dark .title-lang select {
+  -webkit-appearance: none; appearance: none;
+  height: clamp(30px, 1.56vw, 36px); padding: 0 30px 0 12px; border-radius: 2px;
+  border: 1px solid #b4c4ce29; color: #c6d0d6; font-size: 11px; letter-spacing: .08em;
+  background-color: #0c12189e;
+  background-image: linear-gradient(45deg, transparent 50%, #c6b383 50%), linear-gradient(135deg, #c6b383 50%, transparent 50%);
+  background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%;
+  background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+}
+.app-root.is-reference-title .title-dark .title-lang select:hover { border-color: #baaa7866; color: #e4d4a5 }
+
+.app-root.is-reference-title .title-dark .title-foot {
+  min-height: clamp(44px, 2.3vw, 52px); padding: 11px 3.2%;
+  background: linear-gradient(180deg, #06090d59, #06090dd9);
+  border-top: 1px solid #96aab61f;
+  box-shadow: 0 -14px 34px -26px #000;
+  color: #6d7a84; font-size: clamp(10px, .52vw, 12px); letter-spacing: .02em;
+}
+.title-dark .title-foot .micro { color: #7f8c93; letter-spacing: 1.4px }
+.title-dark .title-foot .btn {
+  height: 24px; min-height: 24px; padding: 0 9px; font-size: 9px; letter-spacing: .04em;
+  background: transparent; border: 1px solid #96aab61f; color: #8b98a2;
+  transition: color .16s, border-color .16s, background .16s;
+}
+.title-dark .title-foot .btn:hover { border-color: #baaa7866; color: #e4d4a5; background: #becdd20f }
+/*
+ * 页脚左下那块「添加到桌面」和底部状态坞里的是**同一个组件**（title.js 里各渲染一次）：
+ * 坞里是图标版、和同排控件一致；页脚这块带文字的白牌子在暗底上太抢眼，还是重复入口，藏掉。
+ */
+.title-dark .title-foot .btn[data-testid="pwa-install"] { display: none }
+
+/* 极细的扫描线：只在"舞台"上，不盖住卡片 */
+.app-root.is-reference-title .title-dark .title-horizon::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 38%; height: 1px;
+  background: linear-gradient(90deg, transparent, #cfb56d24 30%, #cfb56d24 70%, transparent);
+}
+
+/* ---- 6. 短屏 ------------------------------------------------------------------------------------- */
+@media (max-height: 820px) {
+  .app-root.is-reference-title .title-dark .title-main { margin-top: -6px }
+  .app-root.is-reference-title .title-dark .title-cn { font-size: clamp(40px, 4vw, 56px) }
+  .app-root.is-reference-title .title-dark .title-cn em { margin-top: 10px; font-size: 16px }
+  .app-root.is-reference-title .title-dark .title-en { margin-top: 14px; padding: 5px 12px }
+  .app-root.is-reference-title .title-dark .title-login {
+    width: min(392px, 92vw); margin-top: 26px; padding: 18px 20px 20px; gap: 12px;
+  }
+  .app-root.is-reference-title .title-dark .title-login .field__box { height: 44px; min-height: 44px }
+  .app-root.is-reference-title .title-dark .title-login > .btn--primary { height: 48px; min-height: 48px; font-size: 16px }
+  .app-root.is-reference-title .title-dark .title-login > .btn--primary .btn__label { letter-spacing: .28em; padding-left: .28em }
+  .app-root.is-reference-title .title-dark .title-login .title-accessnote { padding-top: 9px; font-size: 10px; line-height: 1.7 }
+  .app-root.is-reference-title .title-dark .title-network { width: 268px; height: 268px }
+  .app-root.is-reference-title .title-dark .title-conn { bottom: 62px }
+}
+@media (max-height: 550px) {
+  /* 手机横屏：内容本来就比视口高（`.title-screen` 允许滚动），这里只保证顶端不被负外边距切掉，
+     并把卡片拆成无框的紧凑列 —— 291px 高的屏上，带 26px 内边距的卡片会直接顶到标题栏。 */
+  .app-root.is-reference-title .title-screen { padding-top: 6px; padding-bottom: 46px }
+  .app-root.is-reference-title .title-dark .title-main { margin-top: 0 }
+  .app-root.is-reference-title .title-dark .title-cn { font-size: clamp(29px, 4.4vw, 43px); letter-spacing: .07em; text-indent: .07em }
+  .app-root.is-reference-title .title-dark .title-cn em { margin-top: 8px; font-size: 14px; letter-spacing: .32em; text-indent: .32em }
+  .app-root.is-reference-title .title-dark .title-cn em::before, .app-root.is-reference-title .title-dark .title-cn em::after { flex-basis: 18px }
+  .app-root.is-reference-title .title-dark .title-en { margin-top: 10px; padding: 4px 9px; gap: 8px }
+  .title-dark .title-en__a, .title-dark .title-en__b { font-size: 7px; letter-spacing: 1.5px }
+  .app-root.is-reference-title .title-dark .title-network { width: 230px; height: 230px; opacity: .34 }
+  .app-root.is-reference-title .title-dark .title-login {
+    width: 100%; max-width: 330px; margin-top: 0; padding: 0; gap: 8px;
+    background: none; border: 0; box-shadow: none; animation: none;
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
+  .title-dark .title-login::before, .title-dark .title-login::after { display: none }
+  .app-root.is-reference-title .title-dark .title-login .title-accessnote { padding-top: 7px; font-size: 9px; line-height: 1.55 }
+  .app-root.is-reference-title .title-dark .title-login > .btn--primary {
+    width: 205px; height: 37px; min-height: 37px; font-size: 15px; margin-top: 2px;
+  }
+  .app-root.is-reference-title .title-dark .title-login > .btn--primary .btn__label { letter-spacing: .22em; padding-left: .22em }
+  /* 极短屏上固定的状态坞会盖住说明和「开始」——放回文档流，跟在按钮下面，靠页面滚动看全。 */
+  .app-root.is-reference-title .title-dark .title-conn {
+    position: static; left: auto; bottom: auto; transform: none;
+    width: 100%; max-width: none; margin-top: 4px; padding: 3px 6px; gap: 4px;
+  }
+  .app-root.is-reference-title .title-dark .title-foot { min-height: 24px; padding: 5px 2% }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-root.is-reference-title .title-dark .title-network svg { animation: none }
+  .app-root.is-reference-title .title-dark .title-login > .btn--primary:hover:not(:disabled) { transform: none }
+}

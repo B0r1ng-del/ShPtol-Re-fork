@@ -286,7 +286,7 @@
       "textures": [
         "enemy_1292_duskld_2.png"
       ],
-      "pma": true,
+      "pma": false,
       "anims": {
         "idle": "Idle",
         "deploy": "Start",
@@ -562,7 +562,7 @@
       "textures": [
         "enemy_1328_cbjedi_2.png"
       ],
-      "pma": true,
+      "pma": false,
       "anims": {
         "idle": "Idle",
         "deploy": "Idle",

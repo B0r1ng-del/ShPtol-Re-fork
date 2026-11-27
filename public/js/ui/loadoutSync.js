@@ -43,6 +43,8 @@ import { LOADOUT_PREF, parseStored, parseStoredOps, parseStoredByChar, toStored,
 import { cultivationCharIds, charPotentialChanges, loadoutOptions, operatorCharIds } from '../../../shared/protocol.js';
 import { PHASE } from '../../../shared/constants.js';
 import { POTENTIAL_DEFAULT, CULTIVATE_DEFAULT } from '../../../shared/potential.js';
+// isPotential / isCultivate 只为移植过来的 setOpSetting / opSettingOf 校验用（离线演示版同名实现）。
+import { isPotential, isCultivate } from '../../../shared/potential.js';
 import { ruleOption } from '../../../shared/plugins/rules.js';
 import { OWNERSHIP_PREF, parseStoredOwnership, parseStoredOwnershipChars, toStoredOwnership, toStoredOwnershipV1, cleanIds, sanitizeNotOwned,
   notOwnedView, rebaseChars } from './ownershipModel.js';
@@ -315,6 +317,37 @@ export function sendMatchLoadout(entries, { net }) {
 }
 
 /** Replace the stored per-operator 潜能 / 练度 (0.2.2; persisted at once with the entries; the sync picks it up). */
+/**
+ * 一个干员的 潜能 / 练度 设置（移植自离线演示版 loadoutSync.js:427）——
+ * 干员调配的「培养」页签（ui/growth.js）用它读写。
+ * 与默认值相同就删除该条，保持 map 里只有非默认项。
+ * @param {string} charId @param {{potential?: number, cultivate?: number}|null} patch
+ * @returns {{potential: number, cultivate: number}}
+ */
+export function setOpSetting(charId, patch = null) {
+  if (typeof charId !== 'string' || !charId) return { potential: POTENTIAL_DEFAULT, cultivate: CULTIVATE_DEFAULT };
+  const cur = loadoutStore.get().ops || {};
+  const before = cur[charId] || {};
+  const potential = isPotential(patch && patch.potential) ? patch.potential
+    : (isPotential(before.potential) ? before.potential : POTENTIAL_DEFAULT);
+  const cultivate = isCultivate(patch && patch.cultivate) ? patch.cultivate
+    : (isCultivate(before.cultivate) ? before.cultivate : CULTIVATE_DEFAULT);
+  const next = { ...cur };
+  if (potential === POTENTIAL_DEFAULT && cultivate === CULTIVATE_DEFAULT) delete next[charId];
+  else next[charId] = Object.freeze({ potential, cultivate });
+  setOpsMap(next);
+  return { potential, cultivate };
+}
+
+/** 一个干员已存的设置（缺省时给默认值）。 @param {string} charId */
+export function opSettingOf(charId) {
+  const e = (loadoutStore.get().ops || {})[charId];
+  return {
+    potential: e && isPotential(e.potential) ? e.potential : POTENTIAL_DEFAULT,
+    cultivate: e && isCultivate(e.cultivate) ? e.cultivate : CULTIVATE_DEFAULT,
+  };
+}
+
 export function setOpsMap(ops) {
   const next = ops && typeof ops === 'object' ? ops : {};
   persistLoadout({ ...loadoutStore.get(), ops: next });
@@ -782,4 +815,24 @@ export function installDiySync({ net, timers, target = loadoutStore, notify, con
     },
   });
   return { flush: sync.flush, dispose() { offKit?.(); offKitContent?.(); sync.dispose(); } };
+}
+
+
+/* ---- 演示版 loadout.js 需要的额外导出（game 原本没有） ---------------- */
+/* setOps: 批量写潜能/练度（演示版 loadout.js:45 用它做「还原默认」）。 */
+export const setOps = (ops) => setOpsMap(ops);
+/* installOpsSync: 演示版里的空实现占位（多端同步预留），保持签名一致即可。 */
+export const installOpsSync = () => ({ flush: async () => {}, dispose() {} });
+
+/* 自选编队的候选池（演示版 shared/diyDraft.js 的读写口）。 */
+const DIY_CANDIDATES_PREF = 'diyCandidates';
+
+export function parseDiyCandidates(value) {
+  if (!value || !Array.isArray(value[5]) || !Array.isArray(value[6])) return null;
+  return Object.fromEntries([5, 6].map(tier => [tier, value[tier].slice(0, 6).flatMap(pick => Object.values(cleanPicks({ pick })))]));
+}
+
+export function setDiyCandidates(candidates) {
+  savePref(DIY_CANDIDATES_PREF, { v: 1, candidates });
+  loadoutStore.set({ diyCandidates: candidates });
 }

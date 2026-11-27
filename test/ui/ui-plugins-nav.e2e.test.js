@@ -8,12 +8,13 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { Client, ROOT, hasChrome, startRealServer } from '../e2e/client.mjs';
+import { copyTree } from '../helpers/copyTree.js';
 
 const ENABLED = process.env.SP_E2E === '1' && hasChrome();
 
 /** The example widget, plus a second page it navigates to once it has said `ready`. */
 function navPlugin(dir) {
-  fs.cpSync(path.join(ROOT, 'plugins/_template/ui'), dir, { recursive: true });
+  copyTree(path.join(ROOT, 'plugins/_template/ui'), dir);
   const entry = path.join(dir, 'ui/index.html');
   const html = fs.readFileSync(entry, 'utf8').replace("parent.postMessage({ v: 1, t: 'ready' }, '*');\n      return;",
     "parent.postMessage({ v: 1, t: 'ready' }, '*');\n      setTimeout(function () { location.href = 'away.html?d=' + Date.now(); }, 300);\n      return;");

@@ -28,6 +28,7 @@ import { tmpdir } from 'node:os';
 
 import { C2S, validateC2S } from '../shared/protocol.js';
 import { PROTOCOL_VERSION } from '../shared/constants.js';
+import { copyTree } from './helpers/copyTree.js';
 import { loadWorkshop, loadWorkshopHooks, dropUnavailablePreDispatchPacks } from '../server/workshop.js';
 import { createModDispatch, PRE_DISPATCH_DEPS } from '../server/modDispatch.js';
 import { Network, SessionRegistry } from '../server/net.js';
@@ -209,7 +210,7 @@ before(() => {
   }
   wsOnly = join(tmp, 'ws-only');
   fs.mkdirSync(wsOnly, { recursive: true });
-  fs.cpSync(join(wsRoot, 'guard'), join(wsOnly, 'guard'), { recursive: true });
+  copyTree(join(wsRoot, 'guard'), join(wsOnly, 'guard'));
 });
 after(() => { if (tmp) fs.rmSync(tmp, { recursive: true, force: true }); });
 

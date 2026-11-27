@@ -19,6 +19,7 @@ import { DataSource } from '../../server/sim/simdata.js';
 import { setGameData } from '../../server/sim/content/support/index.js';
 import { elementBurst } from '../../server/sim/attack/element.js';
 import { makeMatch, legalTileFor, DATA } from '../match/harness.js';
+import { copyTree } from '../helpers/copyTree.js';
 
 const CHAR = 'char_4145_ulpia', ID = 'chess_char_5_05_a', ITEM = 'chess_item_3_07_e_a';
 const gain = count => ({ dsl: 1, meta: { on: [{ when: 'gain', do: [{ gainItem: { item: ITEM, count } }] }] } });
@@ -337,9 +338,9 @@ test('production match host and an isolated browser module tree agree', { timeou
   const root = f.dir + '/runtime';
   fs.mkdirSync(root + '/server', { recursive: true });
   // Browser /sim has no Node loader: including it creates a cycle through the data shim.
-  fs.cpSync('server/sim', root + '/server/sim', { recursive: true, filter: src => path.basename(src) !== 'nodeData.js' });
+  copyTree('server/sim', root + '/server/sim', { filter: src => path.basename(src) !== 'nodeData.js' });
   assert.equal(fs.existsSync(path.join(root, 'server/sim/nodeData.js')), false);
-  fs.cpSync('shared', root + '/shared', { recursive: true });
+  copyTree('shared', root + '/shared');
   fs.writeFileSync(root + '/package.json', '{"type":"module"}'); fs.writeFileSync(root + '/server/data.js', DATA_SHIM_JS);
   const sim = await loadBrowserSim({ base: pathToFileURL(root + '/server/sim/').href, data: set.data, bounds: set.bounds, cs: set.cs });
   const battle = sim.spec.createBattleFromSpec(spec, sim.ds);

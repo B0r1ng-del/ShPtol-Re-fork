@@ -41,9 +41,27 @@ export const TEXT_SIZES = Object.freeze(['sm', 'md', 'lg', 'xl']);
  *  'off', 'lite' (精简), 'full' (完整); only shown when effects were extracted from the local client.
  *  otherSkins: 设置「显示其他玩家的皮肤」 (docs/SKINS.md), ON by default — draw the appearance another player chose instead
  *  of the operator's own model. A pure client preference (never sent): off, only this player's own pieces wear a skin.
+ *  frameRate: 设置「帧率上限」 — the render loop's own ceiling (PIXI Ticker.maxFPS), '60' / '120' / '240' / 'off'
+ *  (= no limit, 0). It only decides how often a frame may be DRAWN; the simulation stays at its fixed 30 Hz ×
+ *  GAME_SPEED and the field's per-frame work is unchanged, so a low ceiling saves GPU and battery, never game speed.
+ *  Default 'off': the browser already syncs to the display, and a ceiling below the panel's refresh rate can only
+ *  lose frames. [ASSUMED] the label; FRAME_RATES owns the values.
  */
-export const DEFAULT_SETTINGS = Object.freeze({ bgm: 0.6, sfx: 0.8, voice: 0.8, voiceLang: 'cn', voiceNative: false, voiceOverrides: Object.freeze({}), muted: false, damageNumbers: true, officialDamageNumbers: false, ammoEnergyCount: false, fullscreenWakeLock: false, bondTimers: false, combatMetrics: false, prepDeployFold: true, quality: 'high', officialFx: 'auto', otherSkins: true, workshopSkins: true, textSize: 'sm', keys: DEFAULT_HOTKEYS });
+export const DEFAULT_SETTINGS = Object.freeze({ bgm: 0.6, sfx: 0.8, voice: 0.8, voiceLang: 'cn', voiceNative: false, voiceOverrides: Object.freeze({}), muted: false, damageNumbers: true, officialDamageNumbers: false, ammoEnergyCount: false, fullscreenWakeLock: false, bondTimers: false, combatMetrics: false, prepDeployFold: true, quality: 'high', officialFx: 'auto', otherSkins: true, workshopSkins: true, textSize: 'sm', frameRate: 'off', homeUiScale: 100, keys: DEFAULT_HOTKEYS });
+/**
+ * 主界面 UI 缩放 (settings 主界面 UI 缩放): the home screen's own scale, written to `--home-ui-scale` on the document
+ * element by ui/settings.js `applyHomeUiScale`. css/settings-notices.css consumes it on .home-top / .home-menu /
+ * .home-identity / .home-footer / .assistant-dialogue — the assistant and the battlefield keep their own scale.
+ */
+export const HOME_UI_SCALE_RANGE = Object.freeze({ min: 75, max: 125, step: 5 });
+/** Snap a stored 主界面 UI 缩放 to the 5% steps of HOME_UI_SCALE_RANGE; junk falls back to 100%. */
+export const sanitizeHomeUiScale = (value) => (Number.isFinite(value)
+  ? clamp(Math.round(value / 5) * 5, HOME_UI_SCALE_RANGE.min, HOME_UI_SCALE_RANGE.max)
+  : 100);
+
 const QUALITIES = ['high', 'medium', 'low'];
+/** The values of 设置「帧率上限」 (the render loop's ceiling): 'off' = no limit, the others are frames per second. */
+export const FRAME_RATES = Object.freeze(['60', '120', '240', 'off']);
 /** The values of 设置「官方特效」 (render/vfx/tier.js OFFICIAL_FX). Display order in the dialog is low / medium / high. */
 export const OFFICIAL_FX_MODES = Object.freeze(['auto', 'off', 'lite', 'full']);
 
@@ -62,7 +80,7 @@ function ammoEnergyCountOf(r) {
  * Sanitize persisted settings. Retired keys `ammoCount` and `mysticEnergy` are read here and never returned.
  * @param {any} raw
  * @returns {{ bgm: number, sfx: number, voice: number, voiceLang: 'cn'|'jp'|'en'|'kr', voiceNative: boolean, voiceOverrides: Record<string, string>, muted: boolean, damageNumbers: boolean, officialDamageNumbers: boolean, ammoEnergyCount: boolean, fullscreenWakeLock: boolean, bondTimers: boolean, combatMetrics: boolean, prepDeployFold: boolean, quality: 'high'|'medium'|'low', officialFx: 'auto'|'off'|'lite'|'full', otherSkins: boolean,
- *   textSize: 'sm'|'md'|'lg'|'xl', keys: Record<'buy'|'refresh'|'freeze'|'levelUp'|'retreat'|'sell'|'ready', string> }}
+ *   textSize: 'sm'|'md'|'lg'|'xl', frameRate: '60'|'120'|'240'|'off', keys: Record<'buy'|'refresh'|'freeze'|'levelUp'|'retreat'|'sell'|'ready', string> }}
  */
 export function sanitizeSettings(raw) {
   const r = isObj(raw) ? raw : {};
@@ -86,7 +104,9 @@ export function sanitizeSettings(raw) {
     officialFx: OFFICIAL_FX_MODES.includes(r.officialFx) ? r.officialFx : DEFAULT_SETTINGS.officialFx,
     otherSkins: r.otherSkins !== false,
     workshopSkins: r.workshopSkins !== false,
+    frameRate: FRAME_RATES.includes(r.frameRate) ? r.frameRate : DEFAULT_SETTINGS.frameRate,
     textSize: TEXT_SIZES.includes(r.textSize) ? r.textSize : DEFAULT_SETTINGS.textSize,
+    homeUiScale: sanitizeHomeUiScale(r.homeUiScale),
     keys: sanitizeHotkeys(r.keys),
   };
 }

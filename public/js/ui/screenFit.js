@@ -24,7 +24,7 @@
 // `change` when a drag ends on its start value; a touch drag can turn into a scroll — DESIGN §35.45).
 
 import { useState } from '../../vendor/hooks.module.js';
-import { html, Button, MicroLabel } from './components.js';
+import { html, Button, Icon, MicroLabel, NumberStepper } from './components.js';
 import { createStore, useStore, loadPref, savePref } from '../store.js';
 import { settingsStore } from './settingsStore.js';
 import { t, N_ } from '../../../shared/i18n.js';
@@ -124,24 +124,22 @@ export function ScreenFitSection() {
     ${FIT_SIDES.map((k) => {
       const v = sliderOf(f[k]);
       return html`<div key=${k} class="set-row set-fit__row">
-        <span class="set-row__label">${t(SIDE_NAMES[k])}<${MicroLabel}>${SIDE_MICRO[k]}<//></span>
-        <button type="button" class="set-fit__step" aria-label=${t('减少')} disabled=${v <= LO} onClick=${() => updateFit({ [k]: pxOf(v - 1) })}>−</button>
+        <span class="set-row__label"><${Icon} name="scan" />${t(SIDE_NAMES[k])}<${MicroLabel}>${SIDE_MICRO[k]}<//></span>
         <input class="set-range" type="range" min=${LO} max=${HI} step="1" value=${v} style=${`--pct:${v}%`}
           aria-label=${t(SIDE_NAMES[k])} data-testid=${`fit-${k}`} onInput=${(e) => updateFit({ [k]: pxOf(e.currentTarget.value) })} />
-        <button type="button" class="set-fit__step" aria-label=${t('增加')} disabled=${v >= HI} onClick=${() => updateFit({ [k]: pxOf(v + 1) })}>+</button>
-        <span class="set-row__val num">${v}</span>
+        <${NumberStepper} value=${v} min=${LO} max=${HI} step=${1} label=${t(SIDE_NAMES[k])}
+          testId=${`stepper-fit-${k}`} onCommit=${(next) => updateFit({ [k]: pxOf(next) })} />
       </div>`;
     })}
     <div class=${`set-row set-fit__row${allowed ? '' : ' is-disabled'}`} data-testid="ui-size">
-      <span class="set-row__label">${t('界面大小')}<${MicroLabel}>UI SIZE<//></span>
-      <button type="button" class="set-fit__step" aria-label=${t('减少')} disabled=${!allowed || ui <= UI_MIN} onClick=${() => setUi(ui - UI_STEP)}>−</button>
+      <span class="set-row__label"><${Icon} name="expand" />${t('界面大小')}<${MicroLabel}>UI SIZE<//></span>
       <input class="set-range" type="range" min=${UI_MIN} max=${UI_MAX} step=${UI_STEP} value=${shown} disabled=${!allowed}
         style=${`--pct:${((shown - UI_MIN) / (UI_MAX - UI_MIN)) * 100}%`} aria-label=${t('界面大小')} data-testid="ui-size-range"
         onInput=${(e) => setPreview({ v: Number(e.currentTarget.value), from: ui })}
         onPointerUp=${(e) => setUi(e.currentTarget.value)} onChange=${(e) => setUi(e.currentTarget.value)}
         onPointerCancel=${() => setPreview(null)} onBlur=${() => setPreview(null)} />
-      <button type="button" class="set-fit__step" aria-label=${t('增加')} disabled=${!allowed || ui >= UI_MAX} onClick=${() => setUi(ui + UI_STEP)}>+</button>
-      <span class="set-row__val num" data-testid="ui-size-pct">${shown}%</span>
+      <${NumberStepper} value=${shown} min=${UI_MIN} max=${UI_MAX} step=${UI_STEP} label=${t('界面大小')}
+        disabled=${!allowed} testId="stepper-ui-size" onCommit=${(v) => setUi(v)} />
     </div>
     <p class="set-hint">${t('界面大小：缩小按钮、面板、商店条和文字，给棋盘多留空间（100% 为原尺寸）；按钮保持可点的大小。')}</p>
     ${allowed ? null : html`<p class="set-hint" data-testid="ui-size-locked">${t('文字大小为「中」及以上时不可缩小界面')}</p>`}

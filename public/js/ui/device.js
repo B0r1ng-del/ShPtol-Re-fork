@@ -262,8 +262,8 @@ export function PwaInstallButton({ class: cls = '', size = 'sm', square = false 
   useEffect(() => pwaInstall.subscribe(setAvailable), []);
   if (!available) return null;
   return html`<${Button} variant="secondary" size=${size} icon="homePlus" square=${square} class=${cls}
-    title=${t('添加到桌面')} aria-label=${t('添加到桌面')}
-    data-testid="pwa-install" onClick=${() => pwaInstall.request()}>${square ? null : t('添加到桌面')}<//>`;
+    title=${t('添加主页：把游戏快捷方式添加到设备桌面')} aria-label=${t('添加到桌面')}
+    data-testid="pwa-install" onClick=${() => pwaInstall.request()}>${square ? null : t('添加主页')}<//>`;
 }
 
 export function updateRotateHintPwaI18n(doc = globalThis.document) {

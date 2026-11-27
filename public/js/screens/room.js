@@ -56,7 +56,7 @@ import { isAlignBlocked } from '../mods/align.js';
 import * as roomMods from '../roomMods.js';
 import {
   html, Button, Icon, MicroLabel, PingPill, AvatarFrame, DifficultyIcon, Tooltip, Spinner, confirmDialog, alertDialog, doctorNo, Modal,
-  TextField, SwitchRow,
+  TextField, SwitchRow, NumberStepper,
 } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { TestMark } from '../ui/testConsole.js';
@@ -83,6 +83,7 @@ import { settingsStore } from '../ui/settingsStore.js';
 import { difficultyInfo, ProtocolSelect } from './lobby.js';
 import { CrisisGlyph } from '../ui/crisisGlyph.js';
 import { crisisTag, crisisFxText, isArcCrisis } from '../../../shared/crisis.js';
+import { arcTag } from '../../../shared/crisisArc.js';
 import { useRise } from '../ui/transitions.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
 import { C2S } from '../../../shared/protocol.js';
@@ -95,7 +96,9 @@ import { C2S } from '../../../shared/protocol.js';
 export function CrisisTagRows({ crisis, full = false }) {
   if (!crisis || !Array.isArray(crisis.tags)) return null;
   const mode = crisis.mode === 'quad' ? 'quad' : 'solo';
-  const tags = crisis.tags.map((id) => crisisTag(mode, id)).filter(Boolean);
+  // ★ 按赛季选表：弧光的指标只在 arcTag（shared/crisisArc.js）里，用 crisisTag 查会全部落到 null ⇒ 弹窗空白。
+  const tagOf = isArcCrisis(crisis) ? arcTag : crisisTag;
+  const tags = crisis.tags.map((id) => tagOf(mode, id)).filter(Boolean);
   // 超过 12 个就两列排、并且不写效果文本（官方的 is-long）
   const long = !full && tags.length > 12;
   return html`<div class=${'cc-tagrows' + (long ? ' is-long' : '') + (full ? ' is-full' : '')}>
@@ -119,7 +122,7 @@ export function CrisisTagRows({ crisis, full = false }) {
 export function CrisisTagStrip({ crisis }) {
   if (!crisis || !Array.isArray(crisis.tags)) return null;
   const mode = crisis.mode === 'quad' ? 'quad' : 'solo';
-  const tags = crisis.tags.map((id) => crisisTag(mode, id)).filter(Boolean);
+  const tags = crisis.tags.map((id) => (isArcCrisis(crisis) ? arcTag : crisisTag)(mode, id)).filter(Boolean);
   return html`<div class="cc-tagstrip" aria-label=${t('危机合约指标')} data-testid="cc-tagstrip">
     <span class="cc-tagstrip__head">
       <b>${t('危机合约')}</b>
@@ -691,15 +694,17 @@ function EnemyBuffSection({ enemyRows, onEnemy }) {
   const total = enemyBuffTotal(enemyRows);
   return html`<div class="ebuff">
     <div class="ebuff__rows">
-      ${enemyRows.map((r) => html`<label class="set-row ebuff__row" key=${r.key}>
+      ${enemyRows.map((r) => html`<div class="set-row ebuff__row" key=${r.key}>
         <span class="set-row__label"><${Icon} name=${r.icon} />${t(r.label)}</span>
         <input class="set-range" type="range" min="0" max=${HOST_ENEMY_MAX_STEPS} step="1"
           value=${r.steps} style=${`--pct:${(r.steps / HOST_ENEMY_MAX_STEPS) * 100}%`}
           disabled=${!r.editable}
           data-testid=${`ebuff-${r.key}`} aria-label=${t(r.label)}
           onInput=${(e) => r.editable && onEnemy(r.key, Number(e.currentTarget.value))} />
-        <span class="set-row__val num">+${r.steps * HOST_ENEMY_STEP_PCT}%</span>
-      </label>`)}
+        <${NumberStepper} value=${r.steps} min=${0} max=${HOST_ENEMY_MAX_STEPS} step=${1}
+          disabled=${!r.editable} label=${t(r.label)} testId=${`ebuff-stepper-${r.key}`}
+          onCommit=${(v) => r.editable && onEnemy(r.key, v)} />
+      </div>`)}
     </div>
     <p class="ebuff__hint">${t('每格 +10%，最高 +100% · 加强本局全部敌人（含首领与联防）')}</p>
     ${total > 0 ? html`<p class="ebuff__warn">${t('本局敌人已获得强化（合计 {n}%），请谨慎调整', { n: total })}</p>` : null}

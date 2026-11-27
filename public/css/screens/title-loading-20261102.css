@@ -1,0 +1,196 @@
+/* Login and startup only. Native images are 1024-square storage, full UV, with no sprite border.
+ * The 16:9 presentation canvas is reconstructed from the supplied official screen, not an HD source claim. */
+.resource-gate { --worldtip-w:max(100vw,177.777778dvh); --worldtip-h:max(100dvh,56.25vw); grid-template-rows:14% 74% 12%; }
+.resource-gate .resource-art { background:#080909; }
+.resource-gate .resource-art > img {
+  position:absolute; width:var(--worldtip-w); height:var(--worldtip-h); max-width:none;
+  left:50%; top:36dvh; right:auto; bottom:auto; object-fit:fill; object-position:center;
+  transform:translate(-50%,-50%); animation:none; transition:none;
+  image-rendering:auto; opacity:1;
+}
+.resource-gate .resource-art::after { inset:62% 0 0; background:linear-gradient(transparent,#0005); }
+.resource-gate .resource-lore {
+  left:7%; right:7.4%; bottom:3.7%; gap:1.7vw; align-items:center;
+  flex-direction:row; max-height:42%; padding:0 0 2px; text-shadow:0 1px 3px #000a;
+}
+.resource-gate .resource-lore h1 {
+  flex:0 0 auto; max-width:23%; font:600 clamp(24px,2.65vw,68px)/1.2 "Noto Sans SC","Microsoft YaHei",sans-serif;
+  letter-spacing:.02em; white-space:nowrap;
+}
+.resource-gate .resource-lore p {
+  font:400 clamp(14px,1.46vw,38px)/1.38 "Noto Sans SC","Microsoft YaHei",sans-serif;
+  letter-spacing:0; min-width:0;
+}
+.resource-gate .resource-top button { min-height:40px; padding:8px 20px; font-size:clamp(13px,1.1vw,23px); }
+.resource-gate .resource-top > div { gap:12px; }
+.resource-gate .resource-next { min-width:44px; min-height:52px; right:10px; top:40%; border:1px solid #ffffff38; }
+.resource-gate .resource-next:focus-visible { outline:2px solid #ffe19a; outline-offset:3px; }
+.resource-gate .resource-bottom p { font-size:clamp(13px,1.2vw,26px); }
+.resource-gate .resource-pause { min-height:42px; }
+#boot.boot-terminal .boot-terminal__art {
+  width:max(100vw,177.777778dvh); height:max(100dvh,56.25vw); max-width:none;
+  left:50%; top:50%; object-fit:fill; transform:translate(-50%,-50%); animation:none;
+}
+
+/* Preserve the existing graphite/gold identity; strengthen a single central focus. */
+.app-root.is-reference-title .title-screen.title-dark {
+  --login-x:0px; --login-y:0px; display:grid; place-items:center;
+  padding:84px 36px 132px; min-height:100%; height:100%; isolation:isolate;
+}
+.app-root.is-reference-title .title-dark .title-main { width:min(540px,90vw); margin:0; padding:0; }
+.app-root.is-reference-title .title-dark .title-cn {
+  font-size:clamp(48px,4.3vw,82px); font-weight:800; letter-spacing:.13em; text-indent:.13em;
+  line-height:1.2; animation:none;
+}
+.app-root.is-reference-title .title-dark .title-cn em { font-size:18px; margin-top:13px; letter-spacing:.48em; }
+.app-root.is-reference-title .title-dark .title-cn--latin { font-size:clamp(32px,3.3vw,60px); letter-spacing:.025em; text-indent:0; }
+.app-root.is-reference-title .title-dark .title-network { width:330px; height:330px; opacity:.42; }
+.app-root.is-reference-title .title-dark .title-en { margin-top:18px; padding:6px 13px; }
+.app-root.is-reference-title .title-dark .title-login {
+  width:420px; max-width:100%; margin-top:30px; padding:24px 26px 23px; gap:15px;
+  background:linear-gradient(160deg,#29333bcc,#0a1015d9); border:1px solid #a5b3b82b;
+  box-shadow:0 16px 44px -24px #000b; backdrop-filter:none; -webkit-backdrop-filter:none; animation:none;
+}
+.app-root.is-reference-title .title-dark .title-login .field__label { font-size:12px; letter-spacing:.12em; color:#bdc6cd; }
+.app-root.is-reference-title .title-dark .title-login .field__label .micro { color:#8b969e; }
+.app-root.is-reference-title .title-dark .title-login .field__box { height:48px; min-height:48px; }
+.app-root.is-reference-title .title-dark .title-login .field__input { font-size:16px; }
+.app-root.is-reference-title .title-dark .title-login .title-accessnote { font-size:11px; line-height:1.7; color:#abb6bd; padding-top:12px; }
+.app-root.is-reference-title .title-dark .title-login > .btn--primary { height:52px; min-height:52px; font-size:18px; }
+.app-root.is-reference-title .title-dark .title-conn {
+  position:fixed; left:50%; bottom:57px; transform:translateX(-50%); gap:7px; max-width:94vw;
+  padding:7px 12px; border-radius:3px; background:#0b1118de; backdrop-filter:none; -webkit-backdrop-filter:none;
+  font-size:12px; flex-wrap:nowrap; color:#abb8bf;
+}
+.title-dark .title-conn .btn,.title-dark .title-conn .title-fs { min-width:38px; width:auto; height:38px; min-height:38px; }
+.title-dark .title-conn .title-settings { display:inline-flex; }
+.app-root.is-reference-title .title-dark .title-foot { height:34px; min-height:34px; padding:7px 3%; }
+.app-root.is-reference-title .title-dark .title-corner--tl { top:32px; left:3%; }
+.app-root.is-reference-title .title-dark .title-corner--tr { top:32px; right:3%; }
+.title-dark .title-corner .micro { color:#8b989e; }
+.title-dark .title-kinetic .title-coordinate { opacity:.6; }
+.title-dark .title-kinetic .title-coordinate small { display:none; }
+
+/* Two sliding layers reveal the scene; no pointer interception and no artificial loading gate. */
+.title-unfold { position:absolute; inset:0; z-index:2; pointer-events:none; overflow:hidden; }
+.title-unfold > i { position:absolute; left:0; right:0; height:50%; background:#0a0f15; opacity:0; }
+.title-unfold > i:first-child { top:0; transform:translateY(-100%); border-bottom:1px solid #dcc57a; }
+.title-unfold > i:nth-child(2) { bottom:0; transform:translateY(100%); border-top:1px solid #dcc57a; }
+.title-unfold > span { position:absolute; height:1px; left:5%; right:5%; top:50%; background:#d3bc77; opacity:0; }
+.title-dark.is-unfolding .title-unfold > i:first-child { animation:title-unfold-up .76s cubic-bezier(.22,.7,.2,1) both; }
+.title-dark.is-unfolding .title-unfold > i:nth-child(2) { animation:title-unfold-down .76s cubic-bezier(.22,.7,.2,1) both; }
+.title-dark.is-unfolding .title-unfold > span { animation:title-unfold-scan .74s ease-out both; }
+.app-root.is-reference-title .title-dark.is-unfolding .title-cn { animation:title-layer-in .7s .08s both; }
+.app-root.is-reference-title .title-dark.is-unfolding .title-en { animation:title-layer-in .65s .16s both; }
+.app-root.is-reference-title .title-dark.is-unfolding .title-login { animation:title-layer-in .65s .24s both; }
+.title-dark.is-motion-hidden * { animation-play-state:paused!important; }
+@keyframes title-unfold-up { 0%{transform:translateY(0);opacity:1} 78%{opacity:1} 100%{transform:translateY(-100%);opacity:0} }
+@keyframes title-unfold-down { 0%{transform:translateY(0);opacity:1} 78%{opacity:1} 100%{transform:translateY(100%);opacity:0} }
+@keyframes title-unfold-scan { 0%{transform:scaleX(.02);opacity:0} 18%{opacity:.85} 75%{transform:scaleX(1);opacity:.55} 100%{transform:scaleX(1);opacity:0} }
+@keyframes title-layer-in { from{opacity:0;transform:translateY(9px)} to{opacity:1;transform:translateY(0)} }
+
+@media (min-height:551px) and (max-height:820px) {
+  .app-root.is-reference-title .title-screen.title-dark { padding:65px 30px 110px; }
+  .app-root.is-reference-title .title-dark .title-cn { font-size:54px; }
+  .app-root.is-reference-title .title-dark .title-login { margin-top:22px; gap:12px; padding:18px 24px; }
+}
+@media (max-height:550px) and (min-width:560px) {
+  .app-root.is-reference-title .title-screen.title-dark { padding:48px 28px 78px; overflow:auto; }
+  .app-root.is-reference-title .title-dark .title-main {
+    display:grid; grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr); grid-template-rows:1fr 1fr;
+    gap:0 34px; width:min(860px,100%); align-items:center;
+  }
+  .app-root.is-reference-title .title-dark .title-cn { grid-column:1; grid-row:1; align-self:end; font-size:clamp(30px,4.6vw,42px); text-align:center; white-space:nowrap; }
+  .app-root.is-reference-title .title-dark .title-cn--latin { font-size:clamp(25px,3.5vw,34px); white-space:normal; }
+  .app-root.is-reference-title .title-dark .title-cn em { font-size:14px; margin-top:10px; }
+  .app-root.is-reference-title .title-dark .title-en { grid-column:1; grid-row:2; align-self:start; justify-self:center; margin-top:18px; gap:6px; padding:4px 6px; }
+  .title-dark .title-en__a,.title-dark .title-en__b { font-size:7px; letter-spacing:1px; }
+  .app-root.is-reference-title .title-dark .title-login { grid-column:2; grid-row:1/3; width:100%; max-width:none; margin:0; padding:0; gap:7px; border:0; background:none; box-shadow:none; }
+  .title-dark .title-login::before,.title-dark .title-login::after { display:none; }
+  .app-root.is-reference-title .title-dark .title-login .field__label { font-size:11px; margin-bottom:3px; }
+  .app-root.is-reference-title .title-dark .title-login .field__box { height:42px; min-height:42px; }
+  .app-root.is-reference-title .title-dark .title-login .title-accessnote { font-size:10px; line-height:1.5; padding-top:6px; margin:0; }
+  .app-root.is-reference-title .title-dark .title-login > .btn--primary { height:44px; min-height:44px; margin-top:1px; font-size:16px; width:100%; }
+  .app-root.is-reference-title .title-dark .title-network { width:250px; height:250px; }
+  .app-root.is-reference-title .title-dark .title-conn { position:fixed; bottom:29px; padding:2px 8px; gap:4px; width:max-content; max-width:95vw; margin:0; }
+  .title-dark .title-conn .btn,.title-dark .title-conn .title-fs { min-height:38px; height:38px; min-width:38px; }
+  .app-root.is-reference-title .title-dark .title-corner--tr { top:7px; right:26px; }
+  .app-root.is-reference-title .title-dark .title-corner--tr .micro { display:none; }
+  .app-root.is-reference-title .title-dark .title-corner--tl { top:14px; left:26px; }
+  .app-root.is-reference-title .title-dark .title-corner--tl .micro { font-size:7px; }
+  .app-root.is-reference-title .title-dark .title-foot { height:24px; min-height:24px; font-size:8px; padding:4px 2%; }
+  .title-dark .title-foot .micro { font-size:8px; }
+  .resource-gate .resource-lore { left:5%; right:7%; bottom:4%; gap:15px; max-height:54%; }
+  .resource-gate .resource-lore h1 { font-size:22px; max-width:23%; white-space:normal; }
+  .resource-gate .resource-lore p { font-size:12px; line-height:1.45; }
+  .resource-gate .resource-top button { min-height:34px; padding:5px 12px; font-size:12px; }
+  .resource-gate .resource-top > div { gap:7px; }
+  .resource-gate .resource-top small { font-size:9px; top:100%; }
+  .resource-gate .resource-bottom p { font-size:12px; }
+  .resource-gate .resource-next { right:3px; min-height:44px; padding:3px; }
+  .resource-gate .resource-pause { padding:5px 12px; min-height:34px; }
+}
+@media (max-width:559px) {
+  .app-root.is-reference-title .title-screen.title-dark { padding:76px 20px 120px; overflow:auto; }
+  .app-root.is-reference-title .title-dark .title-login { width:100%; padding:18px; }
+  .app-root.is-reference-title .title-dark .title-cn { font-size:36px; }
+  .app-root.is-reference-title .title-dark .title-conn { flex-wrap:wrap; }
+  .resource-gate .resource-lore { flex-direction:column; align-items:flex-start; max-height:60%; }
+  .resource-gate .resource-lore h1 { max-width:100%; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .title-dark .title-unfold { display:none; }
+  .app-root.is-reference-title .title-dark.is-unfolding .title-cn,
+  .app-root.is-reference-title .title-dark.is-unfolding .title-en,
+  .app-root.is-reference-title .title-dark.is-unfolding .title-login { animation:none; }
+}
+
+/* v2: original-size phone review takes precedence over matching the desktop text density. */
+@media (max-height:550px) and (min-width:560px) {
+  .resource-gate .resource-lore { max-height:72%; bottom:4%; align-items:flex-end; }
+  .resource-gate .resource-lore p { font-size:14px; line-height:1.5; }
+  .resource-gate .resource-lore h1 { padding-bottom:3px; }
+  .resource-gate .resource-art::after { inset:34% 0 0; background:linear-gradient(transparent,#0008 55%,#000b); }
+}
+.title-unfold::before {
+  content:""; position:absolute; left:calc(50% - 290px); top:calc(50% - 290px);
+  width:580px; height:580px; border:1px solid #dfc986; opacity:0;
+  box-shadow:0 0 0 8px #dfc98608,0 0 0 34px #9daeb308;
+}
+.title-dark.is-unfolding .title-unfold::before { animation:title-frame-open .95s cubic-bezier(.2,.65,.2,1) both; }
+.app-root.is-reference-title .title-dark.is-unfolding .title-network { animation:title-sphere-open .95s cubic-bezier(.2,.7,.2,1) both; }
+.title-dark.is-unfolding .title-login::before { transform-origin:left center; animation:title-panel-rule .75s .2s both; }
+@keyframes title-frame-open {
+  0% { transform:scale(1.3,.002); opacity:0; }
+  18% { opacity:.8; }
+  75% { transform:scale(1,1); opacity:.22; }
+  100% { transform:scale(1.04,1.04); opacity:0; }
+}
+@keyframes title-sphere-open { from{scale:.62;opacity:0} to{scale:1;opacity:.42} }
+@keyframes title-panel-rule { from{transform:scaleX(0);opacity:0} to{transform:scaleX(1);opacity:1} }
+@media (max-height:550px) { .title-unfold::before { left:10%; right:10%; width:80%; top:12%; height:76%; } }
+@media (prefers-reduced-motion:reduce) { .app-root.is-reference-title .title-dark.is-unfolding .title-network,.title-dark.is-unfolding .title-login::before { animation:none; } }
+
+/* Safe content frame, using the existing device/ScreenFit contract; no global battle scaling. */
+.resource-gate,#boot.boot-terminal {
+  --startup-safe-width:calc(100vw - var(--fit-l,0px) - var(--fit-r,0px) - var(--sa-l,0px) - var(--sa-r,0px));
+  --startup-safe-height:calc(var(--sp-vh,1vh)*100 - var(--fit-t,0px) - var(--fit-b,0px) - var(--sa-t,0px) - var(--sa-b,0px));
+  left:calc(var(--fit-l,0px) + var(--sa-l,0px)); right:calc(var(--fit-r,0px) + var(--sa-r,0px));
+  top:calc(var(--fit-t,0px) + var(--sa-t,0px)); bottom:auto;
+  width:auto; height:var(--startup-safe-height);
+}
+.resource-gate {
+  --worldtip-w:max(var(--startup-safe-width),calc(var(--startup-safe-height)*1.77777778));
+  --worldtip-h:max(var(--startup-safe-height),calc(var(--startup-safe-width)*.5625));
+}
+.resource-gate .resource-art > img { top:calc(var(--startup-safe-height)*.36); }
+#boot.boot-terminal .boot-terminal__art {
+  width:max(var(--startup-safe-width),calc(var(--startup-safe-height)*1.77777778));
+  height:max(var(--startup-safe-height),calc(var(--startup-safe-width)*.5625));
+}
+@media (max-height:550px) and (pointer:coarse) {
+  .resource-gate .resource-lore h1 { max-width:31%; text-wrap:balance; }
+  .resource-gate .resource-top button { position:relative; }
+  .resource-gate .resource-top button::before { content:""; position:absolute; inset:-5px -2px; }
+  .resource-gate .resource-pause { min-height:40px; }
+}

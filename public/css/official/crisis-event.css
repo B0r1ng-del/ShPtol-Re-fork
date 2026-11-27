@@ -868,11 +868,18 @@
 .cs-page.is-arclight .cs-score { left: 598px; top: 636px; width: 211px; height: 79px; padding: 0; display: block; background: none; }
 .cs-page.is-arclight .cs-score__bg, .cs-page.is-arclight .cs-score__tone { position: absolute; pointer-events: none; }
 .cs-page.is-arclight .cs-score__bg { inset: 0; width: 100%; height: 100%; }
-.cs-page.is-arclight .cs-score__tone { right: 10px; bottom: 9px; width: 116px; height: 61px; opacity: .5; }
-.cs-page.is-arclight .cs-score__diagram { position: absolute; left: 14px; top: 9px; width: 66px; height: 58px; }
+/* 用户 2026-11-14：点状渐变和"指标总计"又掉出底图。
+   像素扫描得精确边界：btn-score.png 是 211×79，**可见面板只有 x 9–201（宽 193）、y 1–64（高 64）**，
+   左 9 / 右 9 / 上 1 / 下 14 全是透明。之前把下界当成 70，底边元素就整体往下掉了 6px。
+   ⇒ 以下全部按 x 9–201、y 1–64 摆。 */
+.cs-page.is-arclight .cs-score__tone { right: 9px; bottom: 14px; width: 108px; height: 50px; opacity: .5; }
+/* 用户 2026-11-14：六边形被拉长了。素材 diagram-outline 的内容是 208×180（比例 1.156，
+   正好是正六边形 2:√3），我却把它塞进 62×62 的正方形框 ⇒ 横向压扁成瘦长条。
+   改回按素材比例：宽 62，高 = 62 × 180/208 = 53.6 → 取 54。 */
+.cs-page.is-arclight .cs-score__diagram { position: absolute; left: 9px; top: 6px; width: 62px; height: 54px; }
 .cs-page.is-arclight .cs-score__diagram img { position: absolute; inset: 0; width: 100%; height: 100%; }
-.cs-page.is-arclight .cs-score b { position: absolute; right: 18px; top: 9px; font-size: 40px; font-weight: 600; line-height: 1; color: #fff; }
-.cs-page.is-arclight .cs-score small { position: absolute; right: 18px; top: 51px; font-size: 13px; color: #898989; }
+.cs-page.is-arclight .cs-score b { position: absolute; right: 14px; top: 6px; font-size: 36px; font-weight: 600; line-height: 1; color: #fff; }
+.cs-page.is-arclight .cs-score small { position: absolute; right: 14px; bottom: 19px; font-size: 12px; line-height: 1; color: #898989; }
 .cs-page.is-arclight .cs-go { left: 1010px; top: 612px; width: 270px; height: 115px; border-radius: 0; background: none; box-shadow: none; }
 .cs-page.is-arclight .cs-go img { left: 0; top: 0; width: 100%; height: 100%; }
 .cs-page.is-arclight .cs-go span { right: 34px; top: 41px; font-size: 26px; font-weight: 500; letter-spacing: 1px; }

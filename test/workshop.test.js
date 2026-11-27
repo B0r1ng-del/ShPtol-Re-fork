@@ -23,6 +23,7 @@ import { GameData } from '../server/match/gamedata.js';
 import { SharedPool } from '../server/match/pool.js';
 import { buildWorkshopDataFiles, startServer } from '../server/index.js';
 import { makeMatch, give, legalTileFor } from './match/harness.js';
+import { copyTree } from './helpers/copyTree.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DATA_DIR = join(ROOT, 'data');
@@ -46,7 +47,7 @@ before(() => {
   tmpRoot = fs.mkdtempSync(join(tmpdir(), 'sp-workshop-'));
   tmpWs = join(tmpRoot, 'ws');
   fs.mkdirSync(tmpWs, { recursive: true });
-  fs.cpSync(EXAMPLE, join(tmpWs, 'demo-workshop'), { recursive: true });
+  copyTree(EXAMPLE, join(tmpWs, 'demo-workshop'));
 });
 after(() => { if (tmpRoot) fs.rmSync(tmpRoot, { recursive: true, force: true }); });
 

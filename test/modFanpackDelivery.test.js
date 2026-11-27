@@ -9,12 +9,13 @@
 // Run: node --test test/modFanpackDelivery.test.js
 import { test, describe, skip } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, mkdtempSync, cpSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { loadWorkshop, loadWorkshopPanels } from '../server/workshop.js';
 import { createPanelRegistry } from '../public/js/ui/extensions.js';
+import { copyTree } from './helpers/copyTree.js';
 
 const PACK = 'E:\\destop\\harness_1\\_up\\mod-compat\\deliver\\packs\\fanpack-kazdel-rhodes';
 const HAS_PACK = existsSync(join(PACK, 'pack.json'));
@@ -23,7 +24,7 @@ const quiet = { info() {}, warn() {}, error() {}, debug() {} };
 /** 装载一次（真 `loadWorkshop` + 真 `loadWorkshopPanels`）；包目录复制到临时 workshop 根，免得污染交付包。 */
 function loadOnce() {
   const wsRoot = mkdtempSync(join(tmpdir(), 'sp-fanpack-ui-'));
-  cpSync(PACK, join(wsRoot, 'fanpack-kazdel-rhodes'), { recursive: true });
+  copyTree(PACK, join(wsRoot, 'fanpack-kazdel-rhodes'));
   const loaded = loadWorkshop(wsRoot, { log: quiet });
   const panels = loadWorkshopPanels(loaded, { log: quiet });
   /** 模块 URL → 磁盘文件（URL 上带 `?v=`，比较时切掉）。 */

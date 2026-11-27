@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { copyTree } from './helpers/copyTree.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const URLS = ['/assets/sample%20art.png', '/fonts/sample.woff2'];
@@ -19,7 +20,7 @@ async function fixture(t, kind) {
     fs.writeFileSync(dest, data);
   };
   for (const dir of ['shared', 'tools/assets']) {
-    fs.cpSync(path.join(ROOT, dir), path.join(root, dir), { recursive: true });
+    copyTree(path.join(ROOT, dir), path.join(root, dir));
   }
   for (const rel of ['tools/setup.mjs', 'tools/doctor.mjs', 'tools/local-extract/expected.mjs',
     'tools/local-extract/client-candidates.json',

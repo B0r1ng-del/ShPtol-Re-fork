@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { ROOT } from '../../server/data.js';
+import { copyTree } from './copyTree.js';
 
 export const OFFICIAL_TEST_ID = 'char_999_test';
 export function tableFixture(t) {
@@ -13,7 +14,7 @@ export function tableFixture(t) {
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.writeFileSync(dest, typeof value === 'string' ? value : JSON.stringify(value));
   };
-  fs.cpSync(path.join(ROOT, 'data'), path.join(root, 'data'), { recursive: true });
+  copyTree(path.join(ROOT, 'data'), path.join(root, 'data'));
   const attrs = { maxHp: 1000, atk: 100, def: 100, magicResistance: 0, cost: 10, blockCnt: 1,
     baseAttackTime: 1, attackSpeed: 100, respawnTime: 70, spRecoveryPerSec: 1, hpRecoveryPerSec: 0, moveSpeed: 1, maxDeployCount: 1 };
   const phase = { maxLevel: 99, rangeId: 'test-range', attributesKeyFrames: [{ level: 1, data: attrs }, { level: 99, data: attrs }] };

@@ -25,6 +25,7 @@ import fs from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { copyTree } from './helpers/copyTree.js';
 
 import {
   BEHAVIOUR_SWITCHES, BEHAVIOUR_SWITCH_NAMES, parseBehaviourDecl, behaviourActions,
@@ -175,7 +176,7 @@ function describe_real_submissions() {
   const realRoot = (id) => {
     const from = join(REAL_RW, id, id);
     const dir = fs.mkdtempSync(join(tmpdir(), `sp-ws-real-${id}-`));
-    fs.cpSync(from, join(dir, id), { recursive: true });
+    copyTree(from, join(dir, id));
     const pj = join(dir, id, 'pack.json');
     const manifest = JSON.parse(fs.readFileSync(pj, 'utf8'));
     manifest.behaviour = [{ switch: SW, option: 'strip' }];

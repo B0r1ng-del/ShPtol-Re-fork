@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { copyTree } from '../helpers/copyTree.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -64,7 +65,7 @@ function fixture() {
   for (const rel of ['server', 'shared', 'data', 'tools/assets', 'public/js', 'public/studio/js', 'public/css', 'public/index.html',
     'public/vendor/hooks.module.js', 'public/vendor/preact.module.js', 'package.json']) {
     fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
-    fs.cpSync(path.join(ROOT, rel), path.join(root, rel), { recursive: true });
+    copyTree(path.join(ROOT, rel), path.join(root, rel));
   }
   fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(root, 'node_modules'), 'junction');
   fs.mkdirSync(path.join(root, 'public/dev'), { recursive: true });

@@ -11,13 +11,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { Client, ROOT, hasChrome, startRealServer } from '../e2e/client.mjs';
+import { copyTree } from '../helpers/copyTree.js';
 
 const ENABLED = process.env.SP_E2E === '1' && hasChrome();
 
 describe('an interface plugin in the prep slot', { skip: !ENABLED }, () => {
   test('the example widget mounts, totals a damage event, and a match intent is rejected', { timeout: 4 * 60 * 1000 }, async () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-ui-e2e-'));
-    fs.cpSync(path.join(ROOT, 'plugins/_template/ui'), path.join(tmp, 'damage-meter'), { recursive: true });
+    copyTree(path.join(ROOT, 'plugins/_template/ui'), path.join(tmp, 'damage-meter'));
     const srv = await startRealServer({ fast: { timerScale: 1, combatSpeed: 2, startRound: 1, autoPlace: true }, pluginsDir: tmp });
     const P = (await import('puppeteer-core')).default;
     const c = new Client(P, srv.base, 'solo', { prefix: 'ui-plugin', w: 1600, h: 900 });

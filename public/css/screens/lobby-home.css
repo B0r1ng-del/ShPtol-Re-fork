@@ -1,0 +1,617 @@
+/* Main terminal: clear type hierarchy, compact connection controls and room for the assistant. */
+.lobby-home{position:relative;isolation:isolate;overflow:hidden;min-height:100%;background:#182c38;color:#f1f4f4}
+.lobby-scene{position:absolute;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:#334650;
+  /* ★ 2026-11-17（第 4 轮·按钮闪烁）：原来是 js 直接写 style visibility:hidden，
+     进入全屏浮层时实测 2ms 内就从 visible 跳到 hidden —— 中间没有过渡，
+     肉眼是「画面整体闪一下」。改成用 opacity 过渡，visibility 推到过渡结束才生效
+     （见下面 .is-occluded 的 transition-delay），这样既平滑又不会残留透明层挡住点击。 */
+  opacity:1;transition:opacity 160ms var(--ease-out),visibility 0s linear 0s}
+/* 被全屏浮层盖住时淡出而不是瞬灭；visibility 延迟到 opacity 走完再切，避免闪。 */
+.lobby-scene.is-occluded{opacity:0;visibility:hidden;transition:opacity 160ms var(--ease-out),visibility 0s linear 160ms}
+.lobby-scene__image{position:absolute;inset:-5%;background-position:center;background-size:cover;transition:background-image .4s;animation:lobby-camera 22s ease-in-out infinite alternate}
+.lobby-scene.is-cg .lobby-scene__image{animation:lobby-cg-breathe 9s ease-in-out infinite alternate}
+.lobby-scene__wash{position:absolute;inset:0;background:linear-gradient(90deg,#06131f15,transparent 38%,#07192560 77%,#06101b80),linear-gradient(0deg,#07121de0,transparent 32%,transparent 80%,#07131c80)}
+.lobby-scene canvas{position:absolute;inset:0;width:100%;height:100%}
+.home-top{position:absolute;top:max(24px,env(safe-area-inset-top));left:32px;right:32px;display:flex;align-items:center;gap:6px;z-index:2}
+/* 顶部菜单统一语言（需求方 2026-11-16）：延迟/返回/设置/工坊/玩法说明/添加主页/版本/背景替换/Mod
+   全部同一高度、同一 1px 细边、同一直角、同一图标尺寸与 6px 图文间距，不再有「两种设计」并存。 */
+.home-top>.btn,.home-top .btn,.home-tool,.home-top .ping,.home-top .verchip{height:40px;min-width:40px;border:1px solid #d8e8ee21;border-radius:2px;background:#0e202dcc;color:#dce7ec;box-shadow:none}
+.home-top .btn__label,.home-tool span{font-size:11px}
+.home-top .btn__icon,.home-top .ping__icon,.home-top .verchip .icon,.home-tool .icon{width:16px;height:16px;flex:none}
+.home-top>.btn,.home-top .btn,.home-tool{gap:6px}
+.home-tool{display:flex;align-items:center;justify-content:center;gap:6px;padding:0 12px;font:11px var(--font-num);cursor:pointer;transition:background .18s,border-color .18s}
+.home-top .ping{display:inline-flex;align-items:center;gap:6px;padding:0 12px;font:11px var(--font-num);font-variant-numeric:tabular-nums;cursor:default}
+.home-top .verchip{display:inline-flex;align-items:center;gap:6px;padding:0 12px;font:11px var(--font-num);cursor:pointer;white-space:nowrap}
+.home-tool:hover,.home-top .btn:hover{background:#213c4de8;border-color:#d8e8ee60}.home-tool .icon{width:18px;height:18px}
+.home-clock{margin-left:auto;font:9px var(--font-num);letter-spacing:2px;color:#e2e9edb0;text-shadow:0 1px 4px #000}.home-clock span{margin:0 10px;color:#e4b16c}
+.home-duel{position:absolute;left:32px;top:100px;display:grid;grid-template-columns:auto 1fr;column-gap:14px;align-items:center;padding:13px 20px;border-left:2px solid #b4cad3;background:#112735bf;color:#e6edf0;text-decoration:none;font-size:18px;transition:background .2s}
+.home-duel>span{grid-row:1/3;font-size:26px;font-weight:300}.home-duel small{font:8px var(--font-num);letter-spacing:2px;margin-top:5px;color:#a3bac5}.home-duel:hover{background:#254657e6}
+.home-identity{position:absolute;left:38px;bottom:196px;display:flex;gap:12px;align-items:center;text-shadow:0 2px 4px #18222c}
+.home-identity__level{display:flex;flex-direction:column;justify-content:center;align-items:center;width:54px;height:54px;border:1px solid #ffffff60;border-radius:50%;font:9px var(--font-num);background:#15232d80}.home-identity__level>span{font-size:24px}
+.home-identity strong{font-size:24px;font-weight:600}.home-identity small{display:block;font:9px var(--font-num);letter-spacing:1.8px;margin-top:6px;color:#d7e4e9}
+.lobby-home .home-menu{position:absolute;right:3.2%;top:17%;width:47%;max-width:690px;display:flex;flex-direction:column;gap:14px;transform:translate(var(--float-x,0px),var(--float-y,0px));transform-origin:right center}
+.home-caption{display:flex;justify-content:space-between;align-items:center;padding:0 1px 8px;border-bottom:1px solid #e4eef13b;font:9px var(--font-num);letter-spacing:2px;color:#d6e4e9;text-shadow:0 1px 3px #000}.home-caption .is-online{color:#d4e8db;letter-spacing:1px}
+.home-simulation>button,.home-operators>button,.home-rooms{position:relative;text-align:left;cursor:pointer;font-family:inherit;border:1px solid #f2f7f350;border-radius:2px;color:#172b37;transition:transform .18s,filter .18s,border-color .18s;box-shadow:0 8px 20px #00121d24;overflow:hidden}
+.home-simulation>button:hover,.home-operators>button:hover,.home-rooms:hover{transform:translateY(-2px);filter:brightness(1.07);border-color:#ffcd8c}.home-simulation>button:active,.home-operators>button:active,.home-rooms:active{transform:translateY(0)}
+.home-menu button:focus-visible,.home-tool:focus-visible,.home-duel:focus-visible{outline:2px solid #ffc27a;outline-offset:3px}
+.home-simulation{display:grid;grid-template-columns:1fr 29%;gap:8px;min-height:152px}
+.home-alliance{padding:18px 22px;background:linear-gradient(115deg,#f4f4eefa,#d5e0e4f5);display:flex;flex-direction:column;justify-content:space-between;border-left:4px solid #dcad67!important}
+.home-alliance::after{content:'';position:absolute;right:-4%;top:-60%;width:160px;height:280px;border:1px solid #64819030;transform:rotate(35deg);box-shadow:18px 0 0 #5673800c,36px 0 0 #56738008;pointer-events:none}
+.home-alliance small,.home-operators small,.home-rooms small{font:9px var(--font-num);letter-spacing:1.8px;opacity:.6}
+.home-alliance strong{font-size:clamp(28px,3.15vw,48px);font-weight:800;letter-spacing:3px;line-height:1.2;z-index:1}.home-alliance>span{font-size:11px;letter-spacing:1px}.home-alliance b{float:right;font-size:23px;line-height:12px}
+.home-solo{padding:16px 10px;display:flex;flex-direction:column;justify-content:center;align-items:center;background:#17394bde;color:#e4eef2!important;text-align:center!important;gap:13px;border-color:#d6e5ec40!important}.home-solo .icon{width:24px;height:24px;color:#a9c7d4}.home-solo strong{font-size:clamp(15px,1.5vw,23px);white-space:nowrap;letter-spacing:1px}.home-solo small{font:7px var(--font-num);letter-spacing:1px;color:#bed0db}
+.home-operators{display:grid;grid-template-columns:1fr 1fr;gap:8px}.home-operators button{background:linear-gradient(115deg,#dce5e8ed,#c8d7ddec);min-height:94px;padding:15px 21px;display:flex;flex-direction:column;gap:12px;justify-content:center}
+.home-operators strong{font-size:clamp(20px,2.1vw,30px);font-weight:650;letter-spacing:2px;z-index:1}.home-operators .icon{position:absolute;right:14px;bottom:10px;width:54px;height:54px;opacity:.09}
+.home-rooms{background:#123043eb;color:#e8f0f4;min-height:93px;padding:13px 21px;display:grid;grid-template-columns:1fr 45%;gap:15px;border-top:2px solid #bba06f}
+.home-rooms>div:first-child{display:grid;grid-template-columns:1fr auto;align-items:center;gap:7px}.home-rooms small{grid-column:1/-1}.home-rooms strong{font-size:clamp(17px,1.7vw,25px);font-weight:600;letter-spacing:1px}.home-rooms>div>span{font:21px var(--font-num);color:#e2ba7f}.home-rooms span>b{font-size:18px;margin-left:7px}
+.home-counters{display:grid;grid-template-columns:1fr 1fr;align-items:center}.home-counters>span{display:flex;flex-direction:column;font-size:10px!important;text-align:center;border-left:1px solid #ffffff26;gap:7px;color:#b2c8d2!important}.home-counters>span>b{font:22px var(--font-num);margin:0;color:#edf3f5}
+.home-connect{border:1px solid #c9dbe52e;border-radius:2px;background:#0b2332ed;box-shadow:0 8px 20px #00121d24;padding:13px 16px 10px;margin-top:-7px;--mint-500:#d5b179;--mint-400:#edd1a3}
+.home-connect .join-panel{padding:0;border:0;background:transparent;box-shadow:none}.home-connect .join-panel::before,.home-connect .join-panel::after{display:none}
+.home-connect .join-row{display:flex;gap:7px;align-items:stretch}.home-connect .join-row .field{flex:1;min-width:0;margin:0}.home-connect .field__box{height:38px;min-height:38px;padding:0 10px;background:#071923a3;border:1px solid #9eb7c54d;box-shadow:none}.home-connect .field__box:focus-within{border-color:#e2ba7f}.home-connect input{min-width:0;width:100%;font:12px var(--font-num);letter-spacing:.7px;color:#e5edf1}.home-connect input::placeholder{font:11px var(--font-cjk);letter-spacing:0;color:#a0b4c0}.home-connect .field__icon{width:14px;height:14px;color:#d3b68a}
+.home-connect .join-row .btn{height:38px;min-height:38px;padding:0 12px;font-size:12px;letter-spacing:0;gap:5px;white-space:nowrap}.home-connect .join-row .btn__label{font-size:12px}.home-connect .join-row .icon{width:14px;height:14px}.home-connect .btn--amber{background:#d8bb89;color:#172733;border-color:#e1cda8}.home-connect .join-spectate{background:#203a4b;border-color:#9eb7c54d;color:#dbe7ed}
+.home-connect .join-foot{min-height:23px;margin-top:8px;display:flex;flex-wrap:wrap;gap:7px;font-size:10px;line-height:1.5;color:#a6bcc8}.home-connect .join-foot .t-dim{color:#96aebb}.home-connect .code-chip{min-height:21px;padding:2px 7px;font-size:10px;background:#193a4d;border:1px solid #789aaa50;color:#dfc696;border-radius:2px}
+.home-connect .tips{margin:8px 0 0;padding:9px 0 0;border:0;border-top:1px solid #bed1de26;background:none;min-height:0}.home-connect .tips::before,.home-connect .tips::after{display:none}.home-connect .tips__head{gap:6px;font-size:10px;color:#adbfca}.home-connect .tips__head>.icon{width:12px;height:12px;color:#d1b486}.home-connect .tips__head .micro{font-size:7px;letter-spacing:1px}.home-connect .tips__idx{font:9px var(--font-num);margin-left:auto;color:#c2d0d9}.home-connect .tips__nav{width:22px;height:20px;padding:0;color:#b7c9d4}.home-connect .tips__nav .icon{width:12px;height:12px}.home-connect .tips__text{margin:5px 0 0;font-size:11px;line-height:1.5;color:#d2dce2;min-height:17px}
+.home-personal{position:absolute;left:38px;bottom:85px;display:flex;gap:2px}.home-personal .btn,.home-personal>button{height:38px;min-height:38px;border:1px solid #d8e8ee25;background:#102735d9;color:#d9e5eb;border-radius:2px;font:12px var(--font-cjk);text-align:center;padding:0 15px;cursor:pointer;box-shadow:none}.home-personal .btn__label{font-size:12px}.home-personal .icon{width:14px;height:14px}
+.home-footer{position:absolute;bottom:23px;left:38px;right:3.2%;display:flex;gap:20px;align-items:center;font:8px var(--font-num);letter-spacing:1.5px;color:#d2dfe49c}.home-footer>span:nth-child(2){margin-left:auto}
+.home-backgrounds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;max-height:52vh;overflow:auto}.home-backgrounds button{border:2px solid transparent;padding:0;background:#1b2630;color:#fff;text-align:left;cursor:pointer;position:relative}.home-backgrounds button.is-on{border-color:#ef9b39}.home-backgrounds img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block}.home-backgrounds span{display:block;padding:7px;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.home-backgrounds small{position:absolute;right:7px;top:7px;background:#0c192ca0;padding:3px 6px}
+.home-actors{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:15px;max-height:150px;overflow:auto}.home-actors button{padding:7px 13px;background:#1b2630;border:1px solid #ffffff30;color:#fff;cursor:pointer}.home-actors .is-on{border-color:#ef9b39;color:#ffb558}.home-actors small{font-size:10px;color:#e4b46a}
+.home-position{display:flex;flex-wrap:wrap;gap:14px;margin:14px 0;color:#ddd}.home-position label{display:grid;gap:5px;flex:1;min-width:130px;font-size:13px}.home-position input{width:100%;accent-color:#efa23d}.home-position button{color:#fff;background:#263440;border:1px solid #617480;padding:7px}
+.home-setup .lobby-body{position:relative;display:grid;grid-template-columns:1fr 1fr;max-height:65vh;overflow:auto;gap:12px;padding:8px;background:#0b1119}.home-setup .lobby-other{display:none}.home-setup .lobby-left,.home-setup .lobby-right{min-height:0;padding:0}
+.lobby-dynamic-assistant{position:absolute;inset:0;pointer-events:none;transform:translate(calc(var(--scene-x,0px)*1.4),calc(var(--scene-y,0px)*1.4))}.lobby-dynamic-assistant canvas{display:block;pointer-events:none}.assistant-interact{position:absolute;width:28%;height:70%;z-index:1;background:transparent;border:0;cursor:pointer;touch-action:manipulation}.assistant-interact:focus-visible{outline:2px dashed #ffbe6c;outline-offset:-12px}
+.assistant-dialogue{position:absolute;left:4%;bottom:8%;width:43%;z-index:5;background:#102231ed;border-left:3px solid #4ed8af;padding:18px 25px;color:#fff;box-shadow:0 8px 35px #0005;pointer-events:auto}.assistant-dialogue strong{font-size:22px}.assistant-dialogue p{font-size:18px;line-height:1.75;margin:10px 0 0}.assistant-dialogue>button{position:relative;z-index:8;float:right;min-width:40px;min-height:40px;background:none;border:0;color:white;font-size:26px;cursor:pointer}.assistant-search{padding:10px;width:100%;background:#12212c;border:1px solid #77919e;color:#fff;margin-bottom:12px}
+@keyframes lobby-camera{from{transform:translate(var(--scene-x,0px),var(--scene-y,0px)) scale(1.02) rotate(-.3deg)}to{transform:translate(calc(var(--scene-x,0px) - 8px),calc(var(--scene-y,0px) + 5px)) scale(1.065) rotate(.25deg)}}
+@keyframes lobby-cg-breathe{from{transform:translate(var(--scene-x,0px),var(--scene-y,0px)) scale(1.025)}to{transform:translate(calc(var(--scene-x,0px) + 5px),calc(var(--scene-y,0px) - 3px)) scale(1.045)}}
+@media(max-height:760px){.lobby-home .home-menu{top:16%;gap:9px}.home-simulation{min-height:122px}.home-operators button{min-height:76px}.home-rooms{min-height:75px}.home-connect{padding:10px 13px 8px;margin-top:-3px}.home-alliance{padding:15px 20px}.home-personal{bottom:65px}.home-identity{bottom:152px}}
+@media(max-width:1050px){.home-top{left:18px;right:18px;top:15px;gap:4px}.home-top>.btn,.home-top .btn,.home-tool{height:34px;min-width:34px}.home-tool{padding:0 9px}.home-tool span,.home-clock{display:none}.lobby-home .home-menu{width:51%;right:2.5%}.home-duel{left:18px;top:72px;padding:10px 14px;font-size:16px}.home-identity{left:22px}.home-personal{left:22px}.home-personal .btn,.home-personal>button{padding:0 10px}.home-footer{left:22px;font-size:7px}.home-connect .join-row .btn{padding:0 8px}.home-connect .join-row .icon{display:none}.home-connect input::placeholder{font-size:10px}.home-connect .tips__head .micro{display:none}}
+@media(max-height:500px) and (orientation:landscape){
+ .home-top{top:12px}.home-top>.btn,.home-top .btn,.home-tool{height:29px;min-width:30px}.home-top .btn__label,.home-tool{font-size:10px}.home-top .icon{width:16px;height:16px}
+ .lobby-home .home-menu{top:16%;gap:6px;width:52%;right:2.5%;max-height:calc(84% - 23px);overflow-y:auto;scrollbar-width:thin;scrollbar-color:#b9cbd050 transparent;padding:2px}
+ .home-caption{font-size:7px;padding-bottom:4px;letter-spacing:1.1px}.home-simulation{min-height:70px;gap:5px}.home-alliance{padding:9px 13px}.home-alliance small,.home-operators small,.home-rooms small{font-size:6px;letter-spacing:1px}.home-alliance strong{font-size:27px;letter-spacing:2px}.home-alliance>span{font-size:8px}.home-alliance b{font-size:16px}
+ .home-solo{padding:7px;gap:5px}.home-solo .icon{width:17px;height:17px}.home-solo strong{font-size:15px}.home-solo small{font-size:6px}.home-operators{gap:5px}.home-operators button{min-height:51px;padding:8px 13px;gap:6px}.home-operators strong{font-size:19px}.home-operators .icon{width:30px;height:30px}
+ .home-rooms{min-height:56px;padding:8px 13px;gap:7px}.home-rooms>div:first-child{gap:3px}.home-rooms strong{font-size:17px}.home-rooms>div>span{font-size:15px}.home-counters>span{font-size:8px!important;gap:3px}.home-counters>span>b{font-size:17px}
+ .home-connect{padding:7px 10px 6px;margin-top:-2px}.home-connect .join-row{gap:5px}.home-connect .field__box,.home-connect .join-row .btn{height:29px;min-height:29px}.home-connect .join-row .btn__label{font-size:10px}.home-connect input{font-size:11px}.home-connect .field__box{padding:0 7px}.home-connect .join-foot{min-height:15px;margin-top:4px;font-size:8px;gap:5px}.home-connect .code-chip{min-height:16px;padding:0 5px;font-size:9px}.home-connect .tips{margin-top:5px;padding-top:5px}.home-connect .tips__head{font-size:8px;gap:4px}.home-connect .tips__nav{width:20px;height:16px}.home-connect .tips__text{font-size:9px;line-height:1.4;min-height:13px;margin-top:3px}
+ .home-duel{top:61px;font-size:15px;padding:8px 13px}.home-duel small{font-size:6px}.home-duel>span{font-size:22px}.home-identity{bottom:105px;gap:9px}.home-identity__level{width:35px;height:35px;font-size:7px}.home-identity__level>span{font-size:17px}.home-identity strong{font-size:17px}.home-identity small{font-size:7px}.home-personal{bottom:44px}.home-personal .btn,.home-personal>button{height:30px;min-height:30px;padding:0 8px;font-size:10px}.home-personal .btn__label{font-size:10px}.home-personal .icon{width:12px;height:12px}.home-footer{bottom:10px;font-size:6px;letter-spacing:.8px}
+ .assistant-dialogue{padding:10px 14px;width:43%;bottom:4%}.assistant-dialogue p{font-size:13px;line-height:1.4}.assistant-dialogue strong{font-size:15px}
+}
+@media(orientation:portrait){.lobby-home .home-menu{top:30%;width:88%;right:6%;max-height:64%;overflow-y:auto}.home-identity{top:20%;bottom:auto}.home-duel{top:70px}.home-personal{bottom:50px}.home-backgrounds{grid-template-columns:1fr 1fr}}
+@media(pointer:coarse){.lobby-dynamic-assistant{transform:none}.lobby-home .home-menu{transform:none}.home-simulation>button:hover,.home-operators>button:hover,.home-rooms:hover{transform:none;filter:none}}
+@media(prefers-reduced-motion:reduce){.lobby-scene__image{animation:none!important;transition:none}.lobby-home .home-menu{transform:none}.home-menu button{transition:none}}
+.home-connect .join-panel .panel__body{padding:0;gap:0}
+/* The legacy device stylesheet hides all tips; this group stays available on the home screen. */
+.home-connect .tips{display:block}
+@media(max-height:500px) and (orientation:landscape){
+ .home-caption{line-height:1.1}.home-simulation{min-height:62px}.home-alliance{padding:7px 12px}.home-alliance strong{font-size:25px;line-height:1.1}.home-alliance small,.home-alliance>span{line-height:1.2}.home-solo{gap:4px}.home-solo .icon{width:15px;height:15px}
+ .home-operators button{min-height:46px;padding:6px 12px;gap:4px}.home-operators strong{font-size:18px;line-height:1.1}.home-operators small{line-height:1.2}
+ .home-rooms{min-height:48px;padding:6px 12px}.home-rooms strong{font-size:16px;line-height:1.1}.home-rooms small{line-height:1.2}.home-counters>span{line-height:1.1}
+ .home-connect{padding:6px 9px 5px}.home-connect .join-foot{line-height:1.25;min-height:12px}.home-connect .tips{margin-top:4px;padding-top:4px}.home-connect .tips__head{line-height:1.1}.home-connect .tips__text{line-height:1.3;margin-top:2px;min-height:12px}
+}
+
+/* Independent modes sit below the room panel and flow together on small screens. */
+.home-modes{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
+.home-modes .home-duel{position:static;min-width:0;padding:10px 14px;font-size:17px;grid-template-columns:auto 1fr auto;gap:3px 10px}
+.home-modes .home-duel>.icon{grid-row:1/3;width:23px;height:23px}
+.home-modes .home-duel>strong{grid-column:2;grid-row:1}
+.home-modes .home-duel>small{grid-column:2;grid-row:2;margin-top:2px;font-size:7px;letter-spacing:1px}
+.home-modes .home-duel>span{grid-column:3;grid-row:1/3;font-size:23px}
+@media(max-height:500px) and (orientation:landscape){.home-modes{gap:6px}.home-modes .home-duel{padding:6px 10px;font-size:13px}.home-modes .home-duel>small{font-size:6px}.home-modes .home-duel>.icon{width:17px;height:17px}}
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+   大厅外观打磨 (UI polish pass, 2026-10-23) —— 桌面端向「本家」的主界面靠：一列纸面菜单 + 右侧阅读底 + 暗色功能块
+
+   背景是一整幅立绘，右侧要放菜单。本家的做法是：**菜单列背后压一层右深左浅的阅读底**，菜单本身是
+   一列等宽的白色/象牙色纸牌（黑色文字、左侧一道细金线、右下角留白），功能性的块（房间、加入、连接）
+   仍然是暗色。这套规则只覆盖观感：
+
+     · 阅读底：`.lobby-home::after` 一条从左到右加深的渐变，消掉"立绘被竖着切一刀"的硬边；
+     · 四张纸牌：同盟 / 单人 / S.W.E.E.P.报告 / 物资调配处 —— 同宽、同左缘、同金线，同盟那张更高一档；
+     · 暗色块：可加入房间 / 加入同盟 / 争锋频道 —— 统一深蓝底、顶部 2px 金线、同样的投影；
+     · 左下的身份牌、左上的音乐条也收成同一族（暗玻璃 + 金线），不再压着立绘没有依托。
+
+   只在桌面尺寸生效（宽度 ≥1240 且高度 ≥700）：手机横屏/竖屏继续用上面那套紧凑布局，不去动它。
+   选择器统一带 `.lobby-screen.lobby-home`，比 `home-panels.css` / `mobile-desktop.css` 多一级，
+   这样后加载的文件也盖不掉。
+   ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════ */
+@media (min-width: 1240px) and (min-height: 700px) {
+  /* ---- 1. 阅读底与列宽 ------------------------------------------------------------------------ */
+  .lobby-screen.lobby-home::after {
+    content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    background:
+      linear-gradient(90deg, transparent 46%, #06142080 62%, #05111cb8 78%, #040e17cc 100%),
+      linear-gradient(0deg, #040d15b8, transparent 24%);
+  }
+  .lobby-screen.lobby-home .home-menu {
+    z-index: 2; right: 3.4%; top: 15.5%; width: min(660px, 36vw); max-width: 660px; gap: 8px;
+    max-height: calc(100dvh - 150px);
+  }
+  .lobby-screen.lobby-home .home-caption {
+    padding: 0 2px 9px; font-size: 9.5px; letter-spacing: .28em; color: #cfdde3;
+    border-bottom: 1px solid #dfe9ef33; display: flex; align-items: center; gap: 10px;
+  }
+  .lobby-screen.lobby-home .home-caption > span.is-online { margin-left: auto }
+  .lobby-screen.lobby-home .home-caption::before {
+    content: ""; display: inline-block; width: 2px; height: 12px; margin-right: 2px;
+    background: #c8a86b;
+  }
+
+  /* ---- 2. 菜单牌 ------------------------------------------------------------------------------ */
+  /*
+   * 「同盟模拟 + 单人模拟」这一对是原本就定好的主次组合（宽白牌 + 窄暗牌），**保持原样**：
+   * 尺寸、渐变、金色左边、斜切装饰、暗色的单人牌全部交回 lobby-home.css 的基础规则，
+   * 这一节只让它的宽度跟着新的栏宽（第 1 节的 .home-menu）走。
+   *
+   * 下面两张（S.W.E.E.P.报告 / 物资调配处）原来是两行灰牌、高度还不一致，这里统一成同宽同高的纸牌，
+   * 左缘的 3px 金线和大白牌对齐 —— 于是整列读起来是"主入口 + 两行次级菜单"。
+   */
+  .lobby-screen.lobby-home .home-operators {
+    display: flex !important; flex-direction: column !important; gap: 8px !important;
+    min-height: 0 !important; height: auto !important; grid-template-columns: none !important;
+  }
+  /* 栏宽拉到 660 之后主牌更宽，稍微加一点高度，免得「大白牌」看着被压扁 */
+  .lobby-screen.lobby-home .home-simulation { min-height: 168px !important }
+  .lobby-screen.lobby-home .home-menu .home-report,.lobby-screen.lobby-home .home-menu .home-diy,
+  .lobby-screen.lobby-home .home-menu .home-materials {
+    position: relative; display: flex !important; flex-direction: column; justify-content: center;
+    align-items: flex-start !important;
+    width: 100%; min-height: 78px; height: 78px !important; padding: 14px 64px 14px 26px;
+    text-align: left !important; color: #16242d !important;
+    background: linear-gradient(100deg, #fdfefd 0%, #f1f4f3 46%, #dee6e6 100%);
+    border: 1px solid #ffffffa6 !important; border-left: 3px solid #c8a86b !important;
+    border-radius: 1px; box-shadow: 0 14px 30px -22px #001018cc;
+    transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+  }
+  .lobby-screen.lobby-home .home-menu .home-report:hover,
+  .lobby-screen.lobby-home .home-menu .home-diy:hover,
+  .lobby-screen.lobby-home .home-menu .home-materials:hover {
+    transform: translateX(3px); filter: brightness(1.02);
+    box-shadow: 0 18px 34px -22px #001018e6, 0 0 0 1px #c8a86b5c;
+  }
+  .lobby-screen.lobby-home .home-menu .home-report small,
+  .lobby-screen.lobby-home .home-menu .home-diy small,
+  .lobby-screen.lobby-home .home-menu .home-materials small {
+    font: 8.5px/1.4 var(--font-num) !important; letter-spacing: .24em !important; color: #5e6e76 !important; opacity: 1 !important;
+  }
+  .lobby-screen.lobby-home .home-menu .home-report strong,
+  .lobby-screen.lobby-home .home-menu .home-diy strong,
+  .lobby-screen.lobby-home .home-menu .home-materials strong {
+    font-size: clamp(19px, 1.5vw, 25px); font-weight: 700; letter-spacing: .08em; line-height: 1.25; margin: 5px 0 0; z-index: 1;
+  }
+  /* 右侧的水印：图标 / 笔刷纹理，给纸牌一点"内容感"，仍然压低不抢字 */
+  .lobby-screen.lobby-home .home-menu .home-report .icon,
+  .lobby-screen.lobby-home .home-menu .home-diy .icon {
+    position: absolute !important; right: 22px !important; top: 50% !important; bottom: auto !important;
+    left: auto !important; width: 30px !important; height: 30px !important; margin: 0 !important;
+    transform: translateY(-50%); color: #33454e; opacity: .26 !important;
+  }
+  .lobby-screen.lobby-home .home-menu .home-materials img {
+    position: absolute !important; right: 0 !important; top: 0 !important; left: auto !important;
+    width: 44% !important; height: 100% !important; margin: 0 !important;
+    object-fit: cover; opacity: .06 !important; filter: invert(1) grayscale(1); pointer-events: none;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 58%);
+    mask-image: linear-gradient(90deg, transparent, #000 58%);
+  }
+  .lobby-screen.lobby-home .home-menu .home-materials { overflow: hidden }
+  .lobby-screen.lobby-home .home-menu .home-resources .home-materials { grid-column: auto !important }
+  /* home-panels.css 给这张牌的标题加了 !important 的小字号，这里拉回和报告一致 */
+  .lobby-screen.lobby-home .home-menu .home-materials > strong {
+    font-size: clamp(19px, 1.5vw, 25px) !important; letter-spacing: .08em !important; margin: 5px 0 0 !important;
+  }
+
+  /* ---- 3. 暗色功能块 -------------------------------------------------------------------------- */
+  .lobby-screen.lobby-home .home-menu .home-rooms {
+    display: grid; grid-template-columns: 1fr 46%; gap: 16px; align-items: center;
+    min-height: 88px; height: auto; margin-top: 6px; padding: 14px 22px 14px 26px; color: #e8f0f4;
+    background: linear-gradient(105deg, #103042f0, #0a1e2ceb 70%, #081823f0);
+    border: 1px solid #9fb8c433 !important; border-top: 2px solid #c8a86b !important;
+    border-radius: 1px; box-shadow: 0 16px 34px -24px #001018cc;
+  }
+  .lobby-screen.lobby-home .home-menu .home-rooms strong { font-size: clamp(19px, 1.5vw, 25px); letter-spacing: .08em }
+  .lobby-screen.lobby-home .home-menu .home-rooms small { color: #9db4c0 !important; letter-spacing: .24em }
+  .lobby-screen.lobby-home .home-menu .home-rooms > div > span { font: 22px/1 var(--font-num); color: #e0c08c }
+  .lobby-screen.lobby-home .home-counters > span {
+    gap: 6px; font-size: 10px !important; letter-spacing: .12em; color: #a9bfca !important;
+    border-left: 1px solid #ffffff1f;
+  }
+  .lobby-screen.lobby-home .home-counters > span > b { font: 24px/1 var(--font-num); color: #f0f5f7; letter-spacing: 0 }
+
+  .lobby-screen.lobby-home .home-menu .home-connect {
+    padding: 14px 18px 12px; margin-top: 0;
+    background: linear-gradient(105deg, #0d2637f2, #091a26f2);
+    border: 1px solid #9fb8c42e; border-top: 2px solid #c8a86b;
+    border-radius: 1px; box-shadow: 0 16px 34px -24px #001018cc;
+    --mint-500: #d5b179; --mint-400: #edd1a3;
+  }
+  .lobby-screen.lobby-home .home-connect .field__box { height: 42px; min-height: 42px; border-radius: 1px }
+  .lobby-screen.lobby-home .home-connect .join-row .btn { height: 42px; min-height: 42px; border-radius: 1px }
+  .lobby-screen.lobby-home .home-connect .tips { margin-top: 10px; padding-top: 10px }
+
+  .lobby-screen.lobby-home .home-menu .home-modes .home-duel {
+    width: 100% !important; min-width: 0 !important; height: auto; min-height: 56px;
+    margin: 0 !important; padding: 10px 20px 10px 24px !important;
+    background: linear-gradient(100deg, #f2f0e8, #e2ddcd 70%, #cfc6ae) !important;
+    border: 1px solid #ffffff9e !important; border-left: 3px solid #c8a86b !important;
+    border-radius: 1px; color: #22333d;
+    box-shadow: 0 14px 30px -22px #001018cc;
+  }
+  .lobby-screen.lobby-home .home-menu .home-modes .home-duel > strong { font-size: 18px; letter-spacing: .06em }
+  .lobby-screen.lobby-home .home-menu .home-modes .home-duel > small { font-size: 8.5px; letter-spacing: .2em; color: #5e6e76 }
+  .lobby-screen.lobby-home .home-menu .home-modes .home-duel > span { font-size: 20px; color: #4a5b64 }
+  .lobby-screen.lobby-home .home-menu .home-modes .home-duel .icon { width: 26px; height: 26px; color: #33454e; opacity: .8 }
+
+  /* ---- 4. 左上音乐条 / 左下身份牌 / 顶栏 ------------------------------------------------------ */
+  /* 音乐条恢复成原来那块 400px 的尺寸（最小 320，窄屏按 24vw 收），只换成和这一屏一致的深色玻璃 + 金线。 */
+  .lobby-screen.lobby-home .home-music {
+    left: 30px; top: 88px; width: clamp(320px, 24vw, 400px); max-width: 400px; padding: 14px 16px;
+    color: #dfeaee; background: linear-gradient(115deg, #0b1e28e6, #081720e6);
+    border: 1px solid #ffffff1f; border-left: 2px solid #c8a86b;
+    box-shadow: 0 16px 34px -26px #000;
+  }
+  .lobby-screen.lobby-home .home-music header { margin-bottom: 10px }
+  .lobby-screen.lobby-home .home-music header > span { color: #d8bc89; font-size: 21px }
+  .lobby-screen.lobby-home .home-music strong { font-size: 14px; letter-spacing: .04em }
+  .lobby-screen.lobby-home .home-music small { font-size: 9px; letter-spacing: 1px; color: #94a9b2 }
+  .lobby-screen.lobby-home .home-music select {
+    padding: 8px 10px; font-size: 13px; background: #061520a6; color: #e2eaee;
+    border: 1px solid #9fb8c433; border-radius: 1px;
+  }
+  .lobby-screen.lobby-home .home-music__controls { margin-top: 9px; gap: 5px }
+  .lobby-screen.lobby-home .home-music button {
+    min-width: 29px; height: 29px; padding: 0 7px; font-size: 11px;
+    background: #ffffff0a; border: 1px solid #9fb8c42e; border-radius: 1px; color: #cfdde3;
+  }
+  .lobby-screen.lobby-home .home-music button:hover,
+  .lobby-screen.lobby-home .home-music button[aria-pressed="true"] { border-color: #c8a86b; background: #c8a86b26; color: #f1e4c9 }
+  .lobby-screen.lobby-home .home-music input { accent-color: #c8a86b }
+  .lobby-screen.lobby-home .home-music label { font-size: 10px; min-width: 35px; color: #a9bfca }
+
+  .lobby-screen.lobby-home .home-identity {
+    left: 30px; bottom: 176px; padding: 10px 18px 10px 12px; gap: 14px;
+    background: linear-gradient(90deg, #061420c9, #06142059 70%, transparent);
+    border-left: 2px solid #c8a86b; text-shadow: 0 2px 6px #0009;
+  }
+  .lobby-screen.lobby-home .home-identity__level {
+    width: 46px; height: 46px; border-color: #ffffff59; background: #0a1a2473; font-size: 8px;
+  }
+  .lobby-screen.lobby-home .home-identity__level > span { font-size: 20px }
+  .lobby-screen.lobby-home .home-identity strong { font-size: 21px; letter-spacing: .04em }
+  .lobby-screen.lobby-home .home-identity small { font-size: 8.5px; letter-spacing: .22em; color: #b9cbd4 }
+
+  .lobby-screen.lobby-home .home-top { left: 24px; right: 24px; top: 18px; gap: 4px }
+  .lobby-screen.lobby-home .home-top > .btn,
+  .lobby-screen.lobby-home .home-top .btn,
+  .lobby-screen.lobby-home .home-tool {
+    height: 34px; min-height: 34px; min-width: 34px;
+    background: #0a1b25cc; border: 1px solid #ffffff1a; border-radius: 1px; color: #d7e3e9;
+  }
+  .lobby-screen.lobby-home .home-top .btn:hover,
+  .lobby-screen.lobby-home .home-tool:hover { background: #16303fd9; border-color: #c8a86b66 }
+  .lobby-screen.lobby-home .home-clock { font-size: 8.5px; letter-spacing: .24em; color: #cfdde3b3 }
+  .lobby-screen.lobby-home .home-clock span { color: #c8a86b }
+
+  .lobby-screen.lobby-home .home-personal { left: 30px; bottom: 78px }
+  .lobby-screen.lobby-home .home-personal .btn,
+  .lobby-screen.lobby-home .home-personal > button {
+    height: 34px; min-height: 34px; padding: 0 14px; border-radius: 1px;
+    background: #0a1b25cc; border: 1px solid #ffffff1a; color: #d7e3e9; font-size: 11.5px;
+  }
+  .lobby-screen.lobby-home .home-personal .btn:hover,
+  .lobby-screen.lobby-home .home-personal > button:hover { border-color: #c8a86b66; background: #16303fd9 }
+  .lobby-screen.lobby-home .home-footer {
+    left: 30px; right: 3.4%; bottom: 22px; font-size: 8px; letter-spacing: .2em; color: #bed0d8a6;
+  }
+}
+
+/* 矮一点的桌面（1366×768 一类）：压缩档距与内边距，菜单整列仍能一屏放下。
+   同盟 / 单人这一对继续用基础文件里 @media(max-height:760px) 的紧凑值，这里不碰。 */
+@media (min-width: 1240px) and (min-height: 700px) and (max-height: 900px) {
+  .lobby-screen.lobby-home .home-menu { top: 8%; gap: 6px; max-height: calc(100dvh - 96px) }
+  .lobby-screen.lobby-home .home-caption { padding-bottom: 6px; font-size: 8.5px }
+  .lobby-screen.lobby-home .home-operators { gap: 6px !important }
+  .lobby-screen.lobby-home .home-menu .home-report,.lobby-screen.lobby-home .home-menu .home-diy,
+  .lobby-screen.lobby-home .home-menu .home-materials {
+    height: 66px !important; min-height: 66px !important; padding: 10px 56px 10px 22px;
+  }
+  .lobby-screen.lobby-home .home-menu .home-report strong,
+  .lobby-screen.lobby-home .home-menu .home-diy strong,
+  .lobby-screen.lobby-home .home-menu .home-materials strong { font-size: clamp(17px, 1.3vw, 21px); margin-top: 3px }
+  .lobby-screen.lobby-home .home-menu .home-report small,
+  .lobby-screen.lobby-home .home-menu .home-diy small,
+  .lobby-screen.lobby-home .home-menu .home-materials small { font-size: 8px !important; letter-spacing: .2em !important }
+  .lobby-screen.lobby-home .home-menu .home-report .icon,
+  .lobby-screen.lobby-home .home-menu .home-diy .icon { width: 24px !important; height: 24px !important; right: 18px !important }
+  .lobby-screen.lobby-home .home-menu .home-rooms { min-height: 74px; padding: 10px 18px 10px 22px }
+  .lobby-screen.lobby-home .home-menu .home-rooms strong { font-size: clamp(17px, 1.3vw, 21px) }
+  .lobby-screen.lobby-home .home-counters > span > b { font-size: 20px }
+  .lobby-screen.lobby-home .home-menu .home-connect { padding: 10px 14px 9px }
+  .lobby-screen.lobby-home .home-connect .field__box,
+  .lobby-screen.lobby-home .home-connect .join-row .btn { height: 36px; min-height: 36px }
+  .lobby-screen.lobby-home .home-connect .tips { margin-top: 7px; padding-top: 7px }
+  .lobby-screen.lobby-home .home-menu .home-modes .home-duel { min-height: 46px; padding: 7px 16px 7px 20px !important }
+  .lobby-screen.lobby-home .home-identity { bottom: 156px }
+  .lobby-screen.lobby-home .home-music { top: 78px; width: clamp(300px, 26vw, 356px); max-width: 356px; padding: 11px 13px }
+}
+
+
+/* ── 助理立绘：只许位移，严禁倾斜/旋转/歪头（用户 2026-11-16 明确要求）─────────────
+ * 背景的 lobby-camera 动画带 rotate(-.3deg → .25deg)，那是**背景图**的镜头运动；
+ * 立绘必须与它隔离：这里显式锁死 rotate/skew 为零，只保留 --scene-* 的平移。
+ * 注意区分两套机制：
+ *   · 视差     = lobbyScene.js 写的 --scene-x/y（整个场景含背景，带旋转只在背景图上）
+ *   · 助理跟随 = --scene-x/y * 1.4 的纯位移（本规则）
+ */
+.lobby-dynamic-assistant,
+.lobby-dynamic-assistant canvas,
+.lobby-dynamic-assistant > div {
+  transform: translate(calc(var(--scene-x, 0px) * 1.4), calc(var(--scene-y, 0px) * 1.4));
+  rotate: 0deg;
+  scale: none;
+  skew: 0deg;
+  transform-origin: 50% 100%;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lobby-dynamic-assistant,
+  .lobby-dynamic-assistant canvas,
+  .lobby-dynamic-assistant > div { transform: none; }
+}
+
+/* spine 画布必须铺满容器，否则立绘只占左上角一小块（动态立绘"看起来消失了"的第二个原因） */
+.lobby-dynamic-assistant canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+/* 顶部菜单统一高度（需求方 2026-11-16）：.btn--sm 自带 44px，会让按钮与延迟/版本差 4px。
+   这里在 .home-top 作用域内统一成 40px，不改 .btn 全局尺寸以免影响别处。 */
+.home-top>.btn,.home-top .btn,.home-tool,.home-top .ping,.home-top .verchip{height:40px!important;min-height:40px!important;max-height:40px}
+.home-top>.btn .btn__icon,.home-top .btn .btn__icon{width:16px;height:16px}
+/* 窄屏顶部菜单（需求方 2026-11-16）：768px 起 9 个按钮挤成两行，Mod 菜单被掉到下一排。
+   改为只留图标、收起文字，靠 title 提供说明；这样 9 项始终单行、不换行、不重叠。
+   .home-clock 原本就在 1050 断点隐藏，这里保持。 */
+/* 左侧图标组（需求方 2026-11-16 追加）：返回/设置/添加主页 为单图标方按钮，贴左成组，
+   与后面的文字按钮之间留一道分隔，视觉上区分「导航区」与「功能区」。 */
+.home-top>.btn--square,.home-top .btn--square{width:40px;min-width:40px;padding:0;justify-content:center}
+.home-top>.btn--square+.btn--square{margin-left:-2px}
+@media(max-width:900px){
+  .home-top{flex-wrap:nowrap;gap:6px}
+  .home-top .btn__label,.home-top .home-tool span,.home-top .verchip__k,.home-top .verchip__label,.home-top .ping__unit{display:none}
+  .home-top .btn,.home-top .home-tool,.home-top .ping,.home-top .verchip{min-width:40px;padding:0 8px}
+  .home-top .verchip{gap:0}
+  .home-top .ping{padding:0 8px;gap:0}
+}
+/* ============================================================
+  轻量装饰层（需求方 2026-11-16）
+  依据 arknights-home-ui-skill-complete.md 的设计原则：
+  「each decorative line has a purpose: grouping, alignment, direction, or state」
+  「avoid repeated pseudo-element lines / duplicate borders / over-decorating」。
+  因此只选三处**伪元素槽位本来就空**的元素（实测 home-identity / home-footer / home-clock 均为 0），
+  已有装饰的卡片（home-materials/home-diy/home-report/home-alliance）一律不再叠加。
+  全部装饰 pointer-events:none，不遮挡点击；不改颜色、不改尺寸、不改布局。
+  ============================================================ */
+
+/* ① 身份卡左上角：一处 L 形细角标，代替「再加一整条边框」——只做方向的暗示。
+   用 border 两端拼成 L，不引入新图形资源；位置在卡片内侧 6px，不与 border-left:3px 绿条重叠。 */
+.lobby-screen.lobby-home .home-identity::before{
+  content:''; position:absolute; left:6px; top:6px; width:14px; height:14px;
+  border-left:1px solid #4ed8af88; border-top:1px solid #4ed8af88;
+  pointer-events:none;
+}
+
+/* ② 页脚上方：一条从中间向两侧淡出的分隔线，把页脚与主体分开。
+   用 mask 渐变做出「有起点、有终点」的方向感，而不是又一条通栏实线。 */
+.lobby-screen.lobby-home .home-footer::before{
+  content:''; position:absolute; left:0; right:0; top:0; height:1px;
+  background:linear-gradient(90deg,transparent,#4ed8af55 18%,#4ed8af55 82%,transparent);
+  pointer-events:none;
+}
+
+/* ③ 右上角时钟串：前置一枚极短竖线作为「眉标」锚点，呼应 PRTS 的 // LABEL 式排印。
+   只加 1px 宽、10px 高的细线，不动字号与字距。 */
+.lobby-screen.lobby-home .home-clock::before{
+  content:''; display:inline-block; width:1px; height:10px;
+  background:#4ed8af; margin-right:8px; vertical-align:-1px;
+  pointer-events:none;
+}
+/* ============================================================
+  轻量装饰 · 第二轮（2026-11-16 22:xx，用户要求「面板细节 + 背景装饰」）
+  ★ 加之前先实测了槽位，而不是照台账记忆：
+    .home-alliance / .home-solo 的 ::after = content:none  → 空闲，可用
+    .home-materials / .home-diy / .home-report 的 ::after = 已挂 motif 图 → 不碰
+    .lobby-scene__image / .lobby-scene__wash 的伪元素     → 全空，可用
+  ★ 面板：border:0 / border-radius:0 / clip-path:none!important（第 574 行早前专门修过，
+    再加切角会把左侧 5px 绿条切出缺口）→ 所以本轮**不加切角**，只用 1px 内描边 + 角括号。
+  ★ 背景：饰在 .lobby-scene__image::after（z-index:1）—— 它在助手 canvas（z-index:2）之下，
+    保证「背景装饰弱于角色立绘」；pointer-events:none，不碰交互。
+  ============================================================ */
+
+/* ---------- ① 面板：1px 内描边（补立体感，不加外边框、不改尺寸） ----------
+   ★ 特异性须为 4类+元素 才压得过 home-overhaul:553 的 !important（实测 3 类无效） */
+.lobby-screen.lobby-home .home-menu.home-menu button.home-alliance,
+.lobby-screen.lobby-home .home-menu.home-menu button.home-solo{
+  box-shadow:inset 5px 0 0 #4ed8af, inset 0 0 0 1px #16161620, 4px 5px 0 rgba(190,199,194,.23), 9px 12px 18px -12px rgba(0,0,0,.6)!important;
+}
+
+/* ---------- ② 面板：右上角括号（只两面，不做四面环框，避免重复边框） ----------
+   ★ home-overhaul:35 把 .home-alliance::after 设为 display:none，须 display:block!important */
+.lobby-screen.lobby-home .home-menu.home-menu button.home-alliance::after,
+.lobby-screen.lobby-home .home-menu.home-menu button.home-solo::after{
+  content:''!important; display:block!important; position:absolute!important;
+  right:8px!important; top:8px!important; left:auto!important; bottom:auto!important;
+  width:12px!important; height:12px!important;
+  border-right:1px solid #16161640!important; border-top:1px solid #16161640!important;
+  border-left:0!important; border-bottom:0!important;
+  background:none!important; pointer-events:none!important;
+  margin:0!important; padding:0!important; transform:none!important; z-index:1!important;
+}
+
+/* ---------- ③ 背景：右侧低对比技术刻度（竖线刻度尺，只在右半区） ----------
+   ★ 强度是量出来的，不是凭感觉：实测 mean 像素差 原版1.11 / 中间档约2.0 / 测试档3.02，
+     取中间档 —— 低于它等于没做（1.1/255 肉眼不可见），高于它就是抢焦点。
+     右侧 mask 渐隐到 52% 处为 0，保证左侧角色区与非右半区完全不受影响。 */
+.lobby-scene__image::after{
+  content:''; position:absolute; inset:0; z-index:1; pointer-events:none;
+  background-image:
+    repeating-linear-gradient(90deg, rgba(120,190,200,.14) 0 1px, transparent 1px 26px),
+    repeating-linear-gradient(90deg, rgba(120,190,200,.34) 0 1px, transparent 1px 130px);
+  -webkit-mask-image:linear-gradient(90deg, transparent 52%, #000 78%, #000 100%);
+  mask-image:linear-gradient(90deg, transparent 52%, #000 78%, #000 100%);
+  opacity:.85;
+}
+
+/* ---------- ④ 背景：三组极淡同心弧（工业测距感，压在最底层，不抢焦点） ---------- */
+.lobby-scene__wash::after{
+  content:''; position:absolute; inset:0; z-index:1; pointer-events:none;
+  background-image:
+    radial-gradient(circle at 108% 34%, transparent 0 118px, rgba(126,196,206,.14) 118px 119px, transparent 119px),
+    radial-gradient(circle at 108% 34%, transparent 0 178px, rgba(126,196,206,.10) 178px 179px, transparent 179px),
+    radial-gradient(circle at 108% 34%, transparent 0 238px, rgba(126,196,206,.07) 238px 239px, transparent 239px);
+  opacity:.9;
+}
+
+/* 减少动态效果时，装饰保持静态即可（本就无动画，这里只兜底） */
+@media (prefers-reduced-motion: reduce){
+  .lobby-scene__image::after,.lobby-scene__wash::after{transition:none}
+}
+/* ============================================================
+  主页纹章移植（2026-11-16 第三轮）
+  素材来源：离线演示版 public/assets/ui/native-home/btn_*.png（原版 RGBA 按钮图）
+  提取方法：按 alpha + 浅灰亮度带(170..246) 取像素，再用连通域只保留大块主体，
+            清掉文字抗锯齿边缘残留的鬼影。脚本：tools/_extract_motifs.py
+  产出：public/assets/ui/home-motifs/motif-{terminal,squad,operators,archive}.png
+  ★ 用户指定的映射（注意与旧实现交叉）：
+    同盟模拟 ← 终端 / 干员调配 ← 编队 / 自选编队 ← 干员 / S.W.E.E.P. ← 档案
+  ★ 每张按自身长宽比单独调 width/opacity，不统一拉伸。
+  ============================================================ */
+
+/* 统一底座：位置、层级、不拦点击、不参与布局 */
+.lobby-screen.lobby-home .home-menu.home-menu button.home-alliance::after,
+.lobby-screen.lobby-home .home-menu.home-menu button.home-materials::after,
+.lobby-screen.lobby-home .home-menu.home-menu button.home-diy::after,
+.lobby-screen.lobby-home .home-menu.home-menu button.home-report::after{
+  content:''!important; display:block!important; position:absolute!important;
+  background-repeat:no-repeat!important; background-position:right center!important;
+  background-size:contain!important;
+  pointer-events:none!important; border:0!important; box-shadow:none!important;
+  transform:none!important; margin:0!important; padding:0!important;
+}
+
+/* ① 同盟模拟 ← 终端（菱形折线，图案密；给足宽度，压低透明度） */
+.lobby-screen.lobby-home .home-menu.home-menu button.home-alliance::after{
+  right:10px!important; top:8px!important; bottom:8px!important; left:auto!important;
+  width:40%!important; height:auto!important; z-index:-1!important;
+  background-image:url('/assets/ui/home-motifs/motif-terminal.png')!important;
+  opacity:.46!important; filter:none!important;
+}
+
+/* ② 干员调配 ← 编队（城堡塔窄高；右侧留 18px 不贴边）
+   ★ 必须带上 .home-operators > button.is-primary 才能压过 home-overhaul:1128 的
+     `.home-operators > button.home-materials.is-primary::after{opacity:.42!important;filter:grayscale}` */
+.lobby-screen.lobby-home .home-menu.home-menu .home-operators > button.home-materials.is-primary::after{
+  right:18px!important; top:12px!important; bottom:16px!important; left:auto!important;
+  width:26%!important; height:auto!important; z-index:-1!important;
+  background-image:url('/assets/ui/home-motifs/motif-squad.png')!important;
+  opacity:.62!important; filter:none!important;
+}
+
+/* ③ 自选编队 ← 干员（带三角的塔，比编队略瘦） */
+.lobby-screen.lobby-home .home-menu.home-menu .home-operators > button.home-diy.is-child::after{
+  right:18px!important; top:12px!important; bottom:16px!important; left:auto!important;
+  width:24%!important; height:auto!important; z-index:-1!important;
+  background-image:url('/assets/ui/home-motifs/motif-operators.png')!important;
+  opacity:.62!important; filter:none!important;
+}
+
+/* ④ S.W.E.E.P.报告 ← 档案（文件盒，原图 229×90）
+   ★ 用户 2026-11-17 二次校准：以「干员调配」为直接标尺，要「视觉大小尽可能接近」且「贴面板最右侧」。
+   用可视墨量（inkFill × 显示面积）做标尺，不是宽高：
+     干员调配 motif-squad  tone226 inkFill.567 显示104×58 ⇒ 墨量 3,420，占面板 .0985
+     档案     motif-archive tone226 inkFill.181 改前显示146×57 ⇒ 墨量 1,506（仅 44%），opacity 还低一档 .34
+   改法：tone 188→226 对齐干员、opacity .34→.62 对齐干员；面板高仅 86px，上下各留 5px ⇒ 76×193，墨量 2,655。
+   76px 是该面板高度下的上限，已达干员调配的 78%（再高就要出血到面板外）。
+   ★ 位置：right 由 120px 收到 14px —— 用户明确「不要停留在面板中间或偏左」。剑图标已移除，右端无遮挡。
+   ★ 形状比例用 aspect-ratio 229/90 锁死，contain 不拉伸。 */
+.lobby-screen.lobby-home .home-menu.home-menu button.home-report::after{
+  content:''!important; display:block!important; position:absolute!important;
+  right:0!important; top:5px!important; bottom:5px!important; left:auto!important;
+  transform:none!important;
+  width:auto!important; height:auto!important; aspect-ratio:229/90!important;
+  background-image:url('/assets/ui/home-motifs/motif-archive.png?v=20')!important;
+  background-repeat:no-repeat!important; background-position:right center!important;
+  background-size:contain!important;
+  z-index:-1!important; opacity:.55!important; filter:none!important;
+  border:0!important; box-shadow:none!important; pointer-events:none!important;
+}
+
+/* ⑤ 单人模拟 ← 上传图（X 形交叉双剑 + 菱形折线，原图 960×999）
+   ★ 用户 2026-11-17 二次校准：以「同盟模拟」为直接标尺，要「浅灰低对比」且「视觉占比接近」。
+   改前：tone 150（比同盟的 231 深 81 个灰阶，肉眼明显更重）+ opacity .40 + 113×118。
+   改法：
+     1. tone 150 → 231，与 motif-terminal 完全同色；opacity .40 → .46，与同盟同档 ⇒ 同一种浅灰水印；
+     2. 上下内边距 22px → 8px（与同盟同款），尺寸 113×118 → 140×146，墨量 4,161 → 6,377；
+     3. 墨量占面板比 .130 vs 同盟 .142 ⇒ 达 91%，视觉占比已对齐。
+   ★ 形状由 aspect-ratio 960/999 锁死，contain 不拉伸；文字与人形图标在左侧，纹章占右侧不重叠。 */
+.lobby-screen.lobby-home .home-menu.home-menu button.home-solo::after{
+  content:''!important; display:block!important; position:absolute!important;
+  right:6px!important; top:16px!important; bottom:16px!important; left:auto!important;
+  width:auto!important; height:auto!important; aspect-ratio:960/999!important;
+  background-image:url('/assets/ui/home-motifs/motif-solo.png?v=23')!important;
+  background-repeat:no-repeat!important; background-position:right center!important;
+  background-size:contain!important;
+  z-index:0!important; opacity:.46!important; filter:none!important;
+  border:0!important; box-shadow:none!important; pointer-events:none!important;
+  transform:none!important;
+}
+
+/* ---------- 立体侧面感：统一到「单人模拟」基准（2026-11-20 第 8 轮） ----------
+   用户第 5 条：同盟模拟阴影层数过多，以单人模拟为基准统一到 干员调配 / 自选编队 / S.W.E.E.P.。
+   实测（浏览器 computed box-shadow）改前三方各不相同：
+     · .home-solo       4 层  inset 5px 0 #4ed8af / inset 0 0 0 1px #16161620 /
+                            4px 5px 0 rgba(190,199,194,.23) / 9px 12px 18px -12px rgba(0,0,0,.6)
+     · .home-alliance   5 层  ← 多出 7px 8px 0 rgba(190,199,194,.13) 这一级「台阶」，就是「层数过多」
+     · .home-materials / .home-diy / .home-report  只有 1 层 2px 2px 0 ← 根本没套上这套阴影：
+       被 home-overhaul-20261102.css 里特异性 601 的
+       `.lobby-screen.lobby-home .home-menu .home-operators > button.home-materials.is-primary`
+       压过了本文件特异性 501 的同名声明。
+   基准 = 单人模拟上面那 4 层，逐字照抄（不新增发光、不新增描边）：
+     inset 5px 0 0 #4ed8af              绿色左边条（配色，保留）
+     inset 0 0 0 1px #16161620          1px 内描边（描边，保留）
+     4px 5px 0 rgba(190,199,194,.23)    一级硬投影
+     9px 12px 18px -12px rgba(0,0,0,.6) 柔和落地影
+   ★ 三个面板必须把特异性抬到 601+（加 .home-operators / .home-secondary 两个类），
+     否则 home-overhaul 的 601 规则依旧胜出，改了等于没改。 */
+.lobby-screen.lobby-home .home-menu.home-menu button.home-alliance,
+.lobby-screen.lobby-home .home-menu.home-menu button.home-solo,
+.lobby-screen.lobby-home .home-menu.home-menu .home-operators > button.home-materials.is-primary,
+.lobby-screen.lobby-home .home-menu.home-menu .home-operators > button.home-diy.is-child,
+.lobby-screen.lobby-home .home-menu.home-menu .home-secondary > button.home-report{
+  box-shadow:
+    inset 5px 0 0 #4ed8af,
+    inset 0 0 0 1px #16161620,
+    4px 5px 0 rgba(190,199,194,.23),
+    9px 12px 18px -12px rgba(0,0,0,.6)!important;
+}
+
+/* 窄屏：纹章会压到文字，按比例收窄并进一步降透明度 */
+@media (max-width:900px){
+  .lobby-screen.lobby-home .home-menu.home-menu button.home-alliance::after{width:30%!important;opacity:.3!important}
+  .lobby-screen.lobby-home .home-menu.home-menu .home-operators > button.home-materials.is-primary::after,
+  .lobby-screen.lobby-home .home-menu.home-menu .home-operators > button.home-diy.is-child::after{width:17%!important;opacity:.4!important;filter:none!important}
+  .lobby-screen.lobby-home .home-menu.home-menu button.home-report::after{width:13%!important;opacity:.26!important}
+}
+/* ★ 2026-11-17（第 5 轮·返回主界面生硬）：主页各区块的进场动画。
+   为什么之前完全没有：lobby.css:1157-1184 那套 hub-* 错开进场是给**旧版**大厅（.lobby-hub）写的，
+   而当前主页用的是 .lobby-home.home-overhaul 结构（实测 .screen 的直接子级是
+   lobby-scene / home-top / home-identity / home-menu / home-ach-slot / home-footer，
+   DOM 里根本没有 .lobby-hub）—— 于是两套对不上，新区块从头到尾没有任何进场动画，
+   点返回就是硬切。这不是「动画丢了」，是「动画从来没挂到这版结构上」。
+   现在按原来的节奏补：第一拍顶栏先落（0ms），第二拍两侧与菜单（60~170ms）依次推进，
+   底栏最后（240ms）收口 —— 与 lobby.css:1162-1164 记的「先堡垒和字，再逐层展开」同一语言。
+   地板 .lobby-scene 不动：它本来就是背景，动的只有上面的控件（lobby.css:1165-1170 同款判断）。
+   全部只动 opacity + 4px 位移，不碰 scale —— transform 会与 .home-menu 的 --float-x 视差打架。 */
+/* ★ 2026-11-20（第 8 轮·多页面返回主界面闪动）：home-rise / home-rise-b 两套进场动画
+   **整段删除**。它们与 lobby.js 的 data-enter 重播机制成对出现，是「7 个页面返回主页时
+   整片 UI 闪一下」的直接成因：
+     · from{opacity:0} + backwards ⇒ delay 期间（最长 240ms）强制不可见；
+     · 7 个浮层都是硬翻转卸载，于是「浮层消失」与「5 区块同时从 0 爬升」压进同一帧。
+   离线演示版 grep 完全没有 home-rise / data-enter，本就不重播进场动画 —— 此处对齐离线版。
+   返回时的平滑感由 .lobby-scene{transition:opacity 160ms} 与各浮层自身的退场动画提供。 */

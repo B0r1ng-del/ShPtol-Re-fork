@@ -1,0 +1,44 @@
+/* Keep native frames and stretch motion; use the full viewport width and give squad metadata its own row. */
+.screen.draft .native-strategy-canvas .draft-grid { grid-template-columns:repeat(5,var(--decision-tile,104px));grid-auto-rows:var(--decision-tile,104px);gap:10px;justify-content:space-evenly; }
+.screen.draft .native-strategy-canvas .dband { width:var(--decision-tile,104px);height:var(--decision-tile,104px); }
+.screen.draft .native-strategy-canvas .native-strategy-tile>div { transform:scale(var(--decision-scale,.8125));transform-origin:0 0; }
+.screen.draft .native-strategy-canvas .draft-order__list { overflow-x:hidden; }
+.screen.draft .native-strategy-canvas .dorder { box-sizing:border-box;min-width:0;width:100%; }
+.screen.draft .native-strategy-canvas .dorder__text { min-width:0;flex:1;gap:4px;overflow:hidden; }
+.screen.draft .native-strategy-canvas .dorder__name { display:flex;gap:6px;min-width:0;width:100%;line-height:1.2; }
+.dorder__label { min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.screen.draft .native-strategy-canvas .dorder__ai { flex:none;font-size:11px; }
+.dorder__squadline { display:flex;align-items:center;gap:7px;min-width:0;font-size:11px;line-height:1.2;white-space:nowrap; }
+.dorder__squadline .dorder__squad { flex:none;min-width:24px;margin:0;padding:2px 4px;text-align:center;font-size:11px; }
+.dorder__squadline .dorder__squadname { flex:1;min-width:0;font-size:11px;color:#a6dacc;overflow:hidden;text-overflow:ellipsis; }
+.screen.draft .native-strategy-canvas .dorder__box { flex:none; }
+.screen.draft .native-strategy-canvas .native-strategy-detail__close { top:160px;right:10px;min-width:30px;min-height:30px;display:grid;place-items:center; }
+@media(max-width:999px) { .screen.draft .native-strategy-canvas .dorder { height:64px;min-height:64px;padding:5px; }.screen.draft .native-strategy-canvas .dorder>.pavatar { --pa:42px;flex:none; }.screen.draft .native-strategy-canvas .dorder__box { width:48px;height:48px; }.screen.draft .native-strategy-canvas .dorder__name { font-size:17px; }.screen.draft .native-strategy-canvas .dorder__selecting { font-size:10px; }.screen.draft .native-strategy-canvas .dorder__selecting>.icon { width:22px;height:26px; }.screen.draft .native-strategy-canvas .draft-order__list { gap:4px; } }
+
+/* A full personal card on the left, a distinct state compartment on the right. */
+.screen.draft .native-strategy-canvas .dorder { background:#0b1919e8; }
+.screen.draft .native-strategy-canvas .dorder__box { height:100%;min-width:62px;width:62px;padding:6px;box-sizing:border-box;background:#101615e8;border:0;border-left:1px solid #52615a; }
+.screen.draft .native-strategy-canvas .dorder__box>.bandicon { width:48px;height:48px;max-width:100%;max-height:100%;min-width:0;min-height:0;box-sizing:border-box;overflow:hidden; }
+.screen.draft .native-strategy-canvas .dorder__box>.bandicon>img { width:100%;height:100%;object-fit:contain; }
+.screen.draft .native-strategy-canvas .dorder__box>.dorder__want { outline:1px solid #75e1c5;outline-offset:-1px;background:#325f524d; }
+.screen.draft .native-strategy-canvas .dorder__check { width:18px;height:18px;right:5px;bottom:5px; }.screen.draft .native-strategy-canvas .dorder__check>.icon { width:13px;height:13px; }
+.dorder__doctor { flex:none;font-size:10px;color:#a4afaf;font-weight:400; }.screen.draft .native-strategy-canvas .dorder__name { gap:4px; }
+.native-decision-clock { display:block;position:relative;flex:none;width:52px;height:52px; }.native-decision-clock__source { position:absolute;width:100px;height:100px;left:0;top:0;transform:scale(.52);transform-origin:0 0; }
+.native-decision-clock.is-compact { width:26px;height:36px; }.native-decision-clock.is-compact>.native-decision-clock__source { transform:translate(-9px,-2px) scale(.44); }
+.decision-sand-grains { position:absolute;inset:0;background:repeating-linear-gradient(0deg,white 0 2px,transparent 2px 4px);background-size:100% 200%;animation:decision-sand-drop .3s linear infinite; }
+@keyframes decision-sand-drop { to { background-position:0 100%; } }
+.draft-current-picker { display:flex;align-items:center;gap:9px; }.draft-current-picker>span { display:flex;flex-direction:column;align-items:flex-end;gap:4px; }.draft-current-picker b { font-size:15px; }.draft-current-picker small { font-size:12px;color:#cbd4cf; }
+.screen.draft .stephead__right { display:grid;grid-template-columns:auto auto auto;grid-template-rows:30px 30px;gap:4px 9px; }
+.screen.draft .draft-current-picker { grid-column:1;grid-row:1/3; }.screen.draft .stephead__right>.btn:not(.stephead__guide) { grid-column:2;grid-row:1; }.screen.draft .stephead__guide { grid-column:2;grid-row:2; }.screen.draft .stephead__right>.native-countdown { grid-column:3;grid-row:1/3; }
+.screen.draft .stephead__right>.btn { min-height:27px;padding:4px 10px;font-size:13px; }
+@media(prefers-reduced-motion:reduce) { .decision-sand-grains { animation:none; } }
+
+/* Header actions scale with the screen; footer labels fit three explicit, compact columns. */
+.screen.draft .stephead__right { grid-template-rows:36px 36px;gap:6px 12px; }.screen.draft .stephead__right>.btn { min-height:34px;font-size:clamp(14px,1.05vw,21px);padding:6px 12px; }.draft-current-picker b { font-size:clamp(16px,1.2vw,23px); }.draft-current-picker small { font-size:clamp(12px,.85vw,17px); }
+ .screen.draft .native-strategy-canvas .draft-detail__actions { display:flex;flex-direction:column;gap:6px;min-height:0;flex:none; }
+.screen.draft .native-strategy-canvas .draft-detail__btns { display:grid;grid-template-columns:.8fr 1.1fr 1.1fr;gap:6px;width:100%; }
+.screen.draft .native-strategy-canvas .draft-detail__btns>.btn { min-width:0;min-height:0;height:52px;padding:5px;gap:4px;font-size:max(13px,calc(10px / var(--strategy-scale,1)));line-height:1.15;white-space:normal; }
+.screen.draft .native-strategy-canvas .draft-detail__btns .btn__label { min-width:0;white-space:normal;overflow-wrap:anywhere;font-size:inherit; }
+.screen.draft .native-strategy-canvas .draft-detail__btns .btn__icon { width:16px;height:16px;flex:none; }
+.screen.draft .native-strategy-canvas .draft-detail__status { margin:0;font-size:14px; }
+@media(max-height:500px) { .screen.draft .stephead__right { grid-template-rows:28px 28px;gap:3px 7px; }.screen.draft .stephead__right>.btn { min-height:27px;font-size:12px;padding:4px 7px; }.draft-current-picker b { font-size:13px; }.draft-current-picker small { font-size:10px; } }

@@ -15,6 +15,7 @@ import {makeBattle} from '../helpers/battleHarness.js';
 import {buildBattleSpec,resultDigest} from '../../server/sim/spec.js';
 import {DATA_SHIM_JS} from '../../server/http/static.js';
 import {createTrustedRuntime} from '../../server/plugins/trustedRuntime.js';
+import {copyTree} from '../helpers/copyTree.js';
 const quiet={info(){},warn(){},error(){}};
 const timeout=(ms)=>new Promise((_,reject)=>{const timer=setTimeout(()=>reject(new Error('timeout')),ms);timer.unref();});
 function template(f){
@@ -39,9 +40,9 @@ test('same script battle is bit-identical in match child and loadBrowserSim, spe
  const runtime=path.join(f.root,'runtime');fs.mkdirSync(path.join(runtime,'server'),{recursive:true});
  // as the browser gets /sim/: no Node loader (by file name: cpSync passes `\` paths on Windows), else a cyclic import
  // simdata.js → nodeData.js → the data.js shim → simdata.js deadlocks loadBrowserSim
- fs.cpSync('server/sim',path.join(runtime,'server/sim'),{recursive:true,filter:src=>path.basename(src)!=='nodeData.js'});
+ copyTree('server/sim',path.join(runtime,'server/sim'),{filter:src=>path.basename(src)!=='nodeData.js'});
  assert.equal(fs.existsSync(path.join(runtime,'server/sim/nodeData.js')),false);
- fs.cpSync('shared',path.join(runtime,'shared'),{recursive:true});
+ copyTree('shared',path.join(runtime,'shared'));
  fs.writeFileSync(path.join(runtime,'package.json'),'{"type":"module"}');fs.writeFileSync(path.join(runtime,'server/data.js'),DATA_SHIM_JS);
  const base=pathToFileURL(path.join(runtime,'server/sim')).href+'/';
  const sim=await loadBrowserSim({base,data:built.data,cs:built.cs,bounds:built.bounds,scripts:accepted.scripts,hashInput:built.index});

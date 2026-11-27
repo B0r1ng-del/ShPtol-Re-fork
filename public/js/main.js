@@ -479,14 +479,21 @@ function startRouteTransition(renderNow) {
   });
 }
 
-/* 其它路由（局内、房间、统计…）直接换，不做专属过渡。
-   以前这里还会调 document.startViewTransition，但实测从未真正生效过
-   （拦截验证过 window.__vt 一直是空数组），所有 ::view-transition-* 规则都是死代码。 */
+/* 其它路由（局内、房间、统计…）。
+   2026-11-17（第 4 轮）：原来这里什么过渡都不做 —— 用户报「从功能界面退出返回主界面通常直接切回」。
+   仍然不调 document.startViewTransition：它是快照式的，会在快照那一拍把在跑的姿态算成静态值；
+   而回主页时最要紧的恰恰是**助理的 spine 动画不能停**（卡顿就是这类快照/重建造成的）。
+   改成把退场交给 CSS：旧屏先在原地做一次极短的淡出+微缩，再让新屏淡入。
+   实际上旧屏是被 key 当场卸载的（见 App 里 key=${viewRoute}），没有可让它淡出的余地；
+   **硬把旧屏再挂 160ms 是错的**：那会把 lobby 整个再挂一次，等于第二个 Pixi 上下文 +
+   第二个助理实例，正是用户这轮要消灭的「重复初始化」。
+   所以过渡只做「新屏淡入」这一半，底下的 .app-bg 全程在场垫住（不会闪黑）。 */
 
 function App() {
   const route = useStore(selectRoute);
   // 画面上正在显示的那个画面比 store 慢一拍：换屏时先让浏览器拍下旧画面，再提交新画面，两次之间做交叉淡化。
   const [viewRoute, setViewRoute] = useState(route);
+
   useEffect(() => {
     if (route === viewRoute) return undefined;
     let alive = true;
@@ -633,7 +640,6 @@ async function boot() {
   // …and the music follows the art: the screen's track again when the cosmetic layers change its URLs
   cosmetics.subscribe(() => audio.refreshBgm());
   // 自定义大厅背景与音乐 (ui/lobbyMedia.js): the player's own files of this browser, the music from the title on
-  installLobbyMedia();
   data.load('assets').catch(() => {});
   // Warm the data cache in the background (missing files are tolerated).
   data.loadAll('config').catch(() => {});

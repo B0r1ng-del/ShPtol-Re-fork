@@ -13,6 +13,7 @@ import { DATA_SHIM_JS } from '../../server/http/static.js';
 import { loadBrowserSim } from '../../public/js/battle/runner.js';
 import { buildBattleSpec, createBattleFromSpec, resultDigest } from '../../server/sim/spec.js';
 import { compileDsl } from '../../server/sim/content/dsl/compile.js';
+import { copyTree } from '../helpers/copyTree.js';
 const close = (a,b) => assert.ok(Math.abs(a-b) < 1e-7, `${a} != ${b}`);
 function setFor(t, { operators = [guard()], entries = [], patch = bondPatch() } = {}) {
   const f = fixture(t); f.put('data-demo', { operators: ['op.json'], data: ['p.json', 'r.json'] }, { 'op.json': operators, 'p.json': patch, 'r.json': { records: 1, entries } });
@@ -72,9 +73,9 @@ test('merged data reaches every support lookup and a real battle, through Node a
   const runtime = path.join(dir, 'runtime'); fs.mkdirSync(path.join(runtime, 'server'), { recursive: true });
   // as the browser gets /sim/: no Node loader (by file name — cpSync passes paths with the OS separator, `\` on
   // Windows). With it simdata.js → nodeData.js → this data.js shim → simdata.js would deadlock the imports below.
-  fs.cpSync('server/sim', path.join(runtime,'server/sim'), { recursive: true, filter: src => path.basename(src) !== 'nodeData.js' });
+  copyTree('server/sim', path.join(runtime,'server/sim'), { filter: src => path.basename(src) !== 'nodeData.js' });
   assert.equal(fs.existsSync(path.join(runtime, 'server/sim/nodeData.js')), false);
-  fs.cpSync('shared', path.join(runtime,'shared'), { recursive: true });
+  copyTree('shared', path.join(runtime,'shared'));
   fs.writeFileSync(path.join(runtime,'package.json'), '{"type":"module"}');
   fs.writeFileSync(path.join(runtime,'server/data.js'), DATA_SHIM_JS);
   const table = contentSetFiles(set), base = pathToFileURL(path.join(runtime,'server/sim')).href + '/';

@@ -495,14 +495,17 @@
 .modal__box.is-leaving { animation: modal-out 180ms var(--ease-out) forwards; }
 @keyframes modal-fade-out { to { opacity: 0; visibility: hidden; } }
 @keyframes modal-out { to { opacity: 0; transform: translateY(.1rem) scale(.99); } }
-/* 被卸载时留下的那张克隆（ui/components.js Modal 的清理函数）：位置固定、不接点击，淡出后自行删除 */
+/* 被卸载时留下的那张克隆（ui/components.js Modal 的清理函数）：位置固定、不接点击，淡出后自行删除。
+   ★ 2026-11-17（第 5 轮）：淡出**只由这一条 modal-fade-out 负责**。
+   原来 .modal-ghost .modal__box 还挂着 modal-out ... forwards —— 那个动画带 translateY+scale，
+   第 0 帧就跑到末态，等于把里面那块钉成一个静止的末态；再叠上 frozen() 把父级 animation 设成 none，
+   整层就变成「不透明盖住 250ms 再突然消失」。现在 box 不再跑任何动画，只保留父级一层淡出。 */
 .modal-ghost {
   position: fixed; inset: 0; z-index: var(--z-modal);
   display: grid; place-items: center; padding: .3rem;
   pointer-events: none;
   animation: modal-fade-out 200ms var(--ease-out) forwards;
 }
-.modal-ghost .modal__box { animation: modal-out 200ms var(--ease-out) forwards; }
 
 /* ---- tooltip -------------------------------------------------------------------------------------- */
 .tt-anchor { display: inline-flex; }
@@ -956,25 +959,30 @@
 }
 
 /* ---- ping pill ------------------------------------------------------------------------------------- */
+/* 需求方 2026-11-16：延迟不再是独立胶囊，改成与 .home-tool / .btn 同一套终末地方形语言 ——
+   同高、同 1px 细边、同直角、同字号、同 hover。层级色（低/中/高）只体现在图标上，
+   不动背景与边框，避免顶部出现一个「彩色异物」。 */
 .ping {
   --pc: var(--mint-400);
   display: inline-flex;
   align-items: center;
-  gap: .04rem;
-  height: .32rem;
-  padding: 0 .14rem 0 .11rem;
-  border-radius: 99px;
-  background: rgba(0, 0, 0, .5);
-  border: 1px solid var(--line);
-  color: var(--pc);
+  gap: 6px;
+  height: 34px;
+  min-width: 34px;
+  padding: 0 10px;
+  border-radius: 0;
+  background: #14181a;
+  border: 1px solid #ffffff1f;
+  color: #d9e2e6;
   font-family: var(--font-num);
-  font-size: calc(.18 * var(--t));
+  font-size: 12px;
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
+  cursor: default;
 }
-.ping__icon { width: .15rem; height: .15rem; margin-right: .03rem; }
-.ping__unit { font-size: calc(.13 * var(--t)); color: var(--text-lo); font-weight: 500; }
+.ping__icon { width: 15px; height: 15px; flex: none; color: var(--pc); }
+.ping__unit { font-size: 10px; color: #93a1a8; font-weight: 500; }
 .ping--low { --pc: var(--mint-400); }
 .ping--medium { --pc: var(--amber); }
 .ping--high { --pc: var(--red-premium); }
@@ -1290,19 +1298,23 @@
 .verchip-wrap { display: inline-flex; align-items: center; gap: .06rem; min-width: 0; }
 /* [ASSUMED] Keep the season and part whole as 文字大小 grows (§35.23.11): a rem cap cut the part in English and
    Japanese. The top bar reserves the chip's natural width beside its tools. */
+/* 需求方 2026-11-16：版本切换同样并入顶部按钮语言。原先它用浅蓝图标（#9fd3ff）+ 深底，
+   在一排中性色按钮里显得突兀；改成统一的 1px 细边、直角、中性色图标，只在「非默认版本」时
+   用界面绿描边提示差异（状态语义保留，但不再是另一种视觉体系）。 */
 .verchip {
-  display: inline-flex; align-items: center; gap: .06rem; min-width: 0; height: max(.42rem, 28px); padding: 0 .14rem;
-  border: 1px solid var(--line-2); background: rgba(0, 0, 0, .45); color: var(--text-md);
-  font: inherit; font-size: calc(.14 * var(--t)); font-weight: 700; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 6px; min-width: 0; height: 34px; padding: 0 10px;
+  border: 1px solid #ffffff1f; border-radius: 0; background: #14181a; color: #d9e2e6;
+  font: inherit; font-size: 12px; font-weight: 700; white-space: nowrap; cursor: pointer;
+  transition: background .18s, border-color .18s;
 }
-.verchip .icon { flex: none; width: 1.1em; height: 1.1em; color: #9fd3ff; }
-.verchip__k { flex: none; color: var(--text-lo); font-weight: 400; }
+.verchip .icon { flex: none; width: 15px; height: 15px; color: #93a1a8; }
+.verchip__k { flex: none; color: #93a1a8; font-weight: 400; }
 .verchip__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .verchip__state { flex: none; color: var(--text-lo); font-size: calc(.12 * var(--t)); font-weight: 400; }
-.verchip.is-other { border-color: rgba(120, 196, 255, .6); color: #cfe9ff; }
+.verchip.is-other { border-color: #4ed8af; color: #eafaf4; }
 .verchip.is-failed { border-color: rgba(255, 106, 61, .7); }
 .verchip.is-failed .verchip__state { color: #ff8a5c; }
-.verchip:hover:not(.verchip--ro), .verchip:focus-visible { filter: brightness(1.2); }
+.verchip:hover:not(.verchip--ro), .verchip:focus-visible { background: #1d2529; border-color: #ffffff45; }
 .verchip--ro { cursor: default; }
 .verchip__retry { flex: none; height: max(.42rem, 28px); padding: 0 .12rem; border: 1px solid rgba(255, 106, 61, .7); background: rgba(255, 106, 61, .14); color: #ffb39a; font: inherit; font-size: calc(.13 * var(--t)); }
 .sp-coarse .verchip, .sp-coarse .verchip__retry { min-height: max(32px, calc(40px * var(--sp-ui, 1))); }

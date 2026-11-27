@@ -28,6 +28,7 @@ import {
 } from '../shared/workshop.js';
 import { requiredUnitForms, diySlot } from '../shared/diy.js';
 import { statusKey } from '../shared/standIn.js';
+import { copyTree } from './helpers/copyTree.js';
 import { loadWorkshop, workshopTouchedFiles } from '../server/workshop.js';
 import { loadData } from '../server/data.js';
 import { buildWorkshopDataFiles, startServer } from '../server/index.js';
@@ -41,7 +42,7 @@ const FIXTURE_PACK = join(ROOT, 'docs/examples/clementia');
 /** 一个只装着这一个包的临时工坊根 —— 加载器是按 `<根>/<包 id>/pack.json` 找包的。 */
 const makeFixtureRoot = () => {
   const dir = fs.mkdtempSync(join(tmpdir(), 'sp-ws-clemnt-'));
-  fs.cpSync(FIXTURE_PACK, join(dir, 'clementia'), { recursive: true });
+  copyTree(FIXTURE_PACK, join(dir, 'clementia'));
   return dir;
 };
 const HER = 'char_ws_clemnt';

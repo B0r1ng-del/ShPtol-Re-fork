@@ -1,3 +1,6 @@
+import { customAvatarUrl } from '../../../shared/avatars.js';
+
+
 // Asset URL resolution against data/assets.json (docs/ASSETS.md). Pure: every function takes the
 // manifest object (or null) and returns a URL string or null — callers draw their own fallback
 // (glyph, CSS shape) when null. Only URLs present in the manifest are ever returned, so the client
@@ -186,6 +189,15 @@ export function bondIconUrl(m, bondId) {
 }
 
 /** Band (strategy) icon. */
+/**
+ * 少数策略用专属立绘（不是通用剪影）—— 移植自离线演示版 assetUrls.js:220。
+ * 只影响 CSS 类名，三行逻辑，没有依赖。
+ * @param {string} bandId @returns {string}
+ */
+export function bandPortraitClass(bandId) {
+  return ['band_shu', 'band_closur', 'band_tulip'].includes(bandId) ? 'strategy-portrait--custom' : '';
+}
+
 export function bandIconUrl(m, bandId) {
   return bandId ? str(obj(obj(m)?.bands)?.[bandId]) : null;
 }
@@ -273,3 +285,85 @@ export function effectIconUrl(m, eff) {
   if (kind === 'choice') return uiUrl(m, `buffIcon/${id && id.startsWith('icon_') ? id : 'icon_player_buff'}`);
   return id ? uiUrl(m, `buffIcon/${id}`) : null;
 }
+
+
+/* ==== 演示版 assetUrls.js 的 5 个导出（game 原本没有；演示版 loadout.js 需要） ==== */
+/*
+ * ★ 2026-11-17（第 6 轮·测试基线）：这 5 个函数从演示版整段搬过来时，**把它们的两个依赖漏掉了** ——
+ *   `data`（全局数据源）和 `avatarCatalogues`（模块级缓存）在 game 的 assetUrls.js 里根本不存在。
+ *   本文件的设计是「每个函数收 manifest m 当参数」（见文件头 4-6 行），没有全局数据源。
+ *   结果：installedAvatarChoices() / avatarSrc() 一被调用就抛 ReferenceError（no-undef ×9）。
+ *   本轮实测：全仓暂无外部调用方，所以还没炸；但演示版的 loadout.js 一旦接上就是必崩。
+ *   修法：补一个模块级缓存，并让这两个函数接受 manifest 参数（与文件其余函数一致）。
+ */
+const avatarCatalogues = new WeakMap();
+export function chessForAvatar(id, data) {
+  if (!id || typeof id !== 'string') return null;
+  const list = (typeof data?.list === 'function' ? data.list('chess') : null) || [];
+  const hit = list.find((c) => c && (c.chessId === id || c.charId === id));
+  if (hit) return hit;
+  // A 自选编队 pick is stored as a bare charId and has NO chess record (it is a slot the player filled, not an entry
+  // of the mode's own list). It has a portrait like any other operator, so a minimal record is returned when the id
+  // names a manifest charId -- that is all chessAvatarUrl reads. Without this the picker took the click and the
+  // avatar then drew nothing, because avatarSrc returns null on an unresolvable id.
+  const manifest = obj(typeof data?.get === 'function' ? data.get('assets') : data);
+  const chars = obj(manifest?.chars);
+  return chars && chars[id] ? { charId: id } : null;
+}
+export function skinAvatarId(charId, skinId) {
+  const normalized = 'skin_' + skinId.replace(/[^A-Za-z0-9_]/g, '_');
+  if (normalized.length <= 48) return normalized;
+  let hash = 2166136261;
+  for (const ch of charId + ':' + skinId) hash = Math.imul(hash ^ ch.charCodeAt(0), 16777619);
+  return normalized.slice(0, 39) + '_' + (hash >>> 0).toString(16).padStart(8, '0');
+}
+export function installedAvatarChoices(m) {
+  if (!m || typeof m !== 'object') return [];
+  if (avatarCatalogues.has(m)) return avatarCatalogues.get(m).rows;
+  const entries = new Map();
+  for (const entry of Object.values(m.profileAvatars || {})) {
+    if (entry && /^[A-Za-z0-9_]{1,48}$/.test(entry.id) && typeof entry.name === 'string' && typeof entry.url === 'string' && entry.url.startsWith('/assets/')) entries.set(entry.id, entry);
+  }
+  for (const [charId, rec] of Object.entries(m.chars || {})) for (const [skinId, skin] of Object.entries(rec.skins || {})) {
+    const url = str(skin.avatar) || str(skin.portrait) || str(skin.illust);
+    if (url) {
+      const id = skinAvatarId(charId, skinId);
+      entries.set(id, { id, charId, skinId, name: skin.name || skinId, url, group: skin.group || '' });
+    }
+  }
+  const rows = [...entries.values()];
+  avatarCatalogues.set(m, { rows, byId: entries });
+  return rows;
+}
+export function avatarSrc(id, m) {
+  /*
+   * ⚠ **自定义头像先判** (shared/avatars.js, owner 2026-10-15「让只有我能用」)。
+   *
+   *   它的 id 带 `custom:` 前缀,而 `chessForAvatar` 只认 chessId —— 不先判的话会走到
+   *   "解不出的 id → 返回 null → 调用方画默认图标",表现就是**选了专属头像却显示不出来**。
+   *
+   *   认不出来(清单里没有 / 形状不对)时也返回 null,和官方 id 解不出时同一条退路。
+   */
+  const custom = customAvatarUrl(id);
+  if (custom) return custom;
+  installedAvatarChoices(m);
+  const installed = m && avatarCatalogues.get(m)?.byId.get(id);
+  if (installed) return installed.url;
+  const c = chessForAvatar(id, m);
+  if (!c) return null;
+  return chessAvatarUrl(m, c) || null;
+}
+
+export function loadoutIllustrationUrl(m, charId, skinId = null, { elite = true, local = null } = {}) {
+  const rec = m?.chars?.[charId];
+  const skins = skinId ? [rec?.skins?.[skinId], m?.skins?.[skinId]] : [];
+  const illustration = skins.map(skin => str(skin?.illust)).find(Boolean)
+    || (skins.some(Boolean) ? str(local?.chars?.[charId]?.skins?.[skinId]?.illust) : null);
+  if (illustration) return illustration;
+  const portrait = skins.map(skin => str(skin?.portrait)).find(Boolean);
+  if (portrait) return portrait;
+  return (elite ? str(rec?.illustE2) : null) || str(rec?.illust)
+    || (elite ? str(rec?.portraitE2) : null) || str(rec?.portrait) || str(rec?.avatar);
+}
+
+/** Skill icon of a chess record (manifest `skills[iconId]`, else the empty skill sprite). */

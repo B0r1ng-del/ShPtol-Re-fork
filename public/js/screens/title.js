@@ -40,6 +40,15 @@ import { SettingsModal } from '../ui/settings.js';
 import { installedCount } from '../content.js';
 import { NoticesButton } from '../ui/notices.js';
 import { sanitizeName, isValidName } from '../ui/playerName.js';
+// 标题页视觉层（移植自离线演示版 title.js，2026-11-16）：球体 / 丝线 / 入场 / 登录到达。
+// 演示版的逻辑层还牵着 startupSession（资源引导）与 access.js 的令牌，那些 game 有自己的实现，
+// 所以只搬渲染，不搬那两条链路。
+import { useRef } from '../../vendor/hooks.module.js';
+import { TitleSphere } from '../ui/titleSphere.js';
+import { TitleFilaments } from '../ui/titleFilaments.js';
+import { useTitleEntrance } from '../ui/titleEntrance20261102.js';
+import { useEntryViewport } from '../ui/entryViewport20261102.js';
+import { LoginArrival, useLoginArrival } from '../ui/loginArrival20261102.js';
 
 export { stripLoneSurrogates, sanitizeName, isValidName } from '../ui/playerName.js';
 
@@ -162,6 +171,11 @@ const STATUS_TEXT = {
 
 /** Title screen component. */
 export function TitleScreen() {
+  // 视觉层的三个 hook：球体/丝线/入场动画 + 登录到达幕（演示版同名 hook，逻辑无关）。
+  const surface = useRef(null);
+  useTitleEntrance(surface);
+  useEntryViewport(surface);
+  const arrivalScene = useLoginArrival(surface);
   const conn = useStore((s) => s.connection, shallowEqual);
   const pendingJoin = useStore((s) => s.ui.pendingJoin);
   useLang(); // re-render on a language switch
@@ -206,90 +220,72 @@ export function TitleScreen() {
   // a title in an alphabetic script (English, French …) is the big one in the display face and the wordmark above it
   // hides; a CJK / kana / Hangul title keeps the Chinese layout (shared/i18nPacks.js scriptOf — a pack needs no flag)
   const alphabetic = scriptOf(t('卫戍协议')) === 'alphabetic';
-  return html`<div class="screen title-screen">
-    <div class=${`title-bg${bgLoaded ? ' has-art' : ''}${ridgesLoaded ? ' has-ridges' : ''}`} aria-hidden="true">
-      ${backdrop ? html`<img class="title-bg__art" src=${backdrop} alt="" draggable=${false}
-        onLoad=${() => setBgLoadedUrl(backdrop)} />` : null}
-      <div class="title-bg__glow"></div>
-      <div class="title-bg__radar"><div class="title-bg__sweep"></div></div>
-      <div class="title-bg__target"></div>
-      ${cssRidges ? html`<${Ridges} />` : null}
-      ${ridges && !ridgesFailed ? html`<div class="title-bg__ridge-art" style=${`background-image:url("${ridges}")`}>
-        <img src=${ridges} alt="" hidden onLoad=${() => setRidgesLoadedUrl(ridges)} onError=${() => setRidgesFailedUrl(ridges)} />
-      </div>` : null}
-      <div class="title-bg__haze"></div>
-      <span class="cross" style="left:7%;top:22%"></span>
-      <span class="cross" style="left:93%;top:30%"></span>
-      <span class="cross" style="left:14%;top:70%"></span>
-      <span class="cross" style="left:88%;top:62%"></span>
-      <span class="cross" style="left:60%;top:12%"></span>
+  return html`<div ref=${surface} class="screen login-rebuild" data-flow-paused=${settingsOpen ? true : undefined}>
+    <div class="login-rebuild__scene" aria-hidden="true">
+      <div class="login-rebuild__sphere"><${TitleSphere} paused=${!!settingsOpen} /></div>
+      <div class="login-rebuild__plane login-rebuild__plane--back"></div>
+      <div class="login-rebuild__plane login-rebuild__plane--front"></div>
+      <div class="login-rebuild__flow"><${TitleFilaments} tone="light" paused=${!!settingsOpen} /></div>
+      <div class="login-rebuild__axis"></div>
     </div>
-
-    <div class="title-corner title-corner--tl">
-      <span class="title-corner__mark"></span>
-      <div><${MicroLabel} tone="mint">RHODES ISLAND // SIMULATION SERVICE<//><br /><${MicroLabel}>TACTICAL CO-OP NODE · 02<//></div>
-    </div>
-    <div class="title-corner title-corner--tr">
-      <div>
-        <div class="title-corner__tools">
-          <${Button} variant="ghost" size="sm" icon="chart" class="title-stats" onClick=${openStats} title=${t('统计数据')}>${t('统计')}<//>
-          <${LangToggle} class="title-lang" />
-        </div>
-        <${MicroLabel} tone="hi">TARGET POINT<//><br /><${MicroLabel}>STRONGHOLD PROTOCOL<//>
+    <div class="login-rebuild__reveal" aria-hidden="true"><i></i><i></i><span></span></div>
+    ${arrivalScene.active ? html`<${LoginArrival} onDismiss=${arrivalScene.dismiss} />` : null}
+    <header class="login-rebuild__top">
+      <span class="login-rebuild__signature">RHODES ISLAND <i>/</i> STRONGHOLD PROTOCOL</span>
+      <div class="login-rebuild__tools">
+        <${LangToggle} class="title-lang login-rebuild__lang" />
+        <${Button} class="title-settings fsbtn tapx" square=${true}
+          title=${t('设置')} aria-label=${t('设置')} onClick=${() => setSettingsOpen(true)}><${GIcon} name="gear" /><//>
+        <${FullscreenButton} class="title-fs" />
+        <${NoticesButton} />
       </div>
-    </div>
-
-    <main class="title-main">
-      ${/* 登录页 → 主页：两边的堡垒图标共用一个 view-transition-name，换屏时浏览器把它们当作同一个东西，
-           位置与尺寸自然补间过去（详见 theme.css 的 .vt-emblem）。 */ null}
-      <${Emblem} class="vt-emblem" />
-      ${alphabetic ? null : html`<div class="title-en vt-wordmark">
-        <span class="title-en__a">STRONGHOLD PROTOCOL</span>
-        <span class="title-en__b">ALLIANCE</span>
-      </div>`}
-      <h1 class=${`title-cn${alphabetic ? ' title-cn--latin' : ''} vt-title`}>${t('卫戍协议')}<span class="title-cn__colon">${alphabetic ? ': ' : '：'}</span><em>${t('盟约')}</em></h1>
-      <p class="title-tag">${t('调配资金与干员，与同伴协同布防，抵御多波次进攻，直至击败敌方领袖。')}</p>
-
-      <div class="title-login">
-        ${pendingJoin ? html`<div class="title-invite">
-          <${Icon} name="key" />
-          <span>${t('收到同盟邀请')}</span><b class="num">${pendingJoin}</b><span class="t-lo">${t('· 输入代号后将自动加入')}</span>
-        </div>` : null}
+    </header>
+    <main class="login-rebuild__main">
+      <section class="login-rebuild__brand">
+        <div class="login-rebuild__brandline">
+          <span class="login-rebuild__seal"><img src="/startup/login-rebuild-20261102/season_logo.png" alt="" /></span>
+          <span>STRONGHOLD<br />PROTOCOL</span>
+        </div>
+        <h1 data-testid="title-wordmark" class=${'login-rebuild__title' + (alphabetic ? ' is-latin' : '')}>${t('卫戍协议')}</h1>
+        <div class="login-rebuild__season"><strong>${t('盟约')}</strong><span>ALLIANCE</span><i></i></div>
+        <p class="login-rebuild__description">${t('调配资金与干员，与同伴协同布防，抵御多波次进攻，直至击败敌方领袖。')}</p>
+        <span class="login-rebuild__edition">${t('非官方同人作品')} <i>/</i> ${APP_VERSION}</span>
+      </section>
+      <section class="login-rebuild__form" data-testid="login-form" aria-label=${t('开始模拟')}>
+        <div class="login-rebuild__form-art" aria-hidden="true"></div>
+        <header class="login-rebuild__form-head">
+          <div><small>STRONGHOLD PROTOCOL</small><h2>${t('开始模拟')}</h2></div>
+          <img src="/startup/login-rebuild-20261102/start_forward.png" alt="" />
+        </header>
+        ${pendingJoin ? html`<div class="login-rebuild__invite"><${Icon} name="key" /><span>${t('收到同盟邀请')} <b>${pendingJoin}</b></span></div>` : null}
         <${TextField} label=${t('博士代号')} micro="CALLSIGN" size="lg" icon="user" value=${name} maxLength=${NAME_MAX_LEN}
           placeholder=${t('输入你的代号（最多 {NAME_MAX_LEN} 字）', { NAME_MAX_LEN })} autoFocus=${!touchUi}
           onInput=${setName} onEnter=${start} />
-        <${Button} variant="primary" size="xl" block=${true} iconRight="chevrons" disabled=${!valid} onClick=${start}>${t('开始')}<//>
-        <div class="title-conn">
-          <span class=${`status-dot ${dotClass}`}></span>
-          <span>${STATUS_TEXT[conn.status] ? t(STATUS_TEXT[conn.status]) : conn.status}</span>
-          ${conn.status === 'online' ? html`<${PingPill} ms=${conn.ping} />` : null}
-          <${GuideButton} class="title-guide" label=${t('玩法说明')} />
-          <button type="button" class="title-settings fsbtn tapx" aria-label=${t('设置')} title=${t('设置')}
-            onClick=${() => setSettingsOpen(true)}><${GIcon} name="gear" /></button>
-          <${FullscreenButton} class="title-fs" />
-        </div>
+        ${/* 演示版这里还有一个「登录令牌」输入框（access.js），那是演示版自己的准入限制；
+             game 没有 access.js，也没有令牌机制，故不画 —— 否则会引用未定义变量直接崩。 */''}
+        <${Button} class="login-rebuild__start" data-testid="title-start" variant="primary" size="xl" block=${true}
+          iconRight="chevrons" disabled=${!valid} onClick=${start}>${t('开始')}<//>
+      </section>
+    </main>
+    <footer class="login-rebuild__bottom">
+      <div class="login-rebuild__connection">
+        <span class=${'status-dot ' + dotClass}></span>
+        <span>${STATUS_TEXT[conn.status] ? t(STATUS_TEXT[conn.status]) : conn.status}</span>
+        ${conn.status === 'online' ? html`<${PingPill} ms=${conn.ping} />` : null}
       </div>
-      <div class="title-assets">
+      <nav class="login-rebuild__utilities" aria-label=${t('设置')}>
         <${AssetDownloadButton} />
         <${AssetImportButton} />
-      </div>
-    </main>
-
+        <${GuideButton} label=${t('玩法说明')} />
+        <${PwaInstallButton} />
+        <${FullscreenButton} />
+      </nav>
+      <span class="login-rebuild__copyright">${t('非官方同人复刻 · 游戏素材版权归 上海鹰角网络 / Yostar 所有')}</span>
+      <${ResumeMatchButton} />
+      ${installed ? html`<button type="button" class="login-rebuild__plugins" onClick=${openPlugins}>${t('本服务器安装了 {n} 个插件', { n: installed })}</button>` : null}
+      ${DEV_BUILD ? html`<span role="note">${t('开发版 · 不稳定，请勿用于公开服务器')}</span>` : null}
+    </footer>
     <${SettingsModal} open=${settingsOpen} onClose=${() => setSettingsOpen(false)} />
     ${Installed ? html`<${Installed} open=${true} onClose=${() => setInstalled(null)} />` : null}
-
-    <footer class="title-foot">
-      <${ResumeMatchButton} />
-      <${PwaInstallButton} />
-      <${NoticesButton} />
-      ${installed ? html`<button type="button" class="title-plugins" data-testid="title-plugins" onClick=${openPlugins}>
-        <${Icon} name="info" />${t('本服务器安装了 {n} 个插件', { n: installed })}</button>` : null}
-      <span>${t('非官方同人复刻 · 游戏素材版权归 上海鹰角网络 / Yostar 所有')}</span>
-      <span class="title-foot__meta">
-        <a class="title-repo" href="https://github.com/sganggs/Stronghold-Protocol" target="_blank" rel="noopener noreferrer">${t('项目仓库')}</a>
-        <${MicroLabel}>v${APP_VERSION} · WEB SIMULATION<//>
-        ${DEV_BUILD ? html`<span class="title-dev" role="note">${t('开发版 · 不稳定，请勿用于公开服务器')}</span>` : null}
-      </span>
-    </footer>
   </div>`;
 }

@@ -74,6 +74,7 @@ export function ModMenuButton({ class: cls, variant = 'secondary' }) {
   const [n, setN] = useState(() => modPackCount());
   return html`<${Fragment}>
     <${Button} variant=${variant} size="md" icon="sliders" class=${cls} data-testid="mod-menu-open"
+        title=${t('Mod 菜单：管理已安装的扩展内容')} aria-label=${t('Mod 菜单')}
         onClick=${() => { setN(modPackCount()); setOpen(true); }}>
       <span class="btn__label">${t('Mod 菜单')}</span>
       ${n ? html`<span class="lo-entry__n num" aria-label=${t('{n} 项已开启', { n })}>${n}</span>` : null}

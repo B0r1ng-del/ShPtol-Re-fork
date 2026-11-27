@@ -7,6 +7,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { build, isRefused, plan, selectTracked, stageProblems } from '../tools/package.mjs';
+import { copyTree } from './helpers/copyTree.js';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const ENV = { ...process.env, SP_PACKAGE_SCAN_USER: '0' };
@@ -55,7 +56,7 @@ test('offline release stage runs plugin CLI, native author harness and sandbox t
     for (const [rel, entry] of Object.entries(lock.packages)) {
       if (!rel.startsWith('node_modules/') || entry.dev || entry.link) continue;
       assert.ok(fs.statSync(path.join(ROOT, rel)).isDirectory(), `npm ci needed: ${rel}`);
-      fs.cpSync(path.join(ROOT, rel), path.join(stage, rel), { recursive: true, dereference: true });
+      copyTree(path.join(ROOT, rel), path.join(stage, rel), { dereference: true });
     }
     let env = { ...ENV, SP_PLUGIN_SCRIPTS: 'sandbox' };
     delete env.NODE_TEST_CONTEXT;

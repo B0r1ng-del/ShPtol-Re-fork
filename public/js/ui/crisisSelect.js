@@ -35,7 +35,7 @@ import {
   CRISIS_FX, CRISIS_ROUTES, CRISIS_GROUPS, checkCrisis, crisisConflict, crisisNeeds, crisisFxText, isCrisisImplemented, crisisTag, isCrisisSeed,
 } from '../../../shared/crisis.js';
 import {
-  ARC_ROUTES, ARC_GROUPS, arcConflict, arcTag, arcMaxTotal,
+  ARC_ROUTES, ARC_GROUPS, arcConflict, arcTag, arcMaxTotal, ARC_SEASON,
 } from '../../../shared/crisisArc.js';
 
 const CC_UI = '/assets/local/sp-crisis-20261021-a94f75cbeb5d/ui/';
@@ -171,12 +171,15 @@ function EnemiesSheet({ onClose }) {
 /* 开局种子（官方 crisisPages.js 的 SeedDialog）—— 图四那张。
    主体是「出怪顺序」：把服务器 crisis.preview 返回的 picks 逐回合画出来（回合号 / 敌人图标 / 名称 / 基础名 / 穿插），
    弧光作战额外有「只决定出怪顺序」的专属说明与领袖固定行。 */
-function SeedCodeDialog({ seed, onApply, onClose, preview = null, isArc = false }) {
+function SeedCodeDialog({ seed, onApply, onClose, preview = null, isArc = false, onPreviewSeed = null }) {
   useData('enemies', 'enemies-crisis', 'bosses');
   const [text, setText] = useState(() => seedCode(seed));
   const parsed = parseSeedCode(text);
   const ok = !!parsed.seed;
   const apply = () => { if (ok) onApply(parsed.seed); };
+  // ★ 面板里的种子一变就请父组件重新预览：只改 text 不请求的话，上面那张出怪顺序会一直停在旧种子，
+  //   用户得关掉再开才看到新的（2026-11-14 报告，重燃与弧光都有）。onPreviewSeed 只驱动预览，不改开局 seed。
+  useEffect(() => { if (parsed.seed && onPreviewSeed) onPreviewSeed(parsed.seed); }, [parsed.seed]);
   const assets = data.get('assets');
   // ★ 契约专用敌人（enemy_1326_cbagen 等）只在 data/enemies-crisis.json 里 —— build-data.mjs 把它们从
   //   enemies.json 拆出去了（见 tools/build-data.mjs「契约专用敌人拆出去」那段）。只查 'enemies' 会拿到 null，
@@ -489,6 +492,18 @@ function IntelSheet({ rows, total, mode, desc, onToggleSort, onEnemies, onClose 
     </aside>`;
 }
 export function CrisisSelect({ skin = 'rekindle', onClose, onCreate, busy = false, online = true }) {
+  // ★ 2026-11-17（第 5 轮·全局排查）：本页原来没有任何退场动画。
+  //   CSS 里 .cc-root.is-leaving 那一整套（wipe 三片扫过 + cc-pages 淡出，crisis-event.css:44-62）
+  //   是**现成的**，同目录的 CrisisEventPage 也已经在用（crisisEventPage.js:395 的 leave()），
+  //   只有本页没有 JS 去触发它 —— 点返回就直接卸载，硬切。
+  //   这里照抄同一套：先 setPhase('leaving') 让 CSS 播完 560ms，再真的通知父级关闭。
+  //   时长取 560 是因为它必须与 CSS 的 cc-pages-out / cc-wipe-through 完全一致，不能自定时长。
+  const [leaving, setLeaving] = useState(false);
+  const leave = () => {
+    if (leaving) return;
+    setLeaving(true);
+    setTimeout(() => onClose && onClose(), 560);
+  };
   // 官方的舞台缩放: .cc-stage is a fixed 1280x720 stage; --cc-s fits it to the viewport (css/crisis-event.css).
   const [ccScale, setCcScale] = useState(1);
   useEffect(() => {
@@ -515,7 +530,11 @@ export function CrisisSelect({ skin = 'rekindle', onClose, onCreate, busy = fals
   const [latest, setLatest] = useState(null);
   const [hover, setHover] = useState(null);
   const [seed, setSeed] = useState(null);
+  // 种子面板里正在输入的种子：只驱动 preview（不写回 seed，免得只是看看就把开局改掉）
+  const [peekSeed, setPeekSeed] = useState(null);
   const [preview, setPreview] = useState(null);
+  // 弧光的地图固定为本期台面：名称一律走 ARC_SEASON.stageName —— custom_cc4_focus 在本项目没有地图数据，
+  // getStage() 恒为 null（见 shared/crisisArc.js:19 的说明），所以不能靠关卡名。
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [scroll, setScroll] = useState(0);
@@ -567,6 +586,9 @@ export function CrisisSelect({ skin = 'rekindle', onClose, onCreate, busy = fals
   // 官方 crisisPages.js:180-181 —— skin 由父组件传入，页面内没有赛季切换按钮。
   // 'rekindle' = 重燃测试作战（CRISIS_ROUTES），'arclight' = 弧光作战（ARC_ROUTES + is-arclight 皮肤）。
   const isArc = skin === 'arclight';
+  // 弧光的地图固定为本期台面，名称走 ARC_SEASON.stageName：custom_cc4_focus 在本项目没有地图数据，
+  // getStage() 恒为 null（shared/crisisArc.js:19 已写明），所以不能靠关卡名取。
+  const arcMapName = isArc ? ARC_SEASON.stageName : '';
   // 官方 crisisRecords.readBest：分季分模式的本机最高纪录（rn1 重燃 / arc1 弧光）。
   // 全服排行榜按用户要求不做，这里只读 localStorage。
   const rules = isArc ? 'arc1' : 'rn1';
@@ -655,12 +677,14 @@ export function CrisisSelect({ skin = 'rekindle', onClose, onCreate, busy = fals
     setLoading(true);
     setError(null);
     const timer = setTimeout(() => {
+      // ★ peekSeed wins while the 种子面板 is open: it previews what you typed without changing the run's seed.
+      const useSeed = isCrisisSeed(peekSeed) ? peekSeed : seed;
       // bans ride along so the previewed map is the one the match will draw (the server drops them from the pool)
-      net.request('crisis.preview', { mode, tags: picked, ...(season ? { season } : {}), ...(isCrisisSeed(seed) ? { seed } : {}), ...(mapBan.bans.length ? { bans: mapBan.bans } : {}) })
+      net.request('crisis.preview', { mode, tags: picked, ...(season ? { season } : {}), ...(isCrisisSeed(useSeed) ? { seed: useSeed } : {}), ...(mapBan.bans.length ? { bans: mapBan.bans } : {}) })
         .catch((e) => { if (!cancelled && alive.current) { setError(e && e.code ? e.code : 'PREVIEW_FAILED'); setLoading(false); } });
     }, 180);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [mode, season, picked, seed, checked, mapBan.bans]);
+  }, [mode, season, picked, seed, checked, mapBan.bans, peekSeed]);
 
   /** The seed preview's line for a tag: the rounds its enemies come in (14 = 终局突袭). */
   /* 悬停说明（官方 crisisPages.js 的 title）：`id 组·名（级）` + 换行 + 本档效果文案 + 换行 + 本局目标。
@@ -694,7 +718,7 @@ export function CrisisSelect({ skin = 'rekindle', onClose, onCreate, busy = fals
 
   return html`
     <div class="cc-host">
-      <div class="cc-root" style=${{ '--cc-s': ccScale, '--cc-scale': 'scale(' + ccScale + ')' }}>
+      <div class=${'cc-root' + (leaving ? ' is-leaving' : '')} style=${{ '--cc-s': ccScale, '--cc-scale': 'scale(' + ccScale + ')' }}>
       <div class="cc-main">
         <div class=${cx('cc-page cs-page', isArc && 'is-arclight')}>
           ${/* 官方 crisisPages.js:328 —— 重燃的底是 .cc-bleed（inset:-40px + background cover），
@@ -707,7 +731,7 @@ export function CrisisSelect({ skin = 'rekindle', onClose, onCreate, busy = fals
           ${isArc ? html`
             <i class="cs-rpanel"></i>
             <img class="cs-bbar" src=${CC_ART + 'bottom-menu-bg.png'} alt="" />
-            <button type="button" class="ca-back" onClick=${onClose} aria-label=${t('返回')} title=${t('返回')}>
+            <button type="button" class="ca-back" onClick=${leave} aria-label=${t('返回')} title=${t('返回')}>
               <img src=${CC_ART + 'btn-backbutton.png'} alt="" /></button>
             ${/* 用户第十次纠正：弧光指标页也不要 i（「i在弧光作战的指标页还有」）。
                 官方 crisisPages.js:333 有它，但用户要删 —— 删掉本元素，覆盖它的 CSS 一并失效。 */''}
@@ -715,7 +739,7 @@ export function CrisisSelect({ skin = 'rekindle', onClose, onCreate, busy = fals
             <div class="cc-crumb">// ${t('危机合约')} · ${t('重燃测试作战')}</div>
             <div class="cs-title"><i class="cs-title__block"></i>${t('选择指标')}<span class="cs-title__deco"><i></i><i></i><i></i><i></i><b></b></span></div>
             <i class="cs-topline"></i>
-            <button type="button" class="cc-x" onClick=${onClose} aria-label=${t('关闭')} title=${t('关闭')}>
+            <button type="button" class="cc-x" onClick=${leave} aria-label=${t('关闭')} title=${t('关闭')}>
               <svg viewBox="0 0 20 20"><path d="M5 5l10 10M15 5L5 15" /></svg></button>`}
 
           <div class="cs-mode" role="radiogroup" aria-label=${t('合约模式')}>
@@ -895,8 +919,8 @@ export function CrisisSelect({ skin = 'rekindle', onClose, onCreate, busy = fals
           </div>` : html`<div class="cs-score"><b class="num">${picked.length ? (checked ? total : '--') : '--'}</b>
             <img class="cs-star" src=${CC_UI + 'star.png'} alt="" /></div>`}
           ${/* 官方 arc 没有 cs-map-ban，改用 ca-mapview：一张固定地图的预览卡（地图固定为本期台面）。 */''}
-          ${isArc ? html`<button type="button" class="ca-mapview" onClick=${() => setMapView(getStage(preview && preview.stageId) || null)} title=${t('查看本期固定地图')}>
-            <img src=${CC_ART + 'map-focus.webp'} alt="" /><span><small>${t('地图（固定）')}</small><b>${(preview && preview.stage) || t('危机合约 滞空焦点')}</b></span></button>` : html`<button type="button" class=${'cs-map-ban' + (mapBan.bans.length ? ' has-bans' : '')}
+          ${isArc ? html`<button type="button" class="ca-mapview" onClick=${() => setMapView(getStage(preview && preview.stageId) || { id: 'custom_cc4_focus' })} title=${t('查看本期固定地图')}>
+            <img src=${CC_ART + 'map-focus.webp'} alt="" /><span><small>${t('地图（固定）')}</small><b>${arcMapName || t('危机合约 滞空焦点')}</b></span></button>` : html`<button type="button" class=${'cs-map-ban' + (mapBan.bans.length ? ' has-bans' : '')}
             disabled=${!mapBan.ready} onClick=${() => setSheet('mapban')}
             title=${mapBan.ready ? (mapBan.bans.length ? mapBan.options.filter((m) => mapBan.bans.includes(m.id)).map((m) => m.name).join('、') : t('选择本局不出现的地图')) : t('地图列表载入中')}>
             <span>⊘</span><b>${t('BAN 地图')}</b>
@@ -919,8 +943,9 @@ export function CrisisSelect({ skin = 'rekindle', onClose, onCreate, busy = fals
       setSheet(null);
     }} onClose=${() => setSheet(null)} />` : null}
   ${sheet === 'enemies' ? html`<${EnemiesSheet} onClose=${() => setSheet(null)} />` : null}
-      ${seedDlg ? html`<${SeedCodeDialog} seed=${seed} preview=${preview} isArc=${isArc} onClose=${() => setSeedDlg(false)}
-        onApply=${(n) => { setSeed(n); setSeedDlg(false); }} />` : null}
+      ${seedDlg ? html`<${SeedCodeDialog} seed=${seed} preview=${preview} isArc=${isArc} onClose=${() => { setSeedDlg(false); setPeekSeed(null); }}
+        onPreviewSeed=${(n) => setPeekSeed((cur) => (cur === n ? cur : n))}
+        onApply=${(n) => { setSeed(n); setPeekSeed(null); setSeedDlg(false); }} />` : null}
       ${mapView ? html`<${MapPreviewSheet} stage=${mapView} arc=${isArc} onClose=${() => setMapView(null)} />` : null}
       ${sheet === 'first' ? html`<${FirstClearSheet} onClose=${() => setSheet(null)} />` : null}
       ${sheet === 'mapban' ? html`<${MapBanDialog} options=${mapBan.options} bans=${mapBan.bans}

@@ -17,6 +17,7 @@ import { budgetUsed } from '../../server/sim/content/dsl/budget.js';
 import { kitOf, selectSkillSpec } from '../../server/sim/content/index.js';
 import { getData } from '../../server/data.js';
 import { rememberOfficialBounds } from '../../shared/plugins/officialBounds.js';
+import { copyTree } from '../helpers/copyTree.js';
 
 const close = (a, b) => assert.ok(Math.abs(a - b) < 1e-7, `${a} != ${b}`);
 
@@ -97,9 +98,9 @@ test('a data-plugin DSL operator fights the same battle on the server and in the
   fs.mkdirSync(path.join(runtime, 'server'), { recursive: true });
   // as the browser gets /sim/: no Node loader (by file name — cpSync passes paths with the OS separator, `\` on
   // Windows). With it simdata.js → nodeData.js → this data.js shim → simdata.js would deadlock the imports below.
-  fs.cpSync('server/sim', path.join(runtime, 'server/sim'), { recursive: true, filter: (src) => path.basename(src) !== 'nodeData.js' });
+  copyTree('server/sim', path.join(runtime, 'server/sim'), { filter: (src) => path.basename(src) !== 'nodeData.js' });
   assert.equal(fs.existsSync(path.join(runtime, 'server/sim/nodeData.js')), false);
-  fs.cpSync('shared', path.join(runtime, 'shared'), { recursive: true });
+  copyTree('shared', path.join(runtime, 'shared'));
   fs.writeFileSync(path.join(runtime, 'package.json'), '{"type":"module"}');
   fs.writeFileSync(path.join(runtime, 'server/data.js'), DATA_SHIM_JS);
   const table = contentSetFiles(set);

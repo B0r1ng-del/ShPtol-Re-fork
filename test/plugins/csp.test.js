@@ -15,6 +15,7 @@ import { UI_FRAME_CSP } from '../../shared/plugins/ui.js';
 import {scriptFixture} from '../helpers/scriptFixtures.js';
 import {createContentSets} from '../../server/plugins/contentSets.js';
 import {getData} from '../../server/data.js';
+import {copyTree} from '../helpers/copyTree.js';
 
 const publicDir = path.resolve('public');
 function request(handler, url, headers = {}) {
@@ -97,7 +98,7 @@ test('Pixi CSP adapter uploads matrices, samplers, arrays and scalars without co
 test('site CSP never changes the UI frame policy (200/206/304)', async t => {
   const pluginsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-p3b-frame-csp-'));
   t.after(() => fs.rmSync(pluginsDir, { recursive: true, force: true }));
-  fs.cpSync(path.resolve('plugins/_template/ui'), path.join(pluginsDir, 'damage-meter'), { recursive: true });
+  copyTree(path.resolve('plugins/_template/ui'), path.join(pluginsDir, 'damage-meter'));
   const dirs = { publicDir, pluginsDir, sharedDir: path.resolve('shared'), dataDir: path.resolve('data'), packsDir: path.join(pluginsDir, 'packs') };
   const registry = createPluginRegistry(dirs); registry.refresh(true);
   const file = registry.plugin('damage-meter').ui.served.get('ui/index.html');
